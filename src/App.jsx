@@ -46,7 +46,7 @@ const firebaseConfig = typeof __firebase_config !== 'undefined'
       authDomain: "superstore-31f83.firebaseapp.com",
       projectId: "superstore-31f83",
       storageBucket: "superstore-31f83.firebasestorage.app",
-      messagingSenderId: "761097159845",
+      messagingSenderId: "761097159845","761097159845",
       appId: "1:761097159845:web:07ca08e4854b017976794c",
       measurementId: "G-MCPNHGS2D7"
     };
