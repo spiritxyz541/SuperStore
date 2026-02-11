@@ -37,7 +37,7 @@ import {
 
 // --- 1. Firebase Configuration (อ้างอิงตามค่าที่คุณส่งมาล่าสุด) ---
 const firebaseConfig = {
-  apiKey: "AIzaSyBJEmXAPWUkafwutEg8TRUBqkIOP5tV0o",
+  apiKey: "AIzaSyBJEmxRAPwUkafwutEg8TRUBqkIOP5tV0o",
   authDomain: "superstore-31f83.firebaseapp.com",
   projectId: "superstore-31f83",
   storageBucket: "superstore-31f83.firebasestorage.app",
