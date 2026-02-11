@@ -26,10 +26,10 @@ import {
 } from 'lucide-react';
 
 /**
- * RESTAURANT MANPOWER MANAGEMENT SYSTEM (MP26 MODEL) - V3.0 (SAFE-LOADING EDITION)
- * แก้ไข: 1. ปัญหาหน้าโหลดค้าง (Added Loading Timeout & Error Handling)
- * 2. เพิ่ม UI แจ้งเตือนเมื่อเชื่อมต่อฐานข้อมูลไม่ได้
- * 3. ปรับปรุงความเสถียรในการดึงข้อมูล Master Config
+ * RESTAURANT MANPOWER MANAGEMENT SYSTEM (MP26 MODEL) - V3.1 (STABLE HOOKS)
+ * แก้ไข: 1. ปัญหา Hook Order (Rules of Hooks) โดยการย้าย Hook ทั้งหมดไว้ด้านบน
+ * 2. ปัญหาหน้าโหลดค้างและการแสดงผล Object ใน React Child
+ * 3. ปรับปรุงความเสถียรของหน้า Admin และ Manager บน Notebook
  */
 
 const firebaseConfig = typeof __firebase_config !== 'undefined' 
@@ -101,6 +101,7 @@ const getMarch2026Days = (holidays = []) => {
 };
 
 export default function App() {
+  // --- 1. All Hooks must be at the top level ---
   const [view, setView] = useState('manager'); 
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -113,14 +114,17 @@ export default function App() {
   const [saveStatus, setSaveStatus] = useState(null);
   const dateBarRef = useRef(null);
 
-  // --- 1. Authentication & Safe Timeout ---
+  // Memoize calendar days
+  const MARCH_DAYS = useMemo(() => getMarch2026Days(masterData.holidays || []), [masterData.holidays]);
+  const activeDay = useMemo(() => MARCH_DAYS.find(d => d.dateStr === selectedDateStr) || MARCH_DAYS[0], [selectedDateStr, MARCH_DAYS]);
+
+  // Authentication & Timeout Hook
   useEffect(() => {
     const timeoutTimer = setTimeout(() => {
       if (loading) {
         setIsTimeout(true);
-        console.warn("Connection is taking too long...");
       }
-    }, 7000); // 7 seconds timeout
+    }, 7000);
 
     const initAuth = async () => {
       try {
@@ -131,7 +135,7 @@ export default function App() {
         }
       } catch (e) { 
         console.error("Auth Error:", e);
-        setLoadError("ไม่สามารถยืนยันตัวตนกับ Firebase ได้ (ตรวจสอบ API Key)");
+        setLoadError("Firebase Error: " + (e.message || "Unknown error"));
         setLoading(false);
       }
     };
@@ -148,7 +152,7 @@ export default function App() {
     };
   }, []);
 
-  // --- 2. Real-time Data Sync with Error Capture ---
+  // Data Sync Hook
   useEffect(() => {
     if (!user) return;
 
@@ -157,35 +161,55 @@ export default function App() {
       if (docSnap.exists()) {
         setMasterData(docSnap.data());
       } else {
-        setDoc(masterDocRef, INITIAL_MASTER_DATA).catch(e => console.error("Initial doc set error:", e));
+        setDoc(masterDocRef, INITIAL_MASTER_DATA).catch(e => console.error(e));
       }
       setLoading(false);
       setLoadError(null);
       setIsTimeout(false);
     }, (err) => {
-      console.error("Master Sync Error:", err);
-      setLoadError(`เข้าถึงฐานข้อมูลไม่ได้: ${err.code === 'permission-denied' ? 'กรุณาตรวจสอบ Firebase Rules' : err.message}`);
+      console.error("Firestore Master Error:", err);
+      setLoadError(`เข้าถึงข้อมูลไม่ได้: ${err.code === 'permission-denied' ? 'กรุณาตรวจสอบ Firebase Rules' : err.message}`);
       setLoading(false);
     });
 
     const scheduleDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'schedules', 'main');
     const unsubSched = onSnapshot(scheduleDocRef, (docSnap) => {
       if (docSnap.exists()) setSchedule(docSnap.data().records || {});
-    }, (err) => {
-      console.error("Schedule Sync Error:", err);
     });
 
     return () => { unsubMaster(); unsubSched(); };
   }, [user]);
 
-  const MARCH_DAYS = useMemo(() => getMarch2026Days(masterData.holidays || []), [masterData.holidays]);
-  const activeDay = useMemo(() => MARCH_DAYS.find(d => d.dateStr === selectedDateStr) || MARCH_DAYS[0], [selectedDateStr, MARCH_DAYS]);
+  // Analytics Memo
+  const reportData = useMemo(() => {
+    const stats = { totalOt: 0, totalLeaves: 0, staffStats: [] };
+    const staffMap = {};
+    (masterData.staff || []).forEach(s => staffMap[s.id] = { name: s.name, ot: 0, shifts: 0, leaves: 0 });
+    
+    Object.keys(schedule).forEach(date => {
+      const day = schedule[date];
+      if (day.duties) {
+        Object.keys(day.duties).forEach(dId => {
+          (day.duties[dId] || []).forEach(slot => {
+            if (slot.staffId && staffMap[slot.staffId]) {
+              staffMap[slot.staffId].ot += (slot.otHours || 0);
+              staffMap[slot.staffId].shifts += 1;
+              stats.totalOt += (slot.otHours || 0);
+            }
+          });
+        });
+      }
+      if (day.leaves) {
+        day.leaves.forEach(l => { if (l.staffId && staffMap[l.staffId]) { staffMap[l.staffId].leaves += 1; stats.totalLeaves += 1; } });
+      }
+    });
+    stats.staffStats = Object.values(staffMap).sort((a,b) => b.ot - a.ot);
+    return stats;
+  }, [schedule, masterData.staff]);
 
+  // --- 2. Logic Functions ---
   const handleGlobalSave = async () => {
-    if (!user) {
-      alert("ไม่สามารถบันทึกได้เนื่องจากไม่ได้เชื่อมต่อฐานข้อมูล");
-      return;
-    }
+    if (!user) { alert("ไม่มีการเชื่อมต่อ Cloud"); return; }
     try {
       setSaveStatus('saving');
       await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'master'), masterData);
@@ -194,7 +218,7 @@ export default function App() {
       setTimeout(() => setSaveStatus(null), 3000);
     } catch (err) { 
       setSaveStatus('error');
-      alert("เกิดข้อผิดพลาดขณะบันทึก: " + err.message);
+      alert("บันทึกล้มเหลว: " + err.message);
     }
   };
 
@@ -231,78 +255,36 @@ export default function App() {
     });
   };
 
-  // --- Loading Screen with Timeout & Error handling ---
+  // --- 3. Rendering Logic ---
+  // We handle loading states by returning UI, but ONLY after hooks are declared.
   if (loading) return (
-    <div className="h-screen flex flex-col items-center justify-center bg-slate-50 p-6 text-center">
-      <div className="bg-white p-10 rounded-[3rem] shadow-2xl border border-slate-100 flex flex-col items-center gap-6 max-w-md w-full">
+    <div className="h-screen flex flex-col items-center justify-center bg-slate-50 p-6">
+      <div className="bg-white p-12 rounded-[3.5rem] shadow-2xl border border-slate-100 flex flex-col items-center gap-8 max-w-sm w-full">
         {!loadError ? (
           <>
             <div className="relative">
-              <div className="w-20 h-20 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin"></div>
-              <LayoutDashboard className="w-8 h-8 text-indigo-600 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+              <div className="w-24 h-24 border-8 border-indigo-50 border-t-indigo-600 rounded-full animate-spin"></div>
+              <LayoutDashboard className="w-10 h-10 text-indigo-600 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
             </div>
-            <div>
-              <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight">กำลังเชื่อมต่อฐานข้อมูล</h2>
-              <p className="text-slate-400 text-sm mt-2 font-bold uppercase tracking-widest">Superstore Syncing...</p>
+            <div className="text-center">
+              <h2 className="text-2xl font-black text-slate-800 tracking-tight">กำลังเปิดระบบ...</h2>
+              <p className="text-slate-400 text-xs mt-3 font-bold uppercase tracking-[0.2em]">Synchronizing Data</p>
             </div>
-            
             {isTimeout && (
-              <div className="animate-in fade-in slide-in-from-bottom-2 duration-700 w-full">
-                <p className="text-xs text-orange-500 font-bold mb-4 italic">ดูเหมือนการเชื่อมต่อจะช้ากว่าปกติ...</p>
-                <button 
-                  onClick={() => setLoading(false)} 
-                  className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black text-sm shadow-xl shadow-indigo-100 flex items-center justify-center gap-2 hover:bg-indigo-700 transition"
-                >
-                  <RefreshCw className="w-4 h-4" /> เข้าใช้งานแบบออฟไลน์
-                </button>
-              </div>
+              <button onClick={() => setLoading(false)} className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black text-sm shadow-xl active:scale-95 transition">เข้าใช้งาน (โหมดออฟไลน์)</button>
             )}
           </>
         ) : (
           <>
-            <div className="bg-red-50 p-4 rounded-full">
-              <AlertCircle className="w-12 h-12 text-red-500" />
-            </div>
-            <div>
-              <h2 className="text-xl font-black text-red-600 uppercase tracking-tight">การเชื่อมต่อล้มเหลว</h2>
-              <p className="text-slate-500 text-sm mt-3 font-bold bg-slate-50 p-4 rounded-2xl border border-slate-100">{loadError}</p>
-            </div>
-            <button 
-              onClick={() => window.location.reload()} 
-              className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black text-sm shadow-xl flex items-center justify-center gap-2 hover:bg-black transition"
-            >
-              <RefreshCw className="w-4 h-4" /> ลองใหม่อีกครั้ง
-            </button>
+            <div className="bg-red-50 p-6 rounded-full"><AlertCircle className="w-12 h-12 text-red-500" /></div>
+            <h2 className="text-xl font-black text-red-600">เชื่อมต่อล้มเหลว</h2>
+            <p className="text-slate-500 text-xs font-bold leading-relaxed">{loadError}</p>
+            <button onClick={() => window.location.reload()} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black text-sm">ลองใหม่อีกครั้ง</button>
           </>
         )}
       </div>
     </div>
   );
-
-  const reportData = useMemo(() => {
-    const stats = { totalOt: 0, totalLeaves: 0, staffStats: [] };
-    const staffMap = {};
-    (masterData.staff || []).forEach(s => staffMap[s.id] = { name: s.name, ot: 0, shifts: 0, leaves: 0 });
-    Object.keys(schedule).forEach(date => {
-      const day = schedule[date];
-      if (day.duties) {
-        Object.keys(day.duties).forEach(dId => {
-          (day.duties[dId] || []).forEach(slot => {
-            if (slot.staffId && staffMap[slot.staffId]) {
-              staffMap[slot.staffId].ot += (slot.otHours || 0);
-              staffMap[slot.staffId].shifts += 1;
-              stats.totalOt += (slot.otHours || 0);
-            }
-          });
-        });
-      }
-      if (day.leaves) {
-        day.leaves.forEach(l => { if (l.staffId && staffMap[l.staffId]) { staffMap[l.staffId].leaves += 1; stats.totalLeaves += 1; } });
-      }
-    });
-    stats.staffStats = Object.values(staffMap).sort((a,b) => b.ot - a.ot);
-    return stats;
-  }, [schedule, masterData.staff]);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans antialiased">
@@ -310,7 +292,7 @@ export default function App() {
         <div className="fixed top-10 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-top-4">
           <div className="bg-slate-900 text-white px-10 py-5 rounded-3xl shadow-2xl flex items-center gap-4 border border-slate-700 ring-8 ring-indigo-500/10">
             <CheckCircle className="w-6 h-6 text-green-500" />
-            <span className="font-black text-lg uppercase tracking-tight">บันทึกข้อมูลเรียบร้อยแล้ว!</span>
+            <span className="font-black text-lg uppercase tracking-tight">Cloud Synced!</span>
           </div>
         </div>
       )}
@@ -322,7 +304,7 @@ export default function App() {
             <div className="bg-slate-900 p-2 rounded-xl shadow-lg"><LayoutDashboard className="w-5 h-5 text-white" /></div>
             <div className="flex flex-col">
               <span className="font-black text-lg tracking-tighter uppercase leading-none">Staff<span className="text-indigo-600">Sync</span></span>
-              <span className="text-[8px] font-black text-green-500 uppercase tracking-widest mt-0.5">● Production Active</span>
+              <span className="text-[8px] font-black text-green-500 uppercase tracking-widest mt-0.5">Live Connection</span>
             </div>
           </div>
           <div className="flex gap-2 bg-slate-100 p-1 rounded-2xl border border-slate-200">
@@ -333,7 +315,7 @@ export default function App() {
             ].map(v => (
               <button 
                 key={v.id} onClick={() => setView(v.id)} 
-                className={`flex items-center gap-2 px-6 py-2 rounded-xl text-[10px] font-black transition-all ${view === v.id ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500 hover:text-slate-800'}`}
+                className={`flex items-center gap-2 px-5 py-2 rounded-xl text-[10px] font-black transition-all ${view === v.id ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500 hover:text-slate-800'}`}
               >
                 <v.icon className="w-3.5 h-3.5" /> {v.label}
               </button>
@@ -350,11 +332,11 @@ export default function App() {
           <div className="p-6 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <div className="bg-white rounded-[2rem] p-8 border border-slate-200 shadow-sm">
-                <h2 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-3 uppercase tracking-tight"><Users className="w-6 h-6 text-indigo-500" /> รายชื่อพนักงาน</h2>
+                <h2 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-3 uppercase tracking-tight"><Users className="w-6 h-6 text-indigo-500" /> จัดการพนักงาน</h2>
                 <div className="flex gap-3 mb-8">
                   <input 
                     type="text" 
-                    placeholder="พิมพ์ชื่อพนักงาน..." 
+                    placeholder="ชื่อพนักงานใหม่..." 
                     className="flex-grow border-2 border-slate-100 rounded-2xl px-6 py-4 text-sm font-bold outline-none focus:border-indigo-500 transition-all shadow-sm" 
                     value={newStaffName} 
                     onChange={(e) => setNewStaffName(e.target.value)}
@@ -369,7 +351,7 @@ export default function App() {
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                   {(masterData.staff || []).map(s => (
-                    <div key={s.id} className="flex justify-between items-center p-4 bg-slate-50 rounded-2xl border border-transparent hover:border-indigo-100 hover:bg-white transition group shadow-sm">
+                    <div key={s.id} className="flex justify-between items-center p-4 bg-slate-50 rounded-2xl border border-transparent hover:border-indigo-100 transition group shadow-sm">
                       <span className="text-sm font-bold text-slate-700 uppercase">{s.name}</span>
                       <button onClick={() => setMasterData(p=>({...p, staff: p.staff.filter(x=>x.id!==s.id)}))} className="text-slate-300 hover:text-red-500 transition"><Trash2 className="w-5 h-5"/></button>
                     </div>
@@ -378,7 +360,7 @@ export default function App() {
               </div>
 
               <div className="bg-white rounded-[2rem] p-8 border border-slate-200 shadow-sm text-center">
-                <h2 className="text-xl font-black text-slate-800 mb-6 flex items-center justify-center gap-3 uppercase tracking-tight"><Coffee className="w-6 h-6 text-red-500" /> วันหยุดร้าน / นักขัตฤกษ์</h2>
+                <h2 className="text-xl font-black text-slate-800 mb-6 flex items-center justify-center gap-3 uppercase tracking-tight"><Coffee className="w-6 h-6 text-red-500" /> วันหยุด / นักขัตฤกษ์</h2>
                 <div className="grid grid-cols-7 gap-2">
                   {MARCH_DAYS.map(d => (
                     <button key={d.dateStr} onClick={() => setMasterData(p=>({...p, holidays: (p.holidays || []).includes(d.dateStr) ? p.holidays.filter(x=>x!==d.dateStr) : [...(p.holidays || []), d.dateStr]}))} className={`w-full aspect-square rounded-2xl text-[11px] font-black transition-all border-2 flex items-center justify-center ${masterData.holidays?.includes?.(d.dateStr) ? 'bg-red-500 text-white border-red-600 shadow-lg' : 'bg-slate-50 text-slate-400 border-transparent hover:bg-slate-100'}`}>{d.dayNum}</button>
@@ -388,7 +370,7 @@ export default function App() {
             </div>
 
             <div className="space-y-6">
-               <h2 className="text-xl font-black text-slate-800 px-2 uppercase tracking-widest flex items-center gap-3"><Clock className="text-indigo-600" /> ตั้งค่า Slot งานของแต่ละวัน</h2>
+               <h2 className="text-xl font-black text-slate-800 px-2 uppercase tracking-widest flex items-center gap-3"><Clock className="text-indigo-600" /> การตั้งค่ากะงานและเวลา</h2>
                {Object.entries(masterData.dayTypes || {}).map(([key, data]) => (
                 <div key={key} className="bg-white rounded-[2.5rem] border border-slate-200 overflow-hidden shadow-sm">
                   <div className={`px-8 py-5 font-black text-sm text-white flex justify-between items-center ${key==='weekday' ? 'bg-slate-900' : key==='friday' ? 'bg-sky-700' : 'bg-orange-600'}`}>
@@ -396,8 +378,8 @@ export default function App() {
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs text-left">
-                      <thead className="bg-slate-50 text-slate-500 font-black uppercase text-[10px] border-b tracking-widest">
-                        <tr><th className="px-8 py-5">ตำแหน่ง (STATION)</th><th className="px-8 py-5">ช่วงเวลา และโควตา OT</th></tr>
+                      <thead className="bg-slate-50 text-slate-500 font-black uppercase text-[10px] tracking-widest border-b">
+                        <tr><th className="px-8 py-5">ตำแหน่งงาน (STATION)</th><th className="px-8 py-5">ช่วงเวลาเข้างาน และโควตา OT</th></tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {DUTY_DEFINITIONS.map(duty => (
@@ -411,15 +393,15 @@ export default function App() {
                                 {(data.duties?.[duty.id] || []).map((slot, idx) => (
                                   <div key={idx} className="flex items-center gap-4 bg-white p-4 rounded-2xl border-2 border-slate-100 shadow-sm hover:border-indigo-100 transition-colors">
                                     <div className="flex flex-col gap-1">
-                                      <span className="text-[8px] font-black text-slate-400 uppercase">เริ่ม</span>
+                                      <span className="text-[9px] font-black text-slate-400 uppercase">เริ่ม</span>
                                       <input type="time" className="border rounded-xl p-2 text-xs font-black text-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none" value={slot.startTime} onChange={(e) => { const nd = JSON.parse(JSON.stringify(masterData)); nd.dayTypes[key].duties[duty.id][idx].startTime = e.target.value; setMasterData(nd); }} />
                                     </div>
                                     <div className="flex flex-col gap-1">
-                                      <span className="text-[8px] font-black text-slate-400 uppercase">เลิก</span>
+                                      <span className="text-[9px] font-black text-slate-400 uppercase">เลิก</span>
                                       <input type="time" className="border rounded-xl p-2 text-xs font-black text-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none" value={slot.endTime} onChange={(e) => { const nd = JSON.parse(JSON.stringify(masterData)); nd.dayTypes[key].duties[duty.id][idx].endTime = e.target.value; setMasterData(nd); }} />
                                     </div>
                                     <div className="flex flex-col gap-1 border-l pl-4 border-slate-100">
-                                      <span className="text-[8px] font-black text-indigo-500 uppercase">OT</span>
+                                      <span className="text-[9px] font-black text-indigo-500 uppercase">OT</span>
                                       <input type="number" step="0.5" className="w-16 border rounded-xl p-2 text-center font-black text-indigo-700 bg-indigo-50/50" value={slot.maxOtHours} onChange={(e) => { const nd = JSON.parse(JSON.stringify(masterData)); nd.dayTypes[key].duties[duty.id][idx].maxOtHours = parseFloat(e.target.value) || 0; setMasterData(nd); }} />
                                     </div>
                                     <button onClick={() => { const nd = JSON.parse(JSON.stringify(masterData)); nd.dayTypes[key].duties[duty.id].splice(idx,1); setMasterData(nd); }} className="text-slate-300 hover:text-red-500 mt-4"><Trash2 className="w-4 h-4"/></button>
@@ -439,10 +421,8 @@ export default function App() {
           </div>
         ) : view === 'manager' ? (
           <div className="p-6 max-w-7xl mx-auto space-y-6 animate-in slide-in-from-bottom-4 duration-500">
-            {/* Date Selection Area */}
             <div className="relative flex items-center gap-3">
               <button onClick={() => scrollDates('left')} className="hidden lg:flex flex-shrink-0 w-12 h-12 bg-white border-2 border-slate-100 rounded-full items-center justify-center shadow-lg hover:bg-indigo-50 text-indigo-600 transition-all active:scale-90 z-10"><ChevronLeft className="w-7 h-7" /></button>
-              
               <div ref={dateBarRef} className="flex gap-4 overflow-x-auto pb-4 pt-2 custom-scrollbar px-2 select-none touch-pan-x snap-x flex-grow">
                 {MARCH_DAYS.map(d => {
                   const isSelected = selectedDateStr === d.dateStr;
@@ -455,7 +435,6 @@ export default function App() {
                   );
                 })}
               </div>
-
               <button onClick={() => scrollDates('right')} className="hidden lg:flex flex-shrink-0 w-12 h-12 bg-white border-2 border-slate-100 rounded-full items-center justify-center shadow-lg hover:bg-indigo-50 text-indigo-600 transition-all active:scale-90 z-10"><ChevronRight className="w-7 h-7" /></button>
             </div>
 
@@ -464,18 +443,17 @@ export default function App() {
               <div>
                 <h2 className="text-5xl font-black text-slate-900 tracking-tight leading-none mb-4">{new Date(selectedDateStr + "T00:00:00").toLocaleDateString('th-TH', { month: 'long', day: 'numeric', year: 'numeric', weekday: 'long' })}</h2>
                 <span className={`text-xs font-black px-6 py-2 rounded-full border uppercase tracking-widest shadow-sm ${activeDay.type === 'weekday' ? 'bg-slate-100 text-slate-700 border-slate-200' : activeDay.type === 'friday' ? 'bg-sky-50 text-sky-700 border-sky-100' : 'bg-orange-50 text-orange-700 border-orange-100'}`}>
-                  {masterData.dayTypes?.[activeDay.type]?.name || 'Configuration Mode'}
+                  {masterData.dayTypes?.[activeDay.type]?.name}
                 </span>
               </div>
               <button onClick={() => setView('print')} className="bg-slate-50 text-slate-900 px-8 py-4 rounded-2xl font-black flex items-center gap-3 hover:bg-white border border-slate-200 transition-all shadow-sm active:scale-95"><Printer className="w-5 h-5 text-indigo-600" /> พิมพ์เดือนนี้</button>
             </div>
 
-            {/* Leave Section */}
             <div className="bg-white rounded-[2.5rem] border-2 border-dashed border-slate-200 p-10 shadow-sm">
-              <h3 className="text-xl font-black text-slate-900 flex items-center gap-4 mb-8 uppercase tracking-tighter text-indigo-600"><PlaneTakeoff className="w-7 h-7" /> แจ้งลางาน / วันหยุดพนักงาน</h3>
+              <h3 className="text-xl font-black text-slate-900 flex items-center gap-4 mb-8 uppercase tracking-tighter text-indigo-600"><PlaneTakeoff className="w-7 h-7" /> รายการลางาน / วันหยุด</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                 {(schedule[selectedDateStr]?.leaves || []).map((l, idx) => (
-                  <div key={idx} className="bg-slate-50 p-5 rounded-[1.8rem] flex gap-4 items-center border border-slate-100 shadow-sm hover:bg-white hover:border-indigo-100 transition-all">
+                  <div key={idx} className="bg-slate-50 p-5 rounded-[1.8rem] flex gap-4 items-center border border-slate-100 shadow-sm hover:bg-white transition-all">
                     <select value={l.staffId} onChange={(e) => updateLeaves(selectedDateStr, 'update', idx, 'staffId', e.target.value)} className="flex-[2.5] bg-white border border-slate-200 rounded-2xl px-4 py-3 text-sm font-black outline-none focus:ring-4 focus:ring-indigo-100 shadow-inner">
                       <option value="">-- ชื่อ --</option>
                       {(masterData.staff || []).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -483,21 +461,21 @@ export default function App() {
                     <select value={l.type} onChange={(e) => updateLeaves(selectedDateStr, 'update', idx, 'type', e.target.value)} className="flex-1 bg-white border border-slate-200 rounded-2xl px-3 py-3 text-xs font-black outline-none shadow-inner text-indigo-600">
                       {LEAVE_TYPES.map(lt => <option key={lt.id} value={lt.id}>{lt.label}</option>)}
                     </select>
-                    <button onClick={() => updateLeaves(selectedDateStr, 'remove', idx)} className="text-slate-300 hover:text-red-500 transition"><Trash2 className="w-5 h-5"/></button>
+                    <button onClick={() => updateLeaves(selectedDateStr, 'remove', idx)} className="text-slate-300 hover:text-red-500 p-2 transition"><Trash2 className="w-5 h-5"/></button>
                   </div>
                 ))}
-                <button onClick={() => updateLeaves(selectedDateStr, 'add')} className="border-3 border-dashed border-indigo-100 text-indigo-500 p-6 rounded-[1.8rem] font-black text-sm hover:bg-indigo-50 transition-all uppercase tracking-widest shadow-sm active:scale-95 group"><span className="flex items-center justify-center gap-3"> <Plus className="w-5 h-5" /> เพิ่มรายการลา </span></button>
+                <button onClick={() => updateLeaves(selectedDateStr, 'add')} className="border-3 border-dashed border-indigo-100 text-indigo-500 p-6 rounded-[1.8rem] font-black text-sm hover:bg-indigo-50 transition-all uppercase tracking-widest shadow-sm active:scale-95">+ เพิ่มรายการลา</button>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mt-10">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mt-10 pb-20">
               {DUTY_DEFINITIONS.map(duty => {
                 const slots = masterData.dayTypes?.[activeDay.type]?.duties?.[duty.id] || [];
                 const assigned = schedule[selectedDateStr]?.duties?.[duty.id] || [];
                 return (
-                  <div key={duty.id} className="bg-white rounded-[2.8rem] shadow-sm border border-slate-200 overflow-hidden flex flex-col transition hover:shadow-2xl hover:border-indigo-200 group/card">
-                    <div className="p-8 bg-slate-50 border-b border-slate-100 flex justify-between items-center group-hover/card:bg-indigo-50/50 transition-colors">
-                      <div><h3 className="font-black text-slate-900 text-xl leading-tight uppercase tracking-tighter">{duty.jobA}</h3><p className="text-[11px] text-slate-400 font-bold mt-1 uppercase italic leading-none">{duty.jobB}</p></div>
+                  <div key={duty.id} className="bg-white rounded-[2.8rem] shadow-sm border border-slate-200 overflow-hidden flex flex-col transition hover:shadow-2xl hover:border-indigo-200">
+                    <div className="p-8 bg-slate-50 border-b border-slate-100 flex justify-between items-center transition-colors">
+                      <div><h3 className="font-black text-slate-900 text-xl uppercase tracking-tighter">{duty.jobA}</h3><p className="text-[11px] text-slate-400 font-bold mt-1 uppercase italic leading-none">{duty.jobB}</p></div>
                       <div className="bg-white border border-slate-100 px-4 py-2 rounded-2xl text-[11px] font-black text-indigo-700 shadow-sm">{assigned.filter(x => !!x?.staffId).length} / {slots.length}</div>
                     </div>
                     <div className="p-8 space-y-6 flex-grow">
@@ -507,13 +485,13 @@ export default function App() {
                         const isOver = (data.otHours || 0) > (slot.maxOtHours || 0);
                         return (
                           <div key={idx} className={`p-6 rounded-[2rem] border-2 transition-all flex flex-col gap-5 ${!data.staffId ? 'border-dashed border-slate-200 bg-slate-50/20' : conflict || isOver ? 'border-red-400 bg-red-50 shadow-inner scale-95' : 'border-indigo-50 bg-white shadow-md'}`}>
-                            <div className="flex justify-between items-center px-1">
-                              <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 font-sans"><Clock className="w-4 h-4 text-indigo-400" /> {slot.startTime} - {slot.endTime}</span>
-                              <span className="text-[10px] font-black text-indigo-500 bg-indigo-50 px-3 py-1 rounded-full uppercase">Quota: {slot.maxOtHours}H</span>
+                            <div className="flex justify-between items-center">
+                              <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><Clock className="w-4 h-4 text-indigo-400" /> {slot.startTime} - {slot.endTime}</span>
+                              <span className="text-[10px] font-black text-indigo-500 bg-indigo-50 px-3 py-1 rounded-full uppercase">Q: {slot.maxOtHours}H</span>
                             </div>
                             <div className="flex gap-4">
-                              <select value={data.staffId} onChange={(e) => updateSchedule(selectedDateStr, duty.id, idx, 'staffId', e.target.value)} className="flex-[3] bg-white border border-slate-200 rounded-2xl px-5 py-4 text-sm font-black outline-none focus:ring-4 focus:ring-indigo-100 transition shadow-sm text-slate-900">
-                                <option value="">-- เลือกชื่อ --</option>
+                              <select value={data.staffId} onChange={(e) => updateSchedule(selectedDateStr, duty.id, idx, 'staffId', e.target.value)} className="flex-[3] bg-white border border-slate-200 rounded-2xl px-5 py-4 text-sm font-black outline-none shadow-sm text-slate-900">
+                                <option value="">-- ว่าง --</option>
                                 {(masterData.staff || []).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                               </select>
                               <div className={`flex-1 flex flex-col justify-center items-center border-2 rounded-2xl bg-white shadow-sm transition-all ${isOver ? 'border-red-300 ring-4 ring-red-100' : 'border-slate-50'}`}>
@@ -521,7 +499,7 @@ export default function App() {
                                 <input type="number" step="0.5" value={data.otHours} onChange={(e) => updateSchedule(selectedDateStr, duty.id, idx, 'otHours', e.target.value)} className={`w-full text-center font-black text-xl outline-none bg-transparent ${isOver ? 'text-red-600' : 'text-slate-900'}`} />
                               </div>
                             </div>
-                            {conflict && <p className="text-[10px] text-red-600 font-bold flex items-center gap-2 bg-white/50 p-2 rounded-xl border border-red-100 animate-pulse uppercase"><AlertCircle className="w-4 h-4"/> รายการซ้ำหรือพนักงานลา</p>}
+                            {conflict && <p className="text-[10px] text-red-600 font-bold flex items-center gap-2 animate-pulse uppercase"><AlertCircle className="w-4 h-4"/> พนักงานลางาน</p>}
                           </div>
                         );
                       })}
@@ -532,7 +510,7 @@ export default function App() {
             </div>
           </div>
         ) : (
-          <div className="p-10 max-w-7xl mx-auto space-y-10 animate-in fade-in duration-500">
+          <div className="p-10 max-w-7xl mx-auto space-y-10 animate-in fade-in duration-500 pb-20">
              <div className="grid grid-cols-1 md:grid-cols-4 gap-8 font-sans">
                 <div className="bg-white p-10 rounded-[3rem] border border-slate-200 shadow-sm relative overflow-hidden group hover:shadow-2xl transition-all duration-500">
                   <TrendingUp className="absolute top-4 right-4 w-24 h-24 text-indigo-50 group-hover:scale-110 transition duration-700" />
@@ -552,20 +530,19 @@ export default function App() {
                   <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden shadow-inner mt-6"><div className="h-full bg-emerald-500 rounded-full transition-all duration-1000" style={{ width: `${((reportData?.staffStats || []).filter(s=>s.shifts>0).length / (masterData.staff.length || 1)) * 100}%` }}></div></div>
                 </div>
              </div>
-
              <div className="bg-white rounded-[3.5rem] border border-slate-200 shadow-sm overflow-hidden">
-                <div className="p-10 border-b border-slate-50 font-black text-slate-900 flex justify-between items-center bg-slate-50/50 uppercase tracking-tight text-xl font-sans"><div className="flex items-center gap-4"><Award className="w-8 h-8 text-yellow-500" /> Employee Performance Summary</div></div>
+                <div className="p-10 border-b border-slate-50 font-black text-slate-900 flex justify-between items-center bg-slate-50/50 uppercase tracking-tight text-xl font-sans"><div className="flex items-center gap-4"><Award className="w-8 h-8 text-yellow-500" /> สรุปผลงานพนักงาน</div></div>
                 <div className="overflow-x-auto custom-scrollbar">
                   <table className="w-full text-sm font-sans">
                     <thead className="bg-white text-[11px] font-black uppercase text-slate-400 tracking-[0.2em] border-b">
-                      <tr><th className="px-10 py-6 text-left">พนักงาน</th><th className="px-10 py-6 text-center">เข้างาน (กะ)</th><th className="px-10 py-6 text-center">ลาสะสม</th><th className="px-10 py-6 text-center bg-indigo-50/50 text-indigo-700 font-black">OT สะสม (ชม.)</th></tr>
+                      <tr><th className="px-10 py-6 text-left">พนักงาน</th><th className="px-10 py-6 text-center">กะงาน</th><th className="px-10 py-6 text-center">ลาสะสม</th><th className="px-10 py-6 text-center bg-indigo-50/50 text-indigo-700 font-black">OT รวม (ชม.)</th></tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 font-bold text-slate-700">
                       {(reportData?.staffStats || []).map((s, idx) => (
                         <tr key={idx} className="hover:bg-slate-50 transition duration-300">
                           <td className="px-10 py-6 font-black text-slate-900 uppercase text-base">{s.name}</td>
                           <td className="px-10 py-6 text-center text-lg">{s.shifts}</td>
-                          <td className="px-10 py-6 text-center"><span className="px-5 py-2 bg-orange-50 text-orange-600 rounded-full text-xs font-black border border-orange-100 shadow-sm">{s.leaves}</span></td>
+                          <td className="px-10 py-6 text-center"><span className="px-5 py-2 bg-orange-50 text-orange-600 rounded-full text-xs font-black border border-orange-100">{s.leaves}</span></td>
                           <td className="px-10 py-6 text-center font-black text-indigo-800 bg-indigo-50/20 text-2xl tracking-tighter">{(s.ot || 0).toFixed(1)}</td>
                         </tr>
                       ))}
@@ -582,13 +559,8 @@ export default function App() {
         .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; border: 2px solid #f1f5f9; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-        
-        @media print {
-          @page { size: A4 landscape; margin: 5mm; }
-          body { background: white !important; -webkit-print-color-adjust: exact; }
-          .print\\:hidden { display: none !important; }
-        }
-        
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
         .touch-pan-x { touch-action: pan-x; }
         .snap-x { scroll-snap-type: x mandatory; }
         .snap-center { scroll-snap-align: center; }
