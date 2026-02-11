@@ -28,8 +28,8 @@ import {
 } from 'lucide-react';
 
 /**
- * RESTAURANT MANPOWER MANAGEMENT SYSTEM (MP26 MODEL) - FIREBASE EDITION V2.5 (RESTORED ADMIN)
- * แก้ไข: นำส่วนตั้งค่า Slot งานและเวลา (Job Config) กลับมาในหน้า Admin
+ * RESTAURANT MANPOWER MANAGEMENT SYSTEM (MP26 MODEL) - FIREBASE EDITION V2.6 (STABLE & AUTO-FIX)
+ * แก้ไข: เพิ่มระบบ Bypass Loading (Timeout 5s) และแสดง Error รายละเอียดการเชื่อมต่อ
  */
 
 // --- 1. Firebase Configuration ---
@@ -77,11 +77,10 @@ const INITIAL_MASTER_DATA = {
     friday: { name: "วันศุกร์", duties: {} },
     weekend: { name: "วันหยุด / นักขัตฤกษ์", duties: {} }
   },
-  staff: [{ id: 's1', name: 'พนักงานทดสอบ' }],
+  staff: [{ id: 's1', name: 'พนักงานเริ่มต้น' }],
   holidays: [] 
 };
 
-// เติมข้อมูลเริ่มต้นสำหรับแต่ละตำแหน่ง
 DUTY_DEFINITIONS.forEach(duty => {
   ['weekday', 'friday', 'weekend'].forEach(dt => {
     INITIAL_MASTER_DATA.dayTypes[dt].duties[duty.id] = [
@@ -118,6 +117,14 @@ export default function App() {
 
   // --- Authentication (Rule 3) ---
   useEffect(() => {
+    // Safety Timeout: หากโหลดค้างเกิน 5 วินาที ให้ปิด Loading และเข้าใช้งานแบบ Offline mode
+    const safetyTimer = setTimeout(() => {
+      if (loading) {
+        console.warn("Connection timeout: Switching to limited mode.");
+        setLoading(false);
+      }
+    }, 5000);
+
     const initAuth = async () => {
       try {
         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -125,29 +132,48 @@ export default function App() {
         } else {
           await signInAnonymously(auth);
         }
-      } catch (error) { setAuthError(error.message); }
+      } catch (error) { 
+        console.error("Auth Error:", error);
+        setAuthError(error.message); 
+      }
     };
     initAuth();
-    const unsubscribe = onAuthStateChanged(auth, setUser);
-    return () => unsubscribe();
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      if (!u) {
+        // หากไม่มี User ให้รันข้อมูลเริ่มต้นไปก่อนเพื่อให้หน้าจอไม่ค้าง
+        setLoading(false);
+      }
+    });
+
+    return () => {
+      unsubscribe();
+      clearTimeout(safetyTimer);
+    };
   }, []);
 
   // --- Real-time Data Sync (Rule 1) ---
   useEffect(() => {
     if (!user) return;
+    
     const masterDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'master');
     const unsubMaster = onSnapshot(masterDocRef, (docSnap) => {
       if (docSnap.exists()) {
         setMasterData(docSnap.data());
       } else {
-        setDoc(masterDocRef, INITIAL_MASTER_DATA);
+        setDoc(masterDocRef, INITIAL_MASTER_DATA).catch(e => console.error("Initial doc set failed:", e));
       }
       setLoading(false);
+    }, (err) => {
+      console.error("Firestore Master Error:", err);
+      setLoading(false); // ปิด Loading เมื่อเกิด Error เพื่อให้ User เข้าหน้าจัดการได้
     });
 
     const scheduleDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'schedules', 'main');
     const unsubSched = onSnapshot(scheduleDocRef, (docSnap) => {
       if (docSnap.exists()) setSchedule(docSnap.data().records || {});
+    }, (err) => {
+      console.error("Firestore Schedule Error:", err);
     });
 
     return () => { unsubMaster(); unsubSched(); };
@@ -157,14 +183,20 @@ export default function App() {
   const activeDay = useMemo(() => MARCH_DAYS.find(d => d.dateStr === selectedDateStr) || MARCH_DAYS[0], [selectedDateStr, MARCH_DAYS]);
 
   const handleGlobalSave = async () => {
-    if (!user) return;
+    if (!user) {
+      alert("ไม่สามารถบันทึกได้เนื่องจากไม่ได้เชื่อมต่อ Cloud (กรุณาลองรีเฟรชหน้าจอ)");
+      return;
+    }
     try {
       setSaveStatus('saving');
       await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'master'), masterData);
       await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'schedules', 'main'), { records: schedule });
       setSaveStatus('success');
       setTimeout(() => setSaveStatus(null), 3000);
-    } catch (err) { setSaveStatus('error'); }
+    } catch (err) { 
+      setSaveStatus('error');
+      alert("บันทึกล้มเหลว: " + err.message);
+    }
   };
 
   const updateSchedule = (dateStr, dutyId, slotIndex, field, value) => {
@@ -234,7 +266,14 @@ export default function App() {
   if (loading) return (
     <div className="h-screen flex flex-col items-center justify-center bg-slate-50 gap-4">
       <Loader2 className="w-12 h-12 text-indigo-600 animate-spin" />
-      <p className="font-black text-slate-400 uppercase tracking-widest text-sm">กำลังเชื่อมต่อระบบ Cloud...</p>
+      <p className="font-black text-slate-400 uppercase tracking-widest text-sm">กำลังเชื่อมต่อฐานข้อมูล Superstore...</p>
+      {authError && (
+        <div className="mt-4 p-4 bg-red-50 border border-red-100 rounded-xl max-w-xs text-center">
+          <p className="text-[10px] text-red-500 font-bold uppercase mb-1">แจ้งเตือนข้อผิดพลาด</p>
+          <p className="text-xs text-red-700 font-black">{authError}</p>
+          <button onClick={() => window.location.reload()} className="mt-3 text-[10px] bg-red-600 text-white px-4 py-1 rounded-full font-bold">ลองใหม่</button>
+        </div>
+      )}
     </div>
   );
 
@@ -278,7 +317,6 @@ export default function App() {
         </div>
       </div>
 
-      {/* --- ส่วนที่กู้คืนกลับมา: ตั้งค่า Slot งานและเวลา --- */}
       <div className="space-y-6">
         <h2 className="text-xl font-black text-slate-800 flex items-center gap-3 uppercase tracking-widest px-2"><Clock className="text-indigo-600"/> ตั้งค่า Slot งานและเวลา (Job Matrix)</h2>
         {Object.entries(masterData.dayTypes || {}).map(([key, data]) => (
@@ -336,7 +374,7 @@ export default function App() {
     <div className="p-6 max-w-7xl mx-auto space-y-6 animate-in slide-in-from-bottom-4 duration-500 pb-20">
       <div className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide px-1">
         {MARCH_DAYS.map(d => (
-          <button key={d.dateStr} onClick={() => setSelectedDateStr(d.dateStr)} className={`flex-shrink-0 w-16 h-20 rounded-2xl flex flex-col items-center justify-center transition-all border-2 ${selectedDateStr === d.dateStr ? 'ring-4 ring-indigo-50 scale-105 shadow-xl z-10' : 'opacity-90'} ${masterData.holidays?.includes?.(d.dateStr) ? 'bg-red-500 text-white border-red-600' : d.type === 'weekend' ? 'bg-orange-500 text-white border-orange-600' : d.type === 'friday' ? 'bg-sky-500 text-white border-sky-600' : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-200'}`}>
+          <button key={d.dateStr} onClick={() => setSelectedDateStr(d.dateStr)} className={`flex-shrink-0 w-16 h-20 rounded-2xl flex flex-col items-center justify-center transition-all border-2 ${selectedDateStr === d.dateStr ? 'ring-4 ring-indigo-50 scale-105 shadow-xl z-10' : 'opacity-90'} ${masterData.holidays?.includes?.(d.dateStr) ? 'bg-red-500 text-white border-red-600' : d.type === 'weekend' ? 'bg-orange-50 text-white border-orange-600' : d.type === 'friday' ? 'bg-sky-500 text-white border-sky-600' : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-200'}`}>
             <span className="text-[10px] font-black uppercase tracking-widest">{d.dayLabel}</span><span className="text-2xl font-black mt-1">{d.dayNum}</span>
           </button>
         ))}
@@ -392,7 +430,7 @@ export default function App() {
                   const conflict = isConflict(selectedDateStr, data.staffId, duty.id, idx);
                   const isOver = (data.otHours || 0) > (slot.maxOtHours || 0);
                   return (
-                    <div key={idx} className={`p-5 rounded-2xl border-2 transition-all flex flex-col gap-4 ${!data.staffId ? 'border-dashed border-slate-200 bg-white/50' : conflict || isOver ? 'border-red-400 bg-red-50 shadow-inner scale-95' : 'border-indigo-50 bg-white shadow-sm'}`}>
+                    <div key={idx} className={`p-5 rounded-2xl border-2 transition-all flex flex-col gap-4 ${!data.staffId ? 'border-dashed border-slate-100 bg-slate-50/20' : conflict || isOver ? 'border-red-400 bg-red-50 shadow-inner scale-95' : 'border-indigo-50 bg-white shadow-sm'}`}>
                       <div className="flex justify-between items-center">
                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 font-sans"><Clock className="w-3.5 h-3.5 text-indigo-400" /> {slot.startTime}-{slot.endTime}</span>
                         <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md uppercase tracking-tighter">Quota: {slot.maxOtHours}H</span>
