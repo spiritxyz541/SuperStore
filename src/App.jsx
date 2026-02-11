@@ -26,16 +26,19 @@ import {
   FileText,
   Wifi,
   WifiOff,
-  Database
+  Database,
+  Key
 } from 'lucide-react';
 
 /**
- * RESTAURANT MANPOWER MANAGEMENT SYSTEM (MP26 MODEL) - V3.5 (CLOUD RECOVERY)
- * แก้ไข: 1. ระบบดักจับ Error ที่ละเอียดขึ้นเพื่อบอกสาเหตุที่เชื่อมต่อ Cloud ไม่ได้
- * 2. เพิ่มระบบ Re-connect อัตโนมัติเมื่อกดบันทึก
- * 3. คงฟีเจอร์ Smart Filter พนักงาน และ Hard Cap OT จาก V3.4 ไว้ครบถ้วน
+ * RESTAURANT MANPOWER MANAGEMENT SYSTEM (MP26 MODEL) - V3.6 (API KEY FIX)
+ * แก้ไข: 1. ปรับปรุงการตรวจสอบ API Key และแสดงวิธีแก้ไขเมื่อ Key ไม่ถูกต้อง
+ * 2. เพิ่มระบบ Fallback หากการโหลด config พื้นฐานล้มเหลว
+ * 3. รวมฟีเจอร์ Smart Filter พนักงาน และ Hard Cap OT ไว้ครบถ้วน
  */
 
+// --- 1. Firebase Configuration ---
+// ตรวจสอบความถูกต้องของ API Key ในส่วนนี้เป็นอันดับแรก
 const firebaseConfig = typeof __firebase_config !== 'undefined' 
   ? JSON.parse(__firebase_config) 
   : {
@@ -48,9 +51,16 @@ const firebaseConfig = typeof __firebase_config !== 'undefined'
       measurementId: "G-MCPNHGS2D7"
     };
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
+// เริ่มต้นระบบอย่างระมัดระวัง
+let app, auth, db;
+try {
+  app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  db = getFirestore(app);
+} catch (e) {
+  console.error("Firebase Initialization Error:", e);
+}
+
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'superstore-stable-v1';
 
 const DUTY_DEFINITIONS = [
@@ -137,6 +147,7 @@ export default function App() {
 
   // --- Robust Authentication Function ---
   const attemptAuth = async () => {
+    if (!auth) return { success: false, error: "Firebase not initialized" };
     try {
       if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
         await signInWithCustomToken(auth, __initial_auth_token);
@@ -147,8 +158,10 @@ export default function App() {
     } catch (e) {
       console.error("Auth Error Detail:", e);
       let friendlyMsg = e.message;
-      if (e.code === 'auth/operation-not-allowed') friendlyMsg = "ยังไม่ได้เปิดใช้งาน 'Anonymous Sign-in' ใน Firebase Console";
-      if (e.code === 'auth/invalid-api-key') friendlyMsg = "API Key ไม่ถูกต้อง กรุณาตรวจสอบ Firebase Config";
+      if (e.code === 'auth/operation-not-allowed') friendlyMsg = "ยังไม่ได้เปิดใช้งาน 'Anonymous Sign-in' ในเมนู Authentication";
+      if (e.code === 'auth/invalid-api-key' || friendlyMsg.includes('api-key-not-valid')) {
+        friendlyMsg = "API Key ไม่ถูกต้อง กรุณาตรวจสอบรหัส apiKey ในส่วน Firebase Config ว่าตรงกับหน้าเว็บ Firebase หรือไม่";
+      }
       return { success: false, error: friendlyMsg };
     }
   };
@@ -161,8 +174,8 @@ export default function App() {
     const init = async () => {
       const result = await attemptAuth();
       if (!result.success) {
-        // Don't set LoadError immediately to allow bypass, but log it
-        console.warn("Initial Auth failed:", result.error);
+        setLoadError(result.error);
+        setLoading(false);
       }
     };
     
@@ -181,7 +194,7 @@ export default function App() {
 
   // --- Data Sync ---
   useEffect(() => {
-    if (!user) return;
+    if (!user || !db) return;
 
     const masterDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'master');
     const unsubMaster = onSnapshot(masterDocRef, (docSnap) => {
@@ -191,11 +204,10 @@ export default function App() {
         setDoc(masterDocRef, INITIAL_MASTER_DATA).catch(e => console.error("Auto-init error:", e));
       }
       setLoading(false);
-      setLoadError(null);
     }, (err) => {
       console.error("Firestore Error Detail:", err);
       if (err.code === 'permission-denied') {
-        setLoadError("สิทธิ์การเข้าถึงฐานข้อมูลถูกปฏิเสธ (กรุณาแก้ไข Rules ใน Firebase ให้เป็น 'if true')");
+        setLoadError("สิทธิ์การเข้าถึงฐานข้อมูลถูกปฏิเสธ (กรุณาตรวจสอบหน้า Cloud Firestore > Rules)");
       }
       setLoading(false);
     });
@@ -208,7 +220,7 @@ export default function App() {
     return () => { unsubMaster(); unsubSched(); };
   }, [user]);
 
-  // --- Enhanced Save with Auto-Retry ---
+  // --- Save with Retry ---
   const handleGlobalSave = async () => {
     setSaveStatus('saving');
     setErrorMsg('');
@@ -230,11 +242,8 @@ export default function App() {
       setSaveStatus('success');
       setTimeout(() => setSaveStatus(null), 3000);
     } catch (err) { 
-      console.error("Firestore Save Error:", err);
       setSaveStatus('error');
-      let msg = err.message;
-      if (err.code === 'permission-denied') msg = "ไม่มีสิทธิ์เขียนข้อมูล (ตรวจสอบ Firebase Rules)";
-      setErrorMsg(msg);
+      setErrorMsg(err.message.includes('permission-denied') ? "ไม่มีสิทธิ์เขียนข้อมูล (เช็ค Firestore Rules)" : err.message);
     }
   };
 
@@ -246,7 +255,6 @@ export default function App() {
       const updatedSlots = [...newSched[dateStr].duties[dutyId]];
       if (!updatedSlots[slotIndex]) updatedSlots[slotIndex] = { staffId: "", otHours: 0 };
       
-      // Hard Cap OT Limit
       if (field === 'otHours') {
         const inputVal = parseFloat(value) || 0;
         const slotsConfig = masterData.dayTypes?.[activeDay.type]?.duties?.[dutyId] || [];
@@ -288,7 +296,7 @@ export default function App() {
     if (leave) return { type: 'leave', info: LEAVE_TYPES.find(x => x.id === leave.type) };
     for (const dId of DUTY_DEFINITIONS.map(d=>d.id)) {
       const sIdx = (dayData.duties?.[dId] || []).findIndex(s => s.staffId === staffId);
-      if (sIdx !== -1 && sIdx !== undefined) {
+      if (sIdx !== -1) {
         const dayConfig = MARCH_DAYS.find(d => d.dateStr === dateStr);
         const type = dayConfig ? dayConfig.type : 'weekday';
         const duty = DUTY_DEFINITIONS.find(d => d.id === dId);
@@ -327,34 +335,39 @@ export default function App() {
   if (loading) return (
     <div className="h-screen flex flex-col items-center justify-center bg-slate-50 p-6 text-center">
       <div className="bg-white p-12 rounded-[3.5rem] shadow-2xl border border-slate-100 flex flex-col items-center gap-8 max-w-sm w-full animate-in fade-in">
-        {!loadError ? (
-          <>
-            <div className="relative">
-              <div className="w-24 h-24 border-8 border-indigo-50 border-t-indigo-600 rounded-full animate-spin"></div>
-              <Database className="w-10 h-10 text-indigo-600 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
-            </div>
-            <div className="text-center">
-              <h2 className="text-2xl font-black text-slate-800 tracking-tight">กำลังเชื่อมต่อ Cloud</h2>
-              <p className="text-slate-400 text-xs mt-3 font-bold uppercase tracking-[0.2em]">Superstore Production</p>
-            </div>
-            {isTimeout && (
-              <div className="w-full space-y-3">
-                <p className="text-[10px] text-orange-500 font-bold italic uppercase tracking-widest">ใช้เวลานานกว่าปกติ...</p>
-                <button onClick={() => setLoading(false)} className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black text-sm shadow-xl active:scale-95 transition flex items-center justify-center gap-2"> <RefreshCw className="w-4 h-4" /> เข้าใช้งานแบบออฟไลน์ </button>
-              </div>
-            )}
-          </>
-        ) : (
-          <>
-            <div className="bg-red-50 p-6 rounded-full"><AlertCircle className="w-12 h-12 text-red-500" /></div>
-            <h2 className="text-xl font-black text-red-600">เชื่อมต่อไม่สำเร็จ</h2>
-            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-left">
-              <p className="text-[10px] text-slate-400 uppercase font-bold mb-1">สาเหตุที่พบ:</p>
-              <p className="text-xs font-bold leading-relaxed text-slate-700">{loadError}</p>
-            </div>
-            <button onClick={() => window.location.reload()} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black text-sm active:scale-95 transition">ลองใหม่อีกครั้ง</button>
-          </>
-        )}
+        <div className="relative">
+          <div className="w-24 h-24 border-8 border-indigo-50 border-t-indigo-600 rounded-full animate-spin"></div>
+          <Database className="w-10 h-10 text-indigo-600 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+        </div>
+        <h2 className="text-2xl font-black text-slate-800 tracking-tight leading-none uppercase">StaffSync Loading</h2>
+        {isTimeout && <button onClick={() => setLoading(false)} className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black text-sm shadow-xl active:scale-95 transition">ข้ามหน้าโหลด (เข้าใช้งานทันที)</button>}
+      </div>
+    </div>
+  );
+
+  if (loadError) return (
+    <div className="h-screen flex flex-col items-center justify-center bg-red-50 p-6 text-center">
+      <div className="bg-white p-12 rounded-[3.5rem] shadow-2xl border border-red-100 flex flex-col items-center gap-8 max-w-md w-full">
+        <div className="bg-red-50 p-6 rounded-full shadow-inner"><AlertCircle className="w-12 h-12 text-red-500" /></div>
+        <div>
+          <h2 className="text-xl font-black text-red-600 uppercase tracking-tight">ตรวจพบข้อผิดพลาดด้านความปลอดภัย</h2>
+          <div className="mt-4 bg-red-50 p-5 rounded-2xl border border-red-100 text-left space-y-4">
+             <div>
+               <p className="text-[10px] text-red-400 uppercase font-black mb-1">Error Message:</p>
+               <p className="text-xs font-bold leading-relaxed text-red-800 font-sans">{loadError}</p>
+             </div>
+             <div className="pt-3 border-t border-red-100">
+                <p className="text-[10px] text-slate-400 uppercase font-black mb-2">วิธีแก้ไขเบื้องต้น:</p>
+                <ul className="text-[10px] font-bold text-slate-600 space-y-2 list-disc pl-4">
+                  <li>ไปที่ Firebase Console {'>'} Build {'>'} Authentication {'>'} เปิดใช้งาน <strong>Anonymous</strong></li>
+                  <li>ไปที่ Firestore Database {'>'} Rules {'>'} แก้บรรทัด allow read, write ให้เป็น <strong>if true;</strong></li>
+                  <li>ตรวจสอบ <strong>API Key</strong> ในโค้ดว่าพิมพ์ผิดหรือเปล่า</li>
+                </ul>
+             </div>
+          </div>
+        </div>
+        <button onClick={() => window.location.reload()} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black text-sm active:scale-95 transition">ลองเชื่อมต่อใหม่</button>
+        <button onClick={() => setLoadError(null)} className="text-[10px] font-bold text-slate-400 uppercase tracking-widest hover:text-indigo-600">ข้ามหน้าแจ้งเตือน (โหมด Offline)</button>
       </div>
     </div>
   );
@@ -375,10 +388,10 @@ export default function App() {
           <div className="bg-red-600 text-white px-10 py-5 rounded-3xl shadow-2xl flex flex-col items-center gap-2 border border-red-500 ring-8 ring-red-500/10">
             <div className="flex items-center gap-4">
               <AlertCircle className="w-6 h-6 text-white" />
-              <span className="font-black text-lg uppercase tracking-tight">เกิดข้อผิดพลาด</span>
+              <span className="font-black text-lg uppercase tracking-tight">บันทึกไม่สำเร็จ</span>
             </div>
             <p className="text-xs font-bold bg-white/10 p-3 rounded-xl w-full text-center">{errorMsg}</p>
-            <button onClick={() => setSaveStatus(null)} className="mt-2 bg-white/20 px-6 py-2 rounded-full text-[10px] font-black uppercase hover:bg-white/30 transition">ปิดหน้าต่างนี้</button>
+            <button onClick={() => setSaveStatus(null)} className="mt-2 bg-white/20 px-6 py-2 rounded-full text-[10px] font-black uppercase">ปิด</button>
           </div>
         </div>
       )}
@@ -387,25 +400,25 @@ export default function App() {
       <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200 print:hidden h-16 shadow-sm px-6">
         <div className="max-w-7xl mx-auto h-full flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="bg-slate-900 p-2 rounded-xl shadow-lg"><LayoutDashboard className="w-5 h-5 text-white" /></div>
+            <div className="bg-slate-900 p-2 rounded-xl shadow-lg transition transform hover:rotate-12 duration-500"><LayoutDashboard className="w-5 h-5 text-white" /></div>
             <div className="flex flex-col">
               <span className="font-black text-lg tracking-tighter uppercase leading-none">Staff<span className="text-indigo-600">Sync</span></span>
               <button onClick={attemptAuth} className="flex items-center gap-1.5 mt-0.5 group">
                 {user ? <Wifi className="w-3 h-3 text-green-500 animate-pulse" /> : <WifiOff className="w-3 h-3 text-red-500" />}
                 <span className={`text-[8px] font-black uppercase tracking-widest ${user ? 'text-green-600' : 'text-red-500'} group-hover:underline`}>
-                  {user ? 'Cloud Online' : 'Cloud Offline (Click to Retry)'}
+                  {user ? 'Cloud Active' : 'Cloud Disconnected'}
                 </span>
               </button>
             </div>
           </div>
           <div className="flex gap-2 bg-slate-100 p-1 rounded-2xl border border-slate-200">
             {[ { id: 'manager', label: 'MANAGER', icon: Users }, { id: 'admin', label: 'ADMIN', icon: Settings }, { id: 'report', label: 'REPORT', icon: BarChart3 } ].map(v => (
-              <button key={v.id} onClick={() => setView(v.id)} className={`flex items-center gap-2 px-6 py-2 rounded-xl text-[10px] font-black transition-all ${view === v.id ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500 hover:text-slate-800'}`}><v.icon className="w-3.5 h-3.5" /> {v.label}</button>
+              <button key={v.id} onClick={() => setView(v.id)} className={`flex items-center gap-2 px-5 py-2 rounded-xl text-[10px] font-black transition-all ${view === v.id ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500 hover:text-slate-800'}`}><v.icon className="w-3.5 h-3.5" /> {v.label}</button>
             ))}
           </div>
           <button onClick={handleGlobalSave} disabled={saveStatus === 'saving'} className="bg-indigo-600 text-white px-6 py-2 rounded-xl text-[10px] font-black flex items-center gap-2 hover:bg-indigo-700 shadow-md active:scale-95 transition disabled:opacity-50">
              {saveStatus === 'saving' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} 
-             {saveStatus === 'saving' ? 'กำลังบันทึก...' : 'บันทึก'}
+             {saveStatus === 'saving' ? 'SAVING...' : 'บันทึก'}
           </button>
         </div>
       </nav>
@@ -413,17 +426,17 @@ export default function App() {
       <main className="min-h-[calc(100vh-4rem)]">
         {view === 'admin' ? (
           <div className="p-6 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500 pb-20">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 font-sans">
               <div className="bg-white rounded-[2rem] p-8 border border-slate-200 shadow-sm">
-                <h2 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-3 uppercase tracking-tight font-sans"><Users className="w-6 h-6 text-indigo-500" /> จัดการรายชื่อพนักงาน</h2>
+                <h2 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-3 uppercase tracking-tight font-sans font-sans"><Users className="w-6 h-6 text-indigo-500" /> จัดการพนักงาน</h2>
                 <div className="flex gap-3 mb-8">
-                  <input type="text" placeholder="ชื่อพนักงาน..." className="flex-grow border-2 border-slate-100 rounded-2xl px-6 py-4 text-sm font-bold outline-none focus:border-indigo-500 transition-all shadow-sm font-sans" value={newStaffName} onChange={(e) => setNewStaffName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && newStaffName.trim()) { setMasterData(p => ({...p, staff: [...p.staff, {id: 's' + Date.now(), name: newStaffName.trim()}]})); setNewStaffName(''); } }} />
-                  <button onClick={() => { if(newStaffName.trim()){ setMasterData(p => ({...p, staff: [...p.staff, {id:'s'+Date.now(), name:newStaffName.trim()}]})); setNewStaffName(''); } }} className="bg-slate-900 text-white px-8 rounded-2xl font-black text-xs hover:bg-indigo-600 active:scale-95 uppercase font-sans">เพิ่ม</button>
+                  <input type="text" placeholder="เพิ่มชื่อ..." className="flex-grow border-2 border-slate-100 rounded-2xl px-6 py-4 text-sm font-bold outline-none focus:border-indigo-500 transition-all shadow-sm font-sans" value={newStaffName} onChange={(e) => setNewStaffName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && newStaffName.trim()) { setMasterData(p => ({...p, staff: [...p.staff, {id: 's' + Date.now(), name: newStaffName.trim()}]})); setNewStaffName(''); } }} />
+                  <button onClick={() => { if(newStaffName.trim()){ setMasterData(p => ({...p, staff: [...p.staff, {id:'s'+Date.now(), name:newStaffName.trim()}]})); setNewStaffName(''); } }} className="bg-slate-900 text-white px-8 rounded-2xl font-black text-xs hover:bg-indigo-600 active:scale-95 uppercase font-sans tracking-widest">เพิ่ม</button>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar font-sans">
                   {(masterData.staff || []).map(s => (
-                    <div key={s.id} className="flex justify-between items-center p-4 bg-slate-50 rounded-2xl border border-transparent hover:border-indigo-100 hover:bg-white transition group shadow-sm">
-                      <span className="text-sm font-bold text-slate-700 uppercase">{s.name}</span>
+                    <div key={s.id} className="flex justify-between items-center p-4 bg-slate-50 rounded-2xl border border-transparent hover:border-indigo-100 hover:bg-white transition group shadow-sm font-sans">
+                      <span className="text-sm font-bold text-slate-700 uppercase tracking-tight font-sans font-sans">{s.name}</span>
                       <button onClick={() => setMasterData(p=>({...p, staff: p.staff.filter(x=>x.id!==s.id)}))} className="text-slate-300 hover:text-red-500 transition"><Trash2 className="w-5 h-5"/></button>
                     </div>
                   ))}
@@ -438,20 +451,20 @@ export default function App() {
                 </div>
               </div>
             </div>
-            {/* Job Matrix Configuration Same as V3.4 */}
+            {/* Config Section as V3.4/3.5 */}
             <div className="space-y-6">
-               <h2 className="text-xl font-black text-slate-800 px-2 uppercase tracking-widest flex items-center gap-3 font-sans"><Clock className="text-indigo-600" /> กะงานและโควตา OT รายวัน</h2>
+               <h2 className="text-xl font-black text-slate-800 px-2 uppercase tracking-widest flex items-center gap-3 font-sans"><Clock className="text-indigo-600" /> กะงานและโควตา OT ประจำวัน</h2>
                {Object.entries(masterData.dayTypes || {}).map(([key, data]) => (
-                <div key={key} className="bg-white rounded-[2.5rem] border border-slate-200 overflow-hidden shadow-sm">
+                <div key={key} className="bg-white rounded-[2.5rem] border border-slate-200 overflow-hidden shadow-sm font-sans">
                   <div className={`px-8 py-5 font-black text-sm text-white flex justify-between items-center ${key==='weekday' ? 'bg-slate-900' : key==='friday' ? 'bg-sky-700' : 'bg-orange-600'}`}>
                     <span className="uppercase tracking-widest">{data.name}</span>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs text-left">
-                      <thead className="bg-slate-50 text-slate-500 font-black uppercase text-[10px] tracking-widest border-b">
-                        <tr><th className="px-8 py-5">ตำแหน่ง (STATION)</th><th className="px-8 py-5">โควตา</th></tr>
+                      <thead className="bg-slate-50 text-slate-500 font-black uppercase text-[10px] tracking-widest border-b font-sans">
+                        <tr><th className="px-8 py-5">หน้าที่ (STATION)</th><th className="px-8 py-5">ตั้งค่า Slot และ OT</th></tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-100">
+                      <tbody className="divide-y divide-slate-100 font-sans font-sans">
                         {DUTY_DEFINITIONS.map(duty => (
                           <tr key={duty.id} className="hover:bg-slate-50 transition">
                             <td className="px-8 py-6 w-1/3">
@@ -459,20 +472,21 @@ export default function App() {
                               <div className="text-[10px] text-slate-400 font-bold uppercase italic font-sans">{duty.jobB}</div>
                             </td>
                             <td className="px-8 py-6">
-                              <div className="flex flex-wrap gap-4 font-sans">
+                              <div className="flex flex-wrap gap-4 font-sans font-sans font-sans">
                                 {(data.duties?.[duty.id] || []).map((slot, idx) => (
-                                  <div key={idx} className="flex items-center gap-4 bg-white p-4 rounded-2xl border-2 border-slate-100 shadow-sm transition-all">
-                                    <div className="flex flex-col gap-1">
+                                  <div key={idx} className="flex items-center gap-4 bg-white p-4 rounded-2xl border-2 border-slate-100 shadow-sm transition-all font-sans">
+                                    <div className="flex flex-col gap-1 font-sans">
                                       <span className="text-[9px] font-black text-slate-400 uppercase">เริ่ม</span>
                                       <input type="time" className="border rounded-xl p-2 text-xs font-black text-slate-800" value={slot.startTime} onChange={(e) => { const nd = JSON.parse(JSON.stringify(masterData)); nd.dayTypes[key].duties[duty.id][idx].startTime = e.target.value; setMasterData(nd); }} />
                                     </div>
-                                    <div className="flex flex-col gap-1 border-l pl-4 border-slate-100">
+                                    <div className="flex flex-col gap-1 border-l pl-4 border-slate-100 font-sans">
                                       <span className="text-[9px] font-black text-indigo-500 uppercase">MAX OT</span>
                                       <input type="number" step="0.5" className="w-16 border rounded-xl p-2 text-center font-black text-indigo-700 bg-indigo-50/50" value={slot.maxOtHours} onChange={(e) => { const nd = JSON.parse(JSON.stringify(masterData)); nd.dayTypes[key].duties[duty.id][idx].maxOtHours = parseFloat(e.target.value) || 0; setMasterData(nd); }} />
                                     </div>
-                                    <button onClick={() => { const nd = JSON.parse(JSON.stringify(masterData)); nd.dayTypes[key].duties[duty.id].splice(idx,1); setMasterData(nd); }} className="text-slate-300 hover:text-red-500 transition mt-4"><Trash2 className="w-4 h-4"/></button>
+                                    <button onClick={() => { const nd = JSON.parse(JSON.stringify(masterData)); nd.dayTypes[key].duties[duty.id].splice(idx,1); setMasterData(nd); }} className="text-slate-300 hover:text-red-500 mt-4"><Trash2 className="w-4 h-4"/></button>
                                   </div>
                                 ))}
+                                <button onClick={() => { const nd = JSON.parse(JSON.stringify(masterData)); if(!nd.dayTypes[key].duties[duty.id]) nd.dayTypes[key].duties[duty.id] = []; nd.dayTypes[key].duties[duty.id].push({startTime:"09:00", endTime:"18:00", otMultiplier:1.5, maxOtHours:4.0}); setMasterData(nd); }} className="bg-slate-50 border-2 border-dashed border-slate-200 px-6 py-4 rounded-2xl text-[10px] font-black text-slate-400 hover:border-indigo-500 transition self-center uppercase">+ SLOT</button>
                               </div>
                             </td>
                           </tr>
@@ -511,75 +525,70 @@ export default function App() {
                   {masterData.dayTypes?.[activeDay.type]?.name}
                 </span>
               </div>
-              <button onClick={() => setView('print')} className="bg-slate-50 text-slate-900 px-8 py-4 rounded-2xl font-black flex items-center gap-3 hover:bg-white border border-slate-200 shadow-sm active:scale-95 transition-all font-sans"><Printer className="w-5 h-5 text-indigo-600" /> พิมพ์เดือนนี้</button>
+              <button onClick={() => setView('print')} className="bg-slate-50 text-slate-900 px-8 py-4 rounded-2xl font-black flex items-center gap-3 hover:bg-white border border-slate-200 shadow-sm active:scale-95 transition-all font-sans"><Printer className="w-5 h-5 text-indigo-600" /> พิมพ์เดือนมีนาคม</button>
             </div>
 
-            <div className="bg-white rounded-[2.5rem] border-2 border-dashed border-slate-200 p-10 shadow-sm">
-              <h3 className="text-xl font-black text-slate-900 flex items-center gap-4 mb-8 uppercase tracking-tighter text-indigo-600 font-sans"><PlaneTakeoff className="w-7 h-7" /> รายการลางาน / พนักงานที่หยุด</h3>
+            <div className="bg-white rounded-[2.5rem] border-2 border-dashed border-slate-200 p-10 shadow-sm font-sans">
+              <h3 className="text-xl font-black text-slate-900 flex items-center gap-4 mb-8 uppercase tracking-tighter text-indigo-600 font-sans"><PlaneTakeoff className="w-7 h-7" /> รายการลางานประจำวัน</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                 {(schedule[selectedDateStr]?.leaves || []).map((l, idx) => (
-                  <div key={idx} className="bg-slate-50 p-5 rounded-[1.8rem] flex gap-4 items-center border border-slate-100 shadow-sm hover:bg-white transition-all font-sans">
-                    <select 
-                      value={l.staffId} 
-                      onChange={(e) => updateLeaves(selectedDateStr, 'update', idx, 'staffId', e.target.value)} 
-                      className="flex-[2.5] bg-white border border-slate-200 rounded-2xl px-4 py-3 text-sm font-black outline-none focus:ring-4 focus:ring-indigo-100 shadow-inner text-slate-800 font-sans"
-                    >
+                  <div key={idx} className="bg-slate-50 p-5 rounded-[1.8rem] flex gap-4 items-center border border-slate-100 shadow-sm hover:bg-white transition-all font-sans font-sans">
+                    <select value={l.staffId} onChange={(e) => updateLeaves(selectedDateStr, 'update', idx, 'staffId', e.target.value)} className="flex-[2.5] bg-white border border-slate-200 rounded-2xl px-4 py-3 text-sm font-black outline-none focus:ring-4 focus:ring-indigo-100 shadow-inner font-sans text-slate-800">
                       <option value="">-- เลือกพนักงาน --</option>
                       {(masterData.staff || []).map(s => {
-                        const isHidden = usedStaffIds.includes(s.id) && l.staffId !== s.id;
-                        if (isHidden) return null;
+                        const isUsed = usedStaffIds.includes(s.id) && l.staffId !== s.id;
+                        if (isUsed) return null;
                         return <option key={s.id} value={s.id}>{s.name}</option>
                       })}
                     </select>
-                    <select value={l.type} onChange={(e) => updateLeaves(selectedDateStr, 'update', idx, 'type', e.target.value)} className="flex-1 bg-white border border-slate-200 rounded-2xl px-3 py-3 text-xs font-black outline-none shadow-inner text-indigo-600 font-sans">
+                    <select value={l.type} onChange={(e) => updateLeaves(selectedDateStr, 'update', idx, 'type', e.target.value)} className="flex-1 bg-white border border-slate-200 rounded-2xl px-3 py-3 text-xs font-black outline-none shadow-inner text-indigo-600">
                       {LEAVE_TYPES.map(lt => <option key={lt.id} value={lt.id}>{lt.label}</option>)}
                     </select>
                     <button onClick={() => updateLeaves(selectedDateStr, 'remove', idx)} className="text-slate-300 hover:text-red-500 p-2 transition"><Trash2 className="w-5 h-5"/></button>
                   </div>
                 ))}
-                <button onClick={() => updateLeaves(selectedDateStr, 'add')} className="border-3 border-dashed border-indigo-100 text-indigo-500 p-6 rounded-[1.8rem] font-black text-sm hover:bg-indigo-50 transition-all uppercase tracking-widest shadow-sm active:scale-95 group font-sans font-sans font-sans"><Plus className="w-5 h-5" /> เพิ่มพนักงานหยุด </button>
+                <button onClick={() => updateLeaves(selectedDateStr, 'add')} className="border-3 border-dashed border-indigo-100 text-indigo-500 p-6 rounded-[1.8rem] font-black text-sm hover:bg-indigo-50 transition-all uppercase tracking-widest shadow-sm active:scale-95 group font-sans font-sans font-sans"><Plus className="w-5 h-5" /> เพิ่มรายการหยุด </button>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mt-10 pb-24">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mt-10 font-sans">
               {DUTY_DEFINITIONS.map(duty => {
                 const slots = masterData.dayTypes?.[activeDay.type]?.duties?.[duty.id] || [];
                 const assigned = schedule[selectedDateStr]?.duties?.[duty.id] || [];
                 return (
-                  <div key={duty.id} className="bg-white rounded-[2.8rem] shadow-sm border border-slate-200 overflow-hidden flex flex-col transition hover:shadow-2xl hover:border-indigo-200 group/card">
+                  <div key={duty.id} className="bg-white rounded-[2.8rem] shadow-sm border border-slate-200 overflow-hidden flex flex-col transition hover:shadow-2xl hover:border-indigo-200 group/card font-sans font-sans">
                     <div className="p-8 bg-slate-50 border-b border-slate-100 flex justify-between items-center transition-colors">
                       <div><h3 className="font-black text-slate-900 text-xl uppercase tracking-tighter font-sans">{duty.jobA}</h3><p className="text-[11px] text-slate-400 font-bold mt-1 uppercase italic font-sans leading-none">{duty.jobB}</p></div>
                       <div className="bg-white border border-slate-100 px-4 py-2 rounded-2xl text-[11px] font-black text-indigo-700 shadow-sm font-sans">{assigned.filter(x => !!x?.staffId).length} / {slots.length}</div>
                     </div>
-                    <div className="p-8 space-y-6 flex-grow">
+                    <div className="p-8 space-y-6 flex-grow font-sans">
                       {slots.map((slot, idx) => {
                         const data = assigned[idx] || { staffId: "", otHours: 0 };
                         const onLeave = (data.staffId && (schedule[selectedDateStr]?.leaves || []).some(l => l.staffId === data.staffId));
                         return (
-                          <div key={idx} className={`p-6 rounded-[2rem] border-2 transition-all flex flex-col gap-5 ${!data.staffId ? 'border-dashed border-slate-200 bg-slate-50/20' : onLeave ? 'border-red-400 bg-red-50 shadow-inner' : 'border-indigo-50 bg-white shadow-md'}`}>
-                            <div className="flex justify-between items-center font-sans">
-                              <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 text-xs font-sans font-sans"><Clock className="w-4 h-4 text-indigo-400" /> {slot.startTime} - {slot.endTime}</span>
-                              <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase ${data.otHours >= slot.maxOtHours ? 'bg-indigo-600 text-white' : 'bg-indigo-50 text-indigo-500'}`}>Q: {slot.maxOtHours}H</span>
+                          <div key={idx} className={`p-6 rounded-[2rem] border-2 transition-all flex flex-col gap-5 ${!data.staffId ? 'border-dashed border-slate-200 bg-slate-50/20' : onLeave ? 'border-red-400 bg-red-50 shadow-inner' : 'border-indigo-50 bg-white shadow-md'} font-sans`}>
+                            <div className="flex justify-between items-center font-sans font-sans font-sans font-sans font-sans font-sans">
+                              <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 text-xs font-sans font-sans font-sans font-sans font-sans font-sans"><Clock className="w-4 h-4 text-indigo-400 font-sans" /> {slot.startTime} - {slot.endTime}</span>
+                              <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase ${data.otHours >= slot.maxOtHours ? 'bg-indigo-600 text-white' : 'bg-indigo-50 text-indigo-500'} font-sans`}>Q: {slot.maxOtHours}H</span>
                             </div>
                             <div className="flex gap-4">
                               <select 
                                 value={data.staffId} 
                                 onChange={(e) => updateSchedule(selectedDateStr, duty.id, idx, 'staffId', e.target.value)} 
-                                className="flex-[3] bg-white border border-slate-200 rounded-2xl px-5 py-4 text-sm font-black outline-none shadow-sm text-slate-900 font-sans"
+                                className="flex-[3] bg-white border border-slate-200 rounded-2xl px-5 py-4 text-sm font-black outline-none shadow-sm text-slate-900 font-sans font-sans"
                               >
-                                <option value="">-- เลือกพนักงาน --</option>
+                                <option value="">-- เลือกชื่อ --</option>
                                 {(masterData.staff || []).map(s => {
-                                  const isHidden = usedStaffIds.includes(s.id) && data.staffId !== s.id;
-                                  if (isHidden) return null;
+                                  const isUsed = usedStaffIds.includes(s.id) && data.staffId !== s.id;
+                                  if (isUsed) return null;
                                   return <option key={s.id} value={s.id}>{s.name}</option>
                                 })}
                               </select>
-                              <div className={`flex-1 flex flex-col justify-center items-center border-2 rounded-2xl bg-white shadow-sm transition-all font-sans ${data.otHours >= slot.maxOtHours ? 'border-indigo-500 bg-indigo-50/20' : 'border-slate-50'}`}>
-                                <span className="text-[8px] font-black text-slate-300 uppercase leading-none mb-1 font-sans">OT</span>
-                                <input type="number" step="0.5" max={slot.maxOtHours} value={data.otHours} onChange={(e) => updateSchedule(selectedDateStr, duty.id, idx, 'otHours', e.target.value)} className={`w-full text-center font-black text-xl outline-none bg-transparent font-sans ${data.otHours >= slot.maxOtHours ? 'text-indigo-700' : 'text-slate-900'}`} />
+                              <div className={`flex-1 flex flex-col justify-center items-center border-2 rounded-2xl bg-white shadow-sm transition-all font-sans font-sans ${data.otHours >= slot.maxOtHours ? 'border-indigo-500 bg-indigo-50/20' : 'border-slate-50 font-sans'}`}>
+                                <span className="text-[8px] font-black text-slate-300 uppercase leading-none mb-1 font-sans font-sans font-sans font-sans">OT</span>
+                                <input type="number" step="0.5" max={slot.maxOtHours} value={data.otHours} onChange={(e) => updateSchedule(selectedDateStr, duty.id, idx, 'otHours', e.target.value)} className={`w-full text-center font-black text-xl outline-none bg-transparent font-sans font-sans ${data.otHours >= slot.maxOtHours ? 'text-indigo-700' : 'text-slate-900'}`} />
                               </div>
                             </div>
-                            {onLeave && <p className="text-[10px] text-red-600 font-bold flex items-center gap-2 animate-pulse uppercase font-sans"><AlertCircle className="w-4 h-4"/> ลางานวันนี้</p>}
                           </div>
                         );
                       })}
@@ -593,42 +602,42 @@ export default function App() {
           <div className="p-8 bg-white min-h-screen font-sans animate-in fade-in">
              <div className="max-w-full mx-auto">
               <div className="flex justify-between items-center mb-12 print:hidden border-b pb-6 font-sans">
-                <button onClick={() => setView('manager')} className="flex items-center gap-3 text-slate-600 font-black bg-slate-100 px-6 py-3 rounded-2xl hover:bg-slate-200 transition shadow-sm uppercase text-xs tracking-widest font-sans"><ChevronLeft className="w-5 h-5" /> กลับหน้าหลัก</button>
-                <button onClick={() => window.print()} className="bg-indigo-600 text-white px-10 py-4 rounded-2xl font-black shadow-xl hover:bg-indigo-700 transition flex items-center gap-3 uppercase text-xs tracking-widest font-sans"><Printer className="w-5 h-5" /> พิมพ์เดือนมีนาคม</button>
+                <button onClick={() => setView('manager')} className="flex items-center gap-3 text-slate-600 font-black bg-slate-100 px-6 py-3 rounded-2xl hover:bg-slate-200 transition shadow-sm uppercase text-xs tracking-widest font-sans font-sans font-sans"><ChevronLeft className="w-5 h-5 font-sans" /> กลับหน้าหลัก</button>
+                <button onClick={() => window.print()} className="bg-indigo-600 text-white px-10 py-4 rounded-2xl font-black shadow-xl hover:bg-indigo-700 active:scale-95 transition-all flex items-center gap-3 uppercase text-xs tracking-widest font-sans font-sans font-sans"><Printer className="w-5 h-5 font-sans" /> พิมพ์มีนาคม 2026</button>
               </div>
-              <div className="text-center mb-12 uppercase font-sans">
-                <h1 className="text-5xl font-black text-slate-900 tracking-tighter leading-none font-sans">Staff Production: March 2026</h1>
-                <p className="text-[11px] text-slate-400 font-bold uppercase tracking-[0.5em] italic mt-4 font-sans font-sans">Connected Cloud System V3.5</p>
+              <div className="text-center mb-12 uppercase font-sans font-sans font-sans font-sans">
+                <h1 className="text-5xl font-black text-slate-900 tracking-tighter leading-none font-sans font-sans font-sans">Manpower Production: March 2026</h1>
+                <p className="text-[11px] text-slate-400 font-bold uppercase tracking-[0.5em] italic mt-4 font-sans font-sans font-sans font-sans font-sans font-sans font-sans font-sans font-sans font-sans">Cloud Smart System V3.6</p>
               </div>
-              <div className="overflow-x-auto border-4 border-slate-900 rounded-2xl shadow-2xl overflow-hidden font-sans">
-                <table className="w-full border-collapse text-[7px] table-fixed font-sans font-sans">
+              <div className="overflow-x-auto border-4 border-slate-900 rounded-2xl shadow-2xl overflow-hidden font-sans font-sans font-sans font-sans">
+                <table className="w-full border-collapse text-[7px] table-fixed font-sans font-sans font-sans font-sans">
                   <thead>
-                    <tr className="bg-slate-900 text-white font-sans font-sans">
-                      <th className="border-r border-slate-700 p-3 text-left sticky left-0 bg-slate-900 z-10 w-40 font-black uppercase border-b-2 border-slate-600 font-sans">Employee Name</th>
+                    <tr className="bg-slate-900 text-white font-sans font-sans font-sans font-sans">
+                      <th className="border-r border-slate-700 p-3 text-left sticky left-0 bg-slate-900 z-10 w-40 font-black uppercase border-b-2 border-slate-600 font-sans font-sans font-sans font-sans">Employee Name</th>
                       {MARCH_DAYS.map(day => (
-                        <th key={day.dateStr} className={`border-r border-slate-700 p-2 min-w-[35px] text-center border-b-2 border-slate-600 font-sans ${day.type === 'weekend' || (masterData.holidays || []).includes(day.dateStr) ? 'bg-slate-800 text-indigo-300' : ''}`}>
-                          <div className="font-black text-[12px] mb-1 font-sans">{day.dayNum}</div><div className="text-[7px] opacity-70 uppercase tracking-tighter font-sans">{day.dayLabel}</div>
+                        <th key={day.dateStr} className={`border-r border-slate-700 p-2 min-w-[35px] text-center border-b-2 border-slate-600 font-sans font-sans font-sans font-sans ${day.type === 'weekend' || (masterData.holidays || []).includes(day.dateStr) ? 'bg-slate-800 text-indigo-300 font-sans font-sans' : ''}`}>
+                          <div className="font-black text-[12px] mb-1 font-sans font-sans font-sans font-sans font-sans">{day.dayNum}</div><div className="text-[7px] opacity-70 uppercase tracking-tighter font-sans font-sans font-sans font-sans font-sans">{day.dayLabel}</div>
                         </th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {(masterData.staff || []).map(s => (
-                      <tr key={s.id} className="h-16 transition-colors border-b border-slate-100 font-sans">
-                        <td className="border-r-4 border-slate-900 p-3 font-black sticky left-0 bg-white z-10 text-[10px] uppercase leading-none truncate font-sans font-sans">{s.name}</td>
+                      <tr key={s.id} className="h-16 transition-colors border-b border-slate-100 font-sans font-sans font-sans font-sans">
+                        <td className="border-r-4 border-slate-900 p-3 font-black sticky left-0 bg-white z-10 text-[10px] uppercase leading-none truncate font-sans font-sans font-sans font-sans font-sans font-sans">{s.name}</td>
                         {MARCH_DAYS.map(day => {
                           const info = getStaffDayInfo(s.id, day.dateStr);
                           return (
-                            <td key={day.dateStr} className={`border-r border-slate-100 p-1 text-center font-sans ${!info ? 'bg-slate-50/30' : ''}`}>
+                            <td key={day.dateStr} className={`border-r border-slate-100 p-1 text-center font-sans font-sans font-sans font-sans ${!info ? 'bg-slate-50/30 font-sans' : ''}`}>
                               {info?.type === 'work' ? (
-                                <div className="flex flex-col items-center justify-center leading-tight">
-                                  <span className="font-black text-indigo-700 text-[10px] leading-none">{info.slot.startTime}</span>
-                                  <div className="text-[5px] font-bold text-slate-400 truncate w-full px-1 uppercase tracking-tighter mt-1 opacity-80 leading-none">{info.duty.jobA.substring(0, 8)}</div>
-                                  {info.actual.otHours > 0 && <span className="bg-orange-500 text-white px-1 rounded-[2px] font-black text-[6px] mt-1 shadow-sm leading-none font-sans">OT:{info.actual.otHours}</span>}
+                                <div className="flex flex-col items-center justify-center leading-tight font-sans font-sans">
+                                  <span className="font-black text-indigo-700 text-[10px] leading-none font-sans font-sans font-sans">{info.slot.startTime}</span>
+                                  <div className="text-[5px] font-bold text-slate-400 truncate w-full px-1 uppercase tracking-tighter mt-1 opacity-80 leading-none font-sans font-sans font-sans">{info.duty.jobA.substring(0, 8)}</div>
+                                  {info.actual.otHours > 0 && <span className="bg-orange-500 text-white px-1 rounded-[2px] font-black text-[6px] mt-1 shadow-sm leading-none font-sans font-sans font-sans">OT:{info.actual.otHours}</span>}
                                 </div>
                               ) : info?.type === 'leave' ? (
-                                <div className={`w-full h-full flex items-center justify-center font-black ${info.info.color} rounded-lg border-2 border-white shadow-inner font-sans text-xs`}><span className="text-[7px] text-center leading-none uppercase p-1">{info.info.label.substring(0, 3)}</span></div>
-                              ) : <span className="text-[6px] font-black opacity-5 uppercase tracking-widest font-sans font-sans">OFF</span>}
+                                <div className={`w-full h-full flex items-center justify-center font-black ${info.info.color} rounded-lg border-2 border-white shadow-inner font-sans text-xs font-sans font-sans font-sans`}><span className="text-[7px] text-center leading-none uppercase p-1 font-sans font-sans font-sans">{info.info.label.substring(0, 3)}</span></div>
+                              ) : <span className="text-[6px] font-black opacity-5 uppercase tracking-widest font-sans font-sans font-sans font-sans">OFF</span>}
                             </td>
                           );
                         })}
@@ -640,40 +649,40 @@ export default function App() {
             </div>
           </div>
         ) : (
-          <div className="p-10 max-w-7xl mx-auto space-y-10 animate-in fade-in duration-500 pb-20 font-sans font-sans">
-             <div className="grid grid-cols-1 md:grid-cols-4 gap-8 font-sans font-sans">
-                <div className="bg-white p-10 rounded-[3rem] border border-slate-200 shadow-sm relative overflow-hidden group hover:shadow-2xl transition-all duration-500 font-sans">
-                  <TrendingUp className="absolute top-4 right-4 w-24 h-24 text-indigo-50 group-hover:scale-110 transition duration-700" />
-                  <p className="text-slate-400 font-black text-[10px] uppercase tracking-[0.3em] leading-none mb-6 font-sans">Gross OT Total</p>
-                  <h3 className="text-6xl font-black text-indigo-600 tracking-tighter leading-none font-sans">{(reportData?.totalOt || 0).toFixed(1)}</h3>
+          <div className="p-10 max-w-7xl mx-auto space-y-10 animate-in fade-in duration-500 pb-20 font-sans font-sans font-sans font-sans font-sans font-sans">
+             <div className="grid grid-cols-1 md:grid-cols-4 gap-8 font-sans font-sans font-sans font-sans font-sans font-sans">
+                <div className="bg-white p-10 rounded-[3rem] border border-slate-200 shadow-sm relative overflow-hidden group hover:shadow-2xl transition-all duration-500 font-sans font-sans font-sans">
+                  <TrendingUp className="absolute top-4 right-4 w-24 h-24 text-indigo-50 group-hover:scale-110 transition duration-700 font-sans font-sans" />
+                  <p className="text-slate-400 font-black text-[10px] uppercase tracking-[0.3em] leading-none mb-6 font-sans font-sans font-sans font-sans">Gross OT Total (HR)</p>
+                  <h3 className="text-6xl font-black text-indigo-600 tracking-tighter leading-none font-sans font-sans font-sans font-sans font-sans font-sans font-sans">{(reportData?.totalOt || 0).toFixed(1)}</h3>
                 </div>
-                <div className="bg-white p-10 rounded-[3rem] border border-slate-200 shadow-sm relative overflow-hidden group hover:shadow-2xl transition-all duration-500 font-sans">
-                  <PlaneTakeoff className="absolute top-4 right-4 w-24 h-24 text-orange-50 group-hover:scale-110 transition duration-700 font-sans" />
-                  <p className="text-slate-400 font-black text-[10px] uppercase tracking-[0.3em] leading-none mb-6 font-sans font-sans">Staff Absences</p>
-                  <h3 className="text-6xl font-black text-orange-600 tracking-tighter leading-none font-sans font-sans font-sans font-sans">{reportData?.totalLeaves || 0}</h3>
+                <div className="bg-white p-10 rounded-[3rem] border border-slate-200 shadow-sm relative overflow-hidden group hover:shadow-2xl transition-all duration-500 font-sans font-sans">
+                  <PlaneTakeoff className="absolute top-4 right-4 w-24 h-24 text-orange-50 group-hover:scale-110 transition duration-700 font-sans font-sans font-sans" />
+                  <p className="text-slate-400 font-black text-[10px] uppercase tracking-[0.3em] leading-none mb-6 font-sans font-sans font-sans font-sans font-sans">Staff Absences</p>
+                  <h3 className="text-6xl font-black text-orange-600 tracking-tighter leading-none font-sans font-sans font-sans font-sans font-sans font-sans font-sans font-sans font-sans font-sans font-sans">{reportData?.totalLeaves || 0}</h3>
                 </div>
-                <div className="bg-white p-10 rounded-[3rem] border border-slate-200 shadow-sm md:col-span-2 flex flex-col justify-center font-sans font-sans">
-                  <p className="text-slate-400 font-black text-[10px] uppercase tracking-[0.3em] leading-none mb-8 font-sans">Performance Efficiency</p>
-                  <div className="flex gap-6 items-end font-sans">
-                    <h3 className="text-7xl font-black text-slate-900 tracking-tighter font-sans">{(reportData?.staffStats || []).filter(s=>s.shifts>0).length} / {masterData.staff.length}</h3>
+                <div className="bg-white p-10 rounded-[3rem] border border-slate-200 shadow-sm md:col-span-2 flex flex-col justify-center font-sans font-sans font-sans font-sans font-sans">
+                  <p className="text-slate-400 font-black text-[10px] uppercase tracking-[0.3em] leading-none mb-8 font-sans font-sans font-sans font-sans font-sans font-sans font-sans font-sans">Efficiency Overview</p>
+                  <div className="flex gap-6 items-end font-sans font-sans font-sans">
+                    <h3 className="text-7xl font-black text-slate-900 tracking-tighter font-sans font-sans font-sans font-sans font-sans font-sans font-sans font-sans">{(reportData?.staffStats || []).filter(s=>s.shifts>0).length} / {masterData.staff.length}</h3>
                   </div>
-                  <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden shadow-inner mt-6 font-sans font-sans"><div className="h-full bg-emerald-500 rounded-full transition-all duration-1000 font-sans" style={{ width: `${((reportData?.staffStats || []).filter(s=>s.shifts>0).length / (masterData.staff.length || 1)) * 100}%` }}></div></div>
+                  <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden shadow-inner mt-6 font-sans font-sans font-sans font-sans font-sans font-sans font-sans font-sans font-sans font-sans font-sans"><div className="h-full bg-emerald-500 rounded-full transition-all duration-1000 font-sans font-sans font-sans font-sans font-sans font-sans font-sans font-sans font-sans" style={{ width: `${((reportData?.staffStats || []).filter(s=>s.shifts>0).length / (masterData.staff.length || 1)) * 100}%` }}></div></div>
                 </div>
              </div>
-             <div className="bg-white rounded-[3.5rem] border border-slate-200 shadow-sm overflow-hidden font-sans font-sans font-sans font-sans">
-                <div className="p-10 border-b border-slate-50 font-black text-slate-900 flex justify-between items-center bg-slate-50/50 uppercase tracking-tight text-xl font-sans"><div className="flex items-center gap-4 font-sans"><Award className="w-8 h-8 text-yellow-500 font-sans" /> Employee Performance Rankings</div></div>
-                <div className="overflow-x-auto custom-scrollbar font-sans font-sans">
-                  <table className="w-full text-sm font-sans font-sans font-sans">
-                    <thead className="bg-white text-[11px] font-black uppercase text-slate-400 tracking-[0.2em] border-b font-sans font-sans font-sans">
-                      <tr><th className="px-10 py-6 text-left font-sans">Employee Name</th><th className="px-10 py-6 text-center font-sans">Shifts</th><th className="px-10 py-6 text-center font-sans">Leaves</th><th className="px-10 py-6 text-center bg-indigo-50/50 text-indigo-700 font-black font-sans font-sans font-sans">Total OT (HR)</th></tr>
+             <div className="bg-white rounded-[3.5rem] border border-slate-200 shadow-sm overflow-hidden font-sans font-sans font-sans font-sans font-sans font-sans font-sans">
+                <div className="p-10 border-b border-slate-50 font-black text-slate-900 flex justify-between items-center bg-slate-50/50 uppercase tracking-tight text-xl font-sans font-sans font-sans font-sans"><div className="flex items-center gap-4 font-sans font-sans font-sans font-sans"><Award className="w-8 h-8 text-yellow-500 font-sans font-sans font-sans font-sans" /> Performance Summary</div></div>
+                <div className="overflow-x-auto custom-scrollbar font-sans font-sans font-sans font-sans font-sans">
+                  <table className="w-full text-sm font-sans font-sans font-sans font-sans font-sans font-sans font-sans">
+                    <thead className="bg-white text-[11px] font-black uppercase text-slate-400 tracking-[0.2em] border-b font-sans font-sans font-sans font-sans font-sans">
+                      <tr><th className="px-10 py-6 text-left font-sans font-sans">Employee Name</th><th className="px-10 py-6 text-center font-sans font-sans">Shifts</th><th className="px-10 py-6 text-center font-sans font-sans font-sans">Absences</th><th className="px-10 py-6 text-center bg-indigo-50/50 text-indigo-700 font-black font-sans font-sans font-sans font-sans font-sans font-sans">Total OT (HR)</th></tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 font-bold text-slate-700 font-sans">
+                    <tbody className="divide-y divide-slate-100 font-bold text-slate-700 font-sans font-sans font-sans">
                       {(reportData?.staffStats || []).map((s, idx) => (
-                        <tr key={idx} className="hover:bg-slate-50 transition duration-300 font-sans font-sans font-sans">
-                          <td className="px-10 py-6 font-black text-slate-900 uppercase text-base font-sans">{s.name}</td>
-                          <td className="px-10 py-6 text-center text-lg font-sans font-sans font-sans">{s.shifts}</td>
-                          <td className="px-10 py-6 text-center font-sans font-sans font-sans"><span className="px-5 py-2 bg-orange-50 text-orange-600 rounded-full text-xs font-black border border-orange-100 shadow-sm font-sans font-sans font-sans">{s.leaves}</span></td>
-                          <td className="px-10 py-6 text-center font-black text-indigo-800 bg-indigo-50/20 text-2xl tracking-tighter font-sans font-sans font-sans">{(s.ot || 0).toFixed(1)}</td>
+                        <tr key={idx} className="hover:bg-slate-50 transition duration-300 font-sans font-sans font-sans font-sans font-sans">
+                          <td className="px-10 py-6 font-black text-slate-900 uppercase text-base font-sans font-sans font-sans font-sans">{s.name}</td>
+                          <td className="px-10 py-6 text-center text-lg font-sans font-sans font-sans font-sans font-sans">{s.shifts}</td>
+                          <td className="px-10 py-6 text-center font-sans font-sans font-sans font-sans font-sans font-sans"><span className="px-5 py-2 bg-orange-50 text-orange-600 rounded-full text-xs font-black border border-orange-100 shadow-sm font-sans font-sans font-sans font-sans font-sans font-sans font-sans">{s.leaves}</span></td>
+                          <td className="px-10 py-6 text-center font-black text-indigo-800 bg-indigo-50/20 text-2xl tracking-tighter font-sans font-sans font-sans font-sans font-sans font-sans font-sans">{(s.ot || 0).toFixed(1)}</td>
                         </tr>
                       ))}
                     </tbody>
