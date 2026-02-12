@@ -3,10 +3,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from 'firebase/auth';
 import { getFirestore, doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { 
-  Settings, 
   Users, 
-  Calendar, 
-  CheckCircle, 
   AlertCircle, 
   Clock, 
   Save, 
@@ -22,7 +19,6 @@ import {
   Award,
   PlaneTakeoff,
   Loader2,
-  RefreshCw,
   Store,
   ArrowLeftRight,
   Sparkles,
@@ -40,12 +36,11 @@ import {
 } from 'lucide-react';
 
 /**
- * RESTAURANT MANPOWER MANAGEMENT SYSTEM (MP26 MODEL) - V8.9 (RESPONSIVE UI/UX)
+ * RESTAURANT MANPOWER MANAGEMENT SYSTEM (MP26 MODEL) - V9.0 (UI/UX OVERHAUL)
  * อัปเดต:
- * 1. Redesign หน้า Login แบบ Split-Screen สำหรับ Desktop และ Card สำหรับ Mobile
- * 2. ปรับ Responsive Navbar และขนาด Font/Padding ให้รองรับ Mobile 100%
- * 3. เพิ่มแนวนอน Scroll (overflow-x-auto) ให้ตารางต่างๆ ป้องกันการบีบอัดบนจอมือถือ
- * 4. คงระบบแยกแผนก (บริการ/ครัว), รายงาน OT, และ AI Suggestion ไว้สมบูรณ์
+ * 1. แก้ปัญหาหน้า Login ตกขอบ โดยเปลี่ยนเป็น Centered Card UI (สวยและแสดงผลตรงกลางเสมอ)
+ * 2. แก้ปัญหาปุ่มลูกศรขวา (ChevronRight) หายไปในหน้าจัดกะงาน ด้วยการแก้ Flexbox Overflow (flex-1 min-w-0)
+ * 3. ปรับขนาด Font และ Padding ให้เหมาะสมกับการใช้งานบน Desktop และ Mobile มากยิ่งขึ้น
  */
 
 // --- 1. Configurations ---
@@ -387,57 +382,34 @@ export default function App() {
   );
 
   if (authRole === 'guest') return (
-    <div className="min-h-screen w-full flex bg-white font-sans">
-      {/* Left Side - Branding (Hidden on mobile) */}
-      <div className="hidden lg:flex w-1/2 bg-slate-900 p-12 flex-col justify-between relative overflow-hidden">
-        <div className="absolute top-0 right-0 -mt-20 -mr-20 w-80 h-80 bg-indigo-500 rounded-full blur-3xl opacity-20"></div>
-        <div className="absolute bottom-0 left-0 -mb-20 -ml-20 w-80 h-80 bg-emerald-500 rounded-full blur-3xl opacity-20"></div>
+    <div className="min-h-screen w-full flex items-center justify-center bg-slate-900 p-6 font-sans relative overflow-hidden">
+      {/* Background Orbs */}
+      <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-indigo-600 rounded-full blur-[120px] opacity-40"></div>
+      <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-emerald-600 rounded-full blur-[120px] opacity-30"></div>
+      
+      <form onSubmit={handleLogin} className="w-full max-w-md bg-white p-8 sm:p-12 rounded-[2rem] sm:rounded-[3rem] shadow-2xl relative z-10 flex flex-col items-center gap-6 sm:gap-8 animate-in fade-in zoom-in-95 duration-500">
+        <div className="bg-indigo-600 p-4 sm:p-5 rounded-full shadow-xl shadow-indigo-200"><Store className="w-10 h-10 text-white" /></div>
         
-        <div className="relative z-10">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="bg-white p-3 rounded-2xl"><Store className="w-8 h-8 text-slate-900" /></div>
-            <span className="text-3xl font-black text-white tracking-tighter uppercase">StaffSync</span>
+        <div className="text-center w-full">
+           <h2 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tighter uppercase">StaffSync</h2>
+           <p className="text-slate-400 text-xs sm:text-sm font-bold mt-2 uppercase tracking-widest">Management System V9.0</p>
+        </div>
+
+        <div className="w-full space-y-4 sm:space-y-5">
+          <div>
+            <label className="block text-[10px] sm:text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-4">Username</label>
+            <input type="text" placeholder="รหัสพนักงาน / ชื่อผู้ใช้" className="w-full bg-slate-50 border-2 border-slate-100 rounded-[1.5rem] sm:rounded-[2rem] px-5 sm:px-6 py-3 sm:py-4 text-sm font-bold focus:border-indigo-500 outline-none transition" value={userInput} onChange={(e) => setUserInput(e.target.value)} />
           </div>
-          <h1 className="text-5xl xl:text-6xl font-black text-white leading-tight mt-10">
-            Smart Manpower <br/><span className="text-indigo-400">Management</span>
-          </h1>
-          <p className="text-slate-400 mt-6 text-lg max-w-md">
-            ระบบบริหารจัดการพนักงานและกะงานอัจฉริยะแบบครบวงจร สำหรับงานบริการและงานครัว
-          </p>
+          <div>
+            <label className="block text-[10px] sm:text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-4">Password</label>
+            <input type="password" placeholder="รหัสผ่าน" className="w-full bg-slate-50 border-2 border-slate-100 rounded-[1.5rem] sm:rounded-[2rem] px-5 sm:px-6 py-3 sm:py-4 text-sm font-bold focus:border-indigo-500 outline-none transition" value={passInput} onChange={(e) => setPassInput(e.target.value)} />
+          </div>
         </div>
         
-        <div className="relative z-10">
-          <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">Version 8.9 Stable Release</p>
-        </div>
-      </div>
-
-      {/* Right Side - Login Form (Full width on mobile) */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12 bg-gradient-to-br from-slate-50 to-slate-200 lg:bg-none lg:bg-white relative">
-        <form onSubmit={handleLogin} className="w-full max-w-md bg-white lg:bg-transparent p-8 sm:p-10 lg:p-0 rounded-[2rem] sm:rounded-[3rem] lg:rounded-none shadow-2xl lg:shadow-none border border-slate-100 lg:border-none flex flex-col items-center lg:items-start gap-8 animate-in fade-in zoom-in-95 lg:zoom-in-100 duration-500">
-          
-          <div className="lg:hidden bg-indigo-600 p-4 sm:p-5 rounded-full shadow-xl shadow-indigo-100 mb-2"><Store className="w-8 h-8 sm:w-10 sm:h-10 text-white" /></div>
-          
-          <div className="text-center lg:text-left w-full">
-             <h2 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tighter uppercase">Welcome Back</h2>
-             <p className="text-slate-400 text-xs sm:text-sm font-bold mt-2 uppercase tracking-widest">กรุณาเข้าสู่ระบบเพื่อดำเนินการต่อ</p>
-          </div>
-
-          <div className="w-full space-y-4 sm:space-y-5">
-            <div>
-              <label className="block text-[10px] sm:text-xs font-black text-slate-400 uppercase tracking-widest mb-2 ml-4">Username</label>
-              <input type="text" placeholder="รหัสพนักงาน / ชื่อผู้ใช้" className="w-full bg-slate-50 border-2 border-slate-100 rounded-[1.5rem] sm:rounded-[2rem] px-5 sm:px-6 py-3 sm:py-4 text-sm font-bold focus:border-indigo-500 focus:bg-white outline-none transition" value={userInput} onChange={(e) => setUserInput(e.target.value)} />
-            </div>
-            <div>
-              <label className="block text-[10px] sm:text-xs font-black text-slate-400 uppercase tracking-widest mb-2 ml-4">Password</label>
-              <input type="password" placeholder="รหัสผ่าน" className="w-full bg-slate-50 border-2 border-slate-100 rounded-[1.5rem] sm:rounded-[2rem] px-5 sm:px-6 py-3 sm:py-4 text-sm font-bold focus:border-indigo-500 focus:bg-white outline-none transition" value={passInput} onChange={(e) => setPassInput(e.target.value)} />
-            </div>
-          </div>
-          
-          {loginError && <p className="text-xs sm:text-sm text-red-500 font-bold bg-red-50 px-4 py-3 rounded-xl w-full text-center">{loginError}</p>}
-          
-          <button type="submit" className="w-full bg-slate-900 text-white py-4 sm:py-5 rounded-[1.5rem] sm:rounded-[2rem] font-black text-sm shadow-xl hover:bg-indigo-600 hover:shadow-indigo-200 active:scale-95 transition-all">LOGIN TO SYSTEM</button>
-        </form>
-      </div>
+        {loginError && <p className="text-xs sm:text-sm text-red-500 font-bold bg-red-50 px-4 py-3 rounded-xl w-full text-center">{loginError}</p>}
+        
+        <button type="submit" className="w-full bg-slate-900 text-white py-4 sm:py-5 rounded-[1.5rem] sm:rounded-[2rem] font-black text-sm shadow-xl hover:bg-indigo-600 hover:shadow-indigo-200 active:scale-95 transition-all mt-2">LOGIN TO SYSTEM</button>
+      </form>
     </div>
   );
 
@@ -464,7 +436,6 @@ export default function App() {
       <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200 print:hidden shadow-sm px-4 sm:px-8 py-3">
         <div className="max-w-[1600px] mx-auto flex flex-col md:flex-row items-center justify-between gap-4 md:gap-0">
           
-          {/* Top Row on Mobile / Left on Desktop */}
           <div className="flex items-center justify-between w-full md:w-auto">
             <div className="flex items-center gap-3 sm:gap-4">
               <div className="bg-slate-900 p-2 sm:p-3 rounded-xl sm:rounded-2xl shadow-lg transition hover:rotate-12 duration-500"><LayoutDashboard className="w-5 h-5 sm:w-6 sm:h-6 text-white" /></div>
@@ -488,7 +459,7 @@ export default function App() {
               )}
             </div>
             
-            {/* Logout icon on mobile */}
+            {/* Mobile Actions */}
             <div className="md:hidden flex items-center gap-2">
                {authRole === 'superadmin' && (
                  <select value={activeBranchId || ''} onChange={(e) => setActiveBranchId(e.target.value)} className="bg-slate-100 border border-slate-200 rounded-lg text-[9px] font-black outline-none py-1.5 px-2 text-indigo-600 max-w-[100px]">
@@ -500,7 +471,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* Bottom Row on Mobile / Right on Desktop */}
           <div className="flex items-center gap-2 sm:gap-5 w-full md:w-auto overflow-x-auto custom-scrollbar pb-1 md:pb-0">
             <div className="flex-shrink-0 flex items-center bg-slate-100 rounded-xl p-1 shadow-inner border border-slate-200">
                <CalendarDaysIcon className="hidden sm:block w-4 h-4 sm:w-5 sm:h-5 text-slate-400 mx-2 sm:mx-3" />
@@ -694,9 +664,13 @@ export default function App() {
           /* BRANCH MANAGER VIEW */
           <div className="space-y-6 sm:space-y-10 animate-in slide-in-from-bottom-6 duration-500 pb-24">
              <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 sm:gap-10">
-               <div className="relative flex items-center gap-2 sm:gap-4 w-full xl:w-auto">
+               {/* -----------------------------
+                   แก้ไข: ปัญหาปุ่มลูกศรหาย (Fix Right Arrow Disappearing)
+                   ใช้ flex-1 และ min-w-0 เพื่อบังคับไม่ให้ content ดันกรอบออกไป
+               ----------------------------- */}
+               <div className="relative flex items-center gap-2 sm:gap-4 w-full xl:flex-1 min-w-0">
                 <button onClick={() => scrollDates('left')} className="hidden sm:flex flex-shrink-0 w-10 h-10 sm:w-14 sm:h-14 bg-white border-2 border-slate-100 rounded-full items-center justify-center shadow-lg text-indigo-600 active:scale-90 transition z-10"><ChevronLeft className="w-5 h-5 sm:w-8 sm:h-8" /></button>
-                <div ref={dateBarRef} className="flex gap-3 sm:gap-5 overflow-x-auto pb-4 sm:pb-6 pt-2 sm:pt-3 custom-scrollbar px-2 sm:px-3 select-none touch-pan-x snap-x w-full">
+                <div ref={dateBarRef} className="flex-1 flex gap-3 sm:gap-5 overflow-x-auto pb-4 sm:pb-6 pt-2 sm:pt-3 custom-scrollbar px-2 sm:px-3 select-none touch-pan-x snap-x">
                   {CALENDAR_DAYS.map(d => {
                     const isSelected = selectedDateStr === d.dateStr;
                     const isHoliday = branchData.holidays?.includes?.(d.dateStr);
@@ -801,7 +775,7 @@ export default function App() {
         ) : view === 'print' ? (
           <PrintMonthlyView CALENDAR_DAYS={CALENDAR_DAYS} branchData={branchData} globalConfig={globalConfig} activeBranchId={activeBranchId} THAI_MONTHS={THAI_MONTHS} selectedMonth={selectedMonth} getStaffDayInfo={getStaffDayInfo} setView={setView} />
         ) : (
-          /* REPORT VIEW - V8.9 */
+          /* REPORT VIEW - V9.0 */
           <div className="space-y-6 sm:space-y-12 animate-in fade-in duration-500 pb-24 w-full">
              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0">
                 <div className="flex items-center gap-4 sm:gap-6">
