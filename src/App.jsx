@@ -36,12 +36,12 @@ import {
 } from 'lucide-react';
 
 /**
- * RESTAURANT MANPOWER MANAGEMENT SYSTEM (MP26 MODEL) - V8.7 (STABLE COMPILE)
+ * RESTAURANT MANPOWER MANAGEMENT SYSTEM (MP26 MODEL) - V8.8
  * แก้ไข:
- * 1. แก้ไขข้อผิดพลาด Unterminated regular expression และ Syntax Errors
- * 2. จัดการหน้าเพิ่มพนักงาน (Admin) ให้แยก Tab บริการ/ครัว พร้อมเพิ่มตำแหน่ง K-EDC, K-DVT, K-PT
- * 3. หน้าจัดกะงาน (Manager) กรองรายชื่อพนักงานตามแผนกที่เลือก
- * 4. หน้า Report แสดงสรุป OT/ชั่วโมงการทำงาน และเปรียบเทียบ Plan vs Actual
+ * 1. กู้คืนหน้า "การตั้งค่าโครงสร้างกะงาน (Matrix Config)" กลับมาในเมนู Admin
+ * 2. ล้างคลาส font-sans ที่ซ้ำซ้อน
+ * 3. จัดการหน้าเพิ่มพนักงาน (Admin) ให้แยก Tab บริการ/ครัว พร้อมเพิ่มตำแหน่ง K-EDC, K-DVT, K-PT
+ * 4. หน้าจัดกะงาน (Manager) กรองรายชื่อพนักงานตามแผนกที่เลือก
  */
 
 // --- 1. Configurations ---
@@ -386,7 +386,7 @@ export default function App() {
       <form onSubmit={handleLogin} className="bg-white p-12 rounded-[4rem] shadow-2xl border border-slate-200 max-w-md w-full flex flex-col items-center gap-8 animate-in zoom-in-95 duration-500">
         <div className="bg-indigo-600 p-6 rounded-full shadow-2xl ring-8 ring-indigo-50"><Store className="w-12 h-12 text-white" /></div>
         <div className="text-center">
-           <h2 className="text-3xl font-black text-slate-800 tracking-tighter uppercase">StaffSync V8.7</h2>
+           <h2 className="text-3xl font-black text-slate-800 tracking-tighter uppercase">StaffSync V8.8</h2>
            <p className="text-slate-400 text-xs font-bold mt-2 uppercase tracking-widest leading-relaxed">Integrated Kitchen & Service System</p>
         </div>
         <div className="w-full space-y-4">
@@ -411,7 +411,7 @@ export default function App() {
                <h3 className="text-2xl font-black text-slate-800 tracking-tighter uppercase">AI Insights ✨</h3>
              </div>
              <div className="bg-slate-50 p-8 rounded-[2rem] border border-slate-100 max-h-[50vh] overflow-y-auto custom-scrollbar font-medium text-slate-600 whitespace-pre-wrap leading-relaxed">
-                {aiMessage.content || "No Message"}
+                {typeof aiMessage.content === 'string' ? aiMessage.content : JSON.stringify(aiMessage.content)}
              </div>
              <button onClick={() => setAiMessage(null)} className="w-full bg-slate-900 text-white py-5 rounded-3xl font-black text-sm uppercase tracking-widest hover:bg-black transition">ปิดหน้าต่าง</button>
            </div>
@@ -534,7 +534,7 @@ export default function App() {
                <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
                   {/* พนักงาน: MANAGER สามารถเพิ่มแผนกและตำแหน่งได้ */}
                   <div className="bg-white rounded-[3rem] p-10 border border-slate-200 shadow-sm flex flex-col">
-                    <h2 className="text-xl font-black text-slate-800 mb-8 flex items-center gap-4 uppercase tracking-tighter"><Users className="w-7 h-7 text-indigo-500" /> จัดการรายชื่อพนักงาน ({globalConfig.branches?.find(b=>b.id===activeBranchId)?.name})</h2>
+                    <h2 className="text-xl font-black text-slate-800 mb-8 flex items-center gap-4 uppercase tracking-tighter"><Users className="w-7 h-7 text-indigo-500" /> จัดการพนักงาน ({globalConfig.branches?.find(b=>b.id===activeBranchId)?.name})</h2>
                     
                     {/* Tabs เลือกแผนก (กรองพนักงาน) */}
                     <div className="flex gap-2 mb-6 bg-slate-50 p-1 rounded-2xl w-fit border border-slate-100">
@@ -579,7 +579,8 @@ export default function App() {
                       ))}
                     </div>
                   </div>
-                  {/* วันหยุด & Matrix: ยังคง Read-only สำหรับ Manager */}
+                  
+                  {/* วันหยุด: Read-only สำหรับ Manager */}
                   <div className="bg-white rounded-[3rem] p-10 border border-slate-200 shadow-sm">
                     <h2 className="text-xl font-black text-slate-800 mb-8 flex items-center justify-center gap-4 uppercase tracking-tighter"><Coffee className="w-7 h-7 text-red-500" /> วันหยุดประจำสาขา</h2>
                     <div className="grid grid-cols-7 gap-3">
@@ -600,6 +601,40 @@ export default function App() {
                     {authRole === 'branch' && <p className="text-[10px] text-red-400 font-bold mt-8 text-center uppercase tracking-widest leading-none">* เฉพาะ Admin ส่วนกลางเท่านั้นที่แก้ไขวันหยุดและกะงานได้</p>}
                   </div>
                </div>
+
+               {/* กะงาน (Matrix): Read-only สำหรับ Manager */}
+               <div className="space-y-8">
+                 <h2 className="text-2xl font-black text-slate-800 px-2 uppercase tracking-tighter flex items-center gap-4"><Clock className="w-8 h-8 text-indigo-600" /> โครงสร้างกะงานฝั่ง: {activeDept === 'service' ? 'บริการ' : 'ครัว'}</h2>
+                 {Object.entries(branchData.matrix || {}).map(([key, data]) => (
+                  <div key={key} className="bg-white rounded-[3rem] border border-slate-200 overflow-hidden shadow-sm mb-10">
+                    <div className={`px-10 py-6 font-black text-lg text-white ${key==='weekday' ? 'bg-slate-900' : key==='friday' ? 'bg-sky-700' : 'bg-orange-600'}`}>{key.toUpperCase()} CYCLE {authRole === 'branch' ? '(VIEW ONLY)' : ''}</div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs text-left">
+                        <tbody className="divide-y divide-slate-100">
+                          {CURRENT_DUTY_LIST.map(duty => (
+                            <tr key={duty.id}>
+                              <td className="px-10 py-8 w-1/4"><div className="font-black text-slate-900 text-lg mb-1">{duty.jobA}</div><div className="text-[10px] text-slate-400 font-bold uppercase italic">{duty.jobB}</div></td>
+                              <td className="px-10 py-8">
+                                <div className="flex flex-wrap gap-6">
+                                  {(data.duties?.[duty.id] || []).map((slot, idx) => (
+                                    <div key={idx} className="flex items-center gap-5 bg-white p-6 rounded-[2rem] border-2 border-slate-50 shadow-sm transition hover:border-indigo-100">
+                                      <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase">เริ่ม</span><input type="text" disabled={authRole === 'branch'} className="border rounded-xl p-2 text-xs font-black text-center w-24 disabled:bg-slate-50 disabled:text-slate-300" value={slot.startTime} onChange={(e) => { const nd = JSON.parse(JSON.stringify(branchData)); nd.matrix[key].duties[duty.id][idx].startTime = e.target.value; setBranchData(nd); }} /></div>
+                                      <div className="flex flex-col gap-1"><span className="text-[9px] font-black text-slate-400 uppercase">เลิก</span><input type="text" disabled={authRole === 'branch'} className="border rounded-xl p-2 text-xs font-black text-center w-24 disabled:bg-slate-50 disabled:text-slate-300" value={slot.endTime || ""} onChange={(e) => { const nd = JSON.parse(JSON.stringify(branchData)); nd.matrix[key].duties[duty.id][idx].endTime = e.target.value; setBranchData(nd); }} /></div>
+                                      <div className="flex flex-col gap-1 border-l pl-5"><span className="text-[9px] font-black text-indigo-500 uppercase">MAX OT</span><input type="number" disabled={authRole === 'branch'} step="0.5" className="w-20 border rounded-xl p-2 text-center font-black bg-indigo-50/50 disabled:opacity-50" value={slot.maxOtHours} onChange={(e) => { const nd = JSON.parse(JSON.stringify(branchData)); nd.matrix[key].duties[duty.id][idx].maxOtHours = parseFloat(e.target.value) || 0; setBranchData(nd); }} /></div>
+                                      {authRole === 'superadmin' && <button onClick={() => { const nd = JSON.parse(JSON.stringify(branchData)); nd.matrix[key].duties[duty.id].splice(idx,1); setBranchData(nd); }} className="text-slate-300 hover:text-red-500 transition mt-4"><Trash2 className="w-5 h-5"/></button>}
+                                    </div>
+                                  ))}
+                                  {authRole === 'superadmin' && <button onClick={() => { const nd = JSON.parse(JSON.stringify(branchData)); if(!nd.matrix[key].duties[duty.id]) nd.matrix[key].duties[duty.id] = []; nd.matrix[key].duties[duty.id].push({startTime:"10:00", endTime:"19:00", maxOtHours:4.0}); setBranchData(nd); }} className="bg-slate-50 border-2 border-dashed border-slate-200 px-6 py-4 rounded-[2rem] text-[11px] font-black text-slate-400 hover:border-indigo-500 transition self-center">+ SLOT</button>}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ))}
+             </div>
             </div>
           )
         ) : view === 'manager' ? (
@@ -711,7 +746,7 @@ export default function App() {
         ) : view === 'print' ? (
           <PrintMonthlyView CALENDAR_DAYS={CALENDAR_DAYS} branchData={branchData} globalConfig={globalConfig} activeBranchId={activeBranchId} THAI_MONTHS={THAI_MONTHS} selectedMonth={selectedMonth} getStaffDayInfo={getStaffDayInfo} setView={setView} />
         ) : (
-          /* REPORT VIEW - V8.7 */
+          /* REPORT VIEW - V8.8 */
           <div className="space-y-12 animate-in fade-in duration-500 pb-20">
              <div className="flex justify-between items-center">
                 <div className="flex items-center gap-6">
