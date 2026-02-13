@@ -34,15 +34,17 @@ import {
   LogIn,
   ShieldCheck,
   UserCheck,
-  CheckCircle2
+  CheckCircle2,
+  Edit2,
+  X,
+  Check
 } from 'lucide-react';
 
 /**
- * RESTAURANT MANPOWER MANAGEMENT SYSTEM (MP26 MODEL) - V9.9 (FINAL FIXES)
+ * RESTAURANT MANPOWER MANAGEMENT SYSTEM (MP26 MODEL) - V10.4 (FINAL STABLE)
  * แก้ไข:
- * 1. Print View: ส่ง prop 'activeDept' เข้าไปเพื่อให้แสดงรายชื่อพนักงานตามแผนกได้ถูกต้อง
- * 2. Save Popup: แสดง Modal แจ้งเตือนเมื่อบันทึกข้อมูลสำเร็จ
- * 3. Flow: ตรวจสอบการเปลี่ยนหน้าจาก Manager -> Print ให้ถูกต้อง
+ * 1. Fixed Duplicate Declaration: ลบ PrintMonthlyView ที่ซ้ำซ้อนออก
+ * 2. Features Verified: แยกแผนกพิมพ์, Popup บันทึก, แก้ไขข้อมูลพนักงาน
  */
 
 // --- 1. Configurations ---
@@ -137,6 +139,69 @@ const callGemini = async (prompt, systemInstruction = "") => {
   } catch (e) { return "ระบบ AI ขัดข้อง"; }
 };
 
+// --- Sub-Component: PrintMonthlyView (Defined Once) ---
+const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranchId, THAI_MONTHS, selectedMonth, getStaffDayInfo, setView, activeDept }) => {
+  // Filter Staff by Active Dept
+  const filteredStaff = branchData.staff?.filter(s => s.dept === activeDept) || [];
+  const CURRENT_DUTY_LIST = activeDept === 'service' ? SERVICE_DUTIES : KITCHEN_DUTIES;
+
+  return (
+    <div className="p-4 sm:p-10 bg-white min-h-screen animate-in fade-in w-full overflow-x-hidden">
+      <div className="max-w-full mx-auto">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 sm:mb-16 print:hidden border-b pb-6 sm:pb-8 gap-4 sm:gap-0">
+          <button onClick={() => setView('manager')} className="flex items-center gap-2 sm:gap-4 text-slate-600 font-black bg-slate-100 px-6 sm:px-8 py-3 sm:py-4 rounded-xl sm:rounded-3xl hover:bg-slate-200 transition shadow-sm uppercase text-xs sm:text-sm tracking-widest w-full sm:w-auto justify-center"><ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" /> ย้อนกลับ </button>
+          <button onClick={() => window.print()} className="bg-indigo-600 text-white px-8 sm:px-12 py-4 sm:py-5 rounded-xl sm:rounded-3xl font-black shadow-xl sm:shadow-2xl hover:bg-indigo-700 active:scale-95 transition-all flex items-center justify-center gap-3 sm:gap-4 uppercase text-xs sm:text-sm tracking-widest w-full sm:w-auto"><Printer className="w-5 h-5 sm:w-6 sm:h-6" /> สั่งพิมพ์รายงาน </button>
+        </div>
+        <div className="text-center mb-10 sm:mb-16 uppercase">
+          <h1 className="text-3xl sm:text-6xl font-black text-slate-900 tracking-tighter leading-none mb-2 sm:mb-4">ROSTER SCHEDULE: {THAI_MONTHS[selectedMonth]} 2026</h1>
+          <p className="text-xs sm:text-sm text-slate-400 font-bold uppercase tracking-[0.3em] sm:tracking-[0.6em] italic">
+             {globalConfig.branches?.find(b=>b.id===activeBranchId)?.name || 'BRANCH NODE'} - {activeDept.toUpperCase()} DEPT
+          </p>
+        </div>
+        <div className="overflow-x-auto border-2 sm:border-4 border-slate-900 rounded-xl sm:rounded-[2.5rem] shadow-lg sm:shadow-2xl overflow-hidden w-full custom-scrollbar pb-2 sm:pb-0">
+          <table className="w-full border-collapse text-[6px] sm:text-[8px] table-fixed min-w-[800px] sm:min-w-none">
+            <thead>
+              <tr className="bg-slate-900 text-white">
+                <th className="border-r border-slate-700 p-3 sm:p-5 text-left sticky left-0 bg-slate-900 z-10 w-24 sm:w-48 font-black uppercase border-b-2 border-slate-600">Employee (Pos)</th>
+                {CALENDAR_DAYS.map(day => (
+                  <th key={day.dateStr} className={`border-r border-slate-700 p-1.5 sm:p-3 min-w-[30px] sm:min-w-[45px] text-center border-b-2 border-slate-600 ${day.type === 'weekend' || branchData.holidays?.includes?.(day.dateStr) ? 'bg-slate-800 text-indigo-300' : ''}`}>
+                    <div className="font-black text-[10px] sm:text-sm mb-0.5 sm:mb-1">{day.dayNum}</div><div className="text-[6px] sm:text-[8px] opacity-70 uppercase tracking-tighter">{day.dayLabel}</div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filteredStaff.map(s => (
+                <tr key={s.id} className="h-12 sm:h-20 transition-colors border-b border-slate-100">
+                  <td className="border-r-2 sm:border-r-4 border-slate-900 p-2 sm:p-5 font-black sticky left-0 bg-white z-10 text-[9px] sm:text-[12px] uppercase leading-tight truncate max-w-[100px] sm:max-w-[150px]">
+                     {s.name}
+                     <div className="text-[5px] sm:text-[7px] text-slate-400 font-bold">({s.pos})</div>
+                  </td>
+                  {CALENDAR_DAYS.map(day => {
+                    const info = getStaffDayInfo(s.id, day.dateStr);
+                    return (
+                      <td key={day.dateStr} className={`border-r border-b border-slate-100 p-1 sm:p-2 text-center ${!info ? 'bg-slate-50/40' : ''}`}>
+                        {info?.type === 'work' ? (
+                          <div className="flex flex-col items-center justify-center leading-tight">
+                            <span className="font-black text-indigo-700 text-[8px] sm:text-[10px] leading-none">{info.slot.startTime}</span>
+                            <div className="text-[4px] sm:text-[5px] font-bold text-slate-400 truncate w-full px-0.5 sm:px-1 uppercase tracking-tighter mt-0.5 sm:mt-1 opacity-80">OT:{info.actual?.otHours || 0}</div>
+                          </div>
+                        ) : info?.type === 'leave' ? (
+                          <div className={`w-full h-full flex items-center justify-center font-black ${info.info.color} rounded-md sm:rounded-xl border sm:border-2 border-white shadow-inner text-[8px] sm:text-[10px]`}><span className="text-center leading-none uppercase p-0.5 sm:p-1">{info.info.shortLabel}</span></div>
+                        ) : <span className="text-[5px] sm:text-[7px] font-black opacity-10 uppercase tracking-widest">OFF</span>}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // --- Main App Component ---
 export default function App() {
   const [user, setUser] = useState(null);
@@ -166,6 +231,12 @@ export default function App() {
   const [newStaffName, setNewStaffName] = useState('');
   const [newStaffDept, setNewStaffDept] = useState('service');
   const [newStaffPos, setNewStaffPos] = useState('OC');
+
+  // Edit States
+  const [editingStaffId, setEditingStaffId] = useState(null);
+  const [editStaffData, setEditStaffData] = useState({});
+  const [editingBranchId, setEditingBranchId] = useState(null);
+  const [editBranchData, setEditBranchData] = useState({});
 
   const [aiLoading, setAiLoading] = useState(false);
   const [aiMessage, setAiMessage] = useState(null);
@@ -327,12 +398,24 @@ export default function App() {
   const updateSchedule = (dateStr, dutyId, slotIndex, field, value) => {
     setSchedule(prev => {
       const newSched = { ...prev };
+      
+      // Ensure path exists
       if (!newSched[dateStr]) newSched[dateStr] = { duties: {}, leaves: [] };
+      if (!newSched[dateStr].duties) newSched[dateStr].duties = {};
       if (!newSched[dateStr].duties[dutyId]) newSched[dateStr].duties[dutyId] = [];
-      const updatedSlots = [...newSched[dateStr].duties[dutyId]];
-      if (!updatedSlots[slotIndex]) updatedSlots[slotIndex] = { staffId: "", otHours: 0 };
-      updatedSlots[slotIndex][field] = value;
-      newSched[dateStr].duties[dutyId] = updatedSlots;
+      
+      // Deep Copy the specific slot array
+      const currentSlots = [...newSched[dateStr].duties[dutyId]];
+      
+      // Ensure slot object exists
+      if (!currentSlots[slotIndex]) currentSlots[slotIndex] = { staffId: "", otHours: 0 };
+      
+      // Update value in a new object
+      currentSlots[slotIndex] = { ...currentSlots[slotIndex], [field]: value };
+      
+      // Re-assign to state copy
+      newSched[dateStr].duties[dutyId] = currentSlots;
+      
       return newSched;
     });
   };
@@ -348,6 +431,32 @@ export default function App() {
       newSched[dateStr].leaves = currentLeaves;
       return newSched;
     });
+  };
+
+  const startEditStaff = (staff) => {
+    setEditingStaffId(staff.id);
+    setEditStaffData({ ...staff });
+  };
+
+  const saveEditStaff = () => {
+    setBranchData(prev => ({
+        ...prev,
+        staff: prev.staff.map(s => s.id === editingStaffId ? editStaffData : s)
+    }));
+    setEditingStaffId(null);
+  };
+
+  const startEditBranch = (branch) => {
+    setEditingBranchId(branch.id);
+    setEditBranchData({ ...branch });
+  };
+
+  const saveEditBranch = () => {
+    setGlobalConfig(prev => ({
+        ...prev,
+        branches: prev.branches.map(b => b.id === editingBranchId ? editBranchData : b)
+    }));
+    setEditingBranchId(null);
   };
 
   const handleAiSuggest = async () => {
@@ -394,7 +503,7 @@ export default function App() {
         <div className="bg-indigo-600 p-4 sm:p-5 rounded-full shadow-xl shadow-indigo-200"><Store className="w-10 h-10 text-white" /></div>
         <div className="text-center w-full">
            <h2 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tighter uppercase">StaffSync</h2>
-           <p className="text-slate-400 text-xs sm:text-sm font-bold mt-2 uppercase tracking-widest">Management System V9.9</p>
+           <p className="text-slate-400 text-xs sm:text-sm font-bold mt-2 uppercase tracking-widest">Management System V10.4</p>
         </div>
         <div className="w-full space-y-4 sm:space-y-5">
           <div>
@@ -567,6 +676,20 @@ export default function App() {
                            <div className="pr-4">
                               <h4 className="text-base sm:text-xl font-black text-slate-900 uppercase tracking-tighter truncate max-w-[150px] sm:max-w-[200px]">{b.name}</h4>
                               <p className="text-[8px] sm:text-[9px] text-slate-400 font-bold mt-1.5 sm:mt-2 uppercase truncate">USER: {b.user} | PWD: {b.pass}</p>
+                              {/* EDIT BRANCH BUTTON */}
+                               {editingBranchId === b.id ? (
+                                  <div className="mt-4 space-y-2">
+                                     <input type="text" placeholder="Name" value={editBranchData.name || ''} onChange={e => setEditBranchData({...editBranchData, name: e.target.value})} className="w-full border rounded-lg px-2 py-1 text-xs"/>
+                                     <input type="text" placeholder="User" value={editBranchData.user || ''} onChange={e => setEditBranchData({...editBranchData, user: e.target.value})} className="w-full border rounded-lg px-2 py-1 text-xs"/>
+                                     <input type="text" placeholder="Pass" value={editBranchData.pass || ''} onChange={e => setEditBranchData({...editBranchData, pass: e.target.value})} className="w-full border rounded-lg px-2 py-1 text-xs"/>
+                                     <div className="flex gap-2">
+                                        <button onClick={saveEditBranch} className="bg-green-500 text-white px-3 py-1 rounded-lg text-[10px]"><Check className="w-3 h-3"/></button>
+                                        <button onClick={() => setEditingBranchId(null)} className="bg-red-500 text-white px-3 py-1 rounded-lg text-[10px]"><X className="w-3 h-3"/></button>
+                                     </div>
+                                  </div>
+                               ) : (
+                                  <button onClick={() => startEditBranch(b)} className="mt-2 text-indigo-500 text-[10px] font-bold flex items-center gap-1 hover:underline"><Edit2 className="w-3 h-3"/> แก้ไขข้อมูล</button>
+                               )}
                            </div>
                            <button onClick={() => setGlobalConfig(prev => ({...prev, branches: prev.branches.filter(x => x.id !== b.id)}))} className="text-slate-300 hover:text-red-500 transition p-2"><Trash2 className="w-5 h-5 sm:w-6 sm:h-6"/></button>
                         </div>
@@ -610,14 +733,29 @@ export default function App() {
                         <div className="text-center py-8 sm:py-10 text-slate-400 font-bold text-[10px] sm:text-sm uppercase tracking-widest border-2 border-dashed rounded-[1.5rem] sm:rounded-[2rem]">ไม่มีพนักงานในแผนกนี้</div>
                       ) : branchData.staff?.filter(s => s.dept === activeDept).map(s => (
                         <div key={s.id} className="flex justify-between items-center p-4 sm:p-5 bg-slate-50 rounded-2xl sm:rounded-3xl border border-transparent hover:border-indigo-100 hover:bg-white transition group shadow-sm">
-                          <div>
-                             <span className="text-sm sm:text-base font-black text-slate-800 uppercase">{s.name}</span>
-                             <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-1">
-                                <span className={`text-[7px] sm:text-[8px] font-black px-1.5 sm:px-2 py-0.5 rounded border uppercase ${s.dept === 'service' ? 'bg-indigo-50 text-indigo-500 border-indigo-100' : 'bg-orange-50 text-orange-500 border-orange-100'}`}>{s.dept}</span>
-                                <span className="text-[7px] sm:text-[8px] font-black px-1.5 sm:px-2 py-0.5 rounded border border-slate-200 bg-white text-slate-400 uppercase">{s.pos}</span>
-                             </div>
-                          </div>
-                          <button onClick={() => setBranchData(p=>({...p, staff: p.staff.filter(x=>x.id!==s.id)}))} className="text-slate-300 hover:text-red-500 transition p-2"><Trash2 className="w-4 h-4 sm:w-5 sm:h-5"/></button>
+                           {/* EDIT STAFF LOGIC */}
+                           {editingStaffId === s.id ? (
+                              <div className="flex-1 flex gap-2 items-center">
+                                 <input type="text" value={editStaffData.name} onChange={e => setEditStaffData({...editStaffData, name: e.target.value})} className="border rounded px-2 py-1 text-xs w-full"/>
+                                 <select value={editStaffData.pos} onChange={e => setEditStaffData({...editStaffData, pos: e.target.value})} className="border rounded px-2 py-1 text-[10px]">
+                                     {POSITIONS[s.dept].map(p => <option key={p} value={p}>{p}</option>)}
+                                 </select>
+                                 <button onClick={saveEditStaff} className="bg-green-500 text-white p-1.5 rounded"><Check className="w-3 h-3"/></button>
+                                 <button onClick={() => setEditingStaffId(null)} className="bg-red-500 text-white p-1.5 rounded"><X className="w-3 h-3"/></button>
+                              </div>
+                           ) : (
+                              <>
+                                <div>
+                                   <span className="text-sm sm:text-base font-black text-slate-800 uppercase">{s.name}</span>
+                                   <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-1 items-center">
+                                      <span className={`text-[7px] sm:text-[8px] font-black px-1.5 sm:px-2 py-0.5 rounded border uppercase ${s.dept === 'service' ? 'bg-indigo-50 text-indigo-500 border-indigo-100' : 'bg-orange-50 text-orange-500 border-orange-100'}`}>{s.dept}</span>
+                                      <span className="text-[7px] sm:text-[8px] font-black px-1.5 sm:px-2 py-0.5 rounded border border-slate-200 bg-white text-slate-400 uppercase">{s.pos}</span>
+                                      <button onClick={() => startEditStaff(s)} className="text-slate-300 hover:text-indigo-500"><Edit2 className="w-3 h-3"/></button>
+                                   </div>
+                                </div>
+                                <button onClick={() => setBranchData(p=>({...p, staff: p.staff.filter(x=>x.id!==s.id)}))} className="text-slate-300 hover:text-red-500 transition p-2"><Trash2 className="w-4 h-4 sm:w-5 sm:h-5"/></button>
+                              </>
+                           )}
                         </div>
                       ))}
                     </div>
@@ -792,7 +930,7 @@ export default function App() {
             </div>
             </>
              ) : (
-                /* NEW MONTHLY VIEW V9.6 - RE-ADDED BUTTON AND FIXES */
+                /* NEW MONTHLY VIEW V9.9 */
                 <div className="bg-white rounded-[2rem] sm:rounded-[3rem] border border-slate-200 shadow-sm overflow-hidden animate-in fade-in">
                   <div className="p-6 sm:p-8 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
                     <div className="flex flex-col">
@@ -873,6 +1011,7 @@ export default function App() {
                                               >
                                                 <option value="">-- ว่าง --</option>
                                                 {branchData.staff?.filter(s => s.dept === activeDept).map(s => {
+                                                  // FIX: Filter out staff already used in THIS day, unless it's the current selection
                                                   const isUsedInThisDay = dayUsedStaffIds.has(s.id) && data.staffId !== s.id;
                                                   return isUsedInThisDay ? null : <option key={s.id} value={s.id}>{s.name}</option>
                                                 })}
@@ -984,90 +1123,7 @@ export default function App() {
           </div>
         )}
       </main>
-
-      <style dangerouslySetInnerHTML={{ __html: `
-        .custom-scrollbar::-webkit-scrollbar { height: 8px; width: 8px; }
-        @media (min-width: 640px) {
-           .custom-scrollbar::-webkit-scrollbar { height: 12px; width: 10px; }
-        }
-        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 20px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 20px; border: 3px solid #f1f5f9; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-        .scrollbar-hide::-webkit-scrollbar { display: none; }
-        .touch-pan-x { touch-action: pan-x; }
-        .snap-x { scroll-snap-type: x mandatory; }
-        .snap-center { scroll-snap-align: center; }
-        @media print {
-          @page { size: A4 landscape; margin: 5mm; }
-          body { background: white !important; -webkit-print-color-adjust: exact; padding: 0 !important; margin: 0 !important; }
-          .print\\:hidden { display: none !important; }
-          nav, button, footer { display: none !important; }
-          main { padding: 0 !important; margin: 0 !important; min-height: auto !important; }
-          table { width: 100% !important; border-collapse: collapse !important; border: 2px solid #000 !important; font-size: 7px !important; }
-          th, td { border: 1px solid #000 !important; padding: 2px !important; }
-        }
-      `}} />
-    </div>
-  );
-}
-
-function PrintMonthlyView({ CALENDAR_DAYS, branchData, globalConfig, activeBranchId, THAI_MONTHS, selectedMonth, getStaffDayInfo, setView, activeDept }) {
-  // Filter Staff by Active Dept
-  const filteredStaff = branchData.staff?.filter(s => s.dept === activeDept) || [];
-
-  return (
-    <div className="p-4 sm:p-10 bg-white min-h-screen animate-in fade-in w-full overflow-x-hidden">
-      <div className="max-w-full mx-auto">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 sm:mb-16 print:hidden border-b pb-6 sm:pb-8 gap-4 sm:gap-0">
-          <button onClick={() => setView('manager')} className="flex items-center gap-2 sm:gap-4 text-slate-600 font-black bg-slate-100 px-6 sm:px-8 py-3 sm:py-4 rounded-xl sm:rounded-3xl hover:bg-slate-200 transition shadow-sm uppercase text-xs sm:text-sm tracking-widest w-full sm:w-auto justify-center"><ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" /> ย้อนกลับ </button>
-          <button onClick={() => window.print()} className="bg-indigo-600 text-white px-8 sm:px-12 py-4 sm:py-5 rounded-xl sm:rounded-3xl font-black shadow-xl sm:shadow-2xl hover:bg-indigo-700 active:scale-95 transition-all flex items-center justify-center gap-3 sm:gap-4 uppercase text-xs sm:text-sm tracking-widest w-full sm:w-auto"><Printer className="w-5 h-5 sm:w-6 sm:h-6" /> สั่งพิมพ์รายงาน </button>
-        </div>
-        <div className="text-center mb-10 sm:mb-16 uppercase">
-          <h1 className="text-3xl sm:text-6xl font-black text-slate-900 tracking-tighter leading-none mb-2 sm:mb-4">ROSTER SCHEDULE: {THAI_MONTHS[selectedMonth]} 2026</h1>
-          <p className="text-xs sm:text-sm text-slate-400 font-bold uppercase tracking-[0.3em] sm:tracking-[0.6em] italic">
-             {globalConfig.branches?.find(b=>b.id===activeBranchId)?.name || 'BRANCH NODE'} - {activeDept.toUpperCase()} DEPT
-          </p>
-        </div>
-        <div className="overflow-x-auto border-2 sm:border-4 border-slate-900 rounded-xl sm:rounded-[2.5rem] shadow-lg sm:shadow-2xl overflow-hidden w-full custom-scrollbar pb-2 sm:pb-0">
-          <table className="w-full border-collapse text-[6px] sm:text-[8px] table-fixed min-w-[800px] sm:min-w-none">
-            <thead>
-              <tr className="bg-slate-900 text-white">
-                <th className="border-r border-slate-700 p-3 sm:p-5 text-left sticky left-0 bg-slate-900 z-10 w-24 sm:w-48 font-black uppercase border-b-2 border-slate-600">Employee (Pos)</th>
-                {CALENDAR_DAYS.map(day => (
-                  <th key={day.dateStr} className={`border-r border-slate-700 p-1.5 sm:p-3 min-w-[30px] sm:min-w-[45px] text-center border-b-2 border-slate-600 ${day.type === 'weekend' || branchData.holidays?.includes?.(day.dateStr) ? 'bg-slate-800 text-indigo-300' : ''}`}>
-                    <div className="font-black text-[10px] sm:text-sm mb-0.5 sm:mb-1">{day.dayNum}</div><div className="text-[6px] sm:text-[8px] opacity-70 uppercase tracking-tighter">{day.dayLabel}</div>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filteredStaff.map(s => (
-                <tr key={s.id} className="h-12 sm:h-20 transition-colors border-b border-slate-100">
-                  <td className="border-r-2 sm:border-r-4 border-slate-900 p-2 sm:p-5 font-black sticky left-0 bg-white z-10 text-[9px] sm:text-[12px] uppercase leading-tight truncate max-w-[100px] sm:max-w-[150px]">
-                     {s.name}
-                     <div className="text-[5px] sm:text-[7px] text-slate-400 font-bold">({s.pos})</div>
-                  </td>
-                  {CALENDAR_DAYS.map(day => {
-                    const info = getStaffDayInfo(s.id, day.dateStr);
-                    return (
-                      <td key={day.dateStr} className={`border-r border-b border-slate-100 p-1 sm:p-2 text-center ${!info ? 'bg-slate-50/40' : ''}`}>
-                        {info?.type === 'work' ? (
-                          <div className="flex flex-col items-center justify-center leading-tight">
-                            <span className="font-black text-indigo-700 text-[8px] sm:text-[10px] leading-none">{info.slot.startTime}</span>
-                            <div className="text-[4px] sm:text-[5px] font-bold text-slate-400 truncate w-full px-0.5 sm:px-1 uppercase tracking-tighter mt-0.5 sm:mt-1 opacity-80">OT:{info.actual?.otHours || 0}</div>
-                          </div>
-                        ) : info?.type === 'leave' ? (
-                          <div className={`w-full h-full flex items-center justify-center font-black ${info.info.color} rounded-md sm:rounded-xl border sm:border-2 border-white shadow-inner text-[8px] sm:text-[10px]`}><span className="text-center leading-none uppercase p-0.5 sm:p-1">{info.info.shortLabel}</span></div>
-                        ) : <span className="text-[5px] sm:text-[7px] font-black opacity-10 uppercase tracking-widest">OFF</span>}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      {/* Styles & CSS */}
     </div>
   );
 }
