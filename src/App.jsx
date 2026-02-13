@@ -30,20 +30,19 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   CalendarDays as CalendarDaysIcon,
+  Calendar as CalendarIcon,
   LogIn,
   ShieldCheck,
   UserCheck,
-  List,
-  Calendar as CalendarIcon
+  CheckCircle2
 } from 'lucide-react';
 
 /**
- * RESTAURANT MANPOWER MANAGEMENT SYSTEM (MP26 MODEL) - V9.3 (MONTHLY VIEW FIXED)
+ * RESTAURANT MANPOWER MANAGEMENT SYSTEM (MP26 MODEL) - V9.9 (FINAL FIXES)
  * แก้ไข:
- * 1. แก้ไขปุ่มสลับ "รายวัน / รายเดือน" ให้ทำงานได้จริง (Conditional Rendering)
- * 2. เพิ่มหน้าจอ Monthly View แบบตารางเต็มเดือน พร้อมฟังก์ชันกรอกข้อมูล
- * 3. แสดงรายการคนลาในช่องวันที่ของมุมมองรายเดือน
- * 4. ตรึงหัวตารางและคอลัมน์วันที่ (Sticky) เพื่อให้อ่านง่าย
+ * 1. Print View: ส่ง prop 'activeDept' เข้าไปเพื่อให้แสดงรายชื่อพนักงานตามแผนกได้ถูกต้อง
+ * 2. Save Popup: แสดง Modal แจ้งเตือนเมื่อบันทึกข้อมูลสำเร็จ
+ * 3. Flow: ตรวจสอบการเปลี่ยนหน้าจาก Manager -> Print ให้ถูกต้อง
  */
 
 // --- 1. Configurations ---
@@ -158,6 +157,7 @@ export default function App() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedDateStr, setSelectedDateStr] = useState(`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`);
   const [saveStatus, setSaveStatus] = useState(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   
   const [userInput, setUserInput] = useState('');
   const [passInput, setPassInput] = useState('');
@@ -237,7 +237,10 @@ export default function App() {
     const dayData = schedule[dateStr];
     if (!dayData) return null;
     const leave = (dayData.leaves || []).find(l => l.staffId === staffId);
-    if (leave) return { type: 'leave', info: LEAVE_TYPES.find(x => x.id === leave.type) };
+    if (leave) {
+        const typeInfo = LEAVE_TYPES.find(x => x.id === leave.type);
+        return { type: 'leave', info: typeInfo || { shortLabel: '?', color: 'bg-gray-100' } };
+    }
     
     const allDuties = [...SERVICE_DUTIES, ...KITCHEN_DUTIES];
     for (const d of allDuties) {
@@ -312,7 +315,12 @@ export default function App() {
         await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData);
         await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'schedules', activeBranchId), { records: schedule });
       }
-      setSaveStatus('success'); setTimeout(() => setSaveStatus(null), 3000);
+      setSaveStatus('success'); 
+      setShowSuccessModal(true); 
+      setTimeout(() => {
+         setSaveStatus(null);
+         setShowSuccessModal(false);
+      }, 2000);
     } catch (err) { setSaveStatus('error'); }
   };
 
@@ -386,7 +394,7 @@ export default function App() {
         <div className="bg-indigo-600 p-4 sm:p-5 rounded-full shadow-xl shadow-indigo-200"><Store className="w-10 h-10 text-white" /></div>
         <div className="text-center w-full">
            <h2 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tighter uppercase">StaffSync</h2>
-           <p className="text-slate-400 text-xs sm:text-sm font-bold mt-2 uppercase tracking-widest">Management System V9.3</p>
+           <p className="text-slate-400 text-xs sm:text-sm font-bold mt-2 uppercase tracking-widest">Management System V9.9</p>
         </div>
         <div className="w-full space-y-4 sm:space-y-5">
           <div>
@@ -406,10 +414,23 @@ export default function App() {
 
   return (
     <div className="min-h-screen w-full bg-slate-50 text-slate-900 font-sans antialiased overflow-x-hidden">
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 z-[400] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-300 font-sans">
+           <div className="bg-white p-8 rounded-[3rem] shadow-2xl flex flex-col items-center gap-4 animate-in zoom-in-95">
+              <div className="bg-green-500 p-4 rounded-full shadow-xl shadow-green-200 animate-bounce">
+                <CheckCircle2 className="w-12 h-12 text-white" />
+              </div>
+              <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight mt-2">Saved Successfully</h3>
+              <p className="text-slate-400 text-sm font-bold">บันทึกข้อมูลลงฐานข้อมูลเรียบร้อยแล้ว</p>
+           </div>
+        </div>
+      )}
+
       {/* AI Modal */}
       {aiMessage && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 sm:p-6 animate-in fade-in duration-300">
-           <div className="bg-white rounded-[2rem] sm:rounded-[3.5rem] p-6 sm:p-12 max-w-2xl w-full shadow-2xl relative flex flex-col gap-4 sm:gap-6 animate-in slide-in-from-bottom-8">
+           <div className="bg-white rounded-[2rem] sm:rounded-[3.5rem] p-6 sm:p-12 max-w-2xl w-full shadow-2xl relative flex flex-col gap-4 sm:gap-6 animate-in slide-in-from-bottom-8 font-sans">
              <div className="absolute top-0 left-0 w-full h-1.5 sm:h-2 bg-indigo-600 rounded-t-[2rem] sm:rounded-t-[3.5rem]"></div>
              <div className="flex items-center gap-3 sm:gap-4 mt-2 sm:mt-0">
                <div className="bg-indigo-600 p-3 sm:p-4 rounded-2xl sm:rounded-3xl"><Sparkles className="w-6 h-6 sm:w-8 sm:h-8 text-white" /></div>
@@ -426,7 +447,6 @@ export default function App() {
       {/* Navbar */}
       <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200 print:hidden shadow-sm px-4 sm:px-8 py-3">
         <div className="max-w-[1600px] mx-auto flex flex-col md:flex-row items-center justify-between gap-4 md:gap-0">
-          
           <div className="flex items-center justify-between w-full md:w-auto">
             <div className="flex items-center gap-3 sm:gap-4">
               <div className="bg-slate-900 p-2 sm:p-3 rounded-xl sm:rounded-2xl shadow-lg transition hover:rotate-12 duration-500"><LayoutDashboard className="w-5 h-5 sm:w-6 sm:h-6 text-white" /></div>
@@ -508,11 +528,10 @@ export default function App() {
           </div>
         ) : null}
 
-        {/* ... (Admin and Branches views are similar to V9.2) ... */}
+        {/* ... (Admin and Branches views are same as previous) ... */}
         {view === 'branches' && authRole === 'superadmin' ? (
-           /* SYSTEM ADMIN - BRANCH MGMT */
            <div className="space-y-6 sm:space-y-10 animate-in fade-in duration-500 pb-24">
-             {/* Branch Management UI (Same as previous versions) */}
+             {/* Branch Management UI */}
              <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-4 sm:gap-6">
                   <div className="bg-emerald-100 p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem]"><Store className="w-8 h-8 sm:w-10 sm:h-10 text-emerald-600" /></div>
@@ -522,7 +541,39 @@ export default function App() {
                   </div>
                 </div>
              </div>
-             {/* ... Branch List and Create Form (omitted for brevity, same as V9.1) ... */}
+             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-10">
+                <div className="lg:col-span-1 bg-white p-6 sm:p-10 rounded-[2rem] sm:rounded-[3rem] border border-slate-200 shadow-sm h-fit">
+                   <h3 className="text-lg sm:text-xl font-black text-slate-800 mb-6 sm:mb-8 flex items-center gap-2 sm:gap-3 uppercase tracking-tighter"><Plus className="text-emerald-500 w-5 h-5 sm:w-6 sm:h-6" /> สร้างสาขาใหม่</h3>
+                   <div className="space-y-4 sm:space-y-5">
+                      <div><span className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase ml-2 block mb-1.5 sm:mb-2">ชื่อสาขา</span><input type="text" id="bn" className="w-full border-2 border-slate-50 bg-slate-50/50 rounded-xl sm:rounded-2xl px-4 sm:px-5 py-3 sm:py-4 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none" /></div>
+                      <div><span className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase ml-2 block mb-1.5 sm:mb-2">Username</span><input type="text" id="bu" className="w-full border-2 border-slate-50 bg-slate-50/50 rounded-xl sm:rounded-2xl px-4 sm:px-5 py-3 sm:py-4 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none" /></div>
+                      <div><span className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase ml-2 block mb-1.5 sm:mb-2">Password</span><input type="text" id="bp" className="w-full border-2 border-slate-50 bg-slate-50/50 rounded-xl sm:rounded-2xl px-4 sm:px-5 py-3 sm:py-4 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none" /></div>
+                      <button onClick={() => {
+                        const n = document.getElementById('bn').value;
+                        const u = document.getElementById('bu').value;
+                        const p = document.getElementById('bp').value;
+                        if(n && u && p) {
+                          setGlobalConfig(prev => ({...prev, branches: [...(prev.branches || []), {id: 'b'+Date.now(), name: n, user: u, pass: p}]}));
+                          document.getElementById('bn').value = ''; document.getElementById('bu').value = ''; document.getElementById('bp').value = '';
+                        }
+                      }} className="w-full bg-emerald-600 text-white py-4 sm:py-5 rounded-xl sm:rounded-3xl font-black text-xs sm:text-sm hover:bg-emerald-700 shadow-xl mt-2 sm:mt-4 uppercase transition-colors">บันทึกสาขา</button>
+                   </div>
+                </div>
+                <div className="lg:col-span-2 bg-white p-6 sm:p-10 rounded-[2rem] sm:rounded-[3rem] border border-slate-200 shadow-sm">
+                   <h3 className="text-lg sm:text-xl font-black text-slate-800 mb-6 sm:mb-8 flex items-center gap-2 sm:gap-3 uppercase tracking-tighter"><ShieldCheck className="text-indigo-500 w-5 h-5 sm:w-6 sm:h-6" /> รายชื่อสาขาทั้งหมด</h3>
+                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                      {globalConfig.branches?.map((b) => (
+                        <div key={b.id} className="p-5 sm:p-8 bg-slate-50 rounded-[1.5rem] sm:rounded-[2.5rem] border border-transparent hover:border-indigo-100 transition shadow-sm flex justify-between items-start">
+                           <div className="pr-4">
+                              <h4 className="text-base sm:text-xl font-black text-slate-900 uppercase tracking-tighter truncate max-w-[150px] sm:max-w-[200px]">{b.name}</h4>
+                              <p className="text-[8px] sm:text-[9px] text-slate-400 font-bold mt-1.5 sm:mt-2 uppercase truncate">USER: {b.user} | PWD: {b.pass}</p>
+                           </div>
+                           <button onClick={() => setGlobalConfig(prev => ({...prev, branches: prev.branches.filter(x => x.id !== b.id)}))} className="text-slate-300 hover:text-red-500 transition p-2"><Trash2 className="w-5 h-5 sm:w-6 sm:h-6"/></button>
+                        </div>
+                      ))}
+                   </div>
+                </div>
+             </div>
            </div>
         ) : view === 'admin' ? (
           /* BRANCH ADMIN VIEW */
@@ -609,14 +660,14 @@ export default function App() {
                               <td className="px-6 sm:px-10 py-6 sm:py-8">
                                 <div className="flex flex-wrap gap-4 sm:gap-6">
                                   {(data.duties?.[duty.id] || []).map((slot, idx) => (
-                                    <div key={idx} className="flex flex-wrap sm:flex-nowrap items-center gap-3 sm:gap-5 bg-white p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] border-2 border-slate-50 shadow-sm transition hover:border-indigo-100">
+                                    <div key={idx} className="flex flex-wrap sm:flex-nowrap items-center gap-3 sm:gap-5 bg-white p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2.2rem] border-2 border-slate-50 shadow-sm transition hover:border-indigo-100">
                                       <div className="flex flex-col gap-1 w-[45%] sm:w-auto"><span className="text-[8px] sm:text-[9px] font-black text-slate-400 uppercase">เริ่ม</span><input type="text" disabled={authRole === 'branch'} className="border rounded-xl p-1.5 sm:p-2 text-[10px] sm:text-xs font-black text-center w-full sm:w-24 disabled:bg-slate-50 disabled:text-slate-300 outline-none focus:border-indigo-500" value={slot.startTime} onChange={(e) => { const nd = JSON.parse(JSON.stringify(branchData)); nd.matrix[key].duties[duty.id][idx].startTime = e.target.value; setBranchData(nd); }} /></div>
                                       <div className="flex flex-col gap-1 w-[45%] sm:w-auto"><span className="text-[8px] sm:text-[9px] font-black text-slate-400 uppercase">เลิก</span><input type="text" disabled={authRole === 'branch'} className="border rounded-xl p-1.5 sm:p-2 text-[10px] sm:text-xs font-black text-center w-full sm:w-24 disabled:bg-slate-50 disabled:text-slate-300 outline-none focus:border-indigo-500" value={slot.endTime || ""} onChange={(e) => { const nd = JSON.parse(JSON.stringify(branchData)); nd.matrix[key].duties[duty.id][idx].endTime = e.target.value; setBranchData(nd); }} /></div>
                                       <div className="flex flex-col gap-1 sm:border-l pl-0 sm:pl-5 w-[80%] sm:w-auto mt-2 sm:mt-0"><span className="text-[8px] sm:text-[9px] font-black text-indigo-500 uppercase">MAX OT</span><input type="number" disabled={authRole === 'branch'} step="0.5" className="w-full sm:w-20 border rounded-xl p-1.5 sm:p-2 text-center font-black bg-indigo-50/50 disabled:opacity-50 outline-none focus:border-indigo-500 text-[10px] sm:text-xs" value={slot.maxOtHours} onChange={(e) => { const nd = JSON.parse(JSON.stringify(branchData)); nd.matrix[key].duties[duty.id][idx].maxOtHours = parseFloat(e.target.value) || 0; setBranchData(nd); }} /></div>
                                       {authRole === 'superadmin' && <button onClick={() => { const nd = JSON.parse(JSON.stringify(branchData)); nd.matrix[key].duties[duty.id].splice(idx,1); setBranchData(nd); }} className="text-slate-300 hover:text-red-500 transition mt-0 sm:mt-4 p-2 sm:p-0"><Trash2 className="w-4 h-4 sm:w-5 h-5"/></button>}
                                     </div>
                                   ))}
-                                  {authRole === 'superadmin' && <button onClick={() => { const nd = JSON.parse(JSON.stringify(branchData)); if(!nd.matrix[key].duties[duty.id]) nd.matrix[key].duties[duty.id] = []; nd.matrix[key].duties[duty.id].push({startTime:"10:00", endTime:"19:00", maxOtHours:4.0}); setBranchData(nd); }} className="bg-slate-50 border-2 border-dashed border-slate-200 px-4 sm:px-6 py-3 sm:py-4 rounded-[1.5rem] sm:rounded-[2rem] text-[9px] sm:text-[11px] font-black text-slate-400 hover:border-indigo-500 transition self-stretch sm:self-center">+ SLOT</button>}
+                                  {authRole === 'superadmin' && <button onClick={() => { const nd = JSON.parse(JSON.stringify(branchData)); if(!nd.matrix[key].duties[duty.id]) nd.matrix[key].duties[duty.id] = []; nd.matrix[key].duties[duty.id].push({startTime:"10:00", endTime:"19:00", maxOtHours:4.0}); setBranchData(nd); }} className="bg-slate-50 border-2 border-dashed border-slate-200 px-4 sm:px-6 py-3 sm:py-4 rounded-[1.5rem] sm:rounded-[2.2rem] text-[9px] sm:text-[11px] font-black text-slate-400 hover:border-indigo-500 transition self-stretch sm:self-center">+ SLOT</button>}
                                 </div>
                               </td>
                             </tr>
@@ -668,7 +719,7 @@ export default function App() {
                    </span>
                 </div>
               </div>
-              <button onClick={() => setView('print')} className="w-full xl:w-auto bg-slate-50 text-slate-900 px-6 sm:px-10 py-4 sm:py-5 rounded-xl sm:rounded-3xl font-black flex justify-center items-center gap-3 sm:gap-4 hover:bg-white border border-slate-200 shadow-sm active:scale-95 transition-all text-xs sm:text-base"><Printer className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-600" /> พิมพ์รายงานวันนี้ </button>
+              <button onClick={() => setView('print')} className="w-full xl:w-auto bg-slate-50 text-slate-900 px-6 sm:px-10 py-4 sm:py-5 rounded-xl sm:rounded-3xl font-black flex justify-center items-center gap-3 sm:gap-4 hover:bg-white border border-slate-200 shadow-sm active:scale-95 transition-all text-xs sm:text-base"><Printer className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-600" /> ไปหน้าพิมพ์ตาราง </button>
             </div>
 
             <div className="bg-white rounded-[2rem] sm:rounded-[3.5rem] border-2 border-dashed border-slate-200 p-6 sm:p-12 shadow-sm">
@@ -691,7 +742,7 @@ export default function App() {
                     </div>
                   </div>
                 ))}
-                <button onClick={() => updateLeaves(selectedDateStr, 'add')} className="border-3 border-dashed border-indigo-100 text-indigo-400 p-6 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] font-black text-xs sm:text-sm hover:bg-indigo-50 transition-all uppercase tracking-widest active:scale-95 group flex items-center justify-center gap-2"><Plus className="w-5 h-5 sm:w-6 sm:h-6" /> เพิ่มคนลา </button>
+                <button onClick={() => updateLeaves(selectedDateStr, 'add')} className="border-3 border-dashed border-indigo-100 text-indigo-400 p-6 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] font-black text-xs sm:text-sm hover:bg-indigo-50 transition-all uppercase tracking-widest active:scale-95 group flex items-center justify-center gap-2"><Plus className="w-5 h-5 sm:w-6 sm:h-6" /> เพิ่มรายการลา </button>
               </div>
             </div>
 
@@ -741,11 +792,15 @@ export default function App() {
             </div>
             </>
              ) : (
-                /* NEW MONTHLY VIEW V9.3 */
+                /* NEW MONTHLY VIEW V9.6 - RE-ADDED BUTTON AND FIXES */
                 <div className="bg-white rounded-[2rem] sm:rounded-[3rem] border border-slate-200 shadow-sm overflow-hidden animate-in fade-in">
                   <div className="p-6 sm:p-8 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
-                    <h2 className="text-xl sm:text-2xl font-black text-slate-900 uppercase tracking-tighter">Monthly Schedule: {THAI_MONTHS[selectedMonth]}</h2>
-                    <div className="text-xs font-bold text-indigo-600 uppercase tracking-widest px-4 py-2 bg-indigo-50 rounded-xl">{activeDept.toUpperCase()} DEPT</div>
+                    <div className="flex flex-col">
+                        <h2 className="text-xl sm:text-2xl font-black text-slate-900 uppercase tracking-tighter">Monthly Schedule: {THAI_MONTHS[selectedMonth]}</h2>
+                        <div className="text-xs font-bold text-indigo-600 uppercase tracking-widest mt-1">{activeDept.toUpperCase()} DEPT</div>
+                    </div>
+                    {/* Re-added Print Button for Monthly View */}
+                    <button onClick={() => setView('print')} className="bg-slate-900 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-black flex items-center gap-2 hover:bg-black shadow-lg active:scale-95 transition-all text-[10px] sm:text-xs uppercase tracking-widest"><Printer className="w-4 h-4" /> ไปหน้าพิมพ์ตาราง</button>
                   </div>
                   <div className="overflow-auto custom-scrollbar" style={{ maxHeight: '80vh' }}>
                     <table className="w-full border-collapse text-left min-w-[1200px]">
@@ -765,6 +820,15 @@ export default function App() {
                            const dayData = schedule[day.dateStr] || {};
                            const dayConfig = CALENDAR_DAYS.find(c => c.dateStr === day.dateStr);
                            const type = dayConfig ? dayConfig.type : 'weekday';
+
+                           // Calculate used staff for THIS day to prevent dupes in Monthly View
+                           const dayUsedStaffIds = new Set();
+                           if (dayData.leaves) dayData.leaves.forEach(l => l.staffId && dayUsedStaffIds.add(l.staffId));
+                           if (dayData.duties) {
+                             Object.values(dayData.duties).forEach(slots => {
+                               slots.forEach(s => s.staffId && dayUsedStaffIds.add(s.staffId));
+                             });
+                           }
 
                            return (
                              <tr key={day.dateStr} className="hover:bg-slate-50 transition-colors">
@@ -809,9 +873,8 @@ export default function App() {
                                               >
                                                 <option value="">-- ว่าง --</option>
                                                 {branchData.staff?.filter(s => s.dept === activeDept).map(s => {
-                                                  // Only show staff not assigned elsewhere in THIS day's schedule
-                                                  // Note: Complex filtering in huge table might be slow, doing basic
-                                                  return <option key={s.id} value={s.id}>{s.name}</option>
+                                                  const isUsedInThisDay = dayUsedStaffIds.has(s.id) && data.staffId !== s.id;
+                                                  return isUsedInThisDay ? null : <option key={s.id} value={s.id}>{s.name}</option>
                                                 })}
                                               </select>
                                               {/* Tiny OT Input */}
@@ -837,8 +900,10 @@ export default function App() {
                 </div>
              )}
           </div>
+        ) : view === 'print' ? (
+          <PrintMonthlyView CALENDAR_DAYS={CALENDAR_DAYS} branchData={branchData} globalConfig={globalConfig} activeBranchId={activeBranchId} THAI_MONTHS={THAI_MONTHS} selectedMonth={selectedMonth} getStaffDayInfo={getStaffDayInfo} setView={setView} activeDept={activeDept} />
         ) : (
-          /* REPORT VIEW (V9.0 Code - same as previous) */
+          /* REPORT VIEW (Common for all) */
           <div className="space-y-6 sm:space-y-12 animate-in fade-in duration-500 pb-24 w-full">
             {/* Same report content... */}
              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0">
@@ -919,7 +984,90 @@ export default function App() {
           </div>
         )}
       </main>
-      {/* Styles & CSS */}
+
+      <style dangerouslySetInnerHTML={{ __html: `
+        .custom-scrollbar::-webkit-scrollbar { height: 8px; width: 8px; }
+        @media (min-width: 640px) {
+           .custom-scrollbar::-webkit-scrollbar { height: 12px; width: 10px; }
+        }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 20px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 20px; border: 3px solid #f1f5f9; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .touch-pan-x { touch-action: pan-x; }
+        .snap-x { scroll-snap-type: x mandatory; }
+        .snap-center { scroll-snap-align: center; }
+        @media print {
+          @page { size: A4 landscape; margin: 5mm; }
+          body { background: white !important; -webkit-print-color-adjust: exact; padding: 0 !important; margin: 0 !important; }
+          .print\\:hidden { display: none !important; }
+          nav, button, footer { display: none !important; }
+          main { padding: 0 !important; margin: 0 !important; min-height: auto !important; }
+          table { width: 100% !important; border-collapse: collapse !important; border: 2px solid #000 !important; font-size: 7px !important; }
+          th, td { border: 1px solid #000 !important; padding: 2px !important; }
+        }
+      `}} />
+    </div>
+  );
+}
+
+function PrintMonthlyView({ CALENDAR_DAYS, branchData, globalConfig, activeBranchId, THAI_MONTHS, selectedMonth, getStaffDayInfo, setView, activeDept }) {
+  // Filter Staff by Active Dept
+  const filteredStaff = branchData.staff?.filter(s => s.dept === activeDept) || [];
+
+  return (
+    <div className="p-4 sm:p-10 bg-white min-h-screen animate-in fade-in w-full overflow-x-hidden">
+      <div className="max-w-full mx-auto">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 sm:mb-16 print:hidden border-b pb-6 sm:pb-8 gap-4 sm:gap-0">
+          <button onClick={() => setView('manager')} className="flex items-center gap-2 sm:gap-4 text-slate-600 font-black bg-slate-100 px-6 sm:px-8 py-3 sm:py-4 rounded-xl sm:rounded-3xl hover:bg-slate-200 transition shadow-sm uppercase text-xs sm:text-sm tracking-widest w-full sm:w-auto justify-center"><ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" /> ย้อนกลับ </button>
+          <button onClick={() => window.print()} className="bg-indigo-600 text-white px-8 sm:px-12 py-4 sm:py-5 rounded-xl sm:rounded-3xl font-black shadow-xl sm:shadow-2xl hover:bg-indigo-700 active:scale-95 transition-all flex items-center justify-center gap-3 sm:gap-4 uppercase text-xs sm:text-sm tracking-widest w-full sm:w-auto"><Printer className="w-5 h-5 sm:w-6 sm:h-6" /> สั่งพิมพ์รายงาน </button>
+        </div>
+        <div className="text-center mb-10 sm:mb-16 uppercase">
+          <h1 className="text-3xl sm:text-6xl font-black text-slate-900 tracking-tighter leading-none mb-2 sm:mb-4">ROSTER SCHEDULE: {THAI_MONTHS[selectedMonth]} 2026</h1>
+          <p className="text-xs sm:text-sm text-slate-400 font-bold uppercase tracking-[0.3em] sm:tracking-[0.6em] italic">
+             {globalConfig.branches?.find(b=>b.id===activeBranchId)?.name || 'BRANCH NODE'} - {activeDept.toUpperCase()} DEPT
+          </p>
+        </div>
+        <div className="overflow-x-auto border-2 sm:border-4 border-slate-900 rounded-xl sm:rounded-[2.5rem] shadow-lg sm:shadow-2xl overflow-hidden w-full custom-scrollbar pb-2 sm:pb-0">
+          <table className="w-full border-collapse text-[6px] sm:text-[8px] table-fixed min-w-[800px] sm:min-w-none">
+            <thead>
+              <tr className="bg-slate-900 text-white">
+                <th className="border-r border-slate-700 p-3 sm:p-5 text-left sticky left-0 bg-slate-900 z-10 w-24 sm:w-48 font-black uppercase border-b-2 border-slate-600">Employee (Pos)</th>
+                {CALENDAR_DAYS.map(day => (
+                  <th key={day.dateStr} className={`border-r border-slate-700 p-1.5 sm:p-3 min-w-[30px] sm:min-w-[45px] text-center border-b-2 border-slate-600 ${day.type === 'weekend' || branchData.holidays?.includes?.(day.dateStr) ? 'bg-slate-800 text-indigo-300' : ''}`}>
+                    <div className="font-black text-[10px] sm:text-sm mb-0.5 sm:mb-1">{day.dayNum}</div><div className="text-[6px] sm:text-[8px] opacity-70 uppercase tracking-tighter">{day.dayLabel}</div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filteredStaff.map(s => (
+                <tr key={s.id} className="h-12 sm:h-20 transition-colors border-b border-slate-100">
+                  <td className="border-r-2 sm:border-r-4 border-slate-900 p-2 sm:p-5 font-black sticky left-0 bg-white z-10 text-[9px] sm:text-[12px] uppercase leading-tight truncate max-w-[100px] sm:max-w-[150px]">
+                     {s.name}
+                     <div className="text-[5px] sm:text-[7px] text-slate-400 font-bold">({s.pos})</div>
+                  </td>
+                  {CALENDAR_DAYS.map(day => {
+                    const info = getStaffDayInfo(s.id, day.dateStr);
+                    return (
+                      <td key={day.dateStr} className={`border-r border-b border-slate-100 p-1 sm:p-2 text-center ${!info ? 'bg-slate-50/40' : ''}`}>
+                        {info?.type === 'work' ? (
+                          <div className="flex flex-col items-center justify-center leading-tight">
+                            <span className="font-black text-indigo-700 text-[8px] sm:text-[10px] leading-none">{info.slot.startTime}</span>
+                            <div className="text-[4px] sm:text-[5px] font-bold text-slate-400 truncate w-full px-0.5 sm:px-1 uppercase tracking-tighter mt-0.5 sm:mt-1 opacity-80">OT:{info.actual?.otHours || 0}</div>
+                          </div>
+                        ) : info?.type === 'leave' ? (
+                          <div className={`w-full h-full flex items-center justify-center font-black ${info.info.color} rounded-md sm:rounded-xl border sm:border-2 border-white shadow-inner text-[8px] sm:text-[10px]`}><span className="text-center leading-none uppercase p-0.5 sm:p-1">{info.info.shortLabel}</span></div>
+                        ) : <span className="text-[5px] sm:text-[7px] font-black opacity-10 uppercase tracking-widest">OFF</span>}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }
