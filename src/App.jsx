@@ -37,14 +37,16 @@ import {
   CheckCircle2,
   Edit2,
   X,
-  Check
+  Check,
+  List
 } from 'lucide-react';
 
 /**
- * RESTAURANT MANPOWER MANAGEMENT SYSTEM (MP26 MODEL) - V10.4 (FINAL STABLE)
- * แก้ไข:
- * 1. Fixed Duplicate Declaration: ลบ PrintMonthlyView ที่ซ้ำซ้อนออก
- * 2. Features Verified: แยกแผนกพิมพ์, Popup บันทึก, แก้ไขข้อมูลพนักงาน
+ * RESTAURANT MANPOWER MANAGEMENT SYSTEM (MP26 MODEL) - V10.7 (DUTY-LEVEL POSITIONS)
+ * แก้ไขและอัปเดต:
+ * 1. ย้ายการระบุตำแหน่ง (reqPos) จาก Matrix Slot ไปไว้ที่การจัดการ "หน้าที่งาน" (Duties)
+ * 2. สามารถระบุตำแหน่งได้มากกว่า 1 ตำแหน่งตอนสร้าง/แก้ไขหน้าที่งาน
+ * 3. หน้าจัดกะของ Manager จะดึงเงื่อนไขตำแหน่งจากหน้าที่งานมากรอง Dropdown ให้โดยอัตโนมัติ
  */
 
 // --- 1. Configurations ---
@@ -71,20 +73,21 @@ const POSITIONS = {
   kitchen: ["KH", "SKD", "KD", "EDC ครัว", "DVT ครัว", "PT ครัว"]
 };
 
-const SERVICE_DUTIES = [
-  { id: 'D1', jobA: 'ดูแลประสบการณ์ลูกค้า', jobB: 'งานบริหารจัดการสาขา/พนักงาน' },
-  { id: 'D2', jobA: 'ต้อนรับหน้าร้าน/แคชเชียร์', jobB: 'พนักงานประจำโซน (A,B)' },
-  { id: 'D3', jobA: 'พนักงานประจำโซน (A,B,C,D,E,F,G)', jobB: 'พนักงานเตรียม Station /เคลียร์โต๊ะ' },
-  { id: 'D4', jobA: 'พนักงานจัดอาหาร/ทำขนมหวาน', jobB: '-' },
-  { id: 'D5', jobA: 'ม้าเหล็ก เคลียร์โต๊ะ/เก็บจาน', jobB: 'พนักงานเตรียม Station' },
-  { id: 'D6', jobA: 'พนักงานเตรียม Station', jobB: 'พนักงานจัดอาหาร/ทำขนมหวาน' },
+// เปลี่ยนจากค่าคงที่ เป็น Default Fallback (รวม reqPos ไว้ที่ Duty)
+const DEFAULT_SERVICE_DUTIES = [
+  { id: 'D1', jobA: 'ดูแลประสบการณ์ลูกค้า', jobB: 'งานบริหารจัดการสาขา/พนักงาน', reqPos: ['ALL'] },
+  { id: 'D2', jobA: 'ต้อนรับหน้าร้าน/แคชเชียร์', jobB: 'พนักงานประจำโซน (A,B)', reqPos: ['ALL'] },
+  { id: 'D3', jobA: 'พนักงานประจำโซน (A,B,C,D,E,F,G)', jobB: 'พนักงานเตรียม Station /เคลียร์โต๊ะ', reqPos: ['ALL'] },
+  { id: 'D4', jobA: 'พนักงานจัดอาหาร/ทำขนมหวาน', jobB: '-', reqPos: ['ALL'] },
+  { id: 'D5', jobA: 'ม้าเหล็ก เคลียร์โต๊ะ/เก็บจาน', jobB: 'พนักงานเตรียม Station', reqPos: ['ALL'] },
+  { id: 'D6', jobA: 'พนักงานเตรียม Station', jobB: 'พนักงานจัดอาหาร/ทำขนมหวาน', reqPos: ['ALL'] },
 ];
 
-const KITCHEN_DUTIES = [
-  { id: 'K1', jobA: 'CHECKER', jobB: 'ครัวร้อน' },
-  { id: 'K2', jobA: 'CHECKER', jobB: 'สไลซ์/ซีฟู้ด' },
-  { id: 'K3', jobA: 'ทอด/ผัด', jobB: 'PREP สไลซ์ ซีฟู้ด' },
-  { id: 'K4', jobA: 'อ่างกระทะ', jobB: 'PREP' },
+const DEFAULT_KITCHEN_DUTIES = [
+  { id: 'K1', jobA: 'CHECKER', jobB: 'ครัวร้อน', reqPos: ['ALL'] },
+  { id: 'K2', jobA: 'CHECKER', jobB: 'สไลซ์/ซีฟู้ด', reqPos: ['ALL'] },
+  { id: 'K3', jobA: 'ทอด/ผัด', jobB: 'PREP สไลซ์ ซีฟู้ด', reqPos: ['ALL'] },
+  { id: 'K4', jobA: 'อ่างกระทะ', jobB: 'PREP', reqPos: ['ALL'] },
 ];
 
 const LEAVE_TYPES = [
@@ -97,12 +100,13 @@ const LEAVE_TYPES = [
 
 const THAI_MONTHS = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
 
-const generateDefaultMatrix = () => {
+const generateDefaultMatrix = (serviceDuties = DEFAULT_SERVICE_DUTIES, kitchenDuties = DEFAULT_KITCHEN_DUTIES) => {
   const m = {};
   ['weekday', 'friday', 'weekend'].forEach(dt => {
     m[dt] = { duties: {} };
-    SERVICE_DUTIES.forEach(d => m[dt].duties[d.id] = [{ startTime: "10:00", endTime: "19:00", maxOtHours: 4.0 }]);
-    KITCHEN_DUTIES.forEach(k => m[dt].duties[k.id] = [{ startTime: "09:00", endTime: "18:00", maxOtHours: 4.0 }]);
+    // Slot ไม่ต้องเก็บ reqPos แล้ว เพราะอิงจาก Duty
+    serviceDuties.forEach(d => m[dt].duties[d.id] = [{ startTime: "10:00", endTime: "19:00", maxOtHours: 4.0 }]);
+    kitchenDuties.forEach(k => m[dt].duties[k.id] = [{ startTime: "09:00", endTime: "18:00", maxOtHours: 4.0 }]);
   });
   return m;
 };
@@ -139,11 +143,68 @@ const callGemini = async (prompt, systemInstruction = "") => {
   } catch (e) { return "ระบบ AI ขัดข้อง"; }
 };
 
-// --- Sub-Component: PrintMonthlyView (Defined Once) ---
-const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranchId, THAI_MONTHS, selectedMonth, getStaffDayInfo, setView, activeDept }) => {
-  // Filter Staff by Active Dept
+// --- Custom Components ---
+const PositionSelector = ({ value, options, onChange, disabled, className }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const valArray = Array.isArray(value) ? value : [value || 'ALL'];
+
+  const toggle = (opt) => {
+    let next = [...valArray];
+    if (opt === 'ALL') {
+      next = ['ALL'];
+    } else {
+      next = next.filter(x => x !== 'ALL');
+      if (next.includes(opt)) next = next.filter(x => x !== opt);
+      else next.push(opt);
+      if (next.length === 0) next = ['ALL'];
+    }
+    onChange(next);
+  };
+
+  return (
+    <div className={`relative ${className || 'w-full sm:w-24'}`}>
+      <div 
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        className={`border rounded-xl p-2 sm:p-2.5 text-center font-black bg-emerald-50/50 text-[10px] sm:text-xs truncate cursor-pointer ${disabled ? 'opacity-50' : 'hover:border-emerald-500'}`}
+        title={valArray.join(', ')}
+      >
+        {valArray.join(', ')}
+      </div>
+      {isOpen && !disabled && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)}></div>
+          <div className="absolute top-full left-0 mt-1 w-40 bg-white border border-slate-200 rounded-xl shadow-xl z-50 max-h-48 overflow-y-auto text-left">
+            <div 
+              className={`px-3 py-2 text-xs font-bold cursor-pointer hover:bg-slate-50 flex items-center gap-2 ${valArray.includes('ALL') ? 'text-emerald-600' : 'text-slate-600'}`}
+              onClick={() => toggle('ALL')}
+            >
+              <div className={`w-3 h-3 rounded border flex flex-shrink-0 items-center justify-center ${valArray.includes('ALL') ? 'bg-emerald-500 border-emerald-500' : 'border-slate-300'}`}>
+                {valArray.includes('ALL') && <Check className="w-2 h-2 text-white" />}
+              </div>
+              ALL
+            </div>
+            {options.map(o => (
+              <div 
+                key={o}
+                className={`px-3 py-2 text-xs font-bold cursor-pointer hover:bg-slate-50 flex items-center gap-2 ${valArray.includes(o) ? 'text-emerald-600' : 'text-slate-600'}`}
+                onClick={() => toggle(o)}
+              >
+                <div className={`w-3 h-3 rounded border flex flex-shrink-0 items-center justify-center ${valArray.includes(o) ? 'bg-emerald-500 border-emerald-500' : 'border-slate-300'}`}>
+                  {valArray.includes(o) && <Check className="w-2 h-2 text-white" />}
+                </div>
+                {o}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+// --- Sub-Component: PrintMonthlyView ---
+const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranchId, THAI_MONTHS, selectedMonth, getStaffDayInfo, setView, activeDept, CURRENT_DUTY_LIST }) => {
   const filteredStaff = branchData.staff?.filter(s => s.dept === activeDept) || [];
-  const CURRENT_DUTY_LIST = activeDept === 'service' ? SERVICE_DUTIES : KITCHEN_DUTIES;
 
   return (
     <div className="p-4 sm:p-10 bg-white min-h-screen animate-in fade-in w-full overflow-x-hidden">
@@ -178,7 +239,7 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
                      <div className="text-[5px] sm:text-[7px] text-slate-400 font-bold">({s.pos})</div>
                   </td>
                   {CALENDAR_DAYS.map(day => {
-                    const info = getStaffDayInfo(s.id, day.dateStr);
+                    const info = getStaffDayInfo(s.id, day.dateStr, CURRENT_DUTY_LIST);
                     return (
                       <td key={day.dateStr} className={`border-r border-b border-slate-100 p-1 sm:p-2 text-center ${!info ? 'bg-slate-50/40' : ''}`}>
                         {info?.type === 'work' ? (
@@ -216,7 +277,7 @@ export default function App() {
   const [managerViewMode, setManagerViewMode] = useState('daily'); 
 
   const [globalConfig, setGlobalConfig] = useState({ admins: [{ user: 'admin', pass: 'superstore' }], branches: [] });
-  const [branchData, setBranchData] = useState({ staff: [], holidays: [], matrix: generateDefaultMatrix() });
+  const [branchData, setBranchData] = useState({ staff: [], holidays: [], matrix: generateDefaultMatrix(), duties: { service: DEFAULT_SERVICE_DUTIES, kitchen: DEFAULT_KITCHEN_DUTIES } });
   const [schedule, setSchedule] = useState({});
   
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
@@ -238,6 +299,13 @@ export default function App() {
   const [editingBranchId, setEditingBranchId] = useState(null);
   const [editBranchData, setEditBranchData] = useState({});
 
+  // Duty Management States
+  const [newDutyJobA, setNewDutyJobA] = useState('');
+  const [newDutyJobB, setNewDutyJobB] = useState('');
+  const [newDutyReqPos, setNewDutyReqPos] = useState(['ALL']); // ตำแหน่งที่ต้องการสำหรับหน้าที่ใหม่
+  const [editingDutyId, setEditingDutyId] = useState(null);
+  const [editDutyData, setEditDutyData] = useState({});
+
   const [aiLoading, setAiLoading] = useState(false);
   const [aiMessage, setAiMessage] = useState(null);
   
@@ -245,7 +313,13 @@ export default function App() {
   const selectedYear = 2026;
 
   // --- Memos ---
-  const CURRENT_DUTY_LIST = useMemo(() => activeDept === 'service' ? SERVICE_DUTIES : KITCHEN_DUTIES, [activeDept]);
+  const CURRENT_DUTY_LIST = useMemo(() => {
+    if (branchData.duties && branchData.duties[activeDept]) {
+      return branchData.duties[activeDept];
+    }
+    return activeDept === 'service' ? DEFAULT_SERVICE_DUTIES : DEFAULT_KITCHEN_DUTIES;
+  }, [activeDept, branchData.duties]);
+
   const CALENDAR_DAYS = useMemo(() => getDaysInMonth(selectedYear, selectedMonth, branchData.holidays || []), [selectedMonth, selectedYear, branchData.holidays]);
   const activeDay = useMemo(() => CALENDAR_DAYS.find(d => d.dateStr === selectedDateStr) || CALENDAR_DAYS[0], [selectedDateStr, CALENDAR_DAYS]);
 
@@ -304,7 +378,7 @@ export default function App() {
   const totalPlannedOT = reportData.reduce((acc, curr) => acc + curr.plannedOT, 0);
   const deltaOT = totalActualOT - totalPlannedOT;
 
-  const getStaffDayInfo = useCallback((staffId, dateStr) => {
+  const getStaffDayInfo = useCallback((staffId, dateStr, currentDutyList) => {
     const dayData = schedule[dateStr];
     if (!dayData) return null;
     const leave = (dayData.leaves || []).find(l => l.staffId === staffId);
@@ -313,8 +387,7 @@ export default function App() {
         return { type: 'leave', info: typeInfo || { shortLabel: '?', color: 'bg-gray-100' } };
     }
     
-    const allDuties = [...SERVICE_DUTIES, ...KITCHEN_DUTIES];
-    for (const d of allDuties) {
+    for (const d of currentDutyList) {
       const slots = dayData.duties?.[d.id] || [];
       const sIdx = slots.findIndex(s => s.staffId === staffId);
       if (sIdx !== -1) {
@@ -356,8 +429,15 @@ export default function App() {
   useEffect(() => {
     if (!user || !activeBranchId) return;
     const unsubBranch = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), (snap) => {
-      if (snap.exists()) setBranchData(snap.data());
-      else setBranchData({ staff: [], holidays: [], matrix: generateDefaultMatrix() });
+      if (snap.exists()) {
+        const data = snap.data();
+        if (!data.duties) {
+          data.duties = { service: DEFAULT_SERVICE_DUTIES, kitchen: DEFAULT_KITCHEN_DUTIES };
+        }
+        setBranchData(data);
+      } else { 
+        setBranchData({ staff: [], holidays: [], duties: { service: DEFAULT_SERVICE_DUTIES, kitchen: DEFAULT_KITCHEN_DUTIES }, matrix: generateDefaultMatrix() });
+      }
     });
     const unsubSched = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'schedules', activeBranchId), (snap) => {
       if (snap.exists()) setSchedule(snap.data().records || {});
@@ -398,24 +478,13 @@ export default function App() {
   const updateSchedule = (dateStr, dutyId, slotIndex, field, value) => {
     setSchedule(prev => {
       const newSched = { ...prev };
-      
-      // Ensure path exists
       if (!newSched[dateStr]) newSched[dateStr] = { duties: {}, leaves: [] };
       if (!newSched[dateStr].duties) newSched[dateStr].duties = {};
       if (!newSched[dateStr].duties[dutyId]) newSched[dateStr].duties[dutyId] = [];
-      
-      // Deep Copy the specific slot array
       const currentSlots = [...newSched[dateStr].duties[dutyId]];
-      
-      // Ensure slot object exists
       if (!currentSlots[slotIndex]) currentSlots[slotIndex] = { staffId: "", otHours: 0 };
-      
-      // Update value in a new object
       currentSlots[slotIndex] = { ...currentSlots[slotIndex], [field]: value };
-      
-      // Re-assign to state copy
       newSched[dateStr].duties[dutyId] = currentSlots;
-      
       return newSched;
     });
   };
@@ -431,6 +500,61 @@ export default function App() {
       newSched[dateStr].leaves = currentLeaves;
       return newSched;
     });
+  };
+
+  // Duty Management Handlers
+  const handleAddDuty = () => {
+    if (!newDutyJobA.trim()) return;
+    const newId = (activeDept === 'service' ? 'D' : 'K') + Date.now();
+    const newDuty = { id: newId, jobA: newDutyJobA.trim(), jobB: newDutyJobB.trim() || '-', reqPos: newDutyReqPos };
+    
+    setBranchData(prev => {
+      const nd = JSON.parse(JSON.stringify(prev));
+      if (!nd.duties) nd.duties = { service: DEFAULT_SERVICE_DUTIES, kitchen: DEFAULT_KITCHEN_DUTIES };
+      if (!nd.duties[activeDept]) nd.duties[activeDept] = activeDept === 'service' ? DEFAULT_SERVICE_DUTIES : DEFAULT_KITCHEN_DUTIES;
+      
+      nd.duties[activeDept].push(newDuty);
+      
+      // Init slots in matrix
+      if(!nd.matrix) nd.matrix = generateDefaultMatrix();
+      ['weekday', 'friday', 'weekend'].forEach(dt => {
+        if(!nd.matrix[dt].duties[newId]) {
+           // Matrix slot ไม่ต้องเก็บ reqPos อีกต่อไป (ไปใช้ของ Duty แทน)
+           nd.matrix[dt].duties[newId] = [{ startTime: "10:00", endTime: "19:00", maxOtHours: 4.0 }];
+        }
+      });
+      return nd;
+    });
+    setNewDutyJobA('');
+    setNewDutyJobB('');
+    setNewDutyReqPos(['ALL']);
+  };
+
+  const handleEditDutySave = () => {
+     setBranchData(prev => {
+        const nd = JSON.parse(JSON.stringify(prev));
+        const idx = nd.duties[activeDept].findIndex(d => d.id === editingDutyId);
+        if(idx > -1) {
+           nd.duties[activeDept][idx] = editDutyData;
+        }
+        return nd;
+     });
+     setEditingDutyId(null);
+  };
+
+  const handleDeleteDuty = (dutyId) => {
+     setBranchData(prev => {
+        const nd = JSON.parse(JSON.stringify(prev));
+        nd.duties[activeDept] = nd.duties[activeDept].filter(d => d.id !== dutyId);
+        if (nd.matrix) {
+          ['weekday', 'friday', 'weekend'].forEach(dt => {
+             if (nd.matrix[dt] && nd.matrix[dt].duties) {
+               delete nd.matrix[dt].duties[dutyId];
+             }
+          });
+        }
+        return nd;
+     });
   };
 
   const startEditStaff = (staff) => {
@@ -503,7 +627,7 @@ export default function App() {
         <div className="bg-indigo-600 p-4 sm:p-5 rounded-full shadow-xl shadow-indigo-200"><Store className="w-10 h-10 text-white" /></div>
         <div className="text-center w-full">
            <h2 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tighter uppercase">StaffSync</h2>
-           <p className="text-slate-400 text-xs sm:text-sm font-bold mt-2 uppercase tracking-widest">Management System V10.4</p>
+           <p className="text-slate-400 text-xs sm:text-sm font-bold mt-2 uppercase tracking-widest">Management System V10.7</p>
         </div>
         <div className="w-full space-y-4 sm:space-y-5">
           <div>
@@ -637,10 +761,9 @@ export default function App() {
           </div>
         ) : null}
 
-        {/* ... (Admin and Branches views are same as previous) ... */}
         {view === 'branches' && authRole === 'superadmin' ? (
+           /* SYSTEM ADMIN - BRANCH MGMT */
            <div className="space-y-6 sm:space-y-10 animate-in fade-in duration-500 pb-24">
-             {/* Branch Management UI */}
              <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-4 sm:gap-6">
                   <div className="bg-emerald-100 p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem]"><Store className="w-8 h-8 sm:w-10 sm:h-10 text-emerald-600" /></div>
@@ -676,7 +799,6 @@ export default function App() {
                            <div className="pr-4">
                               <h4 className="text-base sm:text-xl font-black text-slate-900 uppercase tracking-tighter truncate max-w-[150px] sm:max-w-[200px]">{b.name}</h4>
                               <p className="text-[8px] sm:text-[9px] text-slate-400 font-bold mt-1.5 sm:mt-2 uppercase truncate">USER: {b.user} | PWD: {b.pass}</p>
-                              {/* EDIT BRANCH BUTTON */}
                                {editingBranchId === b.id ? (
                                   <div className="mt-4 space-y-2">
                                      <input type="text" placeholder="Name" value={editBranchData.name || ''} onChange={e => setEditBranchData({...editBranchData, name: e.target.value})} className="w-full border rounded-lg px-2 py-1 text-xs"/>
@@ -707,8 +829,9 @@ export default function App() {
             </div>
           ) : (
             <div className="space-y-6 sm:space-y-10 animate-in fade-in duration-500 pb-24">
+               {/* -------------------- ADMIN ROW 1: STAFF & DUTIES -------------------- */}
                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-10">
-                  {/* พนักงาน: MANAGER สามารถเพิ่มแผนกและตำแหน่งได้ */}
+                  {/* MANAGER สามารถเพิ่มพนักงานได้ */}
                   <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm flex flex-col">
                     <h2 className="text-lg sm:text-xl font-black text-slate-800 mb-6 sm:mb-8 flex items-center gap-2 sm:gap-4 uppercase tracking-tighter"><Users className="w-6 h-6 sm:w-7 sm:h-7 text-indigo-500" /> จัดการพนักงาน ({globalConfig.branches?.find(b=>b.id===activeBranchId)?.name})</h2>
                     
@@ -728,12 +851,11 @@ export default function App() {
                       </div>
                     </div>
                     
-                    <div className="grid grid-cols-1 gap-2 sm:gap-3 max-h-[400px] sm:max-h-[500px] overflow-y-auto pr-2 sm:pr-3 custom-scrollbar">
+                    <div className="grid grid-cols-1 gap-2 sm:gap-3 max-h-[400px] overflow-y-auto pr-2 sm:pr-3 custom-scrollbar">
                       {branchData.staff?.filter(s => s.dept === activeDept).length === 0 ? (
                         <div className="text-center py-8 sm:py-10 text-slate-400 font-bold text-[10px] sm:text-sm uppercase tracking-widest border-2 border-dashed rounded-[1.5rem] sm:rounded-[2rem]">ไม่มีพนักงานในแผนกนี้</div>
                       ) : branchData.staff?.filter(s => s.dept === activeDept).map(s => (
                         <div key={s.id} className="flex justify-between items-center p-4 sm:p-5 bg-slate-50 rounded-2xl sm:rounded-3xl border border-transparent hover:border-indigo-100 hover:bg-white transition group shadow-sm">
-                           {/* EDIT STAFF LOGIC */}
                            {editingStaffId === s.id ? (
                               <div className="flex-1 flex gap-2 items-center">
                                  <input type="text" value={editStaffData.name} onChange={e => setEditStaffData({...editStaffData, name: e.target.value})} className="border rounded px-2 py-1 text-xs w-full"/>
@@ -760,9 +882,66 @@ export default function App() {
                       ))}
                     </div>
                   </div>
-                  
+
+                  {/* -------------------- DYNAMIC DUTIES MANAGER -------------------- */}
+                  <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm flex flex-col">
+                    <h2 className="text-lg sm:text-xl font-black text-slate-800 mb-6 sm:mb-8 flex items-center gap-2 sm:gap-4 uppercase tracking-tighter"><List className="w-6 h-6 sm:w-7 sm:h-7 text-indigo-500" /> จัดการหน้าที่งาน (Duties)</h2>
+                    
+                    {authRole === 'superadmin' ? (
+                      <div className="space-y-4 mb-6 sm:mb-10 w-full">
+                        <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
+                          <input type="text" placeholder="หน้าที่หลัก (เช่น ต้อนรับหน้าร้าน)" className="flex-1 border-2 border-slate-100 rounded-xl px-4 py-3 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none" value={newDutyJobA} onChange={e => setNewDutyJobA(e.target.value)} />
+                          <input type="text" placeholder="หน้าที่รอง (เช่น เคลียร์โต๊ะ)" className="flex-1 border-2 border-slate-100 rounded-xl px-4 py-3 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none" value={newDutyJobB} onChange={e => setNewDutyJobB(e.target.value)} />
+                          <PositionSelector disabled={false} value={newDutyReqPos} options={POSITIONS[activeDept]} onChange={setNewDutyReqPos} className="w-full sm:min-w-[80px]" />
+                          <button onClick={handleAddDuty} className="w-full sm:w-auto bg-slate-900 text-white px-6 py-3 rounded-xl font-black text-xs hover:bg-indigo-600 transition flex items-center justify-center"><Plus className="w-4 h-4 sm:w-5 sm:h-5"/></button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-[10px] text-orange-500 font-bold mb-6 text-center bg-orange-50 py-2 rounded-xl border border-orange-100 uppercase tracking-widest">* โหมดอ่านอย่างเดียว (เฉพาะ Admin ส่วนกลางที่แก้ไขโครงสร้างได้)</p>
+                    )}
+
+                    <div className="grid grid-cols-1 gap-2 sm:gap-3 max-h-[400px] overflow-y-auto pr-2 sm:pr-3 custom-scrollbar">
+                      {CURRENT_DUTY_LIST.length === 0 ? (
+                        <div className="text-center py-8 sm:py-10 text-slate-400 font-bold text-[10px] sm:text-sm uppercase tracking-widest border-2 border-dashed rounded-[1.5rem]">ไม่มีข้อมูลหน้าที่</div>
+                      ) : CURRENT_DUTY_LIST.map(duty => (
+                         <div key={duty.id} className="flex justify-between items-center p-3 sm:p-4 bg-slate-50 rounded-2xl border border-slate-100 shadow-sm transition hover:bg-white hover:border-indigo-100">
+                           {editingDutyId === duty.id ? (
+                              <div className="flex-1 flex flex-wrap gap-2 items-center">
+                                 <input type="text" value={editDutyData.jobA} onChange={e => setEditDutyData({...editDutyData, jobA: e.target.value})} className="border rounded px-2 py-1 text-[10px] sm:text-xs flex-1 font-bold outline-none focus:border-indigo-500 min-w-[100px]"/>
+                                 <input type="text" value={editDutyData.jobB} onChange={e => setEditDutyData({...editDutyData, jobB: e.target.value})} className="border rounded px-2 py-1 text-[10px] sm:text-xs flex-1 font-bold outline-none focus:border-indigo-500 min-w-[100px]"/>
+                                 <PositionSelector disabled={false} value={editDutyData.reqPos || ['ALL']} options={POSITIONS[activeDept]} onChange={(val) => setEditDutyData({...editDutyData, reqPos: val})} className="w-full sm:min-w-[80px]" />
+                                 <button onClick={handleEditDutySave} className="bg-green-500 text-white p-1.5 rounded-lg"><Check className="w-3 h-3"/></button>
+                                 <button onClick={() => setEditingDutyId(null)} className="bg-red-500 text-white p-1.5 rounded-lg"><X className="w-3 h-3"/></button>
+                              </div>
+                           ) : (
+                              <>
+                                <div className="flex-1 min-w-0 pr-4">
+                                  <div className="flex items-center gap-2">
+                                     <div className="font-black text-xs sm:text-sm text-slate-800 truncate">{duty.jobA}</div>
+                                     <span className="text-[8px] font-black text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100 truncate max-w-[80px] sm:max-w-[120px]" title={(duty.reqPos || ['ALL']).join(', ')}>
+                                        {(duty.reqPos || ['ALL']).join(', ')}
+                                     </span>
+                                  </div>
+                                  <div className="text-[9px] sm:text-[10px] text-slate-400 font-bold truncate mt-0.5">{duty.jobB}</div>
+                                </div>
+                                {authRole === 'superadmin' && (
+                                  <div className="flex gap-1 sm:gap-2">
+                                    <button onClick={() => { setEditingDutyId(duty.id); setEditDutyData(duty); }} className="text-slate-300 hover:text-indigo-500 p-2"><Edit2 className="w-4 h-4"/></button>
+                                    <button onClick={() => handleDeleteDuty(duty.id)} className="text-slate-300 hover:text-red-500 p-2"><Trash2 className="w-4 h-4"/></button>
+                                  </div>
+                                )}
+                              </>
+                           )}
+                         </div>
+                      ))}
+                    </div>
+                  </div>
+               </div>
+
+               {/* -------------------- ADMIN ROW 2: HOLIDAYS & MATRIX -------------------- */}
+               <div className="grid grid-cols-1 gap-6 sm:gap-10">
                   {/* วันหยุด: Read-only สำหรับ Manager */}
-                  <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm">
+                  <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm w-full lg:w-1/2">
                     <h2 className="text-lg sm:text-xl font-black text-slate-800 mb-6 sm:mb-8 flex items-center justify-center gap-2 sm:gap-4 uppercase tracking-tighter"><Coffee className="w-6 h-6 sm:w-7 sm:h-7 text-red-500" /> วันหยุดประจำสาขา</h2>
                     <div className="grid grid-cols-7 gap-1.5 sm:gap-3">
                       {CALENDAR_DAYS.map(d => {
@@ -779,43 +958,43 @@ export default function App() {
                         );
                       })}
                     </div>
-                    {authRole === 'branch' && <p className="text-[8px] sm:text-[10px] text-red-400 font-bold mt-6 sm:mt-8 text-center uppercase tracking-widest leading-relaxed">* เฉพาะ Admin ส่วนกลางเท่านั้นที่แก้ไขวันหยุดและกะงานได้</p>}
+                    {authRole === 'branch' && <p className="text-[8px] sm:text-[10px] text-red-400 font-bold mt-6 sm:mt-8 text-center uppercase tracking-widest leading-relaxed">* เฉพาะ Admin ส่วนกลางเท่านั้นที่แก้ไขวันหยุดได้</p>}
+                  </div>
+
+                  {/* กะงาน (Matrix): Admin Config */}
+                  <div className="space-y-6 sm:space-y-8 w-full">
+                    <h2 className="text-xl sm:text-2xl font-black text-slate-800 px-2 uppercase tracking-tighter flex items-center gap-3 sm:gap-4"><Clock className="w-6 h-6 sm:w-8 sm:h-8 text-indigo-600" /> โครงสร้างกะงานฝั่ง: {activeDept === 'service' ? 'บริการ' : 'ครัว'}</h2>
+                    {Object.entries(branchData.matrix || {}).map(([key, data]) => (
+                      <div key={key} className="bg-white rounded-[2rem] sm:rounded-[3rem] border border-slate-200 overflow-hidden shadow-sm mb-6 sm:mb-10 w-full">
+                        <div className={`px-6 sm:px-10 py-4 sm:py-6 font-black text-base sm:text-lg text-white ${key==='weekday' ? 'bg-slate-900' : key==='friday' ? 'bg-sky-700' : 'bg-orange-600'}`}>{key.toUpperCase()} CYCLE {authRole === 'branch' ? '(VIEW ONLY)' : ''}</div>
+                        <div className="overflow-x-auto custom-scrollbar">
+                          <table className="w-full text-xs text-left min-w-[800px]">
+                            <tbody className="divide-y divide-slate-100">
+                              {CURRENT_DUTY_LIST.map(duty => (
+                                <tr key={duty.id}>
+                                  <td className="px-6 sm:px-10 py-6 sm:py-8 w-[30%]"><div className="font-black text-slate-900 text-sm sm:text-lg mb-1 leading-tight">{duty.jobA}</div><div className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase italic leading-tight mt-1">{duty.jobB}</div></td>
+                                  <td className="px-6 sm:px-10 py-6 sm:py-8">
+                                    <div className="flex flex-wrap gap-4 sm:gap-6">
+                                      {(data.duties?.[duty.id] || []).map((slot, idx) => (
+                                        <div key={idx} className="flex flex-wrap sm:flex-nowrap items-center gap-3 sm:gap-5 bg-white p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2.2rem] border-2 border-slate-50 shadow-sm transition hover:border-indigo-100 relative">
+                                          <div className="flex flex-col gap-1 w-[45%] sm:w-auto"><span className="text-[8px] sm:text-[9px] font-black text-slate-400 uppercase">เริ่ม</span><input type="text" disabled={authRole === 'branch'} className="border rounded-xl p-1.5 sm:p-2 text-[10px] sm:text-xs font-black text-center w-full sm:w-24 disabled:bg-slate-50 disabled:text-slate-300 outline-none focus:border-indigo-500" value={slot.startTime} onChange={(e) => { const nd = JSON.parse(JSON.stringify(branchData)); nd.matrix[key].duties[duty.id][idx].startTime = e.target.value; setBranchData(nd); }} /></div>
+                                          <div className="flex flex-col gap-1 w-[45%] sm:w-auto"><span className="text-[8px] sm:text-[9px] font-black text-slate-400 uppercase">เลิก</span><input type="text" disabled={authRole === 'branch'} className="border rounded-xl p-1.5 sm:p-2 text-[10px] sm:text-xs font-black text-center w-full sm:w-24 disabled:bg-slate-50 disabled:text-slate-300 outline-none focus:border-indigo-500" value={slot.endTime || ""} onChange={(e) => { const nd = JSON.parse(JSON.stringify(branchData)); nd.matrix[key].duties[duty.id][idx].endTime = e.target.value; setBranchData(nd); }} /></div>
+                                          <div className="flex flex-col gap-1 sm:border-l pl-0 sm:pl-4 w-[80%] sm:w-auto mt-2 sm:mt-0"><span className="text-[8px] sm:text-[9px] font-black text-indigo-500 uppercase">MAX OT</span><input type="number" disabled={authRole === 'branch'} step="0.5" className="w-full sm:w-20 border rounded-xl p-1.5 sm:p-2 text-center font-black bg-indigo-50/50 disabled:opacity-50 outline-none focus:border-indigo-500 text-[10px] sm:text-xs" value={slot.maxOtHours} onChange={(e) => { const nd = JSON.parse(JSON.stringify(branchData)); nd.matrix[key].duties[duty.id][idx].maxOtHours = parseFloat(e.target.value) || 0; setBranchData(nd); }} /></div>
+                                          {authRole === 'superadmin' && <button onClick={() => { const nd = JSON.parse(JSON.stringify(branchData)); nd.matrix[key].duties[duty.id].splice(idx,1); setBranchData(nd); }} className="absolute -top-2 -right-2 bg-red-100 text-red-500 hover:bg-red-500 hover:text-white rounded-full p-1.5 transition"><X className="w-3 h-3"/></button>}
+                                        </div>
+                                      ))}
+                                      {authRole === 'superadmin' && <button onClick={() => { const nd = JSON.parse(JSON.stringify(branchData)); if(!nd.matrix[key].duties[duty.id]) nd.matrix[key].duties[duty.id] = []; nd.matrix[key].duties[duty.id].push({startTime:"10:00", endTime:"19:00", maxOtHours:4.0}); setBranchData(nd); }} className="bg-slate-50 border-2 border-dashed border-slate-200 px-4 sm:px-6 py-3 sm:py-4 rounded-[1.5rem] sm:rounded-[2.2rem] text-[9px] sm:text-[11px] font-black text-slate-400 hover:border-indigo-500 transition self-stretch sm:self-center">+ SLOT</button>}
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                </div>
-
-               {/* กะงาน (Matrix): Read-only สำหรับ Manager */}
-               <div className="space-y-6 sm:space-y-8">
-                 <h2 className="text-xl sm:text-2xl font-black text-slate-800 px-2 uppercase tracking-tighter flex items-center gap-3 sm:gap-4"><Clock className="w-6 h-6 sm:w-8 sm:h-8 text-indigo-600" /> โครงสร้างกะงานฝั่ง: {activeDept === 'service' ? 'บริการ' : 'ครัว'}</h2>
-                 {Object.entries(branchData.matrix || {}).map(([key, data]) => (
-                  <div key={key} className="bg-white rounded-[2rem] sm:rounded-[3rem] border border-slate-200 overflow-hidden shadow-sm mb-6 sm:mb-10 w-full">
-                    <div className={`px-6 sm:px-10 py-4 sm:py-6 font-black text-base sm:text-lg text-white ${key==='weekday' ? 'bg-slate-900' : key==='friday' ? 'bg-sky-700' : 'bg-orange-600'}`}>{key.toUpperCase()} CYCLE {authRole === 'branch' ? '(VIEW ONLY)' : ''}</div>
-                    <div className="overflow-x-auto custom-scrollbar">
-                      <table className="w-full text-xs text-left min-w-[800px]">
-                        <tbody className="divide-y divide-slate-100">
-                          {CURRENT_DUTY_LIST.map(duty => (
-                            <tr key={duty.id}>
-                              <td className="px-6 sm:px-10 py-6 sm:py-8 w-[30%]"><div className="font-black text-slate-900 text-sm sm:text-lg mb-1 leading-tight">{duty.jobA}</div><div className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase italic leading-tight">{duty.jobB}</div></td>
-                              <td className="px-6 sm:px-10 py-6 sm:py-8">
-                                <div className="flex flex-wrap gap-4 sm:gap-6">
-                                  {(data.duties?.[duty.id] || []).map((slot, idx) => (
-                                    <div key={idx} className="flex flex-wrap sm:flex-nowrap items-center gap-3 sm:gap-5 bg-white p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2.2rem] border-2 border-slate-50 shadow-sm transition hover:border-indigo-100">
-                                      <div className="flex flex-col gap-1 w-[45%] sm:w-auto"><span className="text-[8px] sm:text-[9px] font-black text-slate-400 uppercase">เริ่ม</span><input type="text" disabled={authRole === 'branch'} className="border rounded-xl p-1.5 sm:p-2 text-[10px] sm:text-xs font-black text-center w-full sm:w-24 disabled:bg-slate-50 disabled:text-slate-300 outline-none focus:border-indigo-500" value={slot.startTime} onChange={(e) => { const nd = JSON.parse(JSON.stringify(branchData)); nd.matrix[key].duties[duty.id][idx].startTime = e.target.value; setBranchData(nd); }} /></div>
-                                      <div className="flex flex-col gap-1 w-[45%] sm:w-auto"><span className="text-[8px] sm:text-[9px] font-black text-slate-400 uppercase">เลิก</span><input type="text" disabled={authRole === 'branch'} className="border rounded-xl p-1.5 sm:p-2 text-[10px] sm:text-xs font-black text-center w-full sm:w-24 disabled:bg-slate-50 disabled:text-slate-300 outline-none focus:border-indigo-500" value={slot.endTime || ""} onChange={(e) => { const nd = JSON.parse(JSON.stringify(branchData)); nd.matrix[key].duties[duty.id][idx].endTime = e.target.value; setBranchData(nd); }} /></div>
-                                      <div className="flex flex-col gap-1 sm:border-l pl-0 sm:pl-5 w-[80%] sm:w-auto mt-2 sm:mt-0"><span className="text-[8px] sm:text-[9px] font-black text-indigo-500 uppercase">MAX OT</span><input type="number" disabled={authRole === 'branch'} step="0.5" className="w-full sm:w-20 border rounded-xl p-1.5 sm:p-2 text-center font-black bg-indigo-50/50 disabled:opacity-50 outline-none focus:border-indigo-500 text-[10px] sm:text-xs" value={slot.maxOtHours} onChange={(e) => { const nd = JSON.parse(JSON.stringify(branchData)); nd.matrix[key].duties[duty.id][idx].maxOtHours = parseFloat(e.target.value) || 0; setBranchData(nd); }} /></div>
-                                      {authRole === 'superadmin' && <button onClick={() => { const nd = JSON.parse(JSON.stringify(branchData)); nd.matrix[key].duties[duty.id].splice(idx,1); setBranchData(nd); }} className="text-slate-300 hover:text-red-500 transition mt-0 sm:mt-4 p-2 sm:p-0"><Trash2 className="w-4 h-4 sm:w-5 h-5"/></button>}
-                                    </div>
-                                  ))}
-                                  {authRole === 'superadmin' && <button onClick={() => { const nd = JSON.parse(JSON.stringify(branchData)); if(!nd.matrix[key].duties[duty.id]) nd.matrix[key].duties[duty.id] = []; nd.matrix[key].duties[duty.id].push({startTime:"10:00", endTime:"19:00", maxOtHours:4.0}); setBranchData(nd); }} className="bg-slate-50 border-2 border-dashed border-slate-200 px-4 sm:px-6 py-3 sm:py-4 rounded-[1.5rem] sm:rounded-[2.2rem] text-[9px] sm:text-[11px] font-black text-slate-400 hover:border-indigo-500 transition self-stretch sm:self-center">+ SLOT</button>}
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                ))}
-             </div>
             </div>
           )
         ) : view === 'manager' ? (
@@ -888,20 +1067,34 @@ export default function App() {
               {CURRENT_DUTY_LIST.map(duty => {
                 const slots = branchData.matrix?.[activeDay.type]?.duties?.[duty.id] || [];
                 const assigned = schedule[selectedDateStr]?.duties?.[duty.id] || [];
+                
+                const reqArr = Array.isArray(duty.reqPos) ? duty.reqPos : [duty.reqPos || 'ALL'];
+                const isAll = reqArr.includes('ALL') || reqArr.length === 0;
+                const displayPos = isAll ? 'ALL POS' : reqArr.join(', ');
+                
                 return (
                   <div key={duty.id} className="bg-white rounded-[2rem] sm:rounded-[3.5rem] shadow-sm border border-slate-200 overflow-hidden flex flex-col transition hover:shadow-xl w-full">
                     <div className="p-6 sm:p-10 bg-slate-50 border-b border-slate-100 flex justify-between items-start sm:items-center flex-col sm:flex-row gap-3 sm:gap-0">
-                      <div><h3 className="font-black text-slate-900 text-base sm:text-xl uppercase tracking-tighter leading-tight max-w-[200px] sm:max-w-none break-words">{duty.jobA}</h3><p className="text-[9px] sm:text-[11px] text-slate-400 font-bold mt-1 uppercase italic leading-tight max-w-[200px] sm:max-w-none">{duty.jobB}</p></div>
+                      <div>
+                        <h3 className="font-black text-slate-900 text-base sm:text-xl uppercase tracking-tighter leading-tight max-w-[200px] sm:max-w-none break-words">{duty.jobA}</h3>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-[9px] sm:text-[11px] text-slate-400 font-bold uppercase italic leading-tight">{duty.jobB}</span>
+                          <span className="text-[8px] sm:text-[9px] font-black px-1.5 sm:px-2 py-0.5 rounded border uppercase bg-emerald-50 text-emerald-600 border-emerald-100">{displayPos}</span>
+                        </div>
+                      </div>
                       <div className="bg-white border border-slate-100 px-4 sm:px-5 py-1.5 sm:py-2.5 rounded-lg sm:rounded-[1.2rem] text-[9px] sm:text-[11px] font-black text-indigo-700 shadow-sm self-end sm:self-auto">{assigned.filter(x => !!x?.staffId).length} / {slots.length}</div>
                     </div>
                     <div className="p-4 sm:p-10 space-y-4 sm:space-y-8 bg-white">
                       {slots.map((slot, idx) => {
                         const data = assigned[idx] || { staffId: "", otHours: 0 };
+                        
                         return (
                           <div key={idx} className={`p-4 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] border-2 transition-all flex flex-col gap-4 sm:gap-6 ${!data.staffId ? 'border-dashed border-slate-200 bg-slate-50/20' : 'border-indigo-50 bg-white shadow-md sm:shadow-lg shadow-slate-100'}`}>
                             <div className="flex justify-between items-center">
                               <span className="text-[10px] sm:text-[12px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 sm:gap-2"><Clock className="w-3 h-3 sm:w-4 sm:h-4 text-indigo-400" /> {slot.startTime} - {slot.endTime}</span>
-                              <span className={`text-[8px] sm:text-[10px] font-black px-2 sm:px-4 py-1 sm:py-1.5 rounded-full uppercase ${data.otHours >= slot.maxOtHours ? 'bg-indigo-600 text-white' : 'bg-indigo-50 text-indigo-500'}`}>Q: {slot.maxOtHours}H</span>
+                              <div className="flex gap-1.5 sm:gap-2">
+                                <span className={`text-[8px] sm:text-[10px] font-black px-2 sm:px-3 py-1 sm:py-1.5 rounded-full uppercase ${data.otHours >= slot.maxOtHours ? 'bg-indigo-600 text-white' : 'bg-indigo-50 text-indigo-500'}`}>Q: {slot.maxOtHours}H</span>
+                              </div>
                             </div>
                             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                               <select 
@@ -912,7 +1105,8 @@ export default function App() {
                                 <option value="">-- เลือกพนักงาน --</option>
                                 {branchData.staff?.filter(s => s.dept === activeDept).map(s => {
                                   const isUsed = usedStaffIds.includes(s.id) && data.staffId !== s.id;
-                                  return isUsed ? null : <option key={s.id} value={s.id}>{s.name} ({s.pos})</option>
+                                  const wrongPos = !isAll && !reqArr.includes(s.pos) && data.staffId !== s.id;
+                                  return (isUsed || wrongPos) ? null : <option key={s.id} value={s.id}>{s.name} ({s.pos})</option>
                                 })}
                               </select>
                               <div className={`w-full sm:flex-1 flex flex-row sm:flex-col justify-between sm:justify-center items-center border-2 rounded-xl sm:rounded-[1.5rem] bg-white transition-all px-4 sm:px-0 py-2 sm:py-0 ${data.otHours >= slot.maxOtHours ? 'border-indigo-500 bg-indigo-50/20' : 'border-slate-100'}`}>
@@ -930,14 +1124,14 @@ export default function App() {
             </div>
             </>
              ) : (
-                /* NEW MONTHLY VIEW V9.9 */
+                /* NEW MONTHLY VIEW V10.5 */
                 <div className="bg-white rounded-[2rem] sm:rounded-[3rem] border border-slate-200 shadow-sm overflow-hidden animate-in fade-in">
                   <div className="p-6 sm:p-8 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
                     <div className="flex flex-col">
                         <h2 className="text-xl sm:text-2xl font-black text-slate-900 uppercase tracking-tighter">Monthly Schedule: {THAI_MONTHS[selectedMonth]}</h2>
                         <div className="text-xs font-bold text-indigo-600 uppercase tracking-widest mt-1">{activeDept.toUpperCase()} DEPT</div>
                     </div>
-                    {/* Re-added Print Button for Monthly View */}
+                    {/* Print Button for Monthly View */}
                     <button onClick={() => setView('print')} className="bg-slate-900 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-black flex items-center gap-2 hover:bg-black shadow-lg active:scale-95 transition-all text-[10px] sm:text-xs uppercase tracking-widest"><Printer className="w-4 h-4" /> ไปหน้าพิมพ์ตาราง</button>
                   </div>
                   <div className="overflow-auto custom-scrollbar" style={{ maxHeight: '80vh' }}>
@@ -945,12 +1139,20 @@ export default function App() {
                       <thead className="bg-white sticky top-0 z-20 shadow-sm">
                         <tr>
                           <th className="p-4 sm:p-6 border-b border-r border-slate-100 min-w-[100px] sticky left-0 bg-white z-30 font-black text-xs sm:text-sm text-slate-400 uppercase tracking-widest">Date</th>
-                          {CURRENT_DUTY_LIST.map(duty => (
+                          {CURRENT_DUTY_LIST.map(duty => {
+                            const reqArr = Array.isArray(duty.reqPos) ? duty.reqPos : [duty.reqPos || 'ALL'];
+                            const isAll = reqArr.includes('ALL') || reqArr.length === 0;
+                            const displayPos = isAll ? 'ALL POS' : reqArr.join(', ');
+                            return (
                             <th key={duty.id} className="p-4 sm:p-6 border-b border-r border-slate-100 min-w-[250px] last:border-r-0">
                                <div className="font-black text-slate-900 text-xs sm:text-sm uppercase leading-tight">{duty.jobA}</div>
-                               <div className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase italic mt-1">{duty.jobB}</div>
+                               <div className="flex items-center gap-2 mt-1">
+                                  <div className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase italic truncate max-w-[150px]">{duty.jobB}</div>
+                                  <div className="text-[7px] font-black bg-emerald-50 text-emerald-600 border border-emerald-100 px-1.5 py-0.5 rounded truncate max-w-[80px]" title={displayPos}>{displayPos}</div>
+                               </div>
                             </th>
-                          ))}
+                            )
+                          })}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
@@ -993,16 +1195,22 @@ export default function App() {
                                  const slots = branchData.matrix?.[type]?.duties?.[duty.id] || [];
                                  const assigned = dayData.duties?.[duty.id] || [];
                                  
+                                 const reqArr = Array.isArray(duty.reqPos) ? duty.reqPos : [duty.reqPos || 'ALL'];
+                                 const isAll = reqArr.includes('ALL') || reqArr.length === 0;
+
                                  return (
                                    <td key={duty.id} className="p-3 align-top border-r border-slate-100 last:border-r-0">
                                       <div className="space-y-3">
                                         {slots.map((slot, idx) => {
                                           const data = assigned[idx] || { staffId: "", otHours: 0 };
+                                          
                                           return (
                                             <div key={idx} className={`p-2 rounded-xl border ${!data.staffId ? 'border-dashed border-slate-200 bg-slate-50/50' : 'border-indigo-100 bg-white shadow-sm'}`}>
                                               <div className="flex justify-between items-center mb-1.5">
                                                  <span className="text-[9px] font-bold text-slate-400">{slot.startTime}-{slot.endTime}</span>
-                                                 {data.otHours > 0 && <span className="text-[8px] font-black text-indigo-600 bg-indigo-50 px-1.5 rounded">OT:{data.otHours}</span>}
+                                                 <div className="flex gap-1">
+                                                    {data.otHours > 0 && <span className="text-[8px] font-black text-indigo-600 bg-indigo-50 px-1.5 rounded">OT:{data.otHours}</span>}
+                                                 </div>
                                               </div>
                                               <select 
                                                 value={data.staffId} 
@@ -1011,9 +1219,9 @@ export default function App() {
                                               >
                                                 <option value="">-- ว่าง --</option>
                                                 {branchData.staff?.filter(s => s.dept === activeDept).map(s => {
-                                                  // FIX: Filter out staff already used in THIS day, unless it's the current selection
                                                   const isUsedInThisDay = dayUsedStaffIds.has(s.id) && data.staffId !== s.id;
-                                                  return isUsedInThisDay ? null : <option key={s.id} value={s.id}>{s.name}</option>
+                                                  const wrongPos = !isAll && !reqArr.includes(s.pos) && data.staffId !== s.id;
+                                                  return (isUsedInThisDay || wrongPos) ? null : <option key={s.id} value={s.id}>{s.name}</option>
                                                 })}
                                               </select>
                                               {/* Tiny OT Input */}
@@ -1040,7 +1248,7 @@ export default function App() {
              )}
           </div>
         ) : view === 'print' ? (
-          <PrintMonthlyView CALENDAR_DAYS={CALENDAR_DAYS} branchData={branchData} globalConfig={globalConfig} activeBranchId={activeBranchId} THAI_MONTHS={THAI_MONTHS} selectedMonth={selectedMonth} getStaffDayInfo={getStaffDayInfo} setView={setView} activeDept={activeDept} />
+          <PrintMonthlyView CALENDAR_DAYS={CALENDAR_DAYS} branchData={branchData} globalConfig={globalConfig} activeBranchId={activeBranchId} THAI_MONTHS={THAI_MONTHS} selectedMonth={selectedMonth} getStaffDayInfo={getStaffDayInfo} setView={setView} activeDept={activeDept} CURRENT_DUTY_LIST={CURRENT_DUTY_LIST} />
         ) : (
           /* REPORT VIEW (Common for all) */
           <div className="space-y-6 sm:space-y-12 animate-in fade-in duration-500 pb-24 w-full">
@@ -1123,7 +1331,29 @@ export default function App() {
           </div>
         )}
       </main>
-      {/* Styles & CSS */}
+
+      <style dangerouslySetInnerHTML={{ __html: `
+        .custom-scrollbar::-webkit-scrollbar { height: 8px; width: 8px; }
+        @media (min-width: 640px) {
+           .custom-scrollbar::-webkit-scrollbar { height: 12px; width: 10px; }
+        }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 20px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 20px; border: 3px solid #f1f5f9; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .touch-pan-x { touch-action: pan-x; }
+        .snap-x { scroll-snap-type: x mandatory; }
+        .snap-center { scroll-snap-align: center; }
+        @media print {
+          @page { size: A4 landscape; margin: 5mm; }
+          body { background: white !important; -webkit-print-color-adjust: exact; padding: 0 !important; margin: 0 !important; }
+          .print\\:hidden { display: none !important; }
+          nav, button, footer { display: none !important; }
+          main { padding: 0 !important; margin: 0 !important; min-height: auto !important; }
+          table { width: 100% !important; border-collapse: collapse !important; border: 2px solid #000 !important; font-size: 7px !important; }
+          th, td { border: 1px solid #000 !important; padding: 2px !important; }
+        }
+      `}} />
     </div>
   );
 }
