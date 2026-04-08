@@ -47,9 +47,11 @@ import {
 } from 'lucide-react';
 
 /**
- * RESTAURANT MANPOWER MANAGEMENT SYSTEM (MP26 MODEL) - V10.21 (AUTO ASSIGN OVERWRITE)
+ * RESTAURANT MANPOWER MANAGEMENT SYSTEM (MP26 MODEL) - V10.22 (BRANDING & LOGO)
  * อัปเดต:
- * 1. ปรับปรุงปุ่ม "จัดกะอัตโนมัติ" ให้ล้างข้อมูลการจัดคนในกะเดิมออกทั้งหมดก่อนจัดใหม่ เพื่อไม่ให้คนติดค้าง
+ * 1. เปลี่ยนชื่อระบบเป็น "GON SUPER STORE Manager Assistant"
+ * 2. เพิ่มโลโก้แบรนด์ (อ้างอิงจาก /gon-logo.png ในโฟลเดอร์ public)
+ * 3. เพิ่มเครดิต Powered by Super Store Team
  */
 
 // --- 1. Configurations ---
@@ -910,20 +912,22 @@ export default function App() {
   if (loading) return (
     <div className="h-screen w-full flex flex-col items-center justify-center bg-slate-50 font-sans">
       <Loader2 className="animate-spin w-12 h-12 sm:w-16 sm:h-16 text-indigo-600 mb-6" />
-      <h2 className="text-lg sm:text-xl font-black uppercase tracking-widest text-slate-400 text-center">Syncing with StaffSync...</h2>
+      <h2 className="text-lg sm:text-xl font-black uppercase tracking-widest text-slate-400 text-center">Syncing with GON SUPER STORE...</h2>
       {isTimeout && <button onClick={() => setLoading(false)} className="mt-8 sm:mt-10 text-xs font-bold text-indigo-500 underline uppercase">Bypass connection</button>}
     </div>
   );
 
   if (authRole === 'guest') return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-slate-900 p-6 font-sans relative overflow-hidden">
+    <div className="min-h-screen w-full flex flex-col items-center justify-center bg-slate-900 p-6 font-sans relative overflow-hidden">
       <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-indigo-600 rounded-full blur-[120px] opacity-40"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-emerald-600 rounded-full blur-[120px] opacity-30"></div>
       <form onSubmit={handleLogin} className="w-full max-w-md bg-white p-8 sm:p-12 rounded-[2rem] sm:rounded-[3rem] shadow-2xl relative z-10 flex flex-col items-center gap-6 sm:gap-8 animate-in fade-in zoom-in-95 duration-500">
-        <div className="bg-indigo-600 p-4 sm:p-5 rounded-full shadow-xl shadow-indigo-200"><Store className="w-10 h-10 text-white" /></div>
+        <div className="relative">
+          <img src="/gon-logo.png" alt="GON SUPER STORE" className="w-24 h-24 sm:w-32 sm:h-32 rounded-full shadow-xl object-cover border-4 border-white bg-white" onError={(e) => { e.target.onerror = null; e.target.src = "https://via.placeholder.com/150?text=GON"; }} />
+        </div>
         <div className="text-center w-full">
-           <h2 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tighter uppercase">StaffSync</h2>
-           <p className="text-slate-400 text-xs sm:text-sm font-bold mt-2 uppercase tracking-widest">Management System V10.19</p>
+           <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tighter uppercase">GON SUPER STORE</h2>
+           <p className="text-slate-400 text-[10px] sm:text-xs font-bold mt-2 uppercase tracking-widest">Manager Assistant</p>
         </div>
         <div className="w-full space-y-4 sm:space-y-5">
           <div>
@@ -938,6 +942,9 @@ export default function App() {
         {loginError && <p className="text-xs sm:text-sm text-red-500 font-bold bg-red-50 px-4 py-3 rounded-xl w-full text-center">{loginError}</p>}
         <button type="submit" className="w-full bg-slate-900 text-white py-4 sm:py-5 rounded-[1.5rem] sm:rounded-[2rem] font-black text-sm shadow-xl hover:bg-indigo-600 hover:shadow-indigo-200 active:scale-95 transition-all mt-2">LOGIN TO SYSTEM</button>
       </form>
+      <div className="mt-8 text-center relative z-10">
+         <p className="text-[10px] sm:text-xs font-bold text-slate-400/80 tracking-[0.2em] uppercase">Powered by Super Store Team</p>
+      </div>
     </div>
   );
 
@@ -995,9 +1002,9 @@ export default function App() {
         <div className="max-w-[1600px] mx-auto flex flex-col md:flex-row items-center justify-between gap-4 md:gap-0">
           <div className="flex items-center justify-between w-full md:w-auto">
             <div className="flex items-center gap-3 sm:gap-4">
-              <div className="bg-slate-900 p-2 sm:p-3 rounded-xl sm:rounded-2xl shadow-lg transition hover:rotate-12 duration-500"><LayoutDashboard className="w-5 h-5 sm:w-6 sm:h-6 text-white" /></div>
+              <img src="/gon-logo.png" alt="Logo" className="w-10 h-10 sm:w-12 sm:h-12 rounded-full shadow-md object-cover border-2 border-slate-100 bg-white transition hover:scale-105 duration-500" onError={(e) => { e.target.onerror = null; e.target.src = "https://via.placeholder.com/150?text=GON"; }} />
               <div className="flex flex-col">
-                <span className="font-black text-lg sm:text-xl tracking-tighter uppercase leading-none">StaffSync</span>
+                <span className="font-black text-lg sm:text-xl tracking-tighter uppercase leading-none">GON SUPER STORE</span>
                 <div className="flex items-center gap-1.5 mt-0.5">
                    <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-green-500 rounded-full animate-pulse"></span>
                    <span className={`text-[8px] sm:text-[9px] font-black uppercase text-slate-400`}>
@@ -1544,7 +1551,7 @@ export default function App() {
                         </p>
                      </div>
 
-                     <table className="w-full border-collapse border-2 border-slate-800 text-[10px] sm:text-xs min-w-[800px] print:text-[10px]">
+                     <table className="w-full border-collapse border-2 border-slate-800 text-[10px] sm:text-xs min-w-[1000px] print:text-[10px]">
                         <thead>
                            <tr className="bg-slate-100 text-center print:bg-slate-200">
                               <th className="border border-slate-800 p-2 w-[10%]">ตำแหน่ง / ระดับพนักงาน</th>
@@ -1868,6 +1875,17 @@ export default function App() {
              </div>
           </div>
         )}
+
+        {/* --- CREDIT FOOTER --- */}
+        <footer className="mt-16 pt-8 text-center pb-8 print:hidden opacity-60 hover:opacity-100 transition-opacity flex flex-col items-center">
+           <div className="flex items-center justify-center gap-3 mb-3">
+             <div className="h-px w-12 bg-slate-300"></div>
+             <Award className="w-5 h-5 text-slate-400" />
+             <div className="h-px w-12 bg-slate-300"></div>
+           </div>
+           <p className="text-[10px] sm:text-xs font-black text-slate-500 uppercase tracking-[0.3em]">Powered by Super Store Team</p>
+        </footer>
+
       </main>
 
       <style dangerouslySetInnerHTML={{ __html: `
