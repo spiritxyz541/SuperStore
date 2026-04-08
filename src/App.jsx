@@ -1175,7 +1175,7 @@ export default function App() {
                 
                 const reqArr = Array.isArray(duty.reqPos) ? duty.reqPos : [duty.reqPos || 'ALL'];
                 const isAll = reqArr.includes('ALL') || reqArr.length === 0;
-                const displayPos = isAll ? 'ALL POS' : reqArr.join(', ');
+                const displayPos = isAll ? 'ALL' : reqArr.join(', ');
                 
                 if (slots.length === 0) return null;
 
