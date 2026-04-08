@@ -45,11 +45,10 @@ import {
 } from 'lucide-react';
 
 /**
- * RESTAURANT MANPOWER MANAGEMENT SYSTEM (MP26 MODEL) - V10.13 (UNASSIGNED STAFF TRACKING)
+ * RESTAURANT MANPOWER MANAGEMENT SYSTEM (MP26 MODEL) - V10.14 (POSITION SUMMARY)
  * อัปเดต:
- * 1. เพิ่มระบบติดตาม "พนักงานที่รอจัดกะ/ว่างงาน" (Unassigned Staff)
- * 2. แสดงผลรายชื่อคนที่ว่างในหน้า "การ์ดรายวัน" (Daily View) ให้เห็นชัดเจน
- * 3. แสดงผลรายชื่อคนที่ว่างในคอลัมน์วันที่ของหน้า "ตารางรายเดือน" (Monthly View)
+ * 1. เพิ่มแถบ "สรุปจำนวนพนักงานแยกตามตำแหน่ง" ในหน้าจัดการพนักงาน (Admin View)
+ * 2. แสดงยอดรวมและแจกแจงจำนวนคนในแต่ละตำแหน่งเพื่อให้เห็นภาพรวมชัดเจนขึ้น
  */
 
 // --- 1. Configurations ---
@@ -320,6 +319,7 @@ export default function App() {
   const [draggedDutyIdx, setDraggedDutyIdx] = useState(null);
 
   const [aiLoading, setAiLoading] = useState(false);
+  const [aiMessage, setAiMessage] = useState(null);
   
   const dateBarRef = useRef(null);
   const selectedYear = 2026;
@@ -765,7 +765,7 @@ export default function App() {
         <div className="bg-indigo-600 p-4 sm:p-5 rounded-full shadow-xl shadow-indigo-200"><Store className="w-10 h-10 text-white" /></div>
         <div className="text-center w-full">
            <h2 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tighter uppercase">StaffSync</h2>
-           <p className="text-slate-400 text-xs sm:text-sm font-bold mt-2 uppercase tracking-widest">Management System V10.13</p>
+           <p className="text-slate-400 text-xs sm:text-sm font-bold mt-2 uppercase tracking-widest">Management System V10.14</p>
         </div>
         <div className="w-full space-y-4 sm:space-y-5">
           <div>
@@ -794,6 +794,23 @@ export default function App() {
               </div>
               <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight mt-2">Saved Successfully</h3>
               <p className="text-slate-400 text-sm font-bold">บันทึกข้อมูลลงฐานข้อมูลเรียบร้อยแล้ว</p>
+           </div>
+        </div>
+      )}
+
+      {/* AI Modal */}
+      {aiMessage && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 sm:p-6 animate-in fade-in duration-300">
+           <div className="bg-white rounded-[2rem] sm:rounded-[3.5rem] p-6 sm:p-12 max-w-2xl w-full shadow-2xl relative flex flex-col gap-4 sm:gap-6 animate-in slide-in-from-bottom-8 font-sans">
+             <div className="absolute top-0 left-0 w-full h-1.5 sm:h-2 bg-indigo-600 rounded-t-[2rem] sm:rounded-t-[3.5rem]"></div>
+             <div className="flex items-center gap-3 sm:gap-4 mt-2 sm:mt-0">
+               <div className="bg-indigo-600 p-3 sm:p-4 rounded-2xl sm:rounded-3xl"><Sparkles className="w-6 h-6 sm:w-8 sm:h-8 text-white" /></div>
+               <h3 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tighter uppercase">AI Insights ✨</h3>
+             </div>
+             <div className="bg-slate-50 p-6 sm:p-8 rounded-[1.5rem] sm:rounded-[2rem] border border-slate-100 max-h-[50vh] overflow-y-auto custom-scrollbar text-sm sm:text-base font-medium text-slate-600 whitespace-pre-wrap leading-relaxed">
+                {typeof aiMessage.content === 'string' ? aiMessage.content : JSON.stringify(aiMessage.content)}
+             </div>
+             <button onClick={() => setAiMessage(null)} className="w-full bg-slate-900 text-white py-4 sm:py-5 rounded-2xl sm:rounded-3xl font-black text-xs sm:text-sm uppercase tracking-widest hover:bg-black transition">ปิดหน้าต่าง</button>
            </div>
         </div>
       )}
@@ -954,8 +971,34 @@ export default function App() {
                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-10">
                   {/* MANAGER สามารถเพิ่มพนักงานได้ */}
                   <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm flex flex-col">
-                    <h2 className="text-lg sm:text-xl font-black text-slate-800 mb-6 sm:mb-8 flex items-center gap-2 sm:gap-4 uppercase tracking-tighter"><Users className="w-6 h-6 sm:w-7 sm:h-7 text-indigo-500" /> จัดการพนักงาน ({globalConfig.branches?.find(b=>b.id===activeBranchId)?.name})</h2>
+                    <h2 className="text-lg sm:text-xl font-black text-slate-800 mb-4 sm:mb-6 flex items-center gap-2 sm:gap-4 uppercase tracking-tighter"><Users className="w-6 h-6 sm:w-7 sm:h-7 text-indigo-500" /> จัดการพนักงาน ({globalConfig.branches?.find(b=>b.id===activeBranchId)?.name})</h2>
                     
+                    {/* NEW: Staff Position Summary */}
+                    {(() => {
+                      const deptStaff = branchData.staff?.filter(s => s.dept === activeDept) || [];
+                      return (
+                        <div className="flex flex-wrap gap-2 mb-6 sm:mb-8 bg-slate-50 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-100">
+                          <div className="text-[10px] sm:text-xs font-black text-slate-500 w-full mb-1 uppercase tracking-widest">สรุปจำนวนพนักงานแยกตามตำแหน่ง</div>
+                          <div className="flex flex-wrap gap-2">
+                             <span className="text-[10px] font-black bg-slate-200 text-slate-700 px-2.5 py-1 rounded-lg">รวม {deptStaff.length} คน</span>
+                             {POSITIONS[activeDept].map(p => {
+                                const count = deptStaff.filter(s => s.pos === p).length;
+                                if (count === 0) return (
+                                   <span key={p} className="text-[10px] font-bold bg-white border border-slate-200 text-slate-400 px-2.5 py-1 rounded-lg">
+                                      {p}: 0
+                                   </span>
+                                );
+                                return (
+                                   <span key={p} className="text-[10px] font-black bg-indigo-100 text-indigo-700 border border-indigo-200 px-2.5 py-1 rounded-lg shadow-sm">
+                                      {p}: {count}
+                                   </span>
+                                );
+                             })}
+                          </div>
+                        </div>
+                      );
+                    })()}
+
                     <div className="space-y-4 mb-6 sm:mb-10 w-full">
                       <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
                          <input type="text" placeholder={`ชื่อพนักงานใหม่ (${newStaffDept === 'service' ? 'บริการ' : 'ครัว'})...`} className="w-full sm:w-auto flex-[2] border-2 border-slate-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none transition shadow-sm" value={newStaffName} onChange={(e) => setNewStaffName(e.target.value)} />
@@ -1599,7 +1642,7 @@ export default function App() {
                             <td className="px-4 sm:px-12 py-4 sm:py-8 text-center text-sm sm:text-xl">{s.workHours.toFixed(1)}</td>
                             <td className="px-4 sm:px-12 py-4 sm:py-8 text-center bg-indigo-50/10 text-slate-500">{s.plannedOT.toFixed(1)}</td>
                             <td className="px-4 sm:px-12 py-4 sm:py-8 text-center bg-indigo-50/30 text-indigo-700 text-lg sm:text-2xl font-black">{s.actualOT.toFixed(1)}</td>
-                            <td className={`px-4 sm:px-12 py-4 py-8 text-center text-sm sm:text-lg font-black ${delta > 0 ? 'text-red-500' : delta < 0 ? 'text-emerald-500' : 'text-slate-300'}`}>
+                            <td className={`px-4 sm:px-12 py-4 sm:py-8 text-center text-sm sm:text-lg font-black ${delta > 0 ? 'text-red-500' : delta < 0 ? 'text-emerald-500' : 'text-slate-300'}`}>
                                {delta > 0 ? `+${delta.toFixed(1)}` : delta.toFixed(1)}
                             </td>
                           </tr>
