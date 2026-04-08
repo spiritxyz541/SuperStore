@@ -48,10 +48,10 @@ import {
 } from 'lucide-react';
 
 /**
- * GON SUPER STORE Manager Assistant - V10.24 (LOGO LINK & FULL CODE FIX)
+ * GON SUPER STORE Manager Assistant - V10.25 (STABLE LAYOUT FIX)
  * อัปเดต:
- * 1. แก้ไขปัญหา Build Failed จากการใช้จุด (...) โดยการให้โค้ดฉบับเต็ม 100%
- * 2. เปลี่ยนลิงก์รูปภาพ Logo ทั้งหมดเป็น https://img2.pic.in.th/gon-logo.png
+ * 1. ล็อกสัดส่วนหน้าจอ (Fixed Layout Ratio) แก้ปัญหาจอขยับหรือกระตุกเวลาเปลี่ยนเมนู
+ * 2. ปรับโครงสร้างเป็น Flex Column เต็มจอ และล็อก Scrollbar Gutter ไม่ให้ดันเนื้อหาเวลาโผล่ขึ้นมา
  */
 
 // --- 1. Configurations ---
@@ -283,7 +283,7 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
   const filteredStaff = branchData.staff?.filter(s => s.dept === activeDept) || [];
 
   return (
-    <div className="p-4 sm:p-10 bg-white min-h-screen animate-in fade-in w-full overflow-x-hidden">
+    <div className="p-4 sm:p-10 bg-white animate-in fade-in w-full overflow-x-hidden flex-1">
       <div className="max-w-full mx-auto">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 sm:mb-16 print:hidden border-b pb-6 sm:pb-8 gap-4 sm:gap-0">
           <button onClick={() => setView('manager')} className="flex items-center gap-2 sm:gap-4 text-slate-600 font-black bg-slate-100 px-6 sm:px-8 py-3 sm:py-4 rounded-xl sm:rounded-3xl hover:bg-slate-200 transition shadow-sm uppercase text-xs sm:text-sm tracking-widest w-full sm:w-auto justify-center"><ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" /> ย้อนกลับ </button>
@@ -1036,7 +1036,7 @@ export default function App() {
   );
 
   return (
-    <div className="min-h-screen w-full bg-slate-50 text-slate-900 font-sans antialiased overflow-x-hidden">
+    <div className="flex flex-col min-h-screen w-full bg-slate-50 text-slate-900 font-sans antialiased overflow-x-hidden">
       {/* Success Modal */}
       {showSuccessModal && (
         <div className="fixed inset-0 z-[400] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-300 font-sans">
@@ -1085,7 +1085,7 @@ export default function App() {
       )}
 
       {/* Navbar */}
-      <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200 print:hidden shadow-sm px-4 sm:px-8 py-3 w-full">
+      <nav className="flex-none sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200 print:hidden shadow-sm px-4 sm:px-8 py-3 w-full">
         <div className="max-w-[1600px] mx-auto flex flex-col lg:flex-row items-center justify-between gap-4 lg:gap-0 w-full">
           <div className="flex items-center justify-between w-full lg:w-auto">
             <div className="flex items-center gap-3 sm:gap-4">
@@ -1151,9 +1151,9 @@ export default function App() {
          {saveStatus === 'saving' ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6" />}
       </button>
 
-      <main className="p-4 sm:p-8 max-w-[1600px] mx-auto w-full print:p-0 print:m-0">
+      <main className="flex-1 flex flex-col p-4 sm:p-8 max-w-[1600px] mx-auto w-full print:p-0 print:m-0 relative">
         {view === 'manager' || view === 'admin' ? (
-          <div className="flex flex-wrap items-center justify-between gap-4 mb-6 sm:mb-10 print:hidden w-full">
+          <div className="flex-none flex flex-wrap items-center justify-between gap-4 mb-6 sm:mb-10 print:hidden w-full">
              <div className="flex flex-wrap gap-2 sm:gap-4 bg-white p-2 sm:p-3 rounded-[1.5rem] sm:rounded-[2.5rem] border border-slate-200 w-full md:w-fit shadow-sm">
                 <button onClick={() => { setActiveDept('service'); setStaffFilterPos('ALL'); }} className={`flex-1 md:flex-none flex justify-center items-center gap-2 sm:gap-3 px-4 sm:px-10 py-3 sm:py-4 rounded-[1rem] sm:rounded-[2rem] font-black text-[10px] sm:text-xs transition-all ${activeDept === 'service' ? 'bg-indigo-600 text-white shadow-xl scale-[1.02]' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}><ConciergeBell className="w-4 h-4 sm:w-5 sm:h-5"/> ฝั่งงานบริการ</button>
                 <button onClick={() => { setActiveDept('kitchen'); setStaffFilterPos('ALL'); }} className={`flex-1 md:flex-none flex justify-center items-center gap-2 sm:gap-3 px-4 sm:px-10 py-3 sm:py-4 rounded-[1rem] sm:rounded-[2rem] font-black text-[10px] sm:text-xs transition-all ${activeDept === 'kitchen' ? 'bg-orange-600 text-white shadow-xl scale-[1.02]' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}><UtensilsCrossed className="w-4 h-4 sm:w-5 sm:h-5"/> ฝั่งงานครัว</button>
@@ -1170,7 +1170,7 @@ export default function App() {
         ) : null}
 
         {view === 'branches' && authRole === 'superadmin' ? (
-           <div className="space-y-6 sm:space-y-10 animate-in fade-in duration-500 pb-24 w-full">
+           <div className="flex-1 space-y-6 sm:space-y-10 animate-in fade-in duration-500 pb-24 w-full">
              <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-4 sm:gap-6">
                   <div className="bg-emerald-100 p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem]"><Store className="w-8 h-8 sm:w-10 sm:h-10 text-emerald-600" /></div>
@@ -1230,12 +1230,12 @@ export default function App() {
         ) : view === 'admin' ? (
           /* BRANCH ADMIN VIEW */
           !activeBranchId ? (
-            <div className="h-[60vh] sm:h-[70vh] flex flex-col items-center justify-center gap-4 sm:gap-6 text-slate-300 font-black uppercase tracking-[0.2em] sm:tracking-[0.4em] text-center px-4 w-full">
+            <div className="flex-1 h-[60vh] sm:h-[70vh] flex flex-col items-center justify-center gap-4 sm:gap-6 text-slate-300 font-black uppercase tracking-[0.2em] sm:tracking-[0.4em] text-center px-4 w-full">
               <Store className="w-16 h-16 sm:w-24 sm:h-24 opacity-10" />
               <p className="text-sm sm:text-base">กรุณาเลือกสาขาที่ต้องการจัดการจากแถบด้านบน</p>
             </div>
           ) : (
-            <div className="space-y-6 sm:space-y-10 animate-in fade-in duration-500 pb-24 w-full">
+            <div className="flex-1 space-y-6 sm:space-y-10 animate-in fade-in duration-500 pb-24 w-full">
                {/* -------------------- ADMIN ROW 1: STAFF & DUTIES -------------------- */}
                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-10">
                   <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm flex flex-col">
@@ -1463,7 +1463,7 @@ export default function App() {
           )
         ) : view === 'manager' ? (
           /* BRANCH MANAGER VIEW */
-          <div className="space-y-6 sm:space-y-10 animate-in slide-in-from-bottom-6 duration-500 pb-24 w-full">
+          <div className="flex-1 space-y-6 sm:space-y-10 animate-in slide-in-from-bottom-6 duration-500 pb-24 w-full">
              {managerViewMode === 'daily' ? (
                 /* Daily View (Cards) */
                 <>
@@ -1863,7 +1863,7 @@ export default function App() {
           <PrintMonthlyView CALENDAR_DAYS={CALENDAR_DAYS} branchData={branchData} globalConfig={globalConfig} activeBranchId={activeBranchId} THAI_MONTHS={THAI_MONTHS} selectedMonth={selectedMonth} getStaffDayInfo={getStaffDayInfo} setView={setView} activeDept={activeDept} CURRENT_DUTY_LIST={CURRENT_DUTY_LIST} />
         ) : (
           /* REPORT VIEW V10.18 */
-          <div className="space-y-6 sm:space-y-12 animate-in fade-in duration-500 pb-24 w-full">
+          <div className="flex-1 space-y-6 sm:space-y-12 animate-in fade-in duration-500 pb-24 w-full">
              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0">
                 <div className="flex items-center gap-4 sm:gap-6">
                   <div className="bg-yellow-400 p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] shadow-xl sm:shadow-2xl shadow-yellow-100"><TrendingUp className="w-6 h-6 sm:w-10 sm:h-10 text-white" /></div>
@@ -1966,7 +1966,7 @@ export default function App() {
         )}
 
         {/* --- CREDIT FOOTER --- */}
-        <footer className="mt-16 pt-8 text-center pb-8 print:hidden opacity-60 hover:opacity-100 transition-opacity flex flex-col items-center w-full">
+        <footer className="flex-none mt-auto pt-8 text-center pb-8 print:hidden opacity-60 hover:opacity-100 transition-opacity flex flex-col items-center w-full">
            <div className="flex items-center justify-center gap-3 mb-3">
              <div className="h-px w-12 bg-slate-300"></div>
              <Award className="w-5 h-5 text-slate-400" />
@@ -1978,6 +1978,7 @@ export default function App() {
       </main>
 
       <style dangerouslySetInnerHTML={{ __html: `
+        html, body { scrollbar-gutter: stable; }
         .custom-scrollbar::-webkit-scrollbar { height: 8px; width: 8px; }
         @media (min-width: 640px) {
            .custom-scrollbar::-webkit-scrollbar { height: 12px; width: 10px; }
