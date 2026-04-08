@@ -44,15 +44,16 @@ import {
   Wand2,
   Eraser,
   Filter,
-  ChevronDown
+  ChevronDown,
+  Download
 } from 'lucide-react';
 
 /**
- * GON SUPER STORE Manager Assistant - V10.26 (FULL WIDTH & LAYOUT OVERRIDE)
+ * GON SUPER STORE Manager Assistant - V10.28 (EMPID & PRINT FORMATTING)
  * อัปเดต:
- * 1. เพิ่ม Global CSS Override เพื่อบังคับล้างค่า Default ของ Vite (#root max-width)
- * 2. ทำให้ตัวแตปกางเต็มจอ 100% และจัดกึ่งกลางได้อย่างถูกต้องบนหน้าจอ Ultra-wide
- * 3. โค้ดฉบับเต็ม 100% ไม่มีจุดไข่ปลาแก้ปัญหา Compile Error
+ * 1. เพิ่มฟิลด์ "รหัสพนักงาน" (EmpID) สำหรับใช้แสดงผลตอน Export Report (Excel/CSV)
+ * 2. ปรับการแสดงผลหน้าพิมพ์ตารางรายเดือนให้ใช้ตัวย่อกะงาน (เช่น 9.0, 12.3)
+ * 3. ซ่อน OT 0 และแสดง OT ที่มีด้วยตัวย่อ (เช่น O1.5) ในหน้าพิมพ์
  */
 
 // --- 1. Configurations ---
@@ -283,6 +284,15 @@ const StaffMultiSelector = ({ value, options, onChange, disabled, placeholder })
 const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranchId, THAI_MONTHS, selectedMonth, getStaffDayInfo, setView, activeDept, CURRENT_DUTY_LIST }) => {
   const filteredStaff = branchData.staff?.filter(s => s.dept === activeDept) || [];
 
+  // Helper สำหรับแปลงเวลาให้เป็นตัวย่อ เช่น 09:00 -> 9.0 หรือ 12:30 -> 12.3
+  const formatTimeAbbreviation = (timeStr) => {
+    if (!timeStr) return '';
+    const [h, m] = timeStr.split(':');
+    const hour = parseInt(h, 10);
+    const minStr = m ? m.charAt(0) : '0';
+    return `${hour}.${minStr}`;
+  };
+
   return (
     <div className="p-4 sm:p-10 bg-white animate-in fade-in w-full overflow-x-hidden flex-1">
       <div className="max-w-full mx-auto">
@@ -321,8 +331,13 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
                       <td key={day.dateStr} className={`border-r border-b border-slate-100 p-1 sm:p-2 text-center ${!info ? 'bg-slate-50/40' : ''}`}>
                         {info?.type === 'work' ? (
                           <div className="flex flex-col items-center justify-center leading-tight">
-                            <span className="font-black text-indigo-700 text-[8px] sm:text-[10px] leading-none">{info.slot.startTime}</span>
-                            <div className="text-[4px] sm:text-[5px] font-bold text-slate-400 truncate w-full px-0.5 sm:px-1 uppercase tracking-tighter mt-0.5 sm:mt-1 opacity-80">OT:{info.actual?.otHours || 0}</div>
+                            <span className="font-black text-indigo-700 text-[8px] sm:text-[10px] leading-none tracking-tighter">{formatTimeAbbreviation(info.slot.startTime)}</span>
+                            {/* แสดงเฉพาะกรณีมี OT เท่านั้น */}
+                            {info.actual?.otHours > 0 && (
+                                <div className="text-[6px] sm:text-[7px] font-black text-rose-500 truncate w-full px-0.5 sm:px-1 uppercase tracking-tighter mt-0.5 sm:mt-1">
+                                    O{info.actual.otHours}
+                                </div>
+                            )}
                           </div>
                         ) : info?.type === 'leave' ? (
                           <div className={`w-full h-full flex items-center justify-center font-black ${info.info.color} rounded-md sm:rounded-xl border sm:border-2 border-white shadow-inner text-[8px] sm:text-[10px]`}><span className="text-center leading-none uppercase p-0.5 sm:p-1">{info.info.shortLabel}</span></div>
@@ -368,6 +383,7 @@ export default function App() {
   const [loginError, setLoginError] = useState('');
   
   const [newStaffName, setNewStaffName] = useState('');
+  const [newStaffEmpId, setNewStaffEmpId] = useState(''); 
   const [newStaffDept, setNewStaffDept] = useState('service');
   const [newStaffPos, setNewStaffPos] = useState('OC');
   const [newStaffDayOff, setNewStaffDayOff] = useState(''); 
@@ -976,11 +992,76 @@ export default function App() {
     }
   };
 
+  // --- Export Excel (CSV) ---
+  const handleExportExcel = () => {
+    const headers = ['วันที่', 'รหัสพนักงาน', 'ชื่อพนักงาน', 'แผนก', 'ตำแหน่ง', 'เวลาเข้า', 'เวลาออก', 'OT (ชั่วโมง)'];
+    const rows = [];
+
+    Object.keys(schedule).sort().forEach(dateStr => {
+      if (reportFilterMode === 'month') {
+          const [yStr, mStr] = dateStr.split('-');
+          const y = parseInt(yStr, 10);
+          const m = parseInt(mStr, 10) - 1; 
+          if (m !== reportFilterMonth || y !== selectedYear) return;
+      } else {
+          if (dateStr < reportFilterStart || dateStr > reportFilterEnd) return;
+      }
+
+      const dayData = schedule[dateStr];
+      const dateObj = new Date(parseInt(dateStr.split('-')[0]), parseInt(dateStr.split('-')[1]) - 1, parseInt(dateStr.split('-')[2]));
+      const dayOfWeek = dateObj.getDay();
+      let dayType = 'weekday';
+      if (branchData.holidays?.includes?.(dateStr) || dayOfWeek === 0 || dayOfWeek === 6) dayType = 'weekend';
+      else if (dayOfWeek === 5) dayType = 'friday';
+
+      if (dayData.duties) {
+        Object.keys(dayData.duties).forEach(dutyId => {
+          const assignedSlots = dayData.duties[dutyId] || [];
+          const matrixSlots = branchData.matrix?.[dayType]?.duties?.[dutyId] || [];
+          
+          assignedSlots.forEach((assigned, idx) => {
+            if (assigned.staffId) {
+              const staff = branchData.staff?.find(s => s.id === assigned.staffId);
+              if (staff) {
+                  const mSlot = matrixSlots[idx] || { startTime: '-', endTime: '-' };
+                  rows.push([
+                    dateStr,
+                    staff.empId || '-',
+                    staff.name,
+                    staff.dept,
+                    staff.pos,
+                    mSlot.startTime,
+                    mSlot.endTime,
+                    assigned.otHours || 0
+                  ]);
+              }
+            }
+          });
+        });
+      }
+    });
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(r => r.map(v => `"${v}"`).join(','))
+    ].join('\n');
+
+    const bom = '\uFEFF';
+    const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `StaffSync_Export_${new Date().toISOString().slice(0,10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   // --- Rendering ---
   if (loading) return (
     <div className="h-screen w-full flex flex-col items-center justify-center bg-slate-50 font-sans">
       <Loader2 className="animate-spin w-12 h-12 sm:w-16 sm:h-16 text-indigo-600 mb-6" />
-      <h2 className="text-lg sm:text-xl font-black uppercase tracking-widest text-slate-400 text-center">Syncing with GON SUPER STORE...</h2>
+      <h2 className="text-lg sm:text-xl font-black uppercase tracking-widest text-slate-400 text-center">Syncing with Super Store...</h2>
       {isTimeout && <button onClick={() => setLoading(false)} className="mt-8 sm:mt-10 text-xs font-bold text-indigo-500 underline uppercase">Bypass connection</button>}
     </div>
   );
@@ -1092,11 +1173,11 @@ export default function App() {
             <div className="flex items-center gap-3 sm:gap-4">
               <img src="https://img2.pic.in.th/gon-logo.png" alt="Logo" className="w-10 h-10 sm:w-12 sm:h-12 rounded-full shadow-md object-cover border-2 border-slate-100 bg-white transition hover:scale-105 duration-500" onError={(e) => { e.target.onerror = null; e.target.src = "https://via.placeholder.com/150?text=GON"; }} />
               <div className="flex flex-col">
-                <span className="font-black text-lg sm:text-xl tracking-tighter uppercase leading-none">GON SUPER STORE</span>
+                <span className="font-black text-lg sm:text-xl tracking-tighter uppercase leading-none">Super Store</span>
                 <div className="flex items-center gap-1.5 mt-0.5">
                    <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-green-500 rounded-full animate-pulse"></span>
                    <span className={`text-[8px] sm:text-[9px] font-black uppercase text-slate-400`}>
-                     {authRole === 'superadmin' ? 'GLOBAL CONTROL' : 'BRANCH MANAGEMENT'}
+                     {authRole === 'superadmin' ? 'BAR B Q PLAZA' : 'BRANCH MANAGEMENT'}
                    </span>
                 </div>
               </div>
@@ -1278,6 +1359,7 @@ export default function App() {
 
                     <div className="space-y-4 mb-6 sm:mb-10 w-full">
                       <div className="flex flex-col xl:flex-row gap-2 sm:gap-4">
+                         <input type="text" placeholder="รหัสพนง." className="w-full xl:w-24 border-2 border-slate-100 rounded-xl sm:rounded-2xl px-3 py-3 sm:py-4 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none transition shadow-sm" value={newStaffEmpId} onChange={(e) => setNewStaffEmpId(e.target.value)} />
                          <input type="text" placeholder={`ชื่อพนักงานใหม่ (${newStaffDept === 'service' ? 'บริการ' : 'ครัว'})...`} className="w-full xl:w-auto flex-[2] border-2 border-slate-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none transition shadow-sm" value={newStaffName} onChange={(e) => setNewStaffName(e.target.value)} />
                          <div className="flex gap-2 sm:gap-4 flex-1">
                            <select value={newStaffDept} onChange={(e) => { setNewStaffDept(e.target.value); setNewStaffPos(POSITIONS[e.target.value][0]); }} className="flex-1 bg-slate-50 border-2 border-slate-100 rounded-xl sm:rounded-2xl px-3 sm:px-4 py-3 text-[10px] sm:text-xs font-black uppercase outline-none focus:border-indigo-500">
@@ -1292,7 +1374,7 @@ export default function App() {
                               {DAYS_OF_WEEK.map(d => <option key={d.id} value={d.id}>{d.label}</option>)}
                            </select>
                          </div>
-                         <button onClick={() => { if(newStaffName.trim()){ setBranchData(p => ({...p, staff: [...(p.staff || []), {id: 's' + Date.now(), name: newStaffName.trim(), dept: newStaffDept, pos: newStaffPos, regularDayOff: newStaffDayOff === '' ? null : parseInt(newStaffDayOff)}]})); setNewStaffName(''); setNewStaffDayOff(''); } }} className="w-full xl:w-auto bg-slate-900 text-white px-6 sm:px-8 py-3 rounded-xl sm:rounded-2xl font-black text-xs hover:bg-indigo-600 transition uppercase flex items-center justify-center"><UserPlus className="w-4 h-4 sm:w-5 sm:h-5 mr-0 sm:mr-0"/><span className="xl:hidden ml-2">เพิ่มพนักงาน</span></button>
+                         <button onClick={() => { if(newStaffName.trim()){ setBranchData(p => ({...p, staff: [...(p.staff || []), {id: 's' + Date.now(), empId: newStaffEmpId.trim(), name: newStaffName.trim(), dept: newStaffDept, pos: newStaffPos, regularDayOff: newStaffDayOff === '' ? null : parseInt(newStaffDayOff)}]})); setNewStaffName(''); setNewStaffEmpId(''); setNewStaffDayOff(''); } }} className="w-full xl:w-auto bg-slate-900 text-white px-6 sm:px-8 py-3 rounded-xl sm:rounded-2xl font-black text-xs hover:bg-indigo-600 transition uppercase flex items-center justify-center"><UserPlus className="w-4 h-4 sm:w-5 sm:h-5 mr-0 sm:mr-0"/><span className="xl:hidden ml-2">เพิ่มพนักงาน</span></button>
                       </div>
                     </div>
                     
@@ -1304,6 +1386,7 @@ export default function App() {
                            {/* EDIT STAFF LOGIC */}
                            {editingStaffId === s.id ? (
                               <div className="flex-1 flex gap-2 items-center flex-wrap">
+                                 <input type="text" placeholder="รหัส" value={editStaffData.empId || ''} onChange={e => setEditStaffData({...editStaffData, empId: e.target.value})} className="border rounded px-2 py-1 text-xs w-full sm:w-16"/>
                                  <input type="text" value={editStaffData.name} onChange={e => setEditStaffData({...editStaffData, name: e.target.value})} className="border rounded px-2 py-1 text-xs w-full sm:w-auto flex-1 min-w-[100px]"/>
                                  <select value={editStaffData.pos} onChange={e => setEditStaffData({...editStaffData, pos: e.target.value})} className="border rounded px-2 py-1 text-[10px]">
                                      {POSITIONS[s.dept].map(p => <option key={p} value={p}>{p}</option>)}
@@ -1318,7 +1401,10 @@ export default function App() {
                            ) : (
                               <>
                                 <div className="flex-1 min-w-0 pr-4">
-                                   <span className="text-sm sm:text-base font-black text-slate-800 uppercase truncate block">{s.name}</span>
+                                   <span className="text-sm sm:text-base font-black text-slate-800 uppercase truncate block">
+                                      {s.empId ? <span className="text-slate-400 mr-2 text-xs">[{s.empId}]</span> : ''}
+                                      {s.name}
+                                   </span>
                                    <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-1 items-center">
                                       <span className={`text-[7px] sm:text-[8px] font-black px-1.5 sm:px-2 py-0.5 rounded border uppercase ${s.dept === 'service' ? 'bg-indigo-50 text-indigo-500 border-indigo-100' : 'bg-orange-50 text-orange-500 border-orange-100'}`}>{s.dept}</span>
                                       <span className="text-[7px] sm:text-[8px] font-black px-1.5 sm:px-2 py-0.5 rounded border border-slate-200 bg-white text-slate-400 uppercase">{s.pos}</span>
@@ -1863,7 +1949,7 @@ export default function App() {
         ) : view === 'print' ? (
           <PrintMonthlyView CALENDAR_DAYS={CALENDAR_DAYS} branchData={branchData} globalConfig={globalConfig} activeBranchId={activeBranchId} THAI_MONTHS={THAI_MONTHS} selectedMonth={selectedMonth} getStaffDayInfo={getStaffDayInfo} setView={setView} activeDept={activeDept} CURRENT_DUTY_LIST={CURRENT_DUTY_LIST} />
         ) : (
-          /* REPORT VIEW V10.18 */
+          /* REPORT VIEW V10.27 */
           <div className="flex-1 space-y-6 sm:space-y-12 animate-in fade-in duration-500 pb-24 w-full">
              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0">
                 <div className="flex items-center gap-4 sm:gap-6">
@@ -1873,8 +1959,13 @@ export default function App() {
                     <p className="text-slate-400 font-bold uppercase text-[10px] sm:text-sm tracking-widest mt-0.5 sm:mt-1">Performance & OT Efficiency Report</p>
                   </div>
                 </div>
-                <div className="bg-slate-900 text-white px-6 sm:px-10 py-4 sm:py-5 rounded-xl sm:rounded-[2rem] font-black flex justify-center items-center shadow-xl sm:shadow-2xl text-xs sm:text-sm uppercase tracking-widest gap-2">
-                   <Filter className="w-4 h-4"/> Data Filtered
+                <div className="flex items-center gap-2 w-full sm:w-auto mt-4 sm:mt-0">
+                  <div className="flex-1 sm:flex-none bg-slate-900 text-white px-4 sm:px-6 py-4 sm:py-5 rounded-xl sm:rounded-[2rem] font-black flex justify-center items-center shadow-md text-[10px] sm:text-xs uppercase tracking-widest gap-2">
+                     <Filter className="w-4 h-4"/> Filtered
+                  </div>
+                  <button onClick={handleExportExcel} className="flex-1 sm:flex-none bg-green-600 hover:bg-green-700 text-white px-4 sm:px-6 py-4 sm:py-5 rounded-xl sm:rounded-[2rem] font-black flex justify-center items-center shadow-md text-[10px] sm:text-xs uppercase tracking-widest gap-2 transition-all active:scale-95">
+                     <Download className="w-4 h-4"/> Export (CSV)
+                  </button>
                 </div>
              </div>
 
