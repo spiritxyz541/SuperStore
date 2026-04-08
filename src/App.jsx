@@ -923,7 +923,7 @@ export default function App() {
       <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-emerald-600 rounded-full blur-[120px] opacity-30"></div>
       <form onSubmit={handleLogin} className="w-full max-w-md bg-white p-8 sm:p-12 rounded-[2rem] sm:rounded-[3rem] shadow-2xl relative z-10 flex flex-col items-center gap-6 sm:gap-8 animate-in fade-in zoom-in-95 duration-500">
         <div className="relative">
-          <img src="/gon-logo.png" alt="GON SUPER STORE" className="w-24 h-24 sm:w-32 sm:h-32 rounded-full shadow-xl object-cover border-4 border-white bg-white" onError={(e) => { e.target.onerror = null; e.target.src = "https://via.placeholder.com/150?text=GON"; }} />
+          <img src="https://drive.usercontent.google.com/download?id=1hKl-1r0C8ynQUdRXjhEc6KeP4tgmp9c6&export=view&authuser=0" alt="GON SUPER STORE" className="w-24 h-24 sm:w-32 sm:h-32 rounded-full shadow-xl object-cover border-4 border-white bg-white" onError={(e) => { e.target.onerror = null; e.target.src = "https://via.placeholder.com/150?text=GON"; }} />
         </div>
         <div className="text-center w-full">
            <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tighter uppercase">GON SUPER STORE</h2>
@@ -1002,7 +1002,7 @@ export default function App() {
         <div className="max-w-[1600px] mx-auto flex flex-col md:flex-row items-center justify-between gap-4 md:gap-0">
           <div className="flex items-center justify-between w-full md:w-auto">
             <div className="flex items-center gap-3 sm:gap-4">
-              <img src="/gon-logo.png" alt="Logo" className="w-10 h-10 sm:w-12 sm:h-12 rounded-full shadow-md object-cover border-2 border-slate-100 bg-white transition hover:scale-105 duration-500" onError={(e) => { e.target.onerror = null; e.target.src = "https://via.placeholder.com/150?text=GON"; }} />
+              <img src="https://drive.usercontent.google.com/download?id=1hKl-1r0C8ynQUdRXjhEc6KeP4tgmp9c6&export=view&authuser=0" alt="Logo" className="w-10 h-10 sm:w-12 sm:h-12 rounded-full shadow-md object-cover border-2 border-slate-100 bg-white transition hover:scale-105 duration-500" onError={(e) => { e.target.onerror = null; e.target.src = "https://via.placeholder.com/150?text=GON"; }} />
               <div className="flex flex-col">
                 <span className="font-black text-lg sm:text-xl tracking-tighter uppercase leading-none">GON SUPER STORE</span>
                 <div className="flex items-center gap-1.5 mt-0.5">
