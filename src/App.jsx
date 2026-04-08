@@ -48,10 +48,11 @@ import {
 } from 'lucide-react';
 
 /**
- * GON SUPER STORE Manager Assistant - V10.25 (STABLE LAYOUT FIX)
+ * GON SUPER STORE Manager Assistant - V10.26 (FULL WIDTH & LAYOUT OVERRIDE)
  * อัปเดต:
- * 1. ล็อกสัดส่วนหน้าจอ (Fixed Layout Ratio) แก้ปัญหาจอขยับหรือกระตุกเวลาเปลี่ยนเมนู
- * 2. ปรับโครงสร้างเป็น Flex Column เต็มจอ และล็อก Scrollbar Gutter ไม่ให้ดันเนื้อหาเวลาโผล่ขึ้นมา
+ * 1. เพิ่ม Global CSS Override เพื่อบังคับล้างค่า Default ของ Vite (#root max-width)
+ * 2. ทำให้ตัวแตปกางเต็มจอ 100% และจัดกึ่งกลางได้อย่างถูกต้องบนหน้าจอ Ultra-wide
+ * 3. โค้ดฉบับเต็ม 100% ไม่มีจุดไข่ปลาแก้ปัญหา Compile Error
  */
 
 // --- 1. Configurations ---
@@ -1036,7 +1037,7 @@ export default function App() {
   );
 
   return (
-    <div className="flex flex-col min-h-screen w-full bg-slate-50 text-slate-900 font-sans antialiased overflow-x-hidden">
+    <div className="flex-1 flex flex-col min-h-screen w-full bg-slate-50 text-slate-900 font-sans antialiased overflow-x-hidden">
       {/* Success Modal */}
       {showSuccessModal && (
         <div className="fixed inset-0 z-[400] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-300 font-sans">
@@ -1978,7 +1979,23 @@ export default function App() {
       </main>
 
       <style dangerouslySetInnerHTML={{ __html: `
-        html, body { scrollbar-gutter: stable; }
+        /* Reset Vite Defaults */
+        #root {
+          max-width: none !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          text-align: left !important;
+          width: 100% !important;
+          display: flex !important;
+          flex-direction: column !important;
+          min-height: 100vh !important;
+        }
+        html, body { 
+          scrollbar-gutter: stable; 
+          width: 100%;
+          margin: 0;
+          padding: 0;
+        }
         .custom-scrollbar::-webkit-scrollbar { height: 8px; width: 8px; }
         @media (min-width: 640px) {
            .custom-scrollbar::-webkit-scrollbar { height: 12px; width: 10px; }
