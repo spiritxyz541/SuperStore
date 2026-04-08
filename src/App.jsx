@@ -43,15 +43,15 @@ import {
   GripVertical,
   Wand2,
   Eraser,
-  Filter
+  Filter,
+  ChevronDown
 } from 'lucide-react';
 
 /**
- * RESTAURANT MANPOWER MANAGEMENT SYSTEM (MP26 MODEL) - V10.22 (BRANDING & LOGO)
+ * GON SUPER STORE Manager Assistant - V10.24 (LOGO LINK & FULL CODE FIX)
  * อัปเดต:
- * 1. เปลี่ยนชื่อระบบเป็น "GON SUPER STORE Manager Assistant"
- * 2. เพิ่มโลโก้แบรนด์ (อ้างอิงจาก /gon-logo.png ในโฟลเดอร์ public)
- * 3. เพิ่มเครดิต Powered by Super Store Team
+ * 1. แก้ไขปัญหา Build Failed จากการใช้จุด (...) โดยการให้โค้ดฉบับเต็ม 100%
+ * 2. เปลี่ยนลิงก์รูปภาพ Logo ทั้งหมดเป็น https://img2.pic.in.th/gon-logo.png
  */
 
 // --- 1. Configurations ---
@@ -120,9 +120,8 @@ const checkPositionEligibility = (staffPos, reqPosArr, dept) => {
   const deptPositions = POSITIONS[dept] || [];
   const staffRank = deptPositions.indexOf(staffPos);
   
-  if (staffRank === -1) return false; // กรณีตำแหน่งพนักงานไม่มีในระบบ
+  if (staffRank === -1) return false; 
   
-  // พนักงานจะลงกะได้ก็ต่อเมื่อ "ลำดับชั้น (Rank) ตัวเอง น้อยกว่าหรือเท่ากับ (สูงกว่า) ลำดับชั้นที่ต้องการอย่างน้อย 1 ตำแหน่ง"
   return reqPosArr.some(reqPos => {
     const reqRank = deptPositions.indexOf(reqPos);
     return reqRank !== -1 && staffRank <= reqRank;
@@ -227,6 +226,55 @@ const PositionSelector = ({ value, options, onChange, disabled, className }) => 
         </>
       )}
     </div>
+  );
+};
+
+const StaffMultiSelector = ({ value, options, onChange, disabled, placeholder }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const valArray = Array.isArray(value) ? value : [];
+
+  const toggle = (optId) => {
+    let next = [...valArray];
+    if (next.includes(optId)) next = next.filter(x => x !== optId);
+    else next.push(optId);
+    onChange(next);
+  };
+
+  const selectedNames = valArray.map(id => options.find(o => o.id === id)?.name).filter(Boolean);
+  const displayText = selectedNames.length > 0 ? selectedNames.join(', ') : placeholder;
+
+  return (
+     <div className="relative flex-1 w-full">
+        <div
+          onClick={() => !disabled && setIsOpen(!isOpen)}
+          className={`border-2 border-slate-100 rounded-xl p-2.5 sm:p-3 text-left font-bold text-[10px] sm:text-xs bg-white cursor-pointer flex justify-between items-center ${disabled ? 'opacity-50' : 'hover:border-indigo-400'} ${selectedNames.length > 0 ? 'text-indigo-700' : 'text-slate-400'}`}
+        >
+          <span className="truncate pr-2">{displayText}</span>
+          <ChevronDown className="w-4 h-4 text-slate-400 flex-shrink-0" />
+        </div>
+        {isOpen && !disabled && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)}></div>
+            <div className="absolute top-full left-0 mt-2 w-full min-w-[200px] bg-white border border-slate-200 rounded-2xl shadow-2xl z-50 max-h-60 overflow-y-auto custom-scrollbar py-2">
+              {options.length === 0 ? (
+                 <div className="px-4 py-3 text-[10px] text-slate-400 text-center font-bold">ไม่มีพนักงานว่างให้เลือก</div>
+              ) : options.map(o => (
+                <div
+                  key={o.id}
+                  className={`px-4 py-2.5 text-[10px] sm:text-xs font-bold cursor-pointer hover:bg-slate-50 flex items-center gap-3 transition-colors ${valArray.includes(o.id) ? 'text-indigo-600 bg-indigo-50/50' : 'text-slate-600'}`}
+                  onClick={() => toggle(o.id)}
+                >
+                  <div className={`w-3.5 h-3.5 sm:w-4 sm:h-4 rounded border flex flex-shrink-0 items-center justify-center transition-colors ${valArray.includes(o.id) ? 'bg-indigo-500 border-indigo-500' : 'border-slate-300'}`}>
+                    {valArray.includes(o.id) && <Check className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" />}
+                  </div>
+                  <span className="truncate">{o.name}</span> 
+                  <span className="text-[8px] sm:text-[9px] text-slate-400 ml-auto bg-white px-1.5 py-0.5 rounded border shadow-sm flex-shrink-0"> {o.pos} </span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+     </div>
   );
 };
 
@@ -337,7 +385,7 @@ export default function App() {
   const [editDutyData, setEditDutyData] = useState({});
   const [draggedDutyIdx, setDraggedDutyIdx] = useState(null);
   
-  const [staffFilterPos, setStaffFilterPos] = useState('ALL'); // Add filter state
+  const [staffFilterPos, setStaffFilterPos] = useState('ALL'); 
 
   // Report Filter States
   const [reportFilterMode, setReportFilterMode] = useState('month'); 
@@ -616,6 +664,25 @@ export default function App() {
     }
   }, [schedule, branchData.matrix, CURRENT_DUTY_LIST, branchData.holidays]);
 
+  const handleLeaveChange = useCallback((dateStr, leaveType, selectedStaffIds) => {
+      setSchedule(prev => {
+          const newSched = { ...prev };
+          if (!newSched[dateStr]) newSched[dateStr] = { duties: {}, leaves: [], autoLeavesAssigned: true };
+
+          let updatedLeaves = (newSched[dateStr].leaves || []).filter(l => l.type !== leaveType);
+
+          selectedStaffIds.forEach(staffId => {
+              updatedLeaves.push({ staffId, type: leaveType });
+          });
+
+          newSched[dateStr] = {
+             ...newSched[dateStr],
+             leaves: updatedLeaves
+          };
+          return newSched;
+      });
+  }, []);
+
   const handleAutoAssign = (mode = 'daily') => {
     setAiLoading(true);
     setTimeout(() => {
@@ -774,7 +841,7 @@ export default function App() {
     });
   };
 
-  const updateLeaves = (dateStr, action, index, field, value) => {
+  const updateLeavesCard = (dateStr, action, index, field, value) => {
     setSchedule(prev => {
       const newSched = JSON.parse(JSON.stringify(prev));
       if (!newSched[dateStr]) newSched[dateStr] = { duties: {}, leaves: [] };
@@ -918,32 +985,52 @@ export default function App() {
   );
 
   if (authRole === 'guest') return (
-    <div className="min-h-screen w-full flex flex-col items-center justify-center bg-slate-900 p-6 font-sans relative overflow-hidden">
-      <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-indigo-600 rounded-full blur-[120px] opacity-40"></div>
-      <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-emerald-600 rounded-full blur-[120px] opacity-30"></div>
-      <form onSubmit={handleLogin} className="w-full max-w-md bg-white p-8 sm:p-12 rounded-[2rem] sm:rounded-[3rem] shadow-2xl relative z-10 flex flex-col items-center gap-6 sm:gap-8 animate-in fade-in zoom-in-95 duration-500">
-        <div className="relative">
-          <img src="https://drive.usercontent.google.com/download?id=1hKl-1r0C8ynQUdRXjhEc6KeP4tgmp9c6&export=view&authuser=0" alt="GON SUPER STORE" className="w-24 h-24 sm:w-32 sm:h-32 rounded-full shadow-xl object-cover border-4 border-white bg-white" onError={(e) => { e.target.onerror = null; e.target.src = "https://via.placeholder.com/150?text=GON"; }} />
+    <div className="min-h-screen w-full flex flex-col lg:flex-row bg-slate-50 font-sans overflow-hidden">
+      {/* Left Panel - Branding */}
+      <div className="w-full lg:w-1/2 min-h-[40vh] lg:min-h-screen bg-slate-900 relative flex flex-col justify-center items-center p-8 sm:p-12 overflow-hidden shadow-2xl z-10">
+        <div className="absolute top-[-10%] left-[-10%] w-64 h-64 sm:w-96 sm:h-96 bg-indigo-600 rounded-full blur-[100px] sm:blur-[120px] opacity-40"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-64 h-64 sm:w-96 sm:h-96 bg-emerald-600 rounded-full blur-[100px] sm:blur-[120px] opacity-30"></div>
+        
+        <div className="relative z-10 flex flex-col items-center text-center animate-in fade-in zoom-in duration-700">
+          <img src="https://img2.pic.in.th/gon-logo.png" alt="GON SUPER STORE" className="w-32 h-32 sm:w-48 sm:h-48 lg:w-64 lg:h-64 rounded-full shadow-2xl object-cover border-4 sm:border-8 border-slate-800 bg-white mb-6 sm:mb-8 transition-transform hover:scale-105 duration-500" onError={(e) => { e.target.onerror = null; e.target.src = "https://via.placeholder.com/300?text=GON"; }} />
+          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-white tracking-tighter uppercase mb-2 sm:mb-4">GON SUPER STORE</h1>
+          <p className="text-sm sm:text-lg lg:text-xl text-slate-400 font-bold uppercase tracking-[0.2em] sm:tracking-[0.4em]">Manager Assistant</p>
         </div>
-        <div className="text-center w-full">
-           <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tighter uppercase">GON SUPER STORE</h2>
-           <p className="text-slate-400 text-[10px] sm:text-xs font-bold mt-2 uppercase tracking-widest">Manager Assistant</p>
+        
+        <div className="hidden lg:block absolute bottom-8 text-center w-full z-10">
+           <p className="text-xs font-bold text-slate-500 tracking-[0.2em] uppercase">Powered by Super Store Team</p>
         </div>
-        <div className="w-full space-y-4 sm:space-y-5">
-          <div>
-            <label className="block text-[10px] sm:text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-4">Username</label>
-            <input type="text" placeholder="รหัสพนักงาน / ชื่อผู้ใช้" className="w-full bg-slate-50 border-2 border-slate-100 rounded-[1.5rem] sm:rounded-[2rem] px-5 sm:px-6 py-3 sm:py-4 text-sm font-bold focus:border-indigo-500 focus:bg-white outline-none transition" value={userInput} onChange={(e) => setUserInput(e.target.value)} />
+      </div>
+
+      {/* Right Panel - Login Form */}
+      <div className="w-full lg:w-1/2 flex-1 flex flex-col justify-center items-center p-6 sm:p-12 relative bg-white">
+        <form onSubmit={handleLogin} className="w-full max-w-md p-8 sm:p-12 rounded-[2rem] sm:rounded-[3rem] shadow-xl sm:shadow-2xl border border-slate-100 bg-white flex flex-col gap-6 sm:gap-8 animate-in slide-in-from-right-8 duration-500 z-10">
+          
+          <div className="text-center w-full mb-2">
+             <div className="bg-indigo-50 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6 text-indigo-600 shadow-sm">
+               <Store className="w-8 h-8" />
+             </div>
+             <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tighter uppercase">Welcome Back</h2>
+             <p className="text-slate-400 text-xs sm:text-sm font-bold mt-2">Sign in to your account</p>
           </div>
-          <div>
-            <label className="block text-[10px] sm:text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-4">Password</label>
-            <input type="password" placeholder="รหัสผ่าน" className="w-full bg-slate-50 border-2 border-slate-100 rounded-[1.5rem] sm:rounded-[2rem] px-5 sm:px-6 py-3 sm:py-4 text-sm font-bold focus:border-indigo-500 focus:bg-white outline-none transition" value={passInput} onChange={(e) => setPassInput(e.target.value)} />
+
+          <div className="w-full space-y-4 sm:space-y-5">
+            <div>
+              <label className="block text-[10px] sm:text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-4">Username</label>
+              <input type="text" placeholder="รหัสพนักงาน / ชื่อผู้ใช้" className="w-full bg-slate-50 border-2 border-slate-100 rounded-[1.5rem] sm:rounded-[2rem] px-5 sm:px-6 py-3 sm:py-4 text-sm font-bold focus:border-indigo-500 focus:bg-white outline-none transition" value={userInput} onChange={(e) => setUserInput(e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-[10px] sm:text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-4">Password</label>
+              <input type="password" placeholder="รหัสผ่าน" className="w-full bg-slate-50 border-2 border-slate-100 rounded-[1.5rem] sm:rounded-[2rem] px-5 sm:px-6 py-3 sm:py-4 text-sm font-bold focus:border-indigo-500 focus:bg-white outline-none transition" value={passInput} onChange={(e) => setPassInput(e.target.value)} />
+            </div>
           </div>
+          {loginError && <p className="text-xs sm:text-sm text-red-500 font-bold bg-red-50 px-4 py-3 rounded-xl w-full text-center">{loginError}</p>}
+          <button type="submit" className="w-full bg-indigo-600 text-white py-4 sm:py-5 rounded-[1.5rem] sm:rounded-[2rem] font-black text-sm shadow-xl shadow-indigo-200 hover:bg-indigo-700 hover:shadow-indigo-300 active:scale-95 transition-all mt-2">LOGIN TO SYSTEM</button>
+        </form>
+
+        <div className="lg:hidden mt-12 text-center w-full z-0">
+           <p className="text-[10px] font-bold text-slate-400 tracking-[0.2em] uppercase">Powered by Super Store Team</p>
         </div>
-        {loginError && <p className="text-xs sm:text-sm text-red-500 font-bold bg-red-50 px-4 py-3 rounded-xl w-full text-center">{loginError}</p>}
-        <button type="submit" className="w-full bg-slate-900 text-white py-4 sm:py-5 rounded-[1.5rem] sm:rounded-[2rem] font-black text-sm shadow-xl hover:bg-indigo-600 hover:shadow-indigo-200 active:scale-95 transition-all mt-2">LOGIN TO SYSTEM</button>
-      </form>
-      <div className="mt-8 text-center relative z-10">
-         <p className="text-[10px] sm:text-xs font-bold text-slate-400/80 tracking-[0.2em] uppercase">Powered by Super Store Team</p>
       </div>
     </div>
   );
@@ -998,11 +1085,11 @@ export default function App() {
       )}
 
       {/* Navbar */}
-      <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200 print:hidden shadow-sm px-4 sm:px-8 py-3">
-        <div className="max-w-[1600px] mx-auto flex flex-col md:flex-row items-center justify-between gap-4 md:gap-0">
-          <div className="flex items-center justify-between w-full md:w-auto">
+      <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200 print:hidden shadow-sm px-4 sm:px-8 py-3 w-full">
+        <div className="max-w-[1600px] mx-auto flex flex-col lg:flex-row items-center justify-between gap-4 lg:gap-0 w-full">
+          <div className="flex items-center justify-between w-full lg:w-auto">
             <div className="flex items-center gap-3 sm:gap-4">
-              <img src="https://drive.usercontent.google.com/download?id=1hKl-1r0C8ynQUdRXjhEc6KeP4tgmp9c6&export=view&authuser=0" alt="Logo" className="w-10 h-10 sm:w-12 sm:h-12 rounded-full shadow-md object-cover border-2 border-slate-100 bg-white transition hover:scale-105 duration-500" onError={(e) => { e.target.onerror = null; e.target.src = "https://via.placeholder.com/150?text=GON"; }} />
+              <img src="https://img2.pic.in.th/gon-logo.png" alt="Logo" className="w-10 h-10 sm:w-12 sm:h-12 rounded-full shadow-md object-cover border-2 border-slate-100 bg-white transition hover:scale-105 duration-500" onError={(e) => { e.target.onerror = null; e.target.src = "https://via.placeholder.com/150?text=GON"; }} />
               <div className="flex flex-col">
                 <span className="font-black text-lg sm:text-xl tracking-tighter uppercase leading-none">GON SUPER STORE</span>
                 <div className="flex items-center gap-1.5 mt-0.5">
@@ -1023,7 +1110,7 @@ export default function App() {
               )}
             </div>
             
-            <div className="md:hidden flex items-center gap-2">
+            <div className="lg:hidden flex items-center gap-2">
                {authRole === 'superadmin' && (
                  <select value={activeBranchId || ''} onChange={(e) => setActiveBranchId(e.target.value)} className="bg-slate-100 border border-slate-200 rounded-lg text-[9px] font-black outline-none py-1.5 px-2 text-indigo-600 max-w-[100px]">
                    <option value="">-- สาขา --</option>
@@ -1034,7 +1121,7 @@ export default function App() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-5 w-full md:w-auto overflow-x-auto custom-scrollbar pb-1 md:pb-0">
+          <div className="flex items-center gap-2 sm:gap-5 w-full lg:w-auto overflow-x-auto custom-scrollbar pb-1 lg:pb-0">
             <div className="flex-shrink-0 flex items-center bg-slate-100 rounded-xl p-1 shadow-inner border border-slate-200">
                <CalendarDaysIcon className="hidden sm:block w-4 h-4 sm:w-5 sm:h-5 text-slate-400 mx-2 sm:mx-3" />
                <select value={selectedMonth} onChange={(e) => setSelectedMonth(parseInt(e.target.value))} className="bg-transparent text-[10px] sm:text-xs font-black outline-none py-1.5 sm:py-2 px-2 sm:pr-3 text-slate-700">
@@ -1049,7 +1136,7 @@ export default function App() {
                 <button onClick={() => setView('branches')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'branches' ? 'bg-white text-emerald-600 shadow-sm border border-emerald-50' : 'text-slate-500'}`}>BRANCHES</button>
               )}
             </div>
-            <div className="hidden md:flex flex-shrink-0 items-center gap-3 ml-2 pl-5 border-l border-slate-200">
+            <div className="hidden lg:flex flex-shrink-0 items-center gap-3 ml-2 pl-5 border-l border-slate-200">
                <button onClick={handleGlobalSave} disabled={saveStatus === 'saving'} className="bg-indigo-600 text-white px-6 py-2.5 rounded-2xl font-black text-xs hover:bg-indigo-700 active:scale-95 transition flex items-center gap-2">
                  {saveStatus === 'saving' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} บันทึก
                </button>
@@ -1060,13 +1147,13 @@ export default function App() {
       </nav>
       
       {/* Mobile Save Button */}
-      <button onClick={handleGlobalSave} disabled={saveStatus === 'saving'} className="md:hidden fixed bottom-6 right-6 z-50 bg-indigo-600 text-white p-4 rounded-full shadow-2xl active:scale-90 transition-transform">
+      <button onClick={handleGlobalSave} disabled={saveStatus === 'saving'} className="lg:hidden fixed bottom-6 right-6 z-50 bg-indigo-600 text-white p-4 rounded-full shadow-2xl active:scale-90 transition-transform">
          {saveStatus === 'saving' ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6" />}
       </button>
 
       <main className="p-4 sm:p-8 max-w-[1600px] mx-auto w-full print:p-0 print:m-0">
         {view === 'manager' || view === 'admin' ? (
-          <div className="flex flex-wrap items-center justify-between gap-4 mb-6 sm:mb-10 print:hidden">
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-6 sm:mb-10 print:hidden w-full">
              <div className="flex flex-wrap gap-2 sm:gap-4 bg-white p-2 sm:p-3 rounded-[1.5rem] sm:rounded-[2.5rem] border border-slate-200 w-full md:w-fit shadow-sm">
                 <button onClick={() => { setActiveDept('service'); setStaffFilterPos('ALL'); }} className={`flex-1 md:flex-none flex justify-center items-center gap-2 sm:gap-3 px-4 sm:px-10 py-3 sm:py-4 rounded-[1rem] sm:rounded-[2rem] font-black text-[10px] sm:text-xs transition-all ${activeDept === 'service' ? 'bg-indigo-600 text-white shadow-xl scale-[1.02]' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}><ConciergeBell className="w-4 h-4 sm:w-5 sm:h-5"/> ฝั่งงานบริการ</button>
                 <button onClick={() => { setActiveDept('kitchen'); setStaffFilterPos('ALL'); }} className={`flex-1 md:flex-none flex justify-center items-center gap-2 sm:gap-3 px-4 sm:px-10 py-3 sm:py-4 rounded-[1rem] sm:rounded-[2rem] font-black text-[10px] sm:text-xs transition-all ${activeDept === 'kitchen' ? 'bg-orange-600 text-white shadow-xl scale-[1.02]' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}><UtensilsCrossed className="w-4 h-4 sm:w-5 sm:h-5"/> ฝั่งงานครัว</button>
@@ -1083,7 +1170,7 @@ export default function App() {
         ) : null}
 
         {view === 'branches' && authRole === 'superadmin' ? (
-           <div className="space-y-6 sm:space-y-10 animate-in fade-in duration-500 pb-24">
+           <div className="space-y-6 sm:space-y-10 animate-in fade-in duration-500 pb-24 w-full">
              <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-4 sm:gap-6">
                   <div className="bg-emerald-100 p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem]"><Store className="w-8 h-8 sm:w-10 sm:h-10 text-emerald-600" /></div>
@@ -1143,12 +1230,12 @@ export default function App() {
         ) : view === 'admin' ? (
           /* BRANCH ADMIN VIEW */
           !activeBranchId ? (
-            <div className="h-[60vh] sm:h-[70vh] flex flex-col items-center justify-center gap-4 sm:gap-6 text-slate-300 font-black uppercase tracking-[0.2em] sm:tracking-[0.4em] text-center px-4">
+            <div className="h-[60vh] sm:h-[70vh] flex flex-col items-center justify-center gap-4 sm:gap-6 text-slate-300 font-black uppercase tracking-[0.2em] sm:tracking-[0.4em] text-center px-4 w-full">
               <Store className="w-16 h-16 sm:w-24 sm:h-24 opacity-10" />
               <p className="text-sm sm:text-base">กรุณาเลือกสาขาที่ต้องการจัดการจากแถบด้านบน</p>
             </div>
           ) : (
-            <div className="space-y-6 sm:space-y-10 animate-in fade-in duration-500 pb-24">
+            <div className="space-y-6 sm:space-y-10 animate-in fade-in duration-500 pb-24 w-full">
                {/* -------------------- ADMIN ROW 1: STAFF & DUTIES -------------------- */}
                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-10">
                   <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm flex flex-col">
@@ -1189,8 +1276,8 @@ export default function App() {
                     </div>
 
                     <div className="space-y-4 mb-6 sm:mb-10 w-full">
-                      <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
-                         <input type="text" placeholder={`ชื่อพนักงานใหม่ (${newStaffDept === 'service' ? 'บริการ' : 'ครัว'})...`} className="w-full sm:w-auto flex-[2] border-2 border-slate-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none transition shadow-sm" value={newStaffName} onChange={(e) => setNewStaffName(e.target.value)} />
+                      <div className="flex flex-col xl:flex-row gap-2 sm:gap-4">
+                         <input type="text" placeholder={`ชื่อพนักงานใหม่ (${newStaffDept === 'service' ? 'บริการ' : 'ครัว'})...`} className="w-full xl:w-auto flex-[2] border-2 border-slate-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none transition shadow-sm" value={newStaffName} onChange={(e) => setNewStaffName(e.target.value)} />
                          <div className="flex gap-2 sm:gap-4 flex-1">
                            <select value={newStaffDept} onChange={(e) => { setNewStaffDept(e.target.value); setNewStaffPos(POSITIONS[e.target.value][0]); }} className="flex-1 bg-slate-50 border-2 border-slate-100 rounded-xl sm:rounded-2xl px-3 sm:px-4 py-3 text-[10px] sm:text-xs font-black uppercase outline-none focus:border-indigo-500">
                               <option value="service">งานบริการ</option>
@@ -1204,7 +1291,7 @@ export default function App() {
                               {DAYS_OF_WEEK.map(d => <option key={d.id} value={d.id}>{d.label}</option>)}
                            </select>
                          </div>
-                         <button onClick={() => { if(newStaffName.trim()){ setBranchData(p => ({...p, staff: [...(p.staff || []), {id: 's' + Date.now(), name: newStaffName.trim(), dept: newStaffDept, pos: newStaffPos, regularDayOff: newStaffDayOff === '' ? null : parseInt(newStaffDayOff)}]})); setNewStaffName(''); setNewStaffDayOff(''); } }} className="w-full sm:w-auto bg-slate-900 text-white px-6 sm:px-8 py-3 rounded-xl sm:rounded-2xl font-black text-xs hover:bg-indigo-600 transition uppercase flex items-center justify-center"><UserPlus className="w-4 h-4 sm:w-5 sm:h-5 mr-0 sm:mr-0"/><span className="sm:hidden ml-2">เพิ่มพนักงาน</span></button>
+                         <button onClick={() => { if(newStaffName.trim()){ setBranchData(p => ({...p, staff: [...(p.staff || []), {id: 's' + Date.now(), name: newStaffName.trim(), dept: newStaffDept, pos: newStaffPos, regularDayOff: newStaffDayOff === '' ? null : parseInt(newStaffDayOff)}]})); setNewStaffName(''); setNewStaffDayOff(''); } }} className="w-full xl:w-auto bg-slate-900 text-white px-6 sm:px-8 py-3 rounded-xl sm:rounded-2xl font-black text-xs hover:bg-indigo-600 transition uppercase flex items-center justify-center"><UserPlus className="w-4 h-4 sm:w-5 sm:h-5 mr-0 sm:mr-0"/><span className="xl:hidden ml-2">เพิ่มพนักงาน</span></button>
                       </div>
                     </div>
                     
@@ -1254,11 +1341,11 @@ export default function App() {
                     
                     {authRole === 'superadmin' ? (
                       <div className="space-y-4 mb-6 sm:mb-10 w-full">
-                        <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
+                        <div className="flex flex-col xl:flex-row gap-2 sm:gap-4">
                           <input type="text" placeholder="หน้าที่หลัก (เช่น ต้อนรับหน้าร้าน)" className="flex-1 border-2 border-slate-100 rounded-xl px-4 py-3 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none" value={newDutyJobA} onChange={e => setNewDutyJobA(e.target.value)} />
                           <input type="text" placeholder="หน้าที่รอง (เช่น เคลียร์โต๊ะ)" className="flex-1 border-2 border-slate-100 rounded-xl px-4 py-3 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none" value={newDutyJobB} onChange={e => setNewDutyJobB(e.target.value)} />
-                          <PositionSelector disabled={false} value={newDutyReqPos} options={POSITIONS[activeDept]} onChange={setNewDutyReqPos} className="w-full sm:min-w-[80px]" />
-                          <button onClick={handleAddDuty} className="w-full sm:w-auto bg-slate-900 text-white px-6 py-3 rounded-xl font-black text-xs hover:bg-indigo-600 transition flex items-center justify-center"><Plus className="w-4 h-4 sm:w-5 sm:h-5"/></button>
+                          <PositionSelector disabled={false} value={newDutyReqPos} options={POSITIONS[activeDept]} onChange={setNewDutyReqPos} className="w-full xl:min-w-[80px]" />
+                          <button onClick={handleAddDuty} className="w-full xl:w-auto bg-slate-900 text-white px-6 py-3 rounded-xl font-black text-xs hover:bg-indigo-600 transition flex items-center justify-center"><Plus className="w-4 h-4 sm:w-5 sm:h-5"/></button>
                         </div>
                       </div>
                     ) : (
@@ -1316,7 +1403,7 @@ export default function App() {
                   </div>
                </div>
 
-               <div className="grid grid-cols-1 gap-6 sm:gap-10">
+               <div className="grid grid-cols-1 gap-6 sm:gap-10 w-full">
                   {/* วันหยุด: Read-only สำหรับ Manager */}
                   <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm w-full lg:w-1/2">
                     <h2 className="text-lg sm:text-xl font-black text-slate-800 mb-6 sm:mb-8 flex items-center justify-center gap-2 sm:gap-4 uppercase tracking-tighter"><Coffee className="w-6 h-6 sm:w-7 sm:h-7 text-red-500" /> วันหยุดประจำสาขา</h2>
@@ -1376,11 +1463,11 @@ export default function App() {
           )
         ) : view === 'manager' ? (
           /* BRANCH MANAGER VIEW */
-          <div className="space-y-6 sm:space-y-10 animate-in slide-in-from-bottom-6 duration-500 pb-24">
+          <div className="space-y-6 sm:space-y-10 animate-in slide-in-from-bottom-6 duration-500 pb-24 w-full">
              {managerViewMode === 'daily' ? (
                 /* Daily View (Cards) */
                 <>
-                <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 sm:gap-10 print:hidden">
+                <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 sm:gap-10 print:hidden w-full">
                <div className="relative flex items-center gap-2 sm:gap-4 w-full xl:flex-1 min-w-0">
                 <button onClick={() => scrollDates('left')} className="hidden sm:flex flex-shrink-0 w-10 h-10 sm:w-14 sm:h-14 bg-white border-2 border-slate-100 rounded-full items-center justify-center shadow-lg text-indigo-600 active:scale-90 transition z-10"><ChevronLeft className="w-5 h-5 sm:w-8 sm:h-8" /></button>
                 <div ref={dateBarRef} className="flex-1 flex gap-3 sm:gap-5 overflow-x-auto pb-4 sm:pb-6 pt-2 sm:pt-3 custom-scrollbar px-2 sm:px-3 select-none touch-pan-x snap-x">
@@ -1407,7 +1494,7 @@ export default function App() {
               </div>
             </div>
 
-            <div className="bg-white p-6 sm:p-12 rounded-[2rem] sm:rounded-[4rem] border border-slate-200 shadow-sm flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 sm:gap-10 relative overflow-hidden print:hidden">
+            <div className="bg-white p-6 sm:p-12 rounded-[2rem] sm:rounded-[4rem] border border-slate-200 shadow-sm flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 sm:gap-10 relative overflow-hidden print:hidden w-full">
               <div className="absolute top-0 left-0 w-2 sm:w-4 h-full bg-indigo-600"></div>
               <div>
                 <h2 className="text-3xl sm:text-5xl font-black text-slate-900 tracking-tighter leading-tight sm:leading-none mb-3 sm:mb-5">{new Date(selectedDateStr + "T00:00:00").toLocaleDateString('th-TH', { month: 'long', day: 'numeric', year: 'numeric', weekday: 'long' })}</h2>
@@ -1421,38 +1508,40 @@ export default function App() {
             </div>
 
             {/* --- OLD LEAVES UI (CARD STYLE) WITH AUTO-POPULATE --- */}
-            <div className="bg-white rounded-[2rem] sm:rounded-[3.5rem] border-2 border-dashed border-slate-200 p-6 sm:p-12 shadow-sm print:hidden">
+            <div className="bg-white rounded-[2rem] sm:rounded-[3.5rem] border-2 border-dashed border-slate-200 p-6 sm:p-12 shadow-sm print:hidden w-full">
               <h3 className="text-xl sm:text-2xl font-black text-slate-900 flex items-center gap-3 sm:gap-5 mb-6 sm:mb-10 uppercase tracking-tighter text-indigo-600"><PlaneTakeoff className="w-6 h-6 sm:w-8 sm:h-8" /> บันทึกการลาหยุดงานวันนี้ </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
-                {(schedule[selectedDateStr]?.leaves || []).map((l, idx) => {
-                  if (l.staffId) {
-                      const staff = branchData.staff?.find(s => s.id === l.staffId);
-                      if (staff && staff.dept !== activeDept) return null;
-                  }
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 sm:gap-6">
+                {LEAVE_TYPES.map(lt => {
+                  const selectedStaffIds = (schedule[selectedDateStr]?.leaves || [])
+                      .filter(l => l.type === lt.id)
+                      .map(l => l.staffId);
                   
+                  const staffOptions = branchData.staff?.filter(s => {
+                     if (s.dept !== activeDept) return false;
+                     const isUsedElsewhere = usedStaffIds.includes(s.id) && !selectedStaffIds.includes(s.id);
+                     return !isUsedElsewhere;
+                  }) || [];
+
                   return (
-                  <div key={idx} className="bg-slate-50 p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2.5rem] flex flex-wrap sm:flex-nowrap gap-3 sm:gap-4 items-center border border-slate-100 shadow-sm hover:bg-white transition-all">
-                    <select value={l.staffId} onChange={(e) => updateLeaves(selectedDateStr, 'update', idx, 'staffId', e.target.value)} className="flex-[2.5] w-full sm:w-auto bg-white border border-slate-200 rounded-xl sm:rounded-2xl px-3 sm:px-5 py-3 sm:py-4 text-xs sm:text-sm font-black outline-none shadow-inner text-slate-800 focus:border-indigo-500">
-                      <option value="">-- เลือกพนักงาน --</option>
-                      {branchData.staff?.filter(s => s.dept === activeDept).map(s => {
-                        const isUsed = usedStaffIds.includes(s.id) && l.staffId !== s.id;
-                        return isUsed ? null : <option key={s.id} value={s.id}>{s.name} ({s.pos})</option>
-                      })}
-                    </select>
-                    <div className="flex gap-2 sm:gap-4 flex-1 w-full sm:w-auto">
-                        <select value={l.type} onChange={(e) => updateLeaves(selectedDateStr, 'update', idx, 'type', e.target.value)} className="flex-1 bg-white border border-slate-200 rounded-lg sm:rounded-xl px-2 sm:px-3 py-3 sm:py-4 text-[10px] sm:text-xs font-black outline-none shadow-inner text-indigo-600 focus:border-indigo-500">
-                        {LEAVE_TYPES.map(lt => <option key={lt.id} value={lt.id}>{lt.label}</option>)}
-                        </select>
-                        <button onClick={() => updateLeaves(selectedDateStr, 'remove', idx)} className="text-slate-300 hover:text-red-500 transition p-2 bg-white rounded-lg sm:rounded-xl border border-slate-200 shadow-sm"><Trash2 className="w-4 h-4 sm:w-5 sm:h-5"/></button>
+                    <div key={lt.id} className="bg-slate-50 p-4 sm:p-5 rounded-[1.5rem] flex flex-col gap-4 border border-slate-100 shadow-sm hover:bg-white hover:border-indigo-100 transition-all">
+                        <div className="flex items-center gap-3">
+                            <span className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black ${lt.color} border border-white shadow-sm flex-shrink-0`}>{lt.shortLabel}</span>
+                            <span className="text-xs sm:text-sm font-black text-slate-700 truncate">{lt.label}</span>
+                            <span className="ml-auto text-[10px] font-bold text-slate-400 bg-white px-2 py-1 rounded-lg border shadow-sm flex-shrink-0">{selectedStaffIds.length} คน</span>
+                        </div>
+                        <StaffMultiSelector
+                            value={selectedStaffIds}
+                            options={staffOptions}
+                            onChange={(newIds) => handleLeaveChange(selectedDateStr, lt.id, newIds)}
+                            placeholder="เลือกพนักงาน..."
+                        />
                     </div>
-                  </div>
-                )})}
-                <button onClick={() => updateLeaves(selectedDateStr, 'add')} className="border-3 border-dashed border-indigo-100 text-indigo-400 p-6 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] font-black text-xs sm:text-sm hover:bg-indigo-50 transition-all uppercase tracking-widest active:scale-95 group flex items-center justify-center gap-2"><Plus className="w-5 h-5 sm:w-6 sm:h-6" /> เพิ่มรายการลา </button>
+                  );
+                })}
               </div>
             </div>
 
-            {/* --- UNASSIGNED STAFF UI (DAILY VIEW) --- */}
-            <div className="bg-amber-50 rounded-[2rem] sm:rounded-[3.5rem] border border-amber-200 p-6 sm:p-10 shadow-sm print:hidden">
+            <div className="bg-amber-50 rounded-[2rem] sm:rounded-[3.5rem] border border-amber-200 p-6 sm:p-10 shadow-sm print:hidden w-full">
               <h3 className="text-lg sm:text-xl font-black text-amber-700 flex items-center gap-2 sm:gap-4 mb-4 uppercase tracking-tighter">
                  <AlertCircle className="w-5 h-5 sm:w-6 sm:h-6" /> พนักงานที่รอจัดกะ / ว่างงาน ({unassignedStaffDaily.length} คน)
               </h3>
@@ -1470,7 +1559,7 @@ export default function App() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 sm:gap-10 print:hidden">
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 sm:gap-10 print:hidden w-full">
               {CURRENT_DUTY_LIST.map(duty => {
                 const slots = branchData.matrix?.[activeDay.type]?.duties?.[duty.id] || [];
                 const assigned = schedule[selectedDateStr]?.duties?.[duty.id] || [];
@@ -1626,7 +1715,7 @@ export default function App() {
                 </div>
              ) : (
                 /* MONTHLY VIEW V10.18 (With Clear Button) */
-                <div className="bg-white rounded-[2rem] sm:rounded-[3rem] border border-slate-200 shadow-sm overflow-hidden animate-in fade-in">
+                <div className="bg-white rounded-[2rem] sm:rounded-[3rem] border border-slate-200 shadow-sm overflow-hidden animate-in fade-in w-full">
                   <div className="p-6 sm:p-8 bg-slate-50 border-b border-slate-100 flex justify-between items-center flex-wrap gap-4">
                     <div className="flex flex-col">
                         <h2 className="text-xl sm:text-2xl font-black text-slate-900 uppercase tracking-tighter">Monthly Schedule: {THAI_MONTHS[selectedMonth]}</h2>
@@ -1877,7 +1966,7 @@ export default function App() {
         )}
 
         {/* --- CREDIT FOOTER --- */}
-        <footer className="mt-16 pt-8 text-center pb-8 print:hidden opacity-60 hover:opacity-100 transition-opacity flex flex-col items-center">
+        <footer className="mt-16 pt-8 text-center pb-8 print:hidden opacity-60 hover:opacity-100 transition-opacity flex flex-col items-center w-full">
            <div className="flex items-center justify-center gap-3 mb-3">
              <div className="h-px w-12 bg-slate-300"></div>
              <Award className="w-5 h-5 text-slate-400" />
