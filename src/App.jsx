@@ -40,14 +40,16 @@ import {
   Check,
   List,
   TableProperties,
-  GripVertical
+  GripVertical,
+  Wand2
 } from 'lucide-react';
 
 /**
- * RESTAURANT MANPOWER MANAGEMENT SYSTEM (MP26 MODEL) - V10.11 (DRAG AND DROP REORDER)
+ * RESTAURANT MANPOWER MANAGEMENT SYSTEM (MP26 MODEL) - V10.13 (UNASSIGNED STAFF TRACKING)
  * อัปเดต:
- * 1. เพิ่มระบบลากและวาง (Drag & Drop) เพื่อปรับลำดับหน้าที่งาน (Duties) ในหน้า Admin
- * 2. เมื่อปรับลำดับเสร็จ ลำดับในตารางกะงาน (Matrix) จะอัปเดตเปลี่ยนตามทันที
+ * 1. เพิ่มระบบติดตาม "พนักงานที่รอจัดกะ/ว่างงาน" (Unassigned Staff)
+ * 2. แสดงผลรายชื่อคนที่ว่างในหน้า "การ์ดรายวัน" (Daily View) ให้เห็นชัดเจน
+ * 3. แสดงผลรายชื่อคนที่ว่างในคอลัมน์วันที่ของหน้า "ตารางรายเดือน" (Monthly View)
  */
 
 // --- 1. Configurations ---
@@ -318,7 +320,6 @@ export default function App() {
   const [draggedDutyIdx, setDraggedDutyIdx] = useState(null);
 
   const [aiLoading, setAiLoading] = useState(false);
-  const [aiMessage, setAiMessage] = useState(null);
   
   const dateBarRef = useRef(null);
   const selectedYear = 2026;
@@ -347,6 +348,11 @@ export default function App() {
     }
     return Array.from(ids);
   }, [schedule, selectedDateStr]);
+
+  // Unassigned Staff logic
+  const unassignedStaffDaily = useMemo(() => {
+    return branchData.staff?.filter(s => s.dept === activeDept && !usedStaffIds.includes(s.id)) || [];
+  }, [branchData.staff, activeDept, usedStaffIds]);
 
   const reportData = useMemo(() => {
     const staffMap = {};
@@ -467,14 +473,12 @@ export default function App() {
 
     setSchedule(prev => {
         const dayData = prev[selectedDateStr];
-        // ถ้าเคยจัดแล้ว (จาก Local หรือ Firebase) จะข้ามเพื่อไม่ให้เขียนทับ
         if (dayData && dayData.autoLeavesAssigned) return prev; 
 
         const [y, m, d] = selectedDateStr.split('-').map(Number);
         const dateObj = new Date(y, m - 1, d);
         const dayOfWeek = dateObj.getDay();
         
-        // หาคนที่วันหยุดประจำตรงกับวันนี้
         const regularOffStaff = branchData.staff.filter(s => s.regularDayOff === dayOfWeek);
 
         const newSched = { ...prev };
@@ -483,7 +487,6 @@ export default function App() {
         const currentLeaves = newSched[selectedDateStr].leaves || [];
         const currentDuties = newSched[selectedDateStr].duties || {};
         
-        // เช็คว่าใครถูกจัดตารางงานไปแล้วบ้าง
         const workingStaffIds = new Set();
         Object.values(currentDuties).forEach(slots => {
             slots.forEach(slot => { if(slot.staffId) workingStaffIds.add(slot.staffId); });
@@ -494,19 +497,99 @@ export default function App() {
             const alreadyInLeave = updatedLeaves.some(l => l.staffId === staff.id);
             const alreadyWorking = workingStaffIds.has(staff.id);
             if (!alreadyInLeave && !alreadyWorking) {
-                updatedLeaves.push({ staffId: staff.id, type: 'OFF' }); // ใส่ให้เป็นหยุดประจำสัปดาห์
+                updatedLeaves.push({ staffId: staff.id, type: 'OFF' }); 
             }
         });
 
         newSched[selectedDateStr] = {
             ...newSched[selectedDateStr],
             leaves: updatedLeaves,
-            autoLeavesAssigned: true // ทำสัญลักษณ์ว่าวันนี้เคยดึงระบบอัตโนมัติแล้ว
+            autoLeavesAssigned: true 
         };
 
         return newSched;
     });
   }, [selectedDateStr, branchData.staff]);
+
+  // --- AUTO SCHEDULE LOGIC ---
+  const handleAutoAssign = (mode = 'daily') => {
+    setAiLoading(true);
+    setTimeout(() => {
+        setSchedule(prevSched => {
+            const newSched = JSON.parse(JSON.stringify(prevSched));
+            const datesToProcess = mode === 'daily' ? [selectedDateStr] : CALENDAR_DAYS.map(d => d.dateStr);
+
+            datesToProcess.forEach(dateStr => {
+                const dayConfig = CALENDAR_DAYS.find(c => c.dateStr === dateStr);
+                const dayType = dayConfig ? dayConfig.type : 'weekday';
+                
+                if (!newSched[dateStr]) newSched[dateStr] = { duties: {}, leaves: [] };
+                const dayData = newSched[dateStr];
+                if (!dayData.duties) dayData.duties = {};
+
+                // 1. Force populate regular leaves for this date if not already done
+                const [y, m, d] = dateStr.split('-').map(Number);
+                const dateObj = new Date(y, m - 1, d);
+                const dayOfWeek = dateObj.getDay();
+                const regularOffStaff = branchData.staff?.filter(s => s.regularDayOff === dayOfWeek) || [];
+                
+                let currentLeaves = dayData.leaves || [];
+                regularOffStaff.forEach(staff => {
+                    const alreadyInLeave = currentLeaves.some(l => l.staffId === staff.id);
+                    let alreadyWorking = false;
+                    Object.values(dayData.duties).forEach(slots => {
+                        slots.forEach(slot => { if(slot.staffId === staff.id) alreadyWorking = true; });
+                    });
+                    
+                    if (!alreadyInLeave && !alreadyWorking) {
+                        currentLeaves.push({ staffId: staff.id, type: 'OFF' });
+                    }
+                });
+                dayData.leaves = currentLeaves;
+                dayData.autoLeavesAssigned = true;
+
+                const onLeaveIds = currentLeaves.map(l => l.staffId);
+                const deptStaff = branchData.staff?.filter(s => s.dept === activeDept) || [];
+
+                // 2. Assign Duties for active department
+                CURRENT_DUTY_LIST.forEach(duty => {
+                    const slots = branchData.matrix?.[dayType]?.duties?.[duty.id] || [];
+                    if (!dayData.duties[duty.id]) dayData.duties[duty.id] = [];
+
+                    slots.forEach((slot, slotIdx) => {
+                        if (!dayData.duties[duty.id][slotIdx]) {
+                            dayData.duties[duty.id][slotIdx] = { staffId: "", otHours: 0 };
+                        }
+                        
+                        if (dayData.duties[duty.id][slotIdx].staffId) return; // Skip if already manually assigned
+
+                        const reqArr = Array.isArray(duty.reqPos) ? duty.reqPos : [duty.reqPos || 'ALL'];
+                        const isAll = reqArr.includes('ALL') || reqArr.length === 0;
+
+                        const workingStaffIds = new Set();
+                        Object.values(dayData.duties).forEach(ds => {
+                            ds.forEach(s => { if(s && s.staffId) workingStaffIds.add(s.staffId); });
+                        });
+
+                        const candidate = deptStaff.find(s => {
+                            if (onLeaveIds.includes(s.id)) return false; // ติดวันหยุด
+                            if (workingStaffIds.has(s.id)) return false; // จัดลงกะอื่นไปแล้ว
+                            if (!isAll && !reqArr.includes(s.pos)) return false; // ตำแหน่งไม่ตรง
+                            return true;
+                        });
+
+                        if (candidate) {
+                            dayData.duties[duty.id][slotIdx].staffId = candidate.id;
+                        }
+                    });
+                });
+            });
+            
+            setAiLoading(false);
+            return newSched;
+        });
+    }, 500); 
+  };
 
   // --- Handlers ---
   const handleLogin = (e) => {
@@ -624,7 +707,6 @@ export default function App() {
         const dutiesList = nd.duties[activeDept];
         const draggedItem = dutiesList[draggedDutyIdx];
         
-        // สลับตำแหน่งใน Array
         dutiesList.splice(draggedDutyIdx, 1);
         dutiesList.splice(dropIdx, 0, draggedItem);
         
@@ -659,26 +741,6 @@ export default function App() {
     setEditingBranchId(null);
   };
 
-  const handleAiSuggest = async () => {
-    setAiLoading(true);
-    try {
-      const avail = branchData.staff.filter(s => s.dept === activeDept && !usedStaffIds.includes(s.id)).map(s => s.name).join(", ");
-      const res = await callGemini(`พนักงานที่ว่างในฝั่ง ${activeDept} วันนี้: ${avail}. แนะนำการจัดกะให้เหมาะสมสั้นๆ`, "คุณคือที่ปรึกษา HR");
-      setAiMessage({ content: res });
-    } catch (e) { setAiMessage({ content: "AI พักผ่อนอยู่" }); }
-    finally { setAiLoading(false); }
-  };
-
-  const handleAiTeamAnalysis = async () => {
-    setAiLoading(true);
-    try {
-      const summary = reportData.slice(0, 5).map(s => `${s.name}: OT ${s.actualOT}h`).join(", ");
-      const res = await callGemini(`สถิติพนักงานเดือนนี้ (Top 5 OT): ${summary}. วิเคราะห์ทีมสั้นๆ`, "คุณคือที่ปรึกษา HR");
-      setAiMessage({ content: res });
-    } catch (e) { setAiMessage({ content: "วิเคราะห์ล้มเหลว" }); }
-    finally { setAiLoading(false); }
-  };
-
   const scrollDates = (dir) => {
     if (dateBarRef.current) {
       const amt = dir === 'left' ? -350 : 350;
@@ -703,7 +765,7 @@ export default function App() {
         <div className="bg-indigo-600 p-4 sm:p-5 rounded-full shadow-xl shadow-indigo-200"><Store className="w-10 h-10 text-white" /></div>
         <div className="text-center w-full">
            <h2 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tighter uppercase">StaffSync</h2>
-           <p className="text-slate-400 text-xs sm:text-sm font-bold mt-2 uppercase tracking-widest">Management System V10.10</p>
+           <p className="text-slate-400 text-xs sm:text-sm font-bold mt-2 uppercase tracking-widest">Management System V10.13</p>
         </div>
         <div className="w-full space-y-4 sm:space-y-5">
           <div>
@@ -732,23 +794,6 @@ export default function App() {
               </div>
               <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight mt-2">Saved Successfully</h3>
               <p className="text-slate-400 text-sm font-bold">บันทึกข้อมูลลงฐานข้อมูลเรียบร้อยแล้ว</p>
-           </div>
-        </div>
-      )}
-
-      {/* AI Modal */}
-      {aiMessage && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 sm:p-6 animate-in fade-in duration-300">
-           <div className="bg-white rounded-[2rem] sm:rounded-[3.5rem] p-6 sm:p-12 max-w-2xl w-full shadow-2xl relative flex flex-col gap-4 sm:gap-6 animate-in slide-in-from-bottom-8 font-sans">
-             <div className="absolute top-0 left-0 w-full h-1.5 sm:h-2 bg-indigo-600 rounded-t-[2rem] sm:rounded-t-[3.5rem]"></div>
-             <div className="flex items-center gap-3 sm:gap-4 mt-2 sm:mt-0">
-               <div className="bg-indigo-600 p-3 sm:p-4 rounded-2xl sm:rounded-3xl"><Sparkles className="w-6 h-6 sm:w-8 sm:h-8 text-white" /></div>
-               <h3 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tighter uppercase">AI Insights ✨</h3>
-             </div>
-             <div className="bg-slate-50 p-6 sm:p-8 rounded-[1.5rem] sm:rounded-[2rem] border border-slate-100 max-h-[50vh] overflow-y-auto custom-scrollbar text-sm sm:text-base font-medium text-slate-600 whitespace-pre-wrap leading-relaxed">
-                {typeof aiMessage.content === 'string' ? aiMessage.content : JSON.stringify(aiMessage.content)}
-             </div>
-             <button onClick={() => setAiMessage(null)} className="w-full bg-slate-900 text-white py-4 sm:py-5 rounded-2xl sm:rounded-3xl font-black text-xs sm:text-sm uppercase tracking-widest hover:bg-black transition">ปิดหน้าต่าง</button>
            </div>
         </div>
       )}
@@ -905,6 +950,7 @@ export default function App() {
             </div>
           ) : (
             <div className="space-y-6 sm:space-y-10 animate-in fade-in duration-500 pb-24">
+               {/* -------------------- ADMIN ROW 1: STAFF & DUTIES -------------------- */}
                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-10">
                   {/* MANAGER สามารถเพิ่มพนักงานได้ */}
                   <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm flex flex-col">
@@ -1118,8 +1164,8 @@ export default function App() {
                 </div>
                 <button onClick={() => scrollDates('right')} className="hidden sm:flex flex-shrink-0 w-10 h-10 sm:w-14 sm:h-14 bg-white border-2 border-slate-100 rounded-full items-center justify-center shadow-lg text-indigo-600 active:scale-90 transition z-10"><ChevronRight className="w-5 h-5 sm:w-8 sm:h-8" /></button>
               </div>
-              <button onClick={handleAiSuggest} disabled={aiLoading} className="bg-slate-900 text-white px-6 sm:px-10 py-4 sm:py-6 rounded-[1.5rem] sm:rounded-[2.5rem] font-black flex justify-center items-center gap-3 sm:gap-4 hover:bg-black shadow-xl sm:shadow-2xl active:scale-95 transition-all w-full xl:w-auto text-sm sm:text-lg">
-                 {aiLoading ? <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 animate-spin text-indigo-400" /> : <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-400 animate-pulse" />} AI แนะนำพนักงาน ✨
+              <button onClick={() => handleAutoAssign('daily')} disabled={aiLoading} className="bg-slate-900 text-white px-6 sm:px-10 py-4 sm:py-6 rounded-[1.5rem] sm:rounded-[2.5rem] font-black flex justify-center items-center gap-3 sm:gap-4 hover:bg-black shadow-xl sm:shadow-2xl active:scale-95 transition-all w-full xl:w-auto text-sm sm:text-lg">
+                 {aiLoading ? <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 animate-spin text-indigo-400" /> : <Wand2 className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-400 animate-pulse" />} จัดกะอัตโนมัติ (วันนี้) ⚡
               </button>
             </div>
 
@@ -1164,7 +1210,26 @@ export default function App() {
                     </div>
                   </div>
                 )})}
-                <button onClick={() => updateLeaves(selectedDateStr, 'add')} className="border-3 border-dashed border-indigo-100 text-indigo-400 p-6 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] font-black text-xs sm:text-sm hover:bg-indigo-50 transition-all uppercase tracking-widest active:scale-95 group flex items-center justify-center gap-2"><Plus className="w-5 h-5 sm:w-6 sm:h-6" /> เพิ่มคนลา </button>
+                <button onClick={() => updateLeaves(selectedDateStr, 'add')} className="border-3 border-dashed border-indigo-100 text-indigo-400 p-6 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] font-black text-xs sm:text-sm hover:bg-indigo-50 transition-all uppercase tracking-widest active:scale-95 group flex items-center justify-center gap-2"><Plus className="w-5 h-5 sm:w-6 sm:h-6" /> เพิ่มรายการลา </button>
+              </div>
+            </div>
+
+            {/* --- UNASSIGNED STAFF UI (DAILY VIEW) --- */}
+            <div className="bg-amber-50 rounded-[2rem] sm:rounded-[3.5rem] border border-amber-200 p-6 sm:p-10 shadow-sm print:hidden">
+              <h3 className="text-lg sm:text-xl font-black text-amber-700 flex items-center gap-2 sm:gap-4 mb-4 uppercase tracking-tighter">
+                 <AlertCircle className="w-5 h-5 sm:w-6 sm:h-6" /> พนักงานที่รอจัดกะ / ว่างงาน ({unassignedStaffDaily.length} คน)
+              </h3>
+              <div className="flex flex-wrap gap-2 sm:gap-3">
+                 {unassignedStaffDaily.length === 0 ? (
+                    <span className="text-xs sm:text-sm font-bold text-amber-500/70">จัดกะและวันหยุดครบทุกคนแล้ว 🎉</span>
+                 ) : (
+                    unassignedStaffDaily.map(s => (
+                       <span key={s.id} className="bg-white text-amber-800 border border-amber-200 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[10px] sm:text-xs font-black shadow-sm flex items-center gap-2">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                          {s.name} <span className="text-amber-500/70 font-bold">({s.pos})</span>
+                       </span>
+                    ))
+                 )}
               </div>
             </div>
 
@@ -1175,7 +1240,7 @@ export default function App() {
                 
                 const reqArr = Array.isArray(duty.reqPos) ? duty.reqPos : [duty.reqPos || 'ALL'];
                 const isAll = reqArr.includes('ALL') || reqArr.length === 0;
-                const displayPos = isAll ? 'ALL' : reqArr.join(', ');
+                const displayPos = isAll ? 'ALL POS' : reqArr.join(', ');
                 
                 if (slots.length === 0) return null;
 
@@ -1316,15 +1381,21 @@ export default function App() {
                   </div>
                 </div>
              ) : (
-                /* MONTHLY VIEW V10.5 */
+                /* MONTHLY VIEW V10.12 */
                 <div className="bg-white rounded-[2rem] sm:rounded-[3rem] border border-slate-200 shadow-sm overflow-hidden animate-in fade-in">
-                  <div className="p-6 sm:p-8 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
+                  <div className="p-6 sm:p-8 bg-slate-50 border-b border-slate-100 flex justify-between items-center flex-wrap gap-4">
                     <div className="flex flex-col">
                         <h2 className="text-xl sm:text-2xl font-black text-slate-900 uppercase tracking-tighter">Monthly Schedule: {THAI_MONTHS[selectedMonth]}</h2>
                         <div className="text-xs font-bold text-indigo-600 uppercase tracking-widest mt-1">{activeDept.toUpperCase()} DEPT</div>
                     </div>
-                    {/* Print Button for Monthly View */}
-                    <button onClick={() => setView('print')} className="bg-slate-900 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-black flex items-center gap-2 hover:bg-black shadow-lg active:scale-95 transition-all text-[10px] sm:text-xs uppercase tracking-widest"><Printer className="w-4 h-4" /> ไปหน้าพิมพ์ตาราง</button>
+                    <div className="flex gap-2 w-full sm:w-auto">
+                        <button onClick={() => handleAutoAssign('monthly')} disabled={aiLoading} className="flex-1 sm:flex-none bg-slate-900 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-black flex justify-center items-center gap-2 hover:bg-black shadow-lg active:scale-95 transition-all text-[10px] sm:text-xs uppercase tracking-widest">
+                            {aiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4 text-yellow-400" />} จัดกะอัตโนมัติ (ทั้งเดือน)
+                        </button>
+                        <button onClick={() => setView('print')} className="flex-1 sm:flex-none bg-white text-slate-900 border border-slate-200 px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-black flex justify-center items-center gap-2 hover:bg-slate-50 shadow-sm active:scale-95 transition-all text-[10px] sm:text-xs uppercase tracking-widest">
+                            <Printer className="w-4 h-4" /> ไปหน้าพิมพ์
+                        </button>
+                    </div>
                   </div>
                   <div className="overflow-auto custom-scrollbar" style={{ maxHeight: '80vh' }}>
                     <table className="w-full border-collapse text-left min-w-[1200px]">
@@ -1361,10 +1432,13 @@ export default function App() {
                                slots.forEach(s => s.staffId && dayUsedStaffIds.add(s.staffId));
                              });
                            }
+                           
+                           // Unassigned Staff for this specific day
+                           const unassignedStaffMonthly = branchData.staff?.filter(s => s.dept === activeDept && !dayUsedStaffIds.has(s.id)) || [];
 
                            return (
                              <tr key={day.dateStr} className="hover:bg-slate-50 transition-colors">
-                               <td className="p-4 border-r border-slate-100 sticky left-0 bg-white hover:bg-slate-50 z-10 align-top">
+                               <td className="p-4 border-r border-slate-100 sticky left-0 bg-white hover:bg-slate-50 z-10 align-top min-w-[120px]">
                                   <div className="flex flex-col items-center">
                                     <span className="text-xl sm:text-2xl font-black text-slate-900">{day.dayNum}</span>
                                     <span className={`text-[9px] sm:text-[10px] font-black uppercase tracking-widest mt-1 px-2 py-0.5 rounded ${day.type === 'weekend' ? 'bg-orange-100 text-orange-600' : 'text-slate-400 bg-slate-100'}`}>{day.dayLabel}</span>
@@ -1377,12 +1451,25 @@ export default function App() {
                                        if (staff.dept !== activeDept) return null; // ซ่อนคนของแผนกอื่น
                                        const lType = LEAVE_TYPES.find(t => t.id === l.type);
                                        return (
-                                         <div key={i} className={`text-[8px] font-bold px-1.5 py-1 rounded border ${lType?.color || 'bg-gray-100'} truncate max-w-[80px] text-center shadow-sm`}>
+                                         <div key={i} className={`text-[8px] font-bold px-1.5 py-1 rounded border ${lType?.color || 'bg-gray-100'} truncate w-full text-center shadow-sm`}>
                                             {staff.name.split(' ')[0]}
                                          </div>
                                        )
                                     })}
                                   </div>
+                                  {/* Show Unassigned in Date Cell */}
+                                  {unassignedStaffMonthly.length > 0 && (
+                                     <div className="mt-3 border-t border-slate-100 pt-2 print:hidden">
+                                        <div className="text-[8px] font-black text-amber-500 mb-1 text-center bg-amber-50 rounded py-0.5 border border-amber-100">ว่าง ({unassignedStaffMonthly.length})</div>
+                                        <div className="space-y-1 flex flex-col items-center">
+                                           {unassignedStaffMonthly.map(s => (
+                                              <div key={s.id} className="text-[8px] font-bold px-1.5 py-1 rounded border bg-white text-amber-700 border-amber-200 truncate w-full text-center shadow-sm">
+                                                 {s.name.split(' ')[0]}
+                                              </div>
+                                           ))}
+                                        </div>
+                                     </div>
+                                  )}
                                </td>
                                {CURRENT_DUTY_LIST.map(duty => {
                                  const slots = branchData.matrix?.[type]?.duties?.[duty.id] || [];
@@ -1454,9 +1541,10 @@ export default function App() {
                     <p className="text-slate-400 font-bold uppercase text-[10px] sm:text-sm tracking-widest mt-0.5 sm:mt-1">Performance & OT Efficiency Report</p>
                   </div>
                 </div>
-                <button onClick={handleAiTeamAnalysis} disabled={aiLoading} className="w-full sm:w-auto bg-slate-900 text-white px-6 sm:px-10 py-4 sm:py-5 rounded-xl sm:rounded-[2rem] font-black flex justify-center items-center gap-3 sm:gap-4 hover:bg-black shadow-xl sm:shadow-2xl active:scale-95 transition text-sm sm:text-lg">
-                  {aiLoading ? <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 animate-spin text-yellow-400" /> : <Zap className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-400 animate-pulse" />} วิเคราะห์ภาพรวมด้วย AI ✨
-                </button>
+                {/* Removed AI Team Analysis to prevent Firebase Error, added simple text instead */}
+                <div className="bg-slate-900 text-white px-6 sm:px-10 py-4 sm:py-5 rounded-xl sm:rounded-[2rem] font-black flex justify-center items-center shadow-xl sm:shadow-2xl text-xs sm:text-sm uppercase tracking-widest">
+                   Data Updated
+                </div>
              </div>
 
              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-8">
@@ -1511,7 +1599,7 @@ export default function App() {
                             <td className="px-4 sm:px-12 py-4 sm:py-8 text-center text-sm sm:text-xl">{s.workHours.toFixed(1)}</td>
                             <td className="px-4 sm:px-12 py-4 sm:py-8 text-center bg-indigo-50/10 text-slate-500">{s.plannedOT.toFixed(1)}</td>
                             <td className="px-4 sm:px-12 py-4 sm:py-8 text-center bg-indigo-50/30 text-indigo-700 text-lg sm:text-2xl font-black">{s.actualOT.toFixed(1)}</td>
-                            <td className={`px-4 sm:px-12 py-4 sm:py-8 text-center text-sm sm:text-lg font-black ${delta > 0 ? 'text-red-500' : delta < 0 ? 'text-emerald-500' : 'text-slate-300'}`}>
+                            <td className={`px-4 sm:px-12 py-4 py-8 text-center text-sm sm:text-lg font-black ${delta > 0 ? 'text-red-500' : delta < 0 ? 'text-emerald-500' : 'text-slate-300'}`}>
                                {delta > 0 ? `+${delta.toFixed(1)}` : delta.toFixed(1)}
                             </td>
                           </tr>
