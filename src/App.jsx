@@ -38,15 +38,16 @@ import {
   Edit2,
   X,
   Check,
-  List
+  List,
+  TableProperties
 } from 'lucide-react';
 
 /**
- * RESTAURANT MANPOWER MANAGEMENT SYSTEM (MP26 MODEL) - V10.7 (DUTY-LEVEL POSITIONS)
- * แก้ไขและอัปเดต:
- * 1. ย้ายการระบุตำแหน่ง (reqPos) จาก Matrix Slot ไปไว้ที่การจัดการ "หน้าที่งาน" (Duties)
- * 2. สามารถระบุตำแหน่งได้มากกว่า 1 ตำแหน่งตอนสร้าง/แก้ไขหน้าที่งาน
- * 3. หน้าจัดกะของ Manager จะดึงเงื่อนไขตำแหน่งจากหน้าที่งานมากรอง Dropdown ให้โดยอัตโนมัติ
+ * RESTAURANT MANPOWER MANAGEMENT SYSTEM (MP26 MODEL) - V10.8 (DAILY TABLE ROSTER)
+ * อัปเดต:
+ * 1. เพิ่มมุมมอง "ตารางรายวัน" (Daily Table View) ตาม Template มาตรฐาน
+ * 2. จัดกลุ่มกะงานเป็น เช้า/สาย/เย็น อัตโนมัติในตารางรายวัน
+ * 3. รองรับการสั่งพิมพ์ (Print) จากหน้าตารางรายวันโดยตรง
  */
 
 // --- 1. Configurations ---
@@ -73,7 +74,6 @@ const POSITIONS = {
   kitchen: ["KH", "SKD", "KD", "EDC ครัว", "DVT ครัว", "PT ครัว"]
 };
 
-// เปลี่ยนจากค่าคงที่ เป็น Default Fallback (รวม reqPos ไว้ที่ Duty)
 const DEFAULT_SERVICE_DUTIES = [
   { id: 'D1', jobA: 'ดูแลประสบการณ์ลูกค้า', jobB: 'งานบริหารจัดการสาขา/พนักงาน', reqPos: ['ALL'] },
   { id: 'D2', jobA: 'ต้อนรับหน้าร้าน/แคชเชียร์', jobB: 'พนักงานประจำโซน (A,B)', reqPos: ['ALL'] },
@@ -104,7 +104,6 @@ const generateDefaultMatrix = (serviceDuties = DEFAULT_SERVICE_DUTIES, kitchenDu
   const m = {};
   ['weekday', 'friday', 'weekend'].forEach(dt => {
     m[dt] = { duties: {} };
-    // Slot ไม่ต้องเก็บ reqPos แล้ว เพราะอิงจาก Duty
     serviceDuties.forEach(d => m[dt].duties[d.id] = [{ startTime: "10:00", endTime: "19:00", maxOtHours: 4.0 }]);
     kitchenDuties.forEach(k => m[dt].duties[k.id] = [{ startTime: "09:00", endTime: "18:00", maxOtHours: 4.0 }]);
   });
@@ -274,6 +273,7 @@ export default function App() {
   const [activeBranchId, setActiveBranchId] = useState(null);
   const [view, setView] = useState('manager'); 
   const [activeDept, setActiveDept] = useState('service'); 
+  // View Modes: 'daily' (Cards), 'daily_table' (New Table), 'monthly' (Grid)
   const [managerViewMode, setManagerViewMode] = useState('daily'); 
 
   const [globalConfig, setGlobalConfig] = useState({ admins: [{ user: 'admin', pass: 'superstore' }], branches: [] });
@@ -302,7 +302,7 @@ export default function App() {
   // Duty Management States
   const [newDutyJobA, setNewDutyJobA] = useState('');
   const [newDutyJobB, setNewDutyJobB] = useState('');
-  const [newDutyReqPos, setNewDutyReqPos] = useState(['ALL']); // ตำแหน่งที่ต้องการสำหรับหน้าที่ใหม่
+  const [newDutyReqPos, setNewDutyReqPos] = useState(['ALL']); 
   const [editingDutyId, setEditingDutyId] = useState(null);
   const [editDutyData, setEditDutyData] = useState({});
 
@@ -502,7 +502,6 @@ export default function App() {
     });
   };
 
-  // Duty Management Handlers
   const handleAddDuty = () => {
     if (!newDutyJobA.trim()) return;
     const newId = (activeDept === 'service' ? 'D' : 'K') + Date.now();
@@ -515,11 +514,9 @@ export default function App() {
       
       nd.duties[activeDept].push(newDuty);
       
-      // Init slots in matrix
       if(!nd.matrix) nd.matrix = generateDefaultMatrix();
       ['weekday', 'friday', 'weekend'].forEach(dt => {
         if(!nd.matrix[dt].duties[newId]) {
-           // Matrix slot ไม่ต้องเก็บ reqPos อีกต่อไป (ไปใช้ของ Duty แทน)
            nd.matrix[dt].duties[newId] = [{ startTime: "10:00", endTime: "19:00", maxOtHours: 4.0 }];
         }
       });
@@ -627,7 +624,7 @@ export default function App() {
         <div className="bg-indigo-600 p-4 sm:p-5 rounded-full shadow-xl shadow-indigo-200"><Store className="w-10 h-10 text-white" /></div>
         <div className="text-center w-full">
            <h2 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tighter uppercase">StaffSync</h2>
-           <p className="text-slate-400 text-xs sm:text-sm font-bold mt-2 uppercase tracking-widest">Management System V10.7</p>
+           <p className="text-slate-400 text-xs sm:text-sm font-bold mt-2 uppercase tracking-widest">Management System V10.8</p>
         </div>
         <div className="w-full space-y-4 sm:space-y-5">
           <div>
@@ -744,9 +741,9 @@ export default function App() {
          {saveStatus === 'saving' ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6" />}
       </button>
 
-      <main className="p-4 sm:p-8 max-w-[1600px] mx-auto w-full">
+      <main className="p-4 sm:p-8 max-w-[1600px] mx-auto w-full print:p-0 print:m-0">
         {view === 'manager' || view === 'admin' ? (
-          <div className="flex flex-wrap items-center justify-between gap-4 mb-6 sm:mb-10">
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-6 sm:mb-10 print:hidden">
              <div className="flex flex-wrap gap-2 sm:gap-4 bg-white p-2 sm:p-3 rounded-[1.5rem] sm:rounded-[2.5rem] border border-slate-200 w-full md:w-fit shadow-sm">
                 <button onClick={() => setActiveDept('service')} className={`flex-1 md:flex-none flex justify-center items-center gap-2 sm:gap-3 px-4 sm:px-10 py-3 sm:py-4 rounded-[1rem] sm:rounded-[2rem] font-black text-[10px] sm:text-xs transition-all ${activeDept === 'service' ? 'bg-indigo-600 text-white shadow-xl scale-[1.02]' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}><ConciergeBell className="w-4 h-4 sm:w-5 sm:h-5"/> ฝั่งงานบริการ</button>
                 <button onClick={() => setActiveDept('kitchen')} className={`flex-1 md:flex-none flex justify-center items-center gap-2 sm:gap-3 px-4 sm:px-10 py-3 sm:py-4 rounded-[1rem] sm:rounded-[2rem] font-black text-[10px] sm:text-xs transition-all ${activeDept === 'kitchen' ? 'bg-orange-600 text-white shadow-xl scale-[1.02]' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}><UtensilsCrossed className="w-4 h-4 sm:w-5 sm:h-5"/> ฝั่งงานครัว</button>
@@ -754,15 +751,15 @@ export default function App() {
              
              {view === 'manager' && (
                <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
-                  <button onClick={() => setManagerViewMode('daily')} className={`px-4 py-2 rounded-xl text-[10px] sm:text-xs font-black transition-all ${managerViewMode === 'daily' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}><CalendarDaysIcon className="w-4 h-4 inline mr-2"/>รายวัน</button>
-                  <button onClick={() => setManagerViewMode('monthly')} className={`px-4 py-2 rounded-xl text-[10px] sm:text-xs font-black transition-all ${managerViewMode === 'monthly' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}><CalendarIcon className="w-4 h-4 inline mr-2"/>รายเดือน</button>
+                  <button onClick={() => setManagerViewMode('daily')} className={`px-3 py-2 rounded-xl text-[10px] sm:text-xs font-black transition-all ${managerViewMode === 'daily' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}><CalendarDaysIcon className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1 sm:mr-2"/><span className="hidden sm:inline">การ์ดรายวัน</span><span className="sm:hidden">การ์ด</span></button>
+                  <button onClick={() => setManagerViewMode('daily_table')} className={`px-3 py-2 rounded-xl text-[10px] sm:text-xs font-black transition-all ${managerViewMode === 'daily_table' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}><TableProperties className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1 sm:mr-2"/><span className="hidden sm:inline">ตารางรายวัน</span><span className="sm:hidden">ตาราง</span></button>
+                  <button onClick={() => setManagerViewMode('monthly')} className={`px-3 py-2 rounded-xl text-[10px] sm:text-xs font-black transition-all ${managerViewMode === 'monthly' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}><CalendarIcon className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1 sm:mr-2"/><span className="hidden sm:inline">ตารางรายเดือน</span><span className="sm:hidden">เดือน</span></button>
                </div>
              )}
           </div>
         ) : null}
 
         {view === 'branches' && authRole === 'superadmin' ? (
-           /* SYSTEM ADMIN - BRANCH MGMT */
            <div className="space-y-6 sm:space-y-10 animate-in fade-in duration-500 pb-24">
              <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-4 sm:gap-6">
@@ -1000,10 +997,10 @@ export default function App() {
         ) : view === 'manager' ? (
           /* BRANCH MANAGER VIEW */
           <div className="space-y-6 sm:space-y-10 animate-in slide-in-from-bottom-6 duration-500 pb-24">
-             {/* ... Daily View Code ... */}
              {managerViewMode === 'daily' ? (
+                /* Daily View (Cards) */
                 <>
-                <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 sm:gap-10">
+                <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 sm:gap-10 print:hidden">
                <div className="relative flex items-center gap-2 sm:gap-4 w-full xl:flex-1 min-w-0">
                 <button onClick={() => scrollDates('left')} className="hidden sm:flex flex-shrink-0 w-10 h-10 sm:w-14 sm:h-14 bg-white border-2 border-slate-100 rounded-full items-center justify-center shadow-lg text-indigo-600 active:scale-90 transition z-10"><ChevronLeft className="w-5 h-5 sm:w-8 sm:h-8" /></button>
                 <div ref={dateBarRef} className="flex-1 flex gap-3 sm:gap-5 overflow-x-auto pb-4 sm:pb-6 pt-2 sm:pt-3 custom-scrollbar px-2 sm:px-3 select-none touch-pan-x snap-x">
@@ -1025,7 +1022,7 @@ export default function App() {
               </button>
             </div>
 
-            <div className="bg-white p-6 sm:p-12 rounded-[2rem] sm:rounded-[4rem] border border-slate-200 shadow-sm flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 sm:gap-10 relative overflow-hidden">
+            <div className="bg-white p-6 sm:p-12 rounded-[2rem] sm:rounded-[4rem] border border-slate-200 shadow-sm flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 sm:gap-10 relative overflow-hidden print:hidden">
               <div className="absolute top-0 left-0 w-2 sm:w-4 h-full bg-indigo-600"></div>
               <div>
                 <h2 className="text-3xl sm:text-5xl font-black text-slate-900 tracking-tighter leading-tight sm:leading-none mb-3 sm:mb-5">{new Date(selectedDateStr + "T00:00:00").toLocaleDateString('th-TH', { month: 'long', day: 'numeric', year: 'numeric', weekday: 'long' })}</h2>
@@ -1036,10 +1033,9 @@ export default function App() {
                    </span>
                 </div>
               </div>
-              <button onClick={() => setView('print')} className="w-full xl:w-auto bg-slate-50 text-slate-900 px-6 sm:px-10 py-4 sm:py-5 rounded-xl sm:rounded-3xl font-black flex justify-center items-center gap-3 sm:gap-4 hover:bg-white border border-slate-200 shadow-sm active:scale-95 transition-all text-xs sm:text-base"><Printer className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-600" /> ไปหน้าพิมพ์ตาราง </button>
             </div>
 
-            <div className="bg-white rounded-[2rem] sm:rounded-[3.5rem] border-2 border-dashed border-slate-200 p-6 sm:p-12 shadow-sm">
+            <div className="bg-white rounded-[2rem] sm:rounded-[3.5rem] border-2 border-dashed border-slate-200 p-6 sm:p-12 shadow-sm print:hidden">
               <h3 className="text-xl sm:text-2xl font-black text-slate-900 flex items-center gap-3 sm:gap-5 mb-6 sm:mb-10 uppercase tracking-tighter text-indigo-600"><PlaneTakeoff className="w-6 h-6 sm:w-8 sm:h-8" /> บันทึกการลาหยุดงานวันนี้ </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
                 {(schedule[selectedDateStr]?.leaves || []).map((l, idx) => (
@@ -1063,7 +1059,7 @@ export default function App() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 sm:gap-10">
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 sm:gap-10 print:hidden">
               {CURRENT_DUTY_LIST.map(duty => {
                 const slots = branchData.matrix?.[activeDay.type]?.duties?.[duty.id] || [];
                 const assigned = schedule[selectedDateStr]?.duties?.[duty.id] || [];
@@ -1072,6 +1068,8 @@ export default function App() {
                 const isAll = reqArr.includes('ALL') || reqArr.length === 0;
                 const displayPos = isAll ? 'ALL POS' : reqArr.join(', ');
                 
+                if (slots.length === 0) return null;
+
                 return (
                   <div key={duty.id} className="bg-white rounded-[2rem] sm:rounded-[3.5rem] shadow-sm border border-slate-200 overflow-hidden flex flex-col transition hover:shadow-xl w-full">
                     <div className="p-6 sm:p-10 bg-slate-50 border-b border-slate-100 flex justify-between items-start sm:items-center flex-col sm:flex-row gap-3 sm:gap-0">
@@ -1123,8 +1121,96 @@ export default function App() {
               })}
             </div>
             </>
+             ) : managerViewMode === 'daily_table' ? (
+                /* NEW DAILY TABLE VIEW V10.8 (Matches requested template) */
+                <div className="bg-white rounded-[2rem] sm:rounded-[3rem] border border-slate-200 shadow-sm overflow-hidden animate-in fade-in w-full print:border-none print:shadow-none">
+                  <div className="p-6 sm:p-8 bg-slate-50 border-b border-slate-100 flex justify-between items-center print:hidden">
+                    <div className="flex flex-col">
+                        <h2 className="text-xl sm:text-2xl font-black text-slate-900 uppercase tracking-tighter">Daily Table: {new Date(selectedDateStr).toLocaleDateString('th-TH', { day: 'numeric', month: 'long' })}</h2>
+                        <div className="text-xs font-bold text-indigo-600 uppercase tracking-widest mt-1">{activeDept.toUpperCase()} DEPT</div>
+                    </div>
+                    <button onClick={() => window.print()} className="bg-slate-900 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-black flex items-center gap-2 hover:bg-black shadow-lg active:scale-95 transition-all text-[10px] sm:text-xs uppercase tracking-widest"><Printer className="w-4 h-4" /> พิมพ์ตารางนี้</button>
+                  </div>
+
+                  {/* Printable Area */}
+                  <div className="p-4 sm:p-8 overflow-x-auto w-full">
+                     <div className="text-center mb-6">
+                        <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tighter">แผนงานประจำวัน{activeDept === 'service' ? 'แผนกบริการ' : 'แผนกครัว'}</h1>
+                        <p className="text-sm sm:text-base font-bold text-slate-600 mt-2">
+                           วัน{activeDay.dayLabel} ที่ <span className="underline underline-offset-4">{activeDay.dayNum}</span> เดือน <span className="underline underline-offset-4">{THAI_MONTHS[selectedMonth]}</span> พ.ศ. <span className="underline underline-offset-4">{selectedYear + 543}</span>
+                        </p>
+                     </div>
+
+                     <table className="w-full border-collapse border-2 border-slate-800 text-[10px] sm:text-xs min-w-[800px] print:text-[10px]">
+                        <thead>
+                           <tr className="bg-slate-100 text-center print:bg-slate-200">
+                              <th className="border border-slate-800 p-2 w-[10%]">ตำแหน่ง / ระดับพนักงาน</th>
+                              <th className="border border-slate-800 p-2 w-[8%]">JOB CARD No.</th>
+                              <th className="border border-slate-800 p-2 w-[15%]">JOB A</th>
+                              <th className="border border-slate-800 p-2 w-[15%]">JOB B</th>
+                              <th className="border border-slate-800 p-2 w-[5%]">จำนวน</th>
+                              <th className="border border-slate-800 p-2 w-[15%]">ชื่อ</th>
+                              <th className="border border-slate-800 p-2 bg-sky-100 print:bg-sky-100 w-[10%]">เข้า(เปิด)</th>
+                              <th className="border border-slate-800 p-2 bg-sky-100 print:bg-sky-100 w-[10%]">สาย</th>
+                              <th className="border border-slate-800 p-2 bg-sky-100 print:bg-sky-100 w-[10%]">เย็น(ปิด)</th>
+                              <th className="border border-slate-800 p-2 w-[5%]">รอบพัก</th>
+                           </tr>
+                        </thead>
+                        <tbody>
+                           {CURRENT_DUTY_LIST.map((duty, dIdx) => {
+                              const slots = branchData.matrix?.[activeDay.type]?.duties?.[duty.id] || [];
+                              const assigned = schedule[selectedDateStr]?.duties?.[duty.id] || [];
+                              const reqPosArr = Array.isArray(duty.reqPos) ? duty.reqPos : [duty.reqPos || 'ALL'];
+                              const posText = reqPosArr.includes('ALL') ? 'ALL POS' : reqPosArr.join(' / ');
+
+                              if (slots.length === 0) return null;
+
+                              return slots.map((slot, sIdx) => {
+                                 const data = assigned[sIdx] || { staffId: "", otHours: 0 };
+                                 const staff = branchData.staff?.find(s => s.id === data.staffId);
+                                 const staffName = staff ? `${staff.name} ${data.otHours > 0 ? `(OT ${data.otHours})` : ''}` : '-';
+                                 
+                                 // Determine shift column based on start time
+                                 const stHour = parseInt(slot.startTime.split(':')[0]) || 0;
+                                 const isMorning = stHour < 12;
+                                 const isLate = stHour >= 12 && stHour < 16;
+                                 const isEvening = stHour >= 16;
+                                 const timeText = `${slot.startTime} - ${slot.endTime}`;
+
+                                 return (
+                                    <tr key={`${duty.id}-${sIdx}`} className="text-center h-10">
+                                       {sIdx === 0 && (
+                                          <>
+                                             <td rowSpan={slots.length} className="border border-slate-800 p-2 font-bold uppercase">{posText}</td>
+                                             <td rowSpan={slots.length} className="border border-slate-800 p-2 font-bold text-slate-600">CARD #{dIdx + 1}</td>
+                                             <td rowSpan={slots.length} className="border border-slate-800 p-2 text-left font-black">{duty.jobA}</td>
+                                             <td rowSpan={slots.length} className="border border-slate-800 p-2 text-left text-slate-600 text-[9px] sm:text-[10px]">{duty.jobB}</td>
+                                             <td rowSpan={slots.length} className="border border-slate-800 p-2 font-black text-sm sm:text-base"><u className="underline-offset-2">{slots.length}</u></td>
+                                          </>
+                                       )}
+                                       <td className="border border-slate-800 p-2 text-left font-bold">{staffName}</td>
+                                       <td className={`border border-slate-800 p-2 font-bold text-[9px] sm:text-[10px] ${isMorning ? 'bg-slate-200 print:bg-slate-300' : 'bg-slate-50 print:bg-white'}`}>{isMorning ? timeText : ''}</td>
+                                       <td className={`border border-slate-800 p-2 font-bold text-[9px] sm:text-[10px] ${isLate ? 'bg-slate-200 print:bg-slate-300' : 'bg-slate-50 print:bg-white'}`}>{isLate ? timeText : ''}</td>
+                                       <td className={`border border-slate-800 p-2 font-bold text-[9px] sm:text-[10px] ${isEvening ? 'bg-slate-200 print:bg-slate-300' : 'bg-slate-50 print:bg-white'}`}>{isEvening ? timeText : ''}</td>
+                                       <td className="border border-slate-800 p-2"></td>
+                                    </tr>
+                                 );
+                              });
+                           })}
+                           {/* Row for total summary */}
+                           <tr className="text-center bg-slate-50 print:bg-slate-100 font-black h-12">
+                              <td colSpan={4} className="border border-slate-800 p-2 text-right pr-6 uppercase tracking-widest">Total Staff Required</td>
+                              <td className="border border-slate-800 p-2 text-base"><u className="underline-offset-2 text-indigo-600">{
+                                 CURRENT_DUTY_LIST.reduce((acc, duty) => acc + (branchData.matrix?.[activeDay.type]?.duties?.[duty.id]?.length || 0), 0)
+                              }</u></td>
+                              <td colSpan={5} className="border border-slate-800 p-2"></td>
+                           </tr>
+                        </tbody>
+                     </table>
+                  </div>
+                </div>
              ) : (
-                /* NEW MONTHLY VIEW V10.5 */
+                /* MONTHLY VIEW V10.5 */
                 <div className="bg-white rounded-[2rem] sm:rounded-[3rem] border border-slate-200 shadow-sm overflow-hidden animate-in fade-in">
                   <div className="p-6 sm:p-8 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
                     <div className="flex flex-col">
