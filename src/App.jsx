@@ -39,15 +39,15 @@ import {
   X,
   Check,
   List,
-  TableProperties
+  TableProperties,
+  GripVertical
 } from 'lucide-react';
 
 /**
- * RESTAURANT MANPOWER MANAGEMENT SYSTEM (MP26 MODEL) - V10.8 (DAILY TABLE ROSTER)
+ * RESTAURANT MANPOWER MANAGEMENT SYSTEM (MP26 MODEL) - V10.11 (DRAG AND DROP REORDER)
  * อัปเดต:
- * 1. เพิ่มมุมมอง "ตารางรายวัน" (Daily Table View) ตาม Template มาตรฐาน
- * 2. จัดกลุ่มกะงานเป็น เช้า/สาย/เย็น อัตโนมัติในตารางรายวัน
- * 3. รองรับการสั่งพิมพ์ (Print) จากหน้าตารางรายวันโดยตรง
+ * 1. เพิ่มระบบลากและวาง (Drag & Drop) เพื่อปรับลำดับหน้าที่งาน (Duties) ในหน้า Admin
+ * 2. เมื่อปรับลำดับเสร็จ ลำดับในตารางกะงาน (Matrix) จะอัปเดตเปลี่ยนตามทันที
  */
 
 // --- 1. Configurations ---
@@ -73,6 +73,16 @@ const POSITIONS = {
   service: ["OC", "AOC", "SH", "SSD", "FD", "SD", "EDC", "DVT", "PT"],
   kitchen: ["KH", "SKD", "KD", "EDC ครัว", "DVT ครัว", "PT ครัว"]
 };
+
+const DAYS_OF_WEEK = [
+  { id: 0, label: 'อาทิตย์' },
+  { id: 1, label: 'จันทร์' },
+  { id: 2, label: 'อังคาร' },
+  { id: 3, label: 'พุธ' },
+  { id: 4, label: 'พฤหัสบดี' },
+  { id: 5, label: 'ศุกร์' },
+  { id: 6, label: 'เสาร์' }
+];
 
 const DEFAULT_SERVICE_DUTIES = [
   { id: 'D1', jobA: 'ดูแลประสบการณ์ลูกค้า', jobB: 'งานบริหารจัดการสาขา/พนักงาน', reqPos: ['ALL'] },
@@ -273,7 +283,6 @@ export default function App() {
   const [activeBranchId, setActiveBranchId] = useState(null);
   const [view, setView] = useState('manager'); 
   const [activeDept, setActiveDept] = useState('service'); 
-  // View Modes: 'daily' (Cards), 'daily_table' (New Table), 'monthly' (Grid)
   const [managerViewMode, setManagerViewMode] = useState('daily'); 
 
   const [globalConfig, setGlobalConfig] = useState({ admins: [{ user: 'admin', pass: 'superstore' }], branches: [] });
@@ -292,6 +301,7 @@ export default function App() {
   const [newStaffName, setNewStaffName] = useState('');
   const [newStaffDept, setNewStaffDept] = useState('service');
   const [newStaffPos, setNewStaffPos] = useState('OC');
+  const [newStaffDayOff, setNewStaffDayOff] = useState(''); 
 
   // Edit States
   const [editingStaffId, setEditingStaffId] = useState(null);
@@ -305,12 +315,14 @@ export default function App() {
   const [newDutyReqPos, setNewDutyReqPos] = useState(['ALL']); 
   const [editingDutyId, setEditingDutyId] = useState(null);
   const [editDutyData, setEditDutyData] = useState({});
+  const [draggedDutyIdx, setDraggedDutyIdx] = useState(null);
 
   const [aiLoading, setAiLoading] = useState(false);
   const [aiMessage, setAiMessage] = useState(null);
   
   const dateBarRef = useRef(null);
   const selectedYear = 2026;
+  const autoAssignedDates = useRef(new Set()); 
 
   // --- Memos ---
   const CURRENT_DUTY_LIST = useMemo(() => {
@@ -446,6 +458,56 @@ export default function App() {
     return () => { unsubBranch(); unsubSched(); };
   }, [user, activeBranchId]);
 
+  // --- Auto Populate Leaves Effect ---
+  useEffect(() => {
+    if (!branchData.staff || branchData.staff.length === 0) return;
+    if (autoAssignedDates.current.has(selectedDateStr)) return;
+
+    autoAssignedDates.current.add(selectedDateStr);
+
+    setSchedule(prev => {
+        const dayData = prev[selectedDateStr];
+        // ถ้าเคยจัดแล้ว (จาก Local หรือ Firebase) จะข้ามเพื่อไม่ให้เขียนทับ
+        if (dayData && dayData.autoLeavesAssigned) return prev; 
+
+        const [y, m, d] = selectedDateStr.split('-').map(Number);
+        const dateObj = new Date(y, m - 1, d);
+        const dayOfWeek = dateObj.getDay();
+        
+        // หาคนที่วันหยุดประจำตรงกับวันนี้
+        const regularOffStaff = branchData.staff.filter(s => s.regularDayOff === dayOfWeek);
+
+        const newSched = { ...prev };
+        if (!newSched[selectedDateStr]) newSched[selectedDateStr] = { duties: {}, leaves: [] };
+
+        const currentLeaves = newSched[selectedDateStr].leaves || [];
+        const currentDuties = newSched[selectedDateStr].duties || {};
+        
+        // เช็คว่าใครถูกจัดตารางงานไปแล้วบ้าง
+        const workingStaffIds = new Set();
+        Object.values(currentDuties).forEach(slots => {
+            slots.forEach(slot => { if(slot.staffId) workingStaffIds.add(slot.staffId); });
+        });
+
+        let updatedLeaves = [...currentLeaves];
+        regularOffStaff.forEach(staff => {
+            const alreadyInLeave = updatedLeaves.some(l => l.staffId === staff.id);
+            const alreadyWorking = workingStaffIds.has(staff.id);
+            if (!alreadyInLeave && !alreadyWorking) {
+                updatedLeaves.push({ staffId: staff.id, type: 'OFF' }); // ใส่ให้เป็นหยุดประจำสัปดาห์
+            }
+        });
+
+        newSched[selectedDateStr] = {
+            ...newSched[selectedDateStr],
+            leaves: updatedLeaves,
+            autoLeavesAssigned: true // ทำสัญลักษณ์ว่าวันนี้เคยดึงระบบอัตโนมัติแล้ว
+        };
+
+        return newSched;
+    });
+  }, [selectedDateStr, branchData.staff]);
+
   // --- Handlers ---
   const handleLogin = (e) => {
     e.preventDefault();
@@ -502,6 +564,7 @@ export default function App() {
     });
   };
 
+  // Duty Management Handlers
   const handleAddDuty = () => {
     if (!newDutyJobA.trim()) return;
     const newId = (activeDept === 'service' ? 'D' : 'K') + Date.now();
@@ -552,6 +615,22 @@ export default function App() {
         }
         return nd;
      });
+  };
+
+  const handleDropDuty = (dropIdx) => {
+     if (draggedDutyIdx === null || draggedDutyIdx === dropIdx) return;
+     setBranchData(prev => {
+        const nd = JSON.parse(JSON.stringify(prev));
+        const dutiesList = nd.duties[activeDept];
+        const draggedItem = dutiesList[draggedDutyIdx];
+        
+        // สลับตำแหน่งใน Array
+        dutiesList.splice(draggedDutyIdx, 1);
+        dutiesList.splice(dropIdx, 0, draggedItem);
+        
+        return nd;
+     });
+     setDraggedDutyIdx(null);
   };
 
   const startEditStaff = (staff) => {
@@ -624,7 +703,7 @@ export default function App() {
         <div className="bg-indigo-600 p-4 sm:p-5 rounded-full shadow-xl shadow-indigo-200"><Store className="w-10 h-10 text-white" /></div>
         <div className="text-center w-full">
            <h2 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tighter uppercase">StaffSync</h2>
-           <p className="text-slate-400 text-xs sm:text-sm font-bold mt-2 uppercase tracking-widest">Management System V10.8</p>
+           <p className="text-slate-400 text-xs sm:text-sm font-bold mt-2 uppercase tracking-widest">Management System V10.10</p>
         </div>
         <div className="w-full space-y-4 sm:space-y-5">
           <div>
@@ -826,15 +905,14 @@ export default function App() {
             </div>
           ) : (
             <div className="space-y-6 sm:space-y-10 animate-in fade-in duration-500 pb-24">
-               {/* -------------------- ADMIN ROW 1: STAFF & DUTIES -------------------- */}
                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-10">
                   {/* MANAGER สามารถเพิ่มพนักงานได้ */}
                   <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm flex flex-col">
                     <h2 className="text-lg sm:text-xl font-black text-slate-800 mb-6 sm:mb-8 flex items-center gap-2 sm:gap-4 uppercase tracking-tighter"><Users className="w-6 h-6 sm:w-7 sm:h-7 text-indigo-500" /> จัดการพนักงาน ({globalConfig.branches?.find(b=>b.id===activeBranchId)?.name})</h2>
                     
                     <div className="space-y-4 mb-6 sm:mb-10 w-full">
-                      <input type="text" placeholder={`ชื่อพนักงานใหม่ (${newStaffDept === 'service' ? 'บริการ' : 'ครัว'})...`} className="w-full border-2 border-slate-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none transition shadow-sm" value={newStaffName} onChange={(e) => setNewStaffName(e.target.value)} />
                       <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
+                         <input type="text" placeholder={`ชื่อพนักงานใหม่ (${newStaffDept === 'service' ? 'บริการ' : 'ครัว'})...`} className="w-full sm:w-auto flex-[2] border-2 border-slate-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none transition shadow-sm" value={newStaffName} onChange={(e) => setNewStaffName(e.target.value)} />
                          <div className="flex gap-2 sm:gap-4 flex-1">
                            <select value={newStaffDept} onChange={(e) => { setNewStaffDept(e.target.value); setNewStaffPos(POSITIONS[e.target.value][0]); }} className="flex-1 bg-slate-50 border-2 border-slate-100 rounded-xl sm:rounded-2xl px-3 sm:px-4 py-3 text-[10px] sm:text-xs font-black uppercase outline-none focus:border-indigo-500">
                               <option value="service">งานบริการ</option>
@@ -843,8 +921,12 @@ export default function App() {
                            <select value={newStaffPos} onChange={(e) => setNewStaffPos(e.target.value)} className="flex-1 bg-slate-50 border-2 border-slate-100 rounded-xl sm:rounded-2xl px-3 sm:px-4 py-3 text-[10px] sm:text-xs font-black uppercase outline-none focus:border-indigo-500">
                               {POSITIONS[newStaffDept].map(p => <option key={p} value={p}>{p}</option>)}
                            </select>
+                           <select value={newStaffDayOff} onChange={(e) => setNewStaffDayOff(e.target.value)} className="flex-1 bg-slate-50 border-2 border-slate-100 rounded-xl sm:rounded-2xl px-3 sm:px-4 py-3 text-[10px] sm:text-xs font-black uppercase outline-none focus:border-indigo-500 text-slate-500">
+                              <option value="">- วันหยุด -</option>
+                              {DAYS_OF_WEEK.map(d => <option key={d.id} value={d.id}>{d.label}</option>)}
+                           </select>
                          </div>
-                         <button onClick={() => { if(newStaffName.trim()){ setBranchData(p => ({...p, staff: [...(p.staff || []), {id: 's' + Date.now(), name: newStaffName.trim(), dept: newStaffDept, pos: newStaffPos}]})); setNewStaffName(''); } }} className="w-full sm:w-auto bg-slate-900 text-white px-6 sm:px-8 py-3 rounded-xl sm:rounded-2xl font-black text-xs hover:bg-indigo-600 transition uppercase flex items-center justify-center"><UserPlus className="w-4 h-4 sm:w-5 sm:h-5 mr-0 sm:mr-0"/><span className="sm:hidden ml-2">เพิ่มพนักงาน</span></button>
+                         <button onClick={() => { if(newStaffName.trim()){ setBranchData(p => ({...p, staff: [...(p.staff || []), {id: 's' + Date.now(), name: newStaffName.trim(), dept: newStaffDept, pos: newStaffPos, regularDayOff: newStaffDayOff === '' ? null : parseInt(newStaffDayOff)}]})); setNewStaffName(''); setNewStaffDayOff(''); } }} className="w-full sm:w-auto bg-slate-900 text-white px-6 sm:px-8 py-3 rounded-xl sm:rounded-2xl font-black text-xs hover:bg-indigo-600 transition uppercase flex items-center justify-center"><UserPlus className="w-4 h-4 sm:w-5 sm:h-5 mr-0 sm:mr-0"/><span className="sm:hidden ml-2">เพิ่มพนักงาน</span></button>
                       </div>
                     </div>
                     
@@ -854,21 +936,28 @@ export default function App() {
                       ) : branchData.staff?.filter(s => s.dept === activeDept).map(s => (
                         <div key={s.id} className="flex justify-between items-center p-4 sm:p-5 bg-slate-50 rounded-2xl sm:rounded-3xl border border-transparent hover:border-indigo-100 hover:bg-white transition group shadow-sm">
                            {editingStaffId === s.id ? (
-                              <div className="flex-1 flex gap-2 items-center">
-                                 <input type="text" value={editStaffData.name} onChange={e => setEditStaffData({...editStaffData, name: e.target.value})} className="border rounded px-2 py-1 text-xs w-full"/>
+                              <div className="flex-1 flex gap-2 items-center flex-wrap">
+                                 <input type="text" value={editStaffData.name} onChange={e => setEditStaffData({...editStaffData, name: e.target.value})} className="border rounded px-2 py-1 text-xs w-full sm:w-auto flex-1 min-w-[100px]"/>
                                  <select value={editStaffData.pos} onChange={e => setEditStaffData({...editStaffData, pos: e.target.value})} className="border rounded px-2 py-1 text-[10px]">
                                      {POSITIONS[s.dept].map(p => <option key={p} value={p}>{p}</option>)}
+                                 </select>
+                                 <select value={editStaffData.regularDayOff ?? ''} onChange={e => setEditStaffData({...editStaffData, regularDayOff: e.target.value === '' ? null : parseInt(e.target.value)})} className="border rounded px-2 py-1 text-[10px]">
+                                     <option value="">- วันหยุด -</option>
+                                     {DAYS_OF_WEEK.map(d => <option key={d.id} value={d.id}>{d.label}</option>)}
                                  </select>
                                  <button onClick={saveEditStaff} className="bg-green-500 text-white p-1.5 rounded"><Check className="w-3 h-3"/></button>
                                  <button onClick={() => setEditingStaffId(null)} className="bg-red-500 text-white p-1.5 rounded"><X className="w-3 h-3"/></button>
                               </div>
                            ) : (
                               <>
-                                <div>
-                                   <span className="text-sm sm:text-base font-black text-slate-800 uppercase">{s.name}</span>
+                                <div className="flex-1 min-w-0 pr-4">
+                                   <span className="text-sm sm:text-base font-black text-slate-800 uppercase truncate block">{s.name}</span>
                                    <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-1 items-center">
                                       <span className={`text-[7px] sm:text-[8px] font-black px-1.5 sm:px-2 py-0.5 rounded border uppercase ${s.dept === 'service' ? 'bg-indigo-50 text-indigo-500 border-indigo-100' : 'bg-orange-50 text-orange-500 border-orange-100'}`}>{s.dept}</span>
                                       <span className="text-[7px] sm:text-[8px] font-black px-1.5 sm:px-2 py-0.5 rounded border border-slate-200 bg-white text-slate-400 uppercase">{s.pos}</span>
+                                      <span className="text-[7px] sm:text-[8px] font-black px-1.5 sm:px-2 py-0.5 rounded border border-slate-200 bg-white text-slate-400 uppercase truncate">
+                                        หยุด: {s.regularDayOff !== undefined && s.regularDayOff !== null ? DAYS_OF_WEEK.find(d => d.id === s.regularDayOff)?.label : '-'}
+                                      </span>
                                       <button onClick={() => startEditStaff(s)} className="text-slate-300 hover:text-indigo-500"><Edit2 className="w-3 h-3"/></button>
                                    </div>
                                 </div>
@@ -880,7 +969,7 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* -------------------- DYNAMIC DUTIES MANAGER -------------------- */}
+                  {/* DYNAMIC DUTIES MANAGER */}
                   <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm flex flex-col">
                     <h2 className="text-lg sm:text-xl font-black text-slate-800 mb-6 sm:mb-8 flex items-center gap-2 sm:gap-4 uppercase tracking-tighter"><List className="w-6 h-6 sm:w-7 sm:h-7 text-indigo-500" /> จัดการหน้าที่งาน (Duties)</h2>
                     
@@ -900,8 +989,21 @@ export default function App() {
                     <div className="grid grid-cols-1 gap-2 sm:gap-3 max-h-[400px] overflow-y-auto pr-2 sm:pr-3 custom-scrollbar">
                       {CURRENT_DUTY_LIST.length === 0 ? (
                         <div className="text-center py-8 sm:py-10 text-slate-400 font-bold text-[10px] sm:text-sm uppercase tracking-widest border-2 border-dashed rounded-[1.5rem]">ไม่มีข้อมูลหน้าที่</div>
-                      ) : CURRENT_DUTY_LIST.map(duty => (
-                         <div key={duty.id} className="flex justify-between items-center p-3 sm:p-4 bg-slate-50 rounded-2xl border border-slate-100 shadow-sm transition hover:bg-white hover:border-indigo-100">
+                      ) : CURRENT_DUTY_LIST.map((duty, idx) => (
+                         <div 
+                           key={duty.id} 
+                           draggable={authRole === 'superadmin' && editingDutyId === null}
+                           onDragStart={() => setDraggedDutyIdx(idx)}
+                           onDragOver={(e) => e.preventDefault()}
+                           onDrop={(e) => { e.preventDefault(); handleDropDuty(idx); }}
+                           onDragEnd={() => setDraggedDutyIdx(null)}
+                           className={`flex justify-between items-center p-3 sm:p-4 rounded-2xl border ${draggedDutyIdx === idx ? 'opacity-40 border-indigo-400 bg-indigo-50' : 'bg-slate-50 border-slate-100'} shadow-sm transition hover:bg-white hover:border-indigo-100`}
+                         >
+                           {authRole === 'superadmin' && editingDutyId === null && (
+                              <div className="cursor-grab active:cursor-grabbing mr-2 sm:mr-3 text-slate-300 hover:text-indigo-500 flex-shrink-0 touch-none">
+                                <GripVertical className="w-4 h-4 sm:w-5 sm:h-5" />
+                              </div>
+                           )}
                            {editingDutyId === duty.id ? (
                               <div className="flex-1 flex flex-wrap gap-2 items-center">
                                  <input type="text" value={editDutyData.jobA} onChange={e => setEditDutyData({...editDutyData, jobA: e.target.value})} className="border rounded px-2 py-1 text-[10px] sm:text-xs flex-1 font-bold outline-none focus:border-indigo-500 min-w-[100px]"/>
@@ -935,7 +1037,6 @@ export default function App() {
                   </div>
                </div>
 
-               {/* -------------------- ADMIN ROW 2: HOLIDAYS & MATRIX -------------------- */}
                <div className="grid grid-cols-1 gap-6 sm:gap-10">
                   {/* วันหยุด: Read-only สำหรับ Manager */}
                   <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm w-full lg:w-1/2">
@@ -1035,10 +1136,18 @@ export default function App() {
               </div>
             </div>
 
+            {/* --- OLD LEAVES UI (CARD STYLE) WITH AUTO-POPULATE --- */}
             <div className="bg-white rounded-[2rem] sm:rounded-[3.5rem] border-2 border-dashed border-slate-200 p-6 sm:p-12 shadow-sm print:hidden">
               <h3 className="text-xl sm:text-2xl font-black text-slate-900 flex items-center gap-3 sm:gap-5 mb-6 sm:mb-10 uppercase tracking-tighter text-indigo-600"><PlaneTakeoff className="w-6 h-6 sm:w-8 sm:h-8" /> บันทึกการลาหยุดงานวันนี้ </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
-                {(schedule[selectedDateStr]?.leaves || []).map((l, idx) => (
+                {(schedule[selectedDateStr]?.leaves || []).map((l, idx) => {
+                  // Filter out leaves belonging to other departments so UI isn't cluttered
+                  if (l.staffId) {
+                      const staff = branchData.staff?.find(s => s.id === l.staffId);
+                      if (staff && staff.dept !== activeDept) return null;
+                  }
+                  
+                  return (
                   <div key={idx} className="bg-slate-50 p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2.5rem] flex flex-wrap sm:flex-nowrap gap-3 sm:gap-4 items-center border border-slate-100 shadow-sm hover:bg-white transition-all">
                     <select value={l.staffId} onChange={(e) => updateLeaves(selectedDateStr, 'update', idx, 'staffId', e.target.value)} className="flex-[2.5] w-full sm:w-auto bg-white border border-slate-200 rounded-xl sm:rounded-2xl px-3 sm:px-5 py-3 sm:py-4 text-xs sm:text-sm font-black outline-none shadow-inner text-slate-800 focus:border-indigo-500">
                       <option value="">-- เลือกพนักงาน --</option>
@@ -1054,8 +1163,8 @@ export default function App() {
                         <button onClick={() => updateLeaves(selectedDateStr, 'remove', idx)} className="text-slate-300 hover:text-red-500 transition p-2 bg-white rounded-lg sm:rounded-xl border border-slate-200 shadow-sm"><Trash2 className="w-4 h-4 sm:w-5 sm:h-5"/></button>
                     </div>
                   </div>
-                ))}
-                <button onClick={() => updateLeaves(selectedDateStr, 'add')} className="border-3 border-dashed border-indigo-100 text-indigo-400 p-6 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] font-black text-xs sm:text-sm hover:bg-indigo-50 transition-all uppercase tracking-widest active:scale-95 group flex items-center justify-center gap-2"><Plus className="w-5 h-5 sm:w-6 sm:h-6" /> เพิ่มรายการลา </button>
+                )})}
+                <button onClick={() => updateLeaves(selectedDateStr, 'add')} className="border-3 border-dashed border-indigo-100 text-indigo-400 p-6 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] font-black text-xs sm:text-sm hover:bg-indigo-50 transition-all uppercase tracking-widest active:scale-95 group flex items-center justify-center gap-2"><Plus className="w-5 h-5 sm:w-6 sm:h-6" /> เพิ่มคนลา </button>
               </div>
             </div>
 
@@ -1122,7 +1231,7 @@ export default function App() {
             </div>
             </>
              ) : managerViewMode === 'daily_table' ? (
-                /* NEW DAILY TABLE VIEW V10.8 (Matches requested template) */
+                /* DAILY TABLE VIEW V10.8 */
                 <div className="bg-white rounded-[2rem] sm:rounded-[3rem] border border-slate-200 shadow-sm overflow-hidden animate-in fade-in w-full print:border-none print:shadow-none">
                   <div className="p-6 sm:p-8 bg-slate-50 border-b border-slate-100 flex justify-between items-center print:hidden">
                     <div className="flex flex-col">
@@ -1132,7 +1241,6 @@ export default function App() {
                     <button onClick={() => window.print()} className="bg-slate-900 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-black flex items-center gap-2 hover:bg-black shadow-lg active:scale-95 transition-all text-[10px] sm:text-xs uppercase tracking-widest"><Printer className="w-4 h-4" /> พิมพ์ตารางนี้</button>
                   </div>
 
-                  {/* Printable Area */}
                   <div className="p-4 sm:p-8 overflow-x-auto w-full">
                      <div className="text-center mb-6">
                         <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tighter">แผนงานประจำวัน{activeDept === 'service' ? 'แผนกบริการ' : 'แผนกครัว'}</h1>
@@ -1170,7 +1278,6 @@ export default function App() {
                                  const staff = branchData.staff?.find(s => s.id === data.staffId);
                                  const staffName = staff ? `${staff.name} ${data.otHours > 0 ? `(OT ${data.otHours})` : ''}` : '-';
                                  
-                                 // Determine shift column based on start time
                                  const stHour = parseInt(slot.startTime.split(':')[0]) || 0;
                                  const isMorning = stHour < 12;
                                  const isLate = stHour >= 12 && stHour < 16;
@@ -1197,7 +1304,6 @@ export default function App() {
                                  );
                               });
                            })}
-                           {/* Row for total summary */}
                            <tr className="text-center bg-slate-50 print:bg-slate-100 font-black h-12">
                               <td colSpan={4} className="border border-slate-800 p-2 text-right pr-6 uppercase tracking-widest">Total Staff Required</td>
                               <td className="border border-slate-800 p-2 text-base"><u className="underline-offset-2 text-indigo-600">{
@@ -1268,6 +1374,7 @@ export default function App() {
                                     {dayData.leaves?.map((l, i) => {
                                        const staff = branchData.staff.find(s => s.id === l.staffId);
                                        if (!staff) return null;
+                                       if (staff.dept !== activeDept) return null; // ซ่อนคนของแผนกอื่น
                                        const lType = LEAVE_TYPES.find(t => t.id === l.type);
                                        return (
                                          <div key={i} className={`text-[8px] font-bold px-1.5 py-1 rounded border ${lType?.color || 'bg-gray-100'} truncate max-w-[80px] text-center shadow-sm`}>
