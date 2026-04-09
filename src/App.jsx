@@ -10,11 +10,10 @@ import {
 } from 'lucide-react';
 
 /**
- * SUPER STORE Manager Assistant - V10.38 (ENTERPRISE UPGRADE & FULL SYNTAX FIX)
+ * SUPER STORE Manager Assistant - V10.39 (STABLE FIX & CHART OPTIMIZATION)
  * อัปเดต:
- * 1. ซ่อมแซมโครงสร้าง Code แก้ไข Unexpected closing tag (Syntax Error) อย่างเด็ดขาด
- * 2. [เพิ่ม] ระบบ Save/Load Template ข้ามสาขา (Global Templates)
- * 3. [เพิ่ม] ระบบ ESS - Shift Swap สลับกะงาน (พนักงานขอ -> เพื่อนยืนยัน -> ผจก.อนุมัติ)
+ * 1. ปรับโครงสร้าง Render Component ใหม่ทั้งหมด แก้ปัญหา Unexpected Closing Tag แบบถาวร
+ * 2. หน้า Duty Roster Chart (รายวัน): กะงานไหนที่ยังไม่ได้ใส่ชื่อพนักงาน จะไม่ถูกนำมาแสดงและไม่นับยอดรวม
  */
 
 const firebaseConfig = {
@@ -185,6 +184,60 @@ const StaffMultiSelector = ({ value, options, onChange, disabled, placeholder })
   );
 };
 
+const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranchId, THAI_MONTHS, selectedMonth, getStaffDayInfo, setView, activeDept, CURRENT_DUTY_LIST }) => {
+  const filteredStaff = branchData.staff?.filter(s => s.dept === activeDept) || [];
+  return (
+    <div className="p-4 sm:p-10 bg-white animate-in fade-in w-full overflow-x-hidden flex-1">
+      <div className="max-w-full mx-auto">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 sm:mb-16 print:hidden border-b pb-6 sm:pb-8 gap-4 sm:gap-0">
+          <button onClick={() => setView('manager')} className="flex items-center gap-2 sm:gap-4 text-slate-600 font-black bg-slate-100 px-6 sm:px-8 py-3 sm:py-4 rounded-xl sm:rounded-3xl hover:bg-slate-200 transition shadow-sm uppercase text-xs sm:text-sm tracking-widest w-full sm:w-auto justify-center"><ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" /> ย้อนกลับ </button>
+          <button onClick={() => window.print()} className="bg-indigo-600 text-white px-8 sm:px-12 py-4 sm:py-5 rounded-xl sm:rounded-3xl font-black shadow-xl sm:shadow-2xl hover:bg-indigo-700 active:scale-95 transition-all flex items-center justify-center gap-3 sm:gap-4 uppercase text-xs sm:text-sm tracking-widest w-full sm:w-auto"><Printer className="w-5 h-5 sm:w-6 sm:h-6" /> สั่งพิมพ์รายงาน </button>
+        </div>
+        <div className="text-center mb-10 sm:mb-16 uppercase">
+          <h1 className="text-3xl sm:text-6xl font-black text-slate-900 tracking-tighter leading-none mb-2 sm:mb-4">ROSTER SCHEDULE: {THAI_MONTHS[selectedMonth]} 2026</h1>
+          <p className="text-xs sm:text-sm text-slate-400 font-bold uppercase tracking-[0.3em] sm:tracking-[0.6em] italic">{globalConfig.branches?.find(b=>b.id===activeBranchId)?.name || 'BRANCH NODE'} - {activeDept.toUpperCase()} DEPT</p>
+        </div>
+        <div className="overflow-x-auto border-2 sm:border-4 border-slate-900 rounded-xl sm:rounded-[2.5rem] shadow-lg sm:shadow-2xl overflow-hidden w-full custom-scrollbar pb-2 sm:pb-0">
+          <table className="w-full border-collapse text-[6px] sm:text-[8px] table-fixed min-w-[800px] sm:min-w-none">
+            <thead>
+              <tr className="bg-slate-900 text-white">
+                <th className="border-r border-slate-700 p-3 sm:p-5 text-left sticky left-0 bg-slate-900 z-10 w-24 sm:w-48 font-black uppercase border-b-2 border-slate-600">Employee (Pos)</th>
+                {CALENDAR_DAYS.map(day => (
+                  <th key={day.dateStr} className={`border-r border-slate-700 p-1.5 sm:p-3 min-w-[30px] sm:min-w-[45px] text-center border-b-2 border-slate-600 ${day.type === 'weekend' || branchData.holidays?.includes?.(day.dateStr) ? 'bg-slate-800 text-indigo-300' : ''}`}>
+                    <div className="font-black text-[10px] sm:text-sm mb-0.5 sm:mb-1">{day.dayNum}</div><div className="text-[6px] sm:text-[8px] opacity-70 uppercase tracking-tighter">{day.dayLabel}</div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filteredStaff.map(s => (
+                <tr key={s.id} className="h-12 sm:h-20 transition-colors border-b border-slate-100">
+                  <td className="border-r-2 sm:border-r-4 border-slate-900 p-2 sm:p-5 font-black sticky left-0 bg-white z-10 text-[9px] sm:text-[12px] uppercase leading-tight truncate max-w-[100px] sm:max-w-[150px]">{s.name}<div className="text-[5px] sm:text-[7px] text-slate-400 font-bold">({s.pos})</div></td>
+                  {CALENDAR_DAYS.map(day => {
+                    const info = getStaffDayInfo(s.id, day.dateStr, CURRENT_DUTY_LIST);
+                    return (
+                      <td key={day.dateStr} className={`border-r border-b border-slate-100 p-1 sm:p-2 text-center ${!info ? 'bg-slate-50/40' : ''}`}>
+                        {info?.type === 'work' ? (
+                          <div className="flex flex-col items-center justify-center leading-tight">
+                            <span className="font-black text-indigo-700 text-[8px] sm:text-[10px] leading-none tracking-tighter">{formatTimeAbbreviation(info.slot.startTime)}</span>
+                            {info.actual?.otHours > 0 && <div className="text-[6px] sm:text-[7px] font-black text-rose-500 truncate w-full px-0.5 sm:px-1 uppercase tracking-tighter mt-0.5 sm:mt-1">O{info.actual.otHours}</div>}
+                          </div>
+                        ) : info?.type === 'leave' ? (
+                          <div className={`w-full h-full flex items-center justify-center font-black ${info.info.color} rounded-md sm:rounded-xl border sm:border-2 border-white shadow-inner text-[8px] sm:text-[10px]`}><span className="text-center leading-none uppercase p-0.5 sm:p-1">{info.info.shortLabel}</span></div>
+                        ) : <span className="text-[5px] sm:text-[7px] font-black opacity-10 uppercase tracking-widest">OFF</span>}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // --- Main App Component ---
 export default function App() {
   const [user, setUser] = useState(null);
@@ -201,7 +254,7 @@ export default function App() {
   const [globalConfig, setGlobalConfig] = useState({ admins: [{ user: 'admin', pass: 'superstore' }], branches: [] });
   const [globalTemplates, setGlobalTemplates] = useState([]);
   
-  const [branchData, setBranchData] = useState({ staff: [], holidays: [], matrix: generateDefaultMatrix(), duties: { service: DEFAULT_SERVICE_DUTIES, kitchen: DEFAULT_KITCHEN_DUTIES } });
+  const [branchData, setBranchData] = useState({ staff: [], holidays: [], matrix: generateDefaultMatrix(), duties: { service: DEFAULT_SERVICE_DUTIES, kitchen: DEFAULT_KITCHEN_DUTIES }, templates: [] });
   const [schedule, setSchedule] = useState({});
   const [pendingRequests, setPendingRequests] = useState([]); 
   
@@ -403,8 +456,9 @@ export default function App() {
       if (snap.exists()) {
         const data = snap.data();
         if (!data.duties) data.duties = { service: DEFAULT_SERVICE_DUTIES, kitchen: DEFAULT_KITCHEN_DUTIES };
+        if (!data.templates) data.templates = [];
         setBranchData(data);
-      } else { setBranchData({ staff: [], holidays: [], duties: { service: DEFAULT_SERVICE_DUTIES, kitchen: DEFAULT_KITCHEN_DUTIES }, matrix: generateDefaultMatrix() }); }
+      } else { setBranchData({ staff: [], holidays: [], duties: { service: DEFAULT_SERVICE_DUTIES, kitchen: DEFAULT_KITCHEN_DUTIES }, matrix: generateDefaultMatrix(), templates: [] }); }
     });
     const unsubSched = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'schedules', activeBranchId), (snap) => {
       if (snap.exists()) setSchedule(snap.data().records || {}); else setSchedule({});
@@ -900,7 +954,7 @@ export default function App() {
                         const candidate = sortedDeptStaff.find(s => {
                             if (onLeaveIds.includes(s.id)) return false; 
                             if (workingStaffIds.has(s.id)) return false; 
-                            if (!checkPositionEligibility(s.pos, reqArr, activeDept)) return false; 
+                            if (!checkPositionEligibility(s.pos, reqArr)) return false; 
                             return true;
                         });
 
@@ -934,7 +988,7 @@ export default function App() {
     }
   };
 
-  // --- Sub-Renders ---
+  // --- Renders ---
   const renderModals = () => {
     return (
       <>
@@ -1105,8 +1159,8 @@ export default function App() {
             <div className="flex items-center gap-4 sm:gap-6 text-center sm:text-left">
                <div className="bg-emerald-100 p-4 sm:p-5 rounded-full"><UserCircle className="w-10 h-10 sm:w-12 sm:h-12 text-emerald-600" /></div>
                <div>
-                  <h2 className="text-2xl sm:text-4xl font-black text-slate-800 tracking-tighter uppercase">{branchData.staff?.find(s=>s.id===staffFilterPos)?.name || 'STAFF'}</h2>
-                  <p className="text-slate-500 text-xs sm:text-sm font-bold uppercase tracking-widest mt-1">ตำแหน่ง: {branchData.staff?.find(s=>s.id===staffFilterPos)?.pos || '-'} | สาขา: {globalConfig.branches?.find(b=>b.id===activeBranchId)?.name}</p>
+                  <h2 className="text-2xl sm:text-4xl font-black text-slate-800 tracking-tighter uppercase">{myStaffInfo?.name || 'STAFF'}</h2>
+                  <p className="text-slate-500 text-xs sm:text-sm font-bold uppercase tracking-widest mt-1">ตำแหน่ง: {myStaffInfo?.pos || '-'} | สาขา: {globalConfig.branches?.find(b=>b.id===activeBranchId)?.name}</p>
                </div>
             </div>
             
@@ -1370,7 +1424,7 @@ export default function App() {
           <div className="bg-white rounded-[2rem] sm:rounded-[3rem] border border-slate-200 shadow-sm overflow-hidden w-full print:border-none print:shadow-none">
              <div className="p-6 sm:p-8 bg-slate-50 border-b border-slate-100 flex justify-between items-center print:hidden">
                 <div className="flex flex-col">
-                   <h2 className="text-xl sm:text-2xl font-black text-slate-900 uppercase tracking-tighter">Daily Table: {new Date(selectedDateStr).toLocaleDateString('th-TH', { day: 'numeric', month: 'long' })}</h2>
+                   <h2 className="text-xl sm:text-2xl font-black text-slate-900 uppercase tracking-tighter">Duty Roster Chart: {new Date(selectedDateStr).toLocaleDateString('th-TH', { day: 'numeric', month: 'long' })}</h2>
                    <div className="text-xs font-bold text-indigo-600 uppercase tracking-widest mt-1">{activeDept.toUpperCase()} DEPT</div>
                 </div>
                 <button onClick={() => window.print()} className="bg-slate-900 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-black flex items-center gap-2 hover:bg-black shadow-lg active:scale-95 transition-all text-[10px] sm:text-xs uppercase tracking-widest"><Printer className="w-4 h-4" /> พิมพ์ตารางนี้</button>
@@ -1404,12 +1458,18 @@ export default function App() {
                          const reqPosArr = Array.isArray(duty.reqPos) ? duty.reqPos : [duty.reqPos || 'ALL'];
                          const posText = reqPosArr.includes('ALL') ? 'ALL POS' : reqPosArr.join(' / ');
   
-                         if (slots.length === 0) return null;
+                         const activeSlots = slots.map((slot, sIdx) => ({
+                             slot,
+                             assignedData: assigned[sIdx] || { staffId: "", otHours: 0 },
+                             originalIdx: sIdx
+                         })).filter(item => item.assignedData.staffId !== "");
+
+                         if (activeSlots.length === 0) return null;
   
-                         return slots.map((slot, sIdx) => {
-                            const data = assigned[sIdx] || { staffId: "", otHours: 0 };
-                            const staff = branchData.staff?.find(s => s.id === data.staffId);
-                            const staffName = staff ? `${staff.name} ${data.otHours > 0 ? `(OT ${data.otHours})` : ''}` : '-';
+                         return activeSlots.map((item, localIdx) => {
+                            const { slot, assignedData, originalIdx } = item;
+                            const staff = branchData.staff?.find(s => s.id === assignedData.staffId);
+                            const staffName = staff ? `${staff.name} ${assignedData.otHours > 0 ? `(OT ${assignedData.otHours})` : ''}` : '-';
                             const stHour = parseInt(slot.startTime.split(':')[0]) || 0;
                             const isMorning = stHour < 11;
                             const isLateMorning = stHour === 11;
@@ -1419,14 +1479,14 @@ export default function App() {
                             const timeText = `${slot.startTime} - ${slot.endTime}`;
   
                             return (
-                               <tr key={`${duty.id}-${sIdx}`} className="text-center h-10">
-                                  {sIdx === 0 && (
+                               <tr key={`${duty.id}-${originalIdx}`} className="text-center h-10">
+                                  {localIdx === 0 && (
                                      <>
-                                        <td rowSpan={slots.length} className="border border-slate-800 p-2 font-bold uppercase">{posText}</td>
-                                        <td rowSpan={slots.length} className="border border-slate-800 p-2 font-bold text-slate-600">CARD #{dIdx + 1}</td>
-                                        <td rowSpan={slots.length} className="border border-slate-800 p-2 text-left font-black">{duty.jobA}</td>
-                                        <td rowSpan={slots.length} className="border border-slate-800 p-2 text-left text-slate-600 text-[9px] sm:text-[10px]">{duty.jobB}</td>
-                                        <td rowSpan={slots.length} className="border border-slate-800 p-2 font-black text-sm sm:text-base"><u className="underline-offset-2">{slots.length}</u></td>
+                                        <td rowSpan={activeSlots.length} className="border border-slate-800 p-2 font-bold uppercase">{posText}</td>
+                                        <td rowSpan={activeSlots.length} className="border border-slate-800 p-2 font-bold text-slate-600">CARD #{dIdx + 1}</td>
+                                        <td rowSpan={activeSlots.length} className="border border-slate-800 p-2 text-left font-black">{duty.jobA}</td>
+                                        <td rowSpan={activeSlots.length} className="border border-slate-800 p-2 text-left text-slate-600 text-[9px] sm:text-[10px]">{duty.jobB}</td>
+                                        <td rowSpan={activeSlots.length} className="border border-slate-800 p-2 font-black text-sm sm:text-base"><u className="underline-offset-2">{activeSlots.length}</u></td>
                                      </>
                                   )}
                                   <td className="border border-slate-800 p-2 text-left font-bold">{staffName}</td>
@@ -1442,8 +1502,16 @@ export default function App() {
                       })}
                       <tr className="text-center bg-slate-50 print:bg-slate-100 font-black h-12">
                          <td colSpan={4} className="border border-slate-800 p-2 text-right pr-6 uppercase tracking-widest">Total Staff Required</td>
-                         <td className="border border-slate-800 p-2 text-base"><u className="underline-offset-2 text-indigo-600">{CURRENT_DUTY_LIST.reduce((acc, duty) => acc + (branchData.matrix?.[activeDay.type]?.duties?.[duty.id]?.length || 0), 0)}</u></td>
-                         <td colSpan={activeDayShiftVisibilities.bottomColSpan} className="border border-slate-800 p-2"></td>
+                         <td className="border border-slate-800 p-2 text-base"><u className="underline-offset-2 text-indigo-600">
+                            {CURRENT_DUTY_LIST.reduce((acc, duty) => {
+                               const slots = branchData.matrix?.[activeDay.type]?.duties?.[duty.id] || [];
+                               const assigned = schedule[selectedDateStr]?.duties?.[duty.id] || [];
+                               let count = 0;
+                               slots.forEach((s, i) => { if(assigned[i] && assigned[i].staffId) count++; });
+                               return acc + count;
+                            }, 0)}
+                         </u></td>
+                         <td colSpan={activeDayShiftVisibilities.bottomColSpan + 1} className="border border-slate-800 p-2"></td>
                       </tr>
                    </tbody>
                 </table>
@@ -1738,9 +1806,11 @@ export default function App() {
                    )}
                    </div>
                    <div className="lg:hidden flex items-center gap-2">
-                      <button onClick={() => setShowRequestsModal(true)} className="relative bg-slate-100 p-2 rounded-lg text-slate-500">
-                         <Bell className="w-4 h-4" />{pendingRequests.filter(r => authRole === 'staff' ? (r.reqType === 'SWAP' && r.targetStaffId === staffFilterPos && r.status === 'PENDING_PEER') : (r.reqType !== 'SWAP' || r.status === 'PENDING_MANAGER')).length > 0 && <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full animate-ping"></span>}
-                      </button>
+                      {authRole !== 'staff' && (
+                          <button onClick={() => setShowRequestsModal(true)} className="relative bg-slate-100 p-2 rounded-lg text-slate-500">
+                             <Bell className="w-4 h-4" />{pendingRequests.filter(r => authRole === 'staff' ? (r.reqType === 'SWAP' && r.targetStaffId === staffFilterPos && r.status === 'PENDING_PEER') : (r.reqType !== 'SWAP' || r.status === 'PENDING_MANAGER')).length > 0 && <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full animate-ping"></span>}
+                          </button>
+                      )}
                       <button onClick={() => {setAuthRole('guest'); setView('manager');}} className="text-slate-400 p-2 bg-slate-100 rounded-lg"><LogIn className="w-4 h-4 rotate-180" /></button>
                    </div>
                 </div>
