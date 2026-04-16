@@ -1015,61 +1015,92 @@ export default function App() {
                 if (!newSched[dateStr]) newSched[dateStr] = { duties: {}, leaves: [] };
                 const dayData = newSched[dateStr];
                 
+                // 1. Clear previous duty assignments for this day
                 dayData.duties = {};
+
+                // 2. Consolidate leaves, including regular days off
                 const [y, m, d] = dateStr.split('-').map(Number);
                 const dateObj = new Date(y, m - 1, d);
                 const dayOfWeek = dateObj.getDay();
+                
+                const manuallyOnLeaveIds = new Set((dayData.leaves || []).map(l => l.staffId));
                 const regularOffStaff = branchData.staff?.filter(s => s.regularDayOff === dayOfWeek) || [];
                 
-                let currentLeaves = dayData.leaves || [];
+                let finalLeaves = [...(dayData.leaves || [])];
                 regularOffStaff.forEach(staff => {
-                    const alreadyInLeave = currentLeaves.some(l => l.staffId === staff.id);
-                    let alreadyWorking = false;
-                    Object.values(dayData.duties).forEach(slots => { slots.forEach(slot => { if(slot.staffId === staff.id) alreadyWorking = true; }); });
-                    if (!alreadyInLeave && !alreadyWorking) currentLeaves.push({ staffId: staff.id, type: 'OFF' });
+                    if (!manuallyOnLeaveIds.has(staff.id)) {
+                        if (!finalLeaves.some(l => l.staffId === staff.id)) {
+                           finalLeaves.push({ staffId: staff.id, type: 'OFF' });
+                        }
+                    }
                 });
-                dayData.leaves = currentLeaves;
-                dayData.autoLeavesAssigned = true;
+                dayData.leaves = finalLeaves;
+                dayData.autoLeavesAssigned = true; 
 
-                const onLeaveIds = currentLeaves.map(l => l.staffId);
-                const deptStaff = branchData.staff?.filter(s => s.dept === activeDept) || [];
-                const sortedDeptStaff = [...deptStaff].sort((a, b) => {
-                    const posList = POSITIONS[activeDept] || [];
-                    const idxA = posList.indexOf(a.pos);
-                    const idxB = posList.indexOf(b.pos);
-                    const rankA = idxA !== -1 ? idxA : 999;
-                    const rankB = idxB !== -1 ? idxB : 999;
-                    return rankA - rankB; 
+                const onLeaveIds = new Set(finalLeaves.map(l => l.staffId));
+                const workingStaffIds = new Set(); 
+
+                // 3. Sort duties by priority: HEAD > STAFF > SUPPORT
+                const dutyPriority = { 'HEAD': 1, 'STAFF': 2, 'SUPPORT': 3 };
+                const sortedDuties = [...CURRENT_DUTY_LIST].sort((a, b) => {
+                    const getCat = (catStr) => (catStr || '').split('_')[1] || 'OTHER';
+                    const priorityA = dutyPriority[getCat(a.category)] || 99;
+                    const priorityB = dutyPriority[getCat(b.category)] || 99;
+                    return priorityA - priorityB;
                 });
 
-                CURRENT_DUTY_LIST.forEach(duty => {
+                // 4. Get available staff, sorted by rank (highest first)
+                const availableStaff = (branchData.staff || [])
+                    .filter(s => s.dept === activeDept && !onLeaveIds.has(s.id))
+                    .sort((a, b) => {
+                        const posList = POSITIONS[activeDept] || [];
+                        const rankA = posList.indexOf(a.pos);
+                        const rankB = posList.indexOf(b.pos);
+                        return (rankA === -1 ? 999 : rankA) - (rankB === -1 ? 999 : rankB);
+                    });
+
+                // 5. Iterate through sorted duties and assign the best available staff
+                sortedDuties.forEach(duty => {
                     const slots = branchData.matrix?.[dayType]?.duties?.[duty.id] || [];
                     if (!dayData.duties[duty.id]) dayData.duties[duty.id] = [];
+
                     slots.forEach((slot, slotIdx) => {
-                        if (!dayData.duties[duty.id][slotIdx]) dayData.duties[duty.id][slotIdx] = { staffId: "", otHours: 0 };
+                        if (!dayData.duties[duty.id][slotIdx]) {
+                            dayData.duties[duty.id][slotIdx] = { staffId: "", otHours: 0 };
+                        }
                         if (dayData.duties[duty.id][slotIdx].staffId) return; 
 
                         const reqArr = Array.isArray(duty.reqPos) ? duty.reqPos : [duty.reqPos || 'ALL'];
+                        
+                        let candidate = null;
+                        
+                        const potentialCandidates = availableStaff.filter(s => 
+                            !workingStaffIds.has(s.id) && 
+                            checkPositionEligibility(s.pos, reqArr, activeDept)
+                        );
 
-                        const workingStaffIds = new Set();
-                        Object.values(dayData.duties).forEach(ds => { ds.forEach(s => { if(s && s.staffId) workingStaffIds.add(s.staffId); }); });
-
-                        const candidate = sortedDeptStaff.find(s => {
-                            if (onLeaveIds.includes(s.id)) return false; 
-                            if (workingStaffIds.has(s.id)) return false; 
-                            if (!checkPositionEligibility(s.pos, reqArr, activeDept)) return false; 
-                            return true;
-                        });
+                        if (duty.category.includes('HEAD')) {
+                            candidate = potentialCandidates.find(s => s.pos === 'OC') || 
+                                        potentialCandidates.find(s => s.pos === 'AOC') ||
+                                        potentialCandidates[0];
+                        } else if (duty.category.includes('STAFF') || duty.category.includes('SUPPORT')) {
+                            candidate = potentialCandidates.find(s => reqArr.includes(s.pos)) ||
+                                        potentialCandidates[0];
+                        } else {
+                            candidate = potentialCandidates[0];
+                        }
 
                         if (candidate) {
                             dayData.duties[duty.id][slotIdx].staffId = candidate.id;
                             dayData.duties[duty.id][slotIdx].otHours = slot.maxOtHours || 0;
                             dayData.duties[duty.id][slotIdx].otUpdated = true;
+                            workingStaffIds.add(candidate.id);
                         }
                     });
                 });
             });
             setAiLoading(false);
+            if (activeBranchId) autoSaveSchedule(newSched);
             return newSched;
         });
     }, 500); 
@@ -1080,6 +1111,7 @@ export default function App() {
           const newSched = JSON.parse(JSON.stringify(prevSched));
           const datesToProcess = mode === 'daily' ? [selectedDateStr] : CALENDAR_DAYS.map(d => d.dateStr);
           datesToProcess.forEach(dateStr => { if (newSched[dateStr]) newSched[dateStr].duties = {}; });
+          if (activeBranchId) autoSaveSchedule(newSched);
           return newSched;
       });
   };
