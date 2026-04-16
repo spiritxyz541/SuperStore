@@ -2124,9 +2124,11 @@ export default function App() {
              const { slot, assignedData, originalIdx } = item;
              const staff = branchData.staff?.find(s => s.id === assignedData.staffId);
              const staffName = staff ? staff.name : '-';
-             const stHour = parseInt(slot.startTime.split(':')[0]) || 0;
              const shiftPreset = branchData.shiftPresets?.find(p => p.id === slot.shiftPresetId);
              const { startTime, endTime } = getShiftTimesForStaff(staff?.pos, shiftPreset);
+
+             const stHour = parseInt(startTime.split(':')[0]) || 0;
+
              const isMorning = stHour < 11;
              const isLateMorning = stHour === 11;
              const isAfternoon = stHour >= 12 && stHour < 16;
