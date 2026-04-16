@@ -220,358 +220,78 @@ const StaffMultiSelector = ({ value, options, onChange, disabled, placeholder })
 //   - Leave short label e.g. "ย", "พร", "ป่วย"           → staff is on leave
 //   - "-"                                                  → no data
 
-const PrintMonthlyView = ({
-  CALENDAR_DAYS,
-  branchData,
-  globalConfig,
-  activeBranchId,
-  THAI_MONTHS,
-  selectedMonth,
-  setView,
-  activeDept,
-  CURRENT_DUTY_LIST,
-  schedule,
-}) => {
-
-  // ─── helpers ────────────────────────────────────────────────────────────────
-
-  const DUTY_CATEGORIES_LOCAL = {
-    service: [
-      { id: 'FOH_HEAD',    label: 'Customer Service Head',    color: 'bg-[#4B7A47] text-white'    },
-      { id: 'FOH_STAFF',   label: 'Customer Service Staff',   color: 'bg-[#89C579] text-slate-900' },
-      { id: 'FOH_SUPPORT', label: 'Service Support',          color: 'bg-[#D9E1D8] text-slate-800' },
-    ],
-    kitchen: [
-      { id: 'BOH_HEAD',    label: 'Kitchen Head',             color: 'bg-[#1D4A7A] text-white'    },
-      { id: 'BOH_STAFF',   label: 'Kitchen Staff',            color: 'bg-[#76B2D6] text-slate-900' },
-      { id: 'BOH_SUPPORT', label: 'Kitchen Support',          color: 'bg-[#D3E5F0] text-slate-800' },
-    ],
-  };
-
-  const LEAVE_TYPES_LOCAL = [
-    { id: 'OFF', shortLabel: 'ย',    color: 'bg-slate-100 text-slate-700' },
-    { id: 'CO',  shortLabel: 'ชช',   color: 'bg-blue-100 text-blue-800'   },
-    { id: 'AL',  shortLabel: 'พร',   color: 'bg-emerald-100 text-emerald-800' },
-    { id: 'SL',  shortLabel: 'ป่วย', color: 'bg-red-100 text-red-800'     },
-    { id: 'PL',  shortLabel: 'กิจ',  color: 'bg-orange-100 text-orange-800' },
-  ];
-
-  const fmtTime = (t) => {
-    if (!t) return '';
-    const [h] = t.split(':');
-    return parseInt(h, 10).toString();
-  };
-
-  // For a given staffId + dateStr, return { type, info } where info varies by type.
-  //   type='work'  → info = { startTime, endTime, otHours }
-  //   type='leave' → info = { shortLabel, color }
-  //   type=null    → no data
-  const getStaffDayCell = (staffId, dateStr, dutyId, slotIdx) => {
-    const dayData = schedule[dateStr];
-    if (!dayData) return null;
-
-    // Check leave first
-    const leave = (dayData.leaves || []).find(l => l.staffId === staffId);
-    if (leave) {
-      const lt = LEAVE_TYPES_LOCAL.find(x => x.id === leave.type) || { shortLabel: '?', color: '' };
-      return { type: 'leave', ...lt };
-    }
-
-    // Check if assigned to this specific duty slot
-    const slots = dayData.duties?.[dutyId] || [];
-    const slot = slots[slotIdx];
-    if (slot && slot.staffId === staffId) {
-      const dayConfig = CALENDAR_DAYS.find(c => c.dateStr === dateStr);
-      const dayType = dayConfig ? dayConfig.type : 'weekday';
-      const matrixSlots = branchData.matrix?.[dayType]?.duties?.[dutyId] || [];
-      const mSlot = matrixSlots[slotIdx] || { startTime: '?', endTime: '?' };
-      return {
-        type: 'work',
-        startTime: mSlot.startTime,
-        endTime: mSlot.endTime,
-        otHours: slot.otHours || 0,
-      };
-    }
-
-    return null;
-  };
-
-  // ─── collect all "rows" = one row per (duty, slotIndex, staffId) ─────────────
-  // We expand each duty into as many slot-rows as there are matrix slots,
-  // and for each slot-row we track which staff member is assigned (if any) across
-  // the whole month, so we can decide whether to render that row at all.
-
-  const buildRows = () => {
-    const categories = DUTY_CATEGORIES_LOCAL[activeDept] || [];
-    const rows = [];
-
-    categories.forEach(cat => {
-      const catDuties = CURRENT_DUTY_LIST.filter(d => d.category === cat.id);
-
-      catDuties.forEach(duty => {
-        // Collect all staff assigned to this duty across any day/slot
-        const staffPerSlot = {}; // slotIdx → Set of staffIds
-
-        CALENDAR_DAYS.forEach(day => {
-          const dayType = day.type;
-          const matrixSlots = branchData.matrix?.[dayType]?.duties?.[duty.id] || [];
-          const assigned = schedule[day.dateStr]?.duties?.[duty.id] || [];
-
-          matrixSlots.forEach((_, idx) => {
-            if (!staffPerSlot[idx]) staffPerSlot[idx] = new Map(); // staffId → Set<dateStr>
-            const slt = assigned[idx];
-            if (slt && slt.staffId) {
-              if (!staffPerSlot[idx].has(slt.staffId)) staffPerSlot[idx].set(slt.staffId, new Set());
-              staffPerSlot[idx].get(slt.staffId).add(day.dateStr);
-            }
-          });
-        });
-
-        // For each slot index, for each staff member, emit one row
-        const slotIndices = Object.keys(staffPerSlot).map(Number).sort((a, b) => a - b);
-
-        // Fallback: if no matrix slots at all, skip
-        if (slotIndices.length === 0) return;
-
-        slotIndices.forEach(idx => {
-          const staffMap = staffPerSlot[idx]; // Map<staffId, Set<dateStr>>
-
-          staffMap.forEach((_, staffId) => {
-            const staff = branchData.staff?.find(s => s.id === staffId);
-            if (!staff || staff.dept !== activeDept) return;
-
-            rows.push({ cat, duty, slotIdx: idx, staffId, staff });
-          });
-
-          // Also add an empty placeholder row if a slot has zero assigned staff
-          // (so managers can see the slot exists)
-          if (staffMap.size === 0) {
-            rows.push({ cat, duty, slotIdx: idx, staffId: null, staff: null });
-          }
-        });
-      });
-    });
-
-    return rows;
-  };
-
-  const rows = buildRows();
-
-  // ─── group rows for rowspan calculation ─────────────────────────────────────
-  // We want [Duty Layer] to span all rows of the same category,
-  // and [Job Duty] to span all rows of the same duty.
-
-  const rowspanByCategory = {}; // catId → count
-  const rowspanByDuty = {};     // dutyId+slotIdx composite → count (we use dutyId for simplicity)
-
-  rows.forEach(r => {
-    rowspanByCategory[r.cat.id] = (rowspanByCategory[r.cat.id] || 0) + 1;
-    const key = r.duty.id + '__' + r.slotIdx;
-    rowspanByDuty[key] = (rowspanByDuty[key] || 0) + 1;
+const PrintMonthlyView const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranchId, THAI_MONTHS, selectedMonth, getStaffDayInfo, setView, activeDept, CURRENT_DUTY_LIST }) => {
+  const filteredStaff = branchData.staff?.filter(s => s.dept === activeDept) || [];
+  const sortedStaff = [...filteredStaff].sort((a, b) => {
+      const rankA = POSITIONS[activeDept].indexOf(a.pos);
+      const rankB = POSITIONS[activeDept].indexOf(b.pos);
+      return (rankA === -1 ? 999 : rankA) - (rankB === -1 ? 999 : rankB);
   });
-
-  // Track which categories / duty+slot combos we've already rendered the first cell for
-  const renderedCats = new Set();
-  const renderedDutySlots = new Set();
-
-  // ─── render ─────────────────────────────────────────────────────────────────
-
-  const branchName = globalConfig.branches?.find(b => b.id === activeBranchId)?.name || 'BRANCH';
 
   return (
     <div className="p-4 sm:p-10 bg-white animate-in fade-in w-full overflow-x-hidden flex-1">
       <div className="max-w-full mx-auto">
-
-        {/* Toolbar (hidden in print) */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 print:hidden border-b pb-6 gap-4">
-          <button
-            onClick={() => setView('manager')}
-            className="flex items-center gap-2 text-slate-600 font-black bg-slate-100 px-6 py-3 rounded-xl hover:bg-slate-200 transition uppercase text-xs tracking-widest"
-          >
-            ← ย้อนกลับ
-          </button>
-          <button
-            onClick={() => window.print()}
-            className="bg-indigo-600 text-white px-8 py-4 rounded-xl font-black shadow-xl hover:bg-indigo-700 active:scale-95 transition-all flex items-center gap-3 uppercase text-xs tracking-widest"
-          >
-            🖨 สั่งพิมพ์รายงาน
-          </button>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 sm:mb-16 print:hidden border-b pb-6 sm:pb-8 gap-4 sm:gap-0">
+          <button onClick={() => setView('manager')} className="flex items-center gap-2 sm:gap-4 text-slate-600 font-black bg-slate-100 px-6 sm:px-8 py-3 sm:py-4 rounded-xl sm:rounded-3xl hover:bg-slate-200 transition shadow-sm uppercase text-xs sm:text-sm tracking-widest w-full sm:w-auto justify-center"><ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" /> ย้อนกลับ </button>
+          <button onClick={() => window.print()} className="bg-indigo-600 text-white px-8 sm:px-12 py-4 sm:py-5 rounded-xl sm:rounded-3xl font-black shadow-xl sm:shadow-2xl hover:bg-indigo-700 active:scale-95 transition-all flex items-center justify-center gap-3 sm:gap-4 uppercase text-xs sm:text-sm tracking-widest w-full sm:w-auto"><Printer className="w-5 h-5 sm:w-6 sm:h-6" /> สั่งพิมพ์รายงาน </button>
         </div>
-
-        {/* Title */}
-        <div className="text-center mb-10 uppercase">
-          <h1 className="text-3xl sm:text-5xl font-black text-slate-900 tracking-tighter leading-none mb-2">
-            ROSTER SCHEDULE: {THAI_MONTHS[selectedMonth]} 2026
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-400 font-bold uppercase tracking-[0.4em] italic">
-            {branchName} – {activeDept.toUpperCase()} DEPT
-          </p>
+        <div className="text-center mb-10 sm:mb-16 uppercase">
+          <h1 className="text-3xl sm:text-6xl font-black text-slate-900 tracking-tighter leading-none mb-2 sm:mb-4">ROSTER SCHEDULE: {THAI_MONTHS[selectedMonth]} 2026</h1>
+          <p className="text-xs sm:text-sm text-slate-400 font-bold uppercase tracking-[0.3em] sm:tracking-[0.6em] italic">{globalConfig.branches?.find(b=>b.id===activeBranchId)?.name || 'BRANCH NODE'} - {activeDept.toUpperCase()} DEPT</p>
         </div>
-
-        {/* Table */}
-        <div className="overflow-x-auto border-2 sm:border-4 border-slate-900 rounded-xl sm:rounded-[2rem] shadow-2xl overflow-hidden w-full pb-2">
-          <table className="w-full border-collapse text-[6px] sm:text-[8px] table-fixed min-w-[900px] bg-white">
+        <div className="overflow-x-auto border-2 sm:border-4 border-slate-900 rounded-xl sm:rounded-[2.5rem] shadow-lg sm:shadow-2xl overflow-hidden w-full custom-scrollbar pb-2 sm:pb-0 print:border-none print:shadow-none print:overflow-visible">
+          <table className="w-full border-collapse text-[6px] sm:text-[8px] table-fixed min-w-[800px] sm:min-w-none bg-white print:border-2 print:border-black">
             <thead>
-              <tr className="bg-slate-900 text-white">
-                {/* Fixed columns */}
-                <th className="border-r border-slate-700 p-2 text-center sticky left-0 bg-slate-900 z-30 w-16 sm:w-20 font-black uppercase border-b-2 border-slate-600">
-                  Layer
-                </th>
-                <th className="border-r border-slate-700 p-2 text-left sticky left-[4rem] sm:left-[5rem] bg-slate-900 z-30 w-28 sm:w-40 font-black uppercase border-b-2 border-slate-600">
-                  Duty
-                </th>
-                <th className="border-r-2 border-slate-600 p-2 text-left bg-slate-900 z-30 w-24 sm:w-36 font-black uppercase border-b-2 border-slate-600">
-                  Staff (Pos)
-                </th>
-
-                {/* Day columns */}
+              <tr className="bg-slate-900 text-white print:bg-slate-200 print:text-black">
+                <th className="border-r border-slate-700 p-2 sm:p-3 text-center sticky left-0 bg-slate-900 z-30 w-16 sm:w-20 font-black uppercase border-b-2 border-slate-600 print:border-black print:bg-transparent">Duty Layer</th>
+                <th className="border-r border-slate-700 p-2 sm:p-3 text-center sticky left-[4rem] sm:left-[5rem] bg-slate-900 z-30 w-12 sm:w-16 font-black uppercase border-b-2 border-slate-600 print:border-black print:bg-transparent">Pos</th>
+                <th className="border-r border-slate-700 p-2 sm:p-3 text-left sticky left-[7rem] sm:left-[9rem] bg-slate-900 z-30 w-24 sm:w-40 font-black uppercase border-b-2 border-slate-600 print:border-black print:bg-transparent">Employee Name</th>
                 {CALENDAR_DAYS.map(day => (
-                  <th
-                    key={day.dateStr}
-                    className={`border-r border-slate-700 p-1.5 sm:p-2 min-w-[28px] sm:min-w-[38px] text-center border-b-2 border-slate-600 ${
-                      day.type === 'weekend' ? 'bg-slate-800 text-indigo-300' : ''
-                    }`}
-                  >
-                    <div className="font-black text-[9px] sm:text-xs mb-0.5">{day.dayNum}</div>
-                    <div className="text-[5px] sm:text-[7px] opacity-60 uppercase">{day.dayLabel}</div>
+                  <th key={day.dateStr} className={`border-r border-slate-700 p-1.5 sm:p-3 min-w-[30px] sm:min-w-[45px] text-center border-b-2 border-slate-600 print:border-black ${day.type === 'weekend' || branchData.holidays?.includes?.(day.dateStr) ? 'bg-slate-800 text-indigo-300 print:text-black print:bg-slate-100' : ''}`}>
+                    <div className="font-black text-[10px] sm:text-sm mb-0.5 sm:mb-1">{day.dayNum}</div><div className="text-[6px] sm:text-[8px] opacity-70 uppercase tracking-tighter">{day.dayLabel}</div>
                   </th>
                 ))}
               </tr>
             </thead>
-
             <tbody>
-              {rows.map((row, rowIdx) => {
-                const { cat, duty, slotIdx, staffId, staff } = row;
-                const dutySlotKey = duty.id + '__' + slotIdx;
-
-                const showCatCell = !renderedCats.has(cat.id);
-                const showDutyCell = !renderedDutySlots.has(dutySlotKey);
-
-                if (showCatCell) renderedCats.add(cat.id);
-                if (showDutyCell) renderedDutySlots.add(dutySlotKey);
-
-                return (
-                  <tr key={rowIdx} className="h-9 sm:h-11 border-b border-slate-200">
-                    {/* Duty Layer (rowspan per category) */}
-                    {showCatCell && (
-                      <td
-                        rowSpan={rowspanByCategory[cat.id]}
-                        className={`border-r border-slate-900 p-1.5 sm:p-2 font-black sticky left-0 z-10 text-[6px] sm:text-[7px] uppercase leading-tight text-center align-middle ${cat.color}`}
-                      >
-                        {cat.label}
-                      </td>
-                    )}
-
-                    {/* Job Duty (rowspan per duty+slot combo) */}
-                    {showDutyCell && (
-                      <td
-                        rowSpan={rowspanByDuty[dutySlotKey]}
-                        className="border-r border-slate-900 p-1.5 sm:p-2 font-black sticky left-[4rem] sm:left-[5rem] bg-white z-10 text-[7px] sm:text-[9px] uppercase leading-tight align-top pt-2"
-                      >
-                        <div className="truncate">{duty.jobA}</div>
-                        {duty.jobB && duty.jobB !== '-' && (
-                          <div className="text-[5px] sm:text-[7px] text-slate-400 font-bold truncate mt-0.5">{duty.jobB}</div>
-                        )}
-                      </td>
-                    )}
-
-                    {/* Staff Name + Position */}
-                    <td className="border-r-2 border-slate-900 p-1.5 sm:p-2 bg-white z-10 align-middle">
-                      {staff ? (
-                        <div className="flex flex-col leading-tight">
-                          <span className="font-black text-[7px] sm:text-[9px] text-slate-800 truncate">{staff.name}</span>
-                          <span className="text-[5px] sm:text-[7px] text-slate-400 font-bold uppercase">{staff.pos}</span>
-                        </div>
-                      ) : (
-                        <span className="text-slate-300 text-[6px] sm:text-[8px] italic">– ว่าง –</span>
-                      )}
-                    </td>
-
-                    {/* Day cells */}
-                    {CALENDAR_DAYS.map(day => {
-                      if (!staffId) {
-                        return (
-                          <td key={day.dateStr} className="border-r border-slate-200 p-0.5 text-center bg-slate-50/40" />
-                        );
-                      }
-
-                      const cell = getStaffDayCell(staffId, day.dateStr, duty.id, slotIdx);
-
-                      if (!cell) {
-                        return (
-                          <td key={day.dateStr} className={`border-r border-slate-200 p-0.5 text-center text-[5px] sm:text-[7px] text-slate-300 ${day.type === 'weekend' ? 'bg-slate-50' : ''}`}>
-                            –
+              {DUTY_CATEGORIES[activeDept].map(cat => {
+                 const catStaff = sortedStaff.filter(s => getStaffLayer(s.dept, s.pos).id === cat.id);
+                 if (catStaff.length === 0) return null;
+                 return (
+                   <React.Fragment key={cat.id}>
+                     {catStaff.map((s, dIdx) => (
+                        <tr key={s.id} className="h-10 sm:h-14 transition-colors border-b border-slate-200 print:border-black">
+                          {dIdx === 0 && (
+                            <td rowSpan={catStaff.length} className={`border-r border-slate-900 p-1 font-black sticky left-0 z-10 text-[5px] sm:text-[7px] uppercase leading-tight text-center print:border-black print:bg-transparent ${cat.color.split(' ')[0]} ${cat.color.split(' ')[1]}`}>
+                               {cat.label.replace('Customer Service ', '').replace('Kitchen ', '')}
+                            </td>
+                          )}
+                          <td className="border-r-2 sm:border-r-4 border-slate-900 p-1 sm:p-2 font-black sticky left-[4rem] sm:left-[5rem] bg-white z-10 text-[7px] sm:text-[9px] uppercase leading-tight text-center print:border-black print:bg-transparent">
+                             {s.pos}
                           </td>
-                        );
-                      }
-
-                      if (cell.type === 'work') {
-                        const timeStr = `${fmtTime(cell.startTime)}-${fmtTime(cell.endTime)}`;
-                        return (
-                          <td key={day.dateStr} className={`border-r border-slate-200 p-0.5 text-center ${day.type === 'weekend' ? 'bg-indigo-50/30' : ''}`}>
-                            <div className="font-black text-[6px] sm:text-[8px] text-indigo-700 leading-tight">{timeStr}</div>
-                            {cell.otHours > 0 && (
-                              <div className="text-[4px] sm:text-[6px] font-black text-rose-500 leading-none mt-0.5">
-                                OT{cell.otHours}
-                              </div>
-                            )}
+                          <td className="border-r-2 sm:border-r-4 border-slate-900 p-2 sm:p-3 font-black sticky left-[7rem] sm:left-[9rem] bg-white z-10 text-[8px] sm:text-[10px] uppercase leading-tight truncate max-w-[100px] sm:max-w-[150px] print:border-black print:bg-transparent">
+                             {s.name}
                           </td>
-                        );
-                      }
-
-                      if (cell.type === 'leave') {
-                        return (
-                          <td key={day.dateStr} className="border-r border-slate-200 p-0.5 text-center">
-                            <span className={`inline-block font-black text-[5px] sm:text-[7px] px-0.5 rounded ${cell.color}`}>
-                              {cell.shortLabel}
-                            </span>
-                          </td>
-                        );
-                      }
-
-                      return <td key={day.dateStr} className="border-r border-slate-200" />;
-                    })}
-                  </tr>
-                );
+                          {CALENDAR_DAYS.map(day => {
+                             const info = getStaffDayInfo(s.id, day.dateStr, CURRENT_DUTY_LIST);
+                             return (
+                               <td key={day.dateStr} className={`border-r border-b border-slate-200 p-0.5 sm:p-1 text-center print:border-black ${!info ? 'bg-slate-50/40 print:bg-transparent' : ''}`}>
+                                 {info?.type === 'work' ? (
+                                   <div className="flex flex-col items-center justify-center leading-tight w-full h-full">
+                                     <span className="font-black text-slate-800 text-[8px] sm:text-[10px] leading-none tracking-tighter print:text-black">{formatTimeAbbreviation(info.slot.startTime)}</span>
+                                     {info.actual?.otHours > 0 && <div className="text-[6px] sm:text-[7px] font-black text-rose-600 truncate w-full px-0.5 uppercase tracking-tighter mt-0.5 print:text-black">O{info.actual.otHours}</div>}
+                                   </div>
+                                 ) : info?.type === 'leave' ? (
+                                   <div className={`w-full h-full flex items-center justify-center font-black ${info.info.color} rounded-md sm:rounded-xl border sm:border-2 border-white shadow-inner text-[8px] sm:text-[10px] print:bg-transparent print:text-black print:border-none`}><span className="text-center leading-none uppercase p-0.5 sm:p-1">{info.info.shortLabel}</span></div>
+                                 ) : <span className="text-[5px] sm:text-[7px] font-black opacity-10 uppercase tracking-widest print:text-transparent">OFF</span>}
+                               </td>
+                             );
+                          })}
+                        </tr>
+                     ))}
+                   </React.Fragment>
+                 );
               })}
-
-              {/* Leave / Day-Off summary row at the bottom */}
-              <tr className="bg-slate-100 border-t-4 border-slate-400">
-                <td
-                  colSpan={3}
-                  className="border-r border-slate-400 p-2 font-black sticky left-0 z-10 text-[7px] sm:text-[9px] uppercase tracking-widest text-center bg-slate-200 text-slate-700 align-middle"
-                >
-                  ลาหยุด / พักผ่อน (Day Off)
-                </td>
-                {CALENDAR_DAYS.map(day => {
-                  const leaves = (schedule[day.dateStr]?.leaves || []).filter(l => {
-                    const s = branchData.staff?.find(x => x.id === l.staffId);
-                    return s && s.dept === activeDept;
-                  });
-
-                  return (
-                    <td
-                      key={`leave-${day.dateStr}`}
-                      className="border-r border-slate-300 p-0.5 text-center align-top bg-red-50/20"
-                    >
-                      {leaves.map((l, li) => {
-                        const s = branchData.staff?.find(x => x.id === l.staffId);
-                        const lt = [
-                          { id: 'OFF', shortLabel: 'ย' }, { id: 'CO', shortLabel: 'ชช' },
-                          { id: 'AL', shortLabel: 'พร' }, { id: 'SL', shortLabel: 'ป่วย' },
-                          { id: 'PL', shortLabel: 'กิจ' },
-                        ].find(x => x.id === l.type);
-                        return s ? (
-                          <div key={li} className="text-[5px] sm:text-[7px] font-black text-red-600 leading-tight truncate">
-                            {s.name}({lt?.shortLabel})
-                          </div>
-                        ) : null;
-                      })}
-                      {leaves.length === 0 && <span className="text-[5px] text-slate-300">–</span>}
-                    </td>
-                  );
-                })}
-              </tr>
             </tbody>
           </table>
         </div>
