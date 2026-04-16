@@ -2296,17 +2296,18 @@ export default function App() {
                                        const dayUsedStaffIds = new Set();
                                        (schedule[day.dateStr]?.leaves || []).forEach(l => l.staffId && dayUsedStaffIds.add(l.staffId));
                                        Object.values(schedule[day.dateStr]?.duties || {}).forEach(sls => sls.forEach(s => s.staffId && dayUsedStaffIds.add(s.staffId)));
-                                       const shiftPreset = branchData.shiftPresets?.find(p => p.id === slots[0]?.shiftPresetId);
 
                                        return (
                                            <td key={day.dateStr} className="p-2 border-r border-slate-100 align-top bg-white">
                                                <div className="space-y-2">
                                                   {slots.map((matrixSlot, idx) => {
                                                       const data = assigned[idx] || { staffId: "", otHours: 0 };
+                                                      const shiftPreset = branchData.shiftPresets?.find(p => p.id === matrixSlot.shiftPresetId);
+                                                      const shiftName = shiftPreset ? shiftPreset.name : 'N/A';
                                                       return (
                                                           <div key={idx} className={`p-2 rounded-lg border ${!data.staffId ? 'border-dashed border-slate-200 bg-slate-50/50' : 'border-indigo-200 bg-indigo-50/30'}`}>
                                                              <div className="flex justify-between items-center mb-1">
-                                                                <span className="text-[8px] font-bold text-slate-400">{slot.startTime}-{slot.endTime}</span>
+                                                                <span className="text-[8px] font-bold text-slate-400">{shiftName}</span>
                                                                 {data.otHours > 0 && <span className="text-[8px] font-black text-indigo-600 bg-indigo-50 px-1 rounded">OT:{data.otHours}</span>}
                                                              </div>
                                                              <select value={data.staffId} onChange={(e) => handleScheduleUpdate(day.dateStr, duty.id, idx, 'staffId', e.target.value, matrixSlot.maxOtHours)} className="w-full text-[10px] font-bold bg-transparent outline-none text-slate-800 truncate">
