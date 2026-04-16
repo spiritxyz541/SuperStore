@@ -535,7 +535,7 @@ export default function App() {
                 if (!data.matrix[dt].duties) data.matrix[dt].duties = {};
                 ['service', 'kitchen'].forEach(dept => {
                     (data.duties[dept] || []).forEach(duty => {
-                        if (!data.matrix[dt].duties[duty.id] || data.matrix[dt].duties[duty.id].length === 0) {
+                        if (!data.matrix[dt].duties[duty.id]) {
                             data.matrix[dt].duties[duty.id] = [{ startTime: dept === 'service' ? "10:00" : "09:00", endTime: dept === 'service' ? "19:00" : "18:00", maxOtHours: 4.0 }];
                         }
                     });
