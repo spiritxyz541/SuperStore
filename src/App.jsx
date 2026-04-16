@@ -6,16 +6,20 @@ import {
   Users, AlertCircle, Clock, Save, Plus, Trash2, LayoutDashboard, Printer, ChevronLeft, ChevronRight, 
   Coffee, BarChart3, TrendingUp, Award, PlaneTakeoff, Loader2, Store, ArrowLeftRight, Sparkles, Wand2, 
   Eraser, Filter, ChevronDown, Download, MessageCircle, Bell, UserCircle, SaveAll, FolderOpen, CheckCircle2, Edit2, X, Check, List, TableProperties, GripVertical, LogIn, ShieldCheck,
-  UtensilsCrossed, ConciergeBell, UserPlus, ArrowUpRight, ArrowDownRight, CalendarDays as CalendarDaysIcon, Calendar as CalendarIcon, ArrowRightLeft
+  UtensilsCrossed, ConciergeBell, UserPlus, ArrowUpRight, ArrowDownRight, CalendarDays as CalendarDaysIcon, Calendar as CalendarIcon
 } from 'lucide-react';
 
 /**
- * SUPER STORE Manager Assistant - V10.39 (STABLE FIX & CHART OPTIMIZATION)
+ * SUPER STORE Manager Assistant - V13.1 (PERFECT ARCHITECTURE REFACTOR)
  * อัปเดต:
- * 1. ปรับโครงสร้าง Render Component ใหม่ทั้งหมด แก้ปัญหา Unexpected Closing Tag แบบถาวร
- * 2. หน้า Duty Roster Chart (รายวัน): กะงานไหนที่ยังไม่ได้ใส่ชื่อพนักงาน จะไม่ถูกนำมาแสดงและไม่นับยอดรวม
+ * 1. ขจัดปัญหา ReferenceError และ Objects are not valid as a React child 100% โดยรวบรวม Render Functions ให้อยู่ถูกที่
+ * 2. จัดกลุ่ม Duty Layer ตาม SOP (Head, Staff, Support) แยกสี FOH/BOH สมบูรณ์
+ * 3. หน้า Roster Chart (รายวัน) เทสีเต็มแถวตาม Layer และปรับสีข้อความให้มองเห็นชัดเจนทั้งพื้นสว่างและทึบ
+ * 4. หน้า Admin เพิ่มช่องจัดการ XP-DNA SOP 
+ * 5. หน้า Print (รายเดือน) ลบรายละเอียด Job B ออกจากช่องตาราง
  */
 
+// --- 1. Configurations ---
 const firebaseConfig = {
   apiKey: "AIzaSyBJEmxRAPwUkafwutEg8TRUBqkIOP5tV0o",
   authDomain: "superstore-31f83.firebaseapp.com",
@@ -33,26 +37,55 @@ const db = getFirestore(app);
 const appId = "staffsync-v8-stable-prod-final"; 
 const geminiApiKey = ""; 
 
+// --- Constants & Layers ---
 const POSITIONS = {
   service: ["OC", "AOC", "SH", "SSD", "FD", "SD+", "EDC+", "DVT+", "PT+", "SD", "EDC", "DVT", "PT"],
-  kitchen: ["KH", "SKD", "KD+", "EDC ครัว+", "DVT ครัว+", "PT ครัว+", "KD", "EDC ครัว", "DVT ครัว", "PT ครัว"]
+  kitchen: ["OC", "AOC", "KH", "SKD", "KD+", "EDC ครัว+", "DVT ครัว+", "PT ครัว+", "KD", "EDC ครัว", "DVT ครัว", "PT ครัว"]
+};
+
+const DUTY_CATEGORIES = {
+  service: [
+    { id: 'FOH_HEAD', label: 'Customer Service Head Team', color: 'bg-[#4B7A47] text-white border-[#3A6038]' },
+    { id: 'FOH_STAFF', label: 'Customer Service Staff Team', color: 'bg-[#89C579] text-slate-900 border-[#72A863]' },
+    { id: 'FOH_SUPPORT', label: 'Service Support Team', color: 'bg-[#D9E1D8] text-slate-800 border-[#B5C2B4]' }
+  ],
+  kitchen: [
+    { id: 'BOH_HEAD', label: 'Kitchen Head Team', color: 'bg-[#1D4A7A] text-white border-[#15385C]' },
+    { id: 'BOH_STAFF', label: 'Kitchen Staff Team', color: 'bg-[#76B2D6] text-slate-900 border-[#5F94B5]' },
+    { id: 'BOH_SUPPORT', label: 'Kitchen Support Team', color: 'bg-[#D3E5F0] text-slate-800 border-[#AED0E6]' }
+  ]
+};
+
+const getStaffLayer = (dept, pos) => {
+  if (dept === 'service') {
+    if (["OC", "AOC", "SH", "SSD"].includes(pos)) return DUTY_CATEGORIES.service[0];
+    if (["FD", "SD+", "EDC+", "DVT+"].includes(pos)) return DUTY_CATEGORIES.service[1];
+    return DUTY_CATEGORIES.service[2];
+  } else {
+    if (["OC", "AOC", "KH", "SKD"].includes(pos)) return DUTY_CATEGORIES.kitchen[0];
+    if (["KD+", "EDC ครัว+", "DVT ครัว+"].includes(pos)) return DUTY_CATEGORIES.kitchen[1];
+    return DUTY_CATEGORIES.kitchen[2];
+  }
 };
 
 const DAYS_OF_WEEK = [{id:0,label:'อาทิตย์'},{id:1,label:'จันทร์'},{id:2,label:'อังคาร'},{id:3,label:'พุธ'},{id:4,label:'พฤหัสบดี'},{id:5,label:'ศุกร์'},{id:6,label:'เสาร์'}];
+
 const DEFAULT_SERVICE_DUTIES = [
-  { id: 'D1', jobA: 'ดูแลประสบการณ์ลูกค้า', jobB: 'งานบริหารจัดการสาขา/พนักงาน', reqPos: ['ALL'] },
-  { id: 'D2', jobA: 'ต้อนรับหน้าร้าน/แคชเชียร์', jobB: 'พนักงานประจำโซน (A,B)', reqPos: ['ALL'] },
-  { id: 'D3', jobA: 'พนักงานประจำโซน (A,B,C,D,E,F,G)', jobB: 'พนักงานเตรียม Station /เคลียร์โต๊ะ', reqPos: ['ALL'] },
-  { id: 'D4', jobA: 'พนักงานจัดอาหาร/ทำขนมหวาน', jobB: '-', reqPos: ['ALL'] },
-  { id: 'D5', jobA: 'ม้าเหล็ก เคลียร์โต๊ะ/เก็บจาน', jobB: 'พนักงานเตรียม Station', reqPos: ['ALL'] },
-  { id: 'D6', jobA: 'พนักงานเตรียม Station', jobB: 'พนักงานจัดอาหาร/ทำขนมหวาน', reqPos: ['ALL'] },
+  { id: 'D1', category: 'FOH_HEAD', jobA: 'ดูแลประสบการณ์ลูกค้า', jobB: 'งานบริหารจัดการสาขา/พนักงาน', xpDna: '', reqPos: ["OC", "AOC", "SH", "SSD"] },
+  { id: 'D2', category: 'FOH_HEAD', jobA: 'ต้อนรับหน้าร้าน/แคชเชียร์', jobB: 'พนักงานประจำโซน (A,B)', xpDna: '', reqPos: ["OC", "AOC", "SH", "SSD"] },
+  { id: 'D3', category: 'FOH_STAFF', jobA: 'พนักงานประจำโซน (A,B,C,D,E,F,G)', jobB: 'พนักงานเตรียม Station /เคลียร์โต๊ะ', xpDna: '', reqPos: ["FD", "SD+", "EDC+", "DVT+"] },
+  { id: 'D4', category: 'FOH_STAFF', jobA: 'พนักงานจัดอาหาร/ทำขนมหวาน', jobB: '-', xpDna: '', reqPos: ["FD", "SD+", "EDC+", "DVT+"] },
+  { id: 'D5', category: 'FOH_SUPPORT', jobA: 'ม้าเหล็ก เคลียร์โต๊ะ/เก็บจาน', jobB: 'พนักงานเตรียม Station', xpDna: '', reqPos: ["PT+", "SD", "EDC", "DVT", "PT"] },
+  { id: 'D6', category: 'FOH_SUPPORT', jobA: 'พนักงานเตรียม Station', jobB: 'พนักงานจัดอาหาร/ทำขนมหวาน', xpDna: '', reqPos: ["PT+", "SD", "EDC", "DVT", "PT"] },
 ];
+
 const DEFAULT_KITCHEN_DUTIES = [
-  { id: 'K1', jobA: 'CHECKER', jobB: 'ครัวร้อน', reqPos: ['ALL'] },
-  { id: 'K2', jobA: 'CHECKER', jobB: 'สไลซ์/ซีฟู้ด', reqPos: ['ALL'] },
-  { id: 'K3', jobA: 'ทอด/ผัด', jobB: 'PREP สไลซ์ ซีฟู้ด', reqPos: ['ALL'] },
-  { id: 'K4', jobA: 'อ่างกระทะ', jobB: 'PREP', reqPos: ['ALL'] },
+  { id: 'K1', category: 'BOH_HEAD', jobA: 'CHECKER', jobB: 'ครัวร้อน', xpDna: '', reqPos: ["OC", "AOC", "KH", "SKD"] },
+  { id: 'K2', category: 'BOH_HEAD', jobA: 'CHECKER', jobB: 'สไลซ์/ซีฟู้ด', xpDna: '', reqPos: ["OC", "AOC", "KH", "SKD"] },
+  { id: 'K3', category: 'BOH_STAFF', jobA: 'ทอด/ผัด', jobB: 'PREP สไลซ์ ซีฟู้ด', xpDna: '', reqPos: ["KD+", "EDC ครัว+", "DVT ครัว+"] },
+  { id: 'K4', category: 'BOH_SUPPORT', jobA: 'อ่างกระทะ', jobB: 'PREP', xpDna: '', reqPos: ["PT ครัว+", "KD", "EDC ครัว", "DVT ครัว", "PT ครัว"] },
 ];
+
 const LEAVE_TYPES = [
   { id: 'OFF', label: 'หยุดประจำสัปดาห์', shortLabel: 'ย', color: 'bg-slate-100 text-slate-800' },
   { id: 'CO', label: 'หยุดชดเชย', shortLabel: 'ชช', color: 'bg-blue-100 text-blue-800' },
@@ -60,17 +93,20 @@ const LEAVE_TYPES = [
   { id: 'SL', label: 'ลาป่วย', shortLabel: 'ป่วย', color: 'bg-red-100 text-red-800' },
   { id: 'PL', label: 'ลากิจ', shortLabel: 'กิจ', color: 'bg-orange-100 text-orange-800' },
 ];
+
 const THAI_MONTHS = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
 
-const checkPositionEligibility = (staffPos, reqPosArr) => {
+// --- Helper Functions ---
+const checkPositionEligibility = (staffPos, reqPosArr, dept) => {
   if (!reqPosArr || reqPosArr.length === 0 || reqPosArr.includes('ALL')) return true;
-  let staffRank = -1;
   let targetDept = 'service';
-  if(POSITIONS.kitchen.includes(staffPos)) { targetDept = 'kitchen'; staffRank = POSITIONS.kitchen.indexOf(staffPos); }
-  else { staffRank = POSITIONS.service.indexOf(staffPos); }
+  if(POSITIONS.kitchen.includes(staffPos)) targetDept = 'kitchen';
+  
+  const deptPositions = POSITIONS[targetDept] || [];
+  const staffRank = deptPositions.indexOf(staffPos);
   if (staffRank === -1) return false; 
   return reqPosArr.some(reqPos => {
-    const reqRank = POSITIONS[targetDept].indexOf(reqPos);
+    const reqRank = deptPositions.indexOf(reqPos);
     return reqRank !== -1 && staffRank <= reqRank;
   });
 };
@@ -106,15 +142,6 @@ const formatTimeAbbreviation = (timeStr) => {
     return `${parseInt(h, 10)}.${m ? m.charAt(0) : '0'}`;
 };
 
-const callGemini = async (prompt, systemInstruction = "") => {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${geminiApiKey}`;
-  try {
-    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], systemInstruction: { parts: [{ text: systemInstruction }] } }) });
-    const data = await res.json();
-    return data.candidates?.[0]?.content?.parts?.[0]?.text || "AI ไม่สามารถประมวลผลข้อมูลได้";
-  } catch (e) { return "ระบบ AI ขัดข้อง"; }
-};
-
 // --- Custom Components ---
 const PositionSelector = ({ value, options, onChange, disabled, className }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -131,11 +158,11 @@ const PositionSelector = ({ value, options, onChange, disabled, className }) => 
   };
   return (
     <div className={`relative ${className || 'w-full sm:w-24'}`}>
-      <div onClick={() => !disabled && setIsOpen(!isOpen)} className={`border-xl p-2 sm:p-2.5 text-center font-black bg-emerald-50/50 text-[10px] sm:text-xs truncate cursor-pointer rounded-xl border ${disabled ? 'opacity-50' : 'hover:border-emerald-500'}`}>
+      <div onClick={() => !disabled && setIsOpen(!isOpen)} className={`p-2 sm:p-2.5 text-center font-black bg-emerald-50/50 text-[10px] sm:text-xs truncate cursor-pointer rounded-xl border ${disabled ? 'opacity-50' : 'hover:border-emerald-500'}`}>
         {valArray.join(', ')}
       </div>
       {isOpen && !disabled && (
-        <>
+        <React.Fragment>
           <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)}></div>
           <div className="absolute top-full left-0 mt-1 w-40 bg-white border border-slate-200 rounded-xl shadow-xl z-50 max-h-48 overflow-y-auto text-left py-1">
             <div className={`px-3 py-2 text-xs font-bold cursor-pointer hover:bg-slate-50 flex items-center gap-2 ${valArray.includes('ALL') ? 'text-emerald-600' : 'text-slate-600'}`} onClick={() => toggle('ALL')}>
@@ -147,7 +174,7 @@ const PositionSelector = ({ value, options, onChange, disabled, className }) => 
               </div>
             ))}
           </div>
-        </>
+        </React.Fragment>
       )}
     </div>
   );
@@ -168,17 +195,21 @@ const StaffMultiSelector = ({ value, options, onChange, disabled, placeholder })
           <span className="truncate pr-2">{selectedNames.length > 0 ? selectedNames.join(', ') : placeholder}</span><ChevronDown className="w-4 h-4 text-slate-400 flex-shrink-0" />
         </div>
         {isOpen && !disabled && (
-          <>
+          <React.Fragment>
             <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)}></div>
             <div className="absolute top-full left-0 mt-2 w-full min-w-[200px] bg-white border border-slate-200 rounded-2xl shadow-2xl z-50 max-h-60 overflow-y-auto custom-scrollbar py-2">
-              {options.length === 0 ? (<div className="px-4 py-3 text-[10px] text-slate-400 text-center font-bold">ไม่มีพนักงานว่างให้เลือก</div>) : options.map(o => (
-                <div key={o.id} className={`px-4 py-2.5 text-[10px] sm:text-xs font-bold cursor-pointer hover:bg-slate-50 flex items-center gap-3 transition-colors ${valArray.includes(o.id) ? 'text-indigo-600 bg-indigo-50/50' : 'text-slate-600'}`} onClick={() => toggle(o.id)}>
-                  <div className={`w-3.5 h-3.5 sm:w-4 sm:h-4 rounded border flex flex-shrink-0 items-center justify-center transition-colors ${valArray.includes(o.id) ? 'bg-indigo-500 border-indigo-500' : 'border-slate-300'}`}>{valArray.includes(o.id) && <Check className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" />}</div>
-                  <span className="truncate">{o.name}</span><span className="text-[8px] sm:text-[9px] text-slate-400 ml-auto bg-white px-1.5 py-0.5 rounded border shadow-sm flex-shrink-0">{o.pos}</span>
-                </div>
-              ))}
+              {options.length === 0 ? (<div className="px-4 py-3 text-[10px] text-slate-400 text-center font-bold">ไม่มีพนักงานว่างให้เลือก</div>) : options.map(o => {
+                const layer = getStaffLayer(o.dept, o.pos);
+                return (
+                  <div key={o.id} className={`px-4 py-2.5 text-[10px] sm:text-xs font-bold cursor-pointer hover:bg-slate-50 flex items-center gap-3 transition-colors ${valArray.includes(o.id) ? 'text-indigo-600 bg-indigo-50/50' : 'text-slate-600'}`} onClick={() => toggle(o.id)}>
+                    <div className={`w-3.5 h-3.5 sm:w-4 sm:h-4 rounded border flex flex-shrink-0 items-center justify-center transition-colors ${valArray.includes(o.id) ? 'bg-indigo-500 border-indigo-500' : 'border-slate-300'}`}>{valArray.includes(o.id) && <Check className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" />}</div>
+                    <span className="truncate">{o.name}</span>
+                    <span className={`text-[8px] sm:text-[9px] ml-auto px-1.5 py-0.5 rounded border shadow-sm flex-shrink-0 ${layer.color}`}>{o.pos}</span>
+                  </div>
+                );
+              })}
             </div>
-          </>
+          </React.Fragment>
         )}
      </div>
   );
@@ -198,10 +229,11 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
           <p className="text-xs sm:text-sm text-slate-400 font-bold uppercase tracking-[0.3em] sm:tracking-[0.6em] italic">{globalConfig.branches?.find(b=>b.id===activeBranchId)?.name || 'BRANCH NODE'} - {activeDept.toUpperCase()} DEPT</p>
         </div>
         <div className="overflow-x-auto border-2 sm:border-4 border-slate-900 rounded-xl sm:rounded-[2.5rem] shadow-lg sm:shadow-2xl overflow-hidden w-full custom-scrollbar pb-2 sm:pb-0">
-          <table className="w-full border-collapse text-[6px] sm:text-[8px] table-fixed min-w-[800px] sm:min-w-none">
+          <table className="w-full border-collapse text-[6px] sm:text-[8px] table-fixed min-w-[800px] sm:min-w-none bg-white">
             <thead>
               <tr className="bg-slate-900 text-white">
-                <th className="border-r border-slate-700 p-3 sm:p-5 text-left sticky left-0 bg-slate-900 z-10 w-24 sm:w-48 font-black uppercase border-b-2 border-slate-600">Employee (Pos)</th>
+                <th className="border-r border-slate-700 p-2 sm:p-3 text-center sticky left-0 bg-slate-900 z-20 w-16 sm:w-20 font-black uppercase border-b-2 border-slate-600">Duty Layer</th>
+                <th className="border-r border-slate-700 p-2 sm:p-3 text-left sticky left-[4rem] sm:left-[5rem] bg-slate-900 z-20 w-24 sm:w-48 font-black uppercase border-b-2 border-slate-600">Employee (Pos)</th>
                 {CALENDAR_DAYS.map(day => (
                   <th key={day.dateStr} className={`border-r border-slate-700 p-1.5 sm:p-3 min-w-[30px] sm:min-w-[45px] text-center border-b-2 border-slate-600 ${day.type === 'weekend' || branchData.holidays?.includes?.(day.dateStr) ? 'bg-slate-800 text-indigo-300' : ''}`}>
                     <div className="font-black text-[10px] sm:text-sm mb-0.5 sm:mb-1">{day.dayNum}</div><div className="text-[6px] sm:text-[8px] opacity-70 uppercase tracking-tighter">{day.dayLabel}</div>
@@ -210,26 +242,35 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
               </tr>
             </thead>
             <tbody>
-              {filteredStaff.map(s => (
-                <tr key={s.id} className="h-12 sm:h-20 transition-colors border-b border-slate-100">
-                  <td className="border-r-2 sm:border-r-4 border-slate-900 p-2 sm:p-5 font-black sticky left-0 bg-white z-10 text-[9px] sm:text-[12px] uppercase leading-tight truncate max-w-[100px] sm:max-w-[150px]">{s.name}<div className="text-[5px] sm:text-[7px] text-slate-400 font-bold">({s.pos})</div></td>
-                  {CALENDAR_DAYS.map(day => {
-                    const info = getStaffDayInfo(s.id, day.dateStr, CURRENT_DUTY_LIST);
-                    return (
-                      <td key={day.dateStr} className={`border-r border-b border-slate-100 p-1 sm:p-2 text-center ${!info ? 'bg-slate-50/40' : ''}`}>
-                        {info?.type === 'work' ? (
-                          <div className="flex flex-col items-center justify-center leading-tight">
-                            <span className="font-black text-indigo-700 text-[8px] sm:text-[10px] leading-none tracking-tighter">{formatTimeAbbreviation(info.slot.startTime)}</span>
-                            {info.actual?.otHours > 0 && <div className="text-[6px] sm:text-[7px] font-black text-rose-500 truncate w-full px-0.5 sm:px-1 uppercase tracking-tighter mt-0.5 sm:mt-1">O{info.actual.otHours}</div>}
-                          </div>
-                        ) : info?.type === 'leave' ? (
-                          <div className={`w-full h-full flex items-center justify-center font-black ${info.info.color} rounded-md sm:rounded-xl border sm:border-2 border-white shadow-inner text-[8px] sm:text-[10px]`}><span className="text-center leading-none uppercase p-0.5 sm:p-1">{info.info.shortLabel}</span></div>
-                        ) : <span className="text-[5px] sm:text-[7px] font-black opacity-10 uppercase tracking-widest">OFF</span>}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
+              {filteredStaff.map(s => {
+                const layer = getStaffLayer(s.dept, s.pos);
+                return (
+                  <tr key={s.id} className="h-14 sm:h-24 transition-colors border-b border-slate-200">
+                    <td className={`border-r border-slate-900 p-1 font-black sticky left-0 z-10 text-[5px] sm:text-[7px] uppercase leading-tight text-center ${layer.color}`}>
+                       {layer.label.replace('Customer Service ', '').replace('Kitchen ', '')}
+                    </td>
+                    <td className="border-r-2 sm:border-r-4 border-slate-900 p-2 sm:p-3 font-black sticky left-[4rem] sm:left-[5rem] bg-white z-10 text-[8px] sm:text-[10px] uppercase leading-tight truncate max-w-[100px] sm:max-w-[150px]">
+                       {s.name}
+                       <div className="mt-0.5 text-[6px] text-slate-400 font-bold">({s.pos})</div>
+                    </td>
+                    {CALENDAR_DAYS.map(day => {
+                      const info = getStaffDayInfo(s.id, day.dateStr, CURRENT_DUTY_LIST);
+                      return (
+                        <td key={day.dateStr} className={`border-r border-b border-slate-200 p-0.5 sm:p-1 text-center ${!info ? 'bg-slate-50/40' : ''}`}>
+                          {info?.type === 'work' ? (
+                            <div className="flex flex-col items-center justify-center leading-tight w-full h-full">
+                              <span className="font-black text-slate-800 text-[8px] sm:text-[10px] leading-none tracking-tighter">{formatTimeAbbreviation(info.slot.startTime)}</span>
+                              {info.actual?.otHours > 0 && <div className="text-[6px] sm:text-[7px] font-black text-rose-600 truncate w-full px-0.5 uppercase tracking-tighter mt-0.5">O{info.actual.otHours}</div>}
+                            </div>
+                          ) : info?.type === 'leave' ? (
+                            <div className={`w-full h-full flex items-center justify-center font-black ${info.info.color} rounded-md sm:rounded-xl border sm:border-2 border-white shadow-inner text-[8px] sm:text-[10px]`}><span className="text-center leading-none uppercase p-0.5 sm:p-1">{info.info.shortLabel}</span></div>
+                          ) : <span className="text-[5px] sm:text-[7px] font-black opacity-10 uppercase tracking-widest">OFF</span>}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -240,6 +281,7 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
 
 // --- Main App Component ---
 export default function App() {
+  // === STATE HOOKS ===
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
@@ -253,7 +295,6 @@ export default function App() {
 
   const [globalConfig, setGlobalConfig] = useState({ admins: [{ user: 'admin', pass: 'superstore' }], branches: [] });
   const [globalTemplates, setGlobalTemplates] = useState([]);
-  
   const [branchData, setBranchData] = useState({ staff: [], holidays: [], matrix: generateDefaultMatrix(), duties: { service: DEFAULT_SERVICE_DUTIES, kitchen: DEFAULT_KITCHEN_DUTIES }, templates: [] });
   const [schedule, setSchedule] = useState({});
   const [pendingRequests, setPendingRequests] = useState([]); 
@@ -285,7 +326,9 @@ export default function App() {
 
   const [newDutyJobA, setNewDutyJobA] = useState('');
   const [newDutyJobB, setNewDutyJobB] = useState('');
+  const [newDutyXpDna, setNewDutyXpDna] = useState(''); 
   const [newDutyReqPos, setNewDutyReqPos] = useState(['ALL']); 
+  const [newDutyCategory, setNewDutyCategory] = useState('FOH_STAFF');
   const [editingDutyId, setEditingDutyId] = useState(null);
   const [editDutyData, setEditDutyData] = useState({});
   const [draggedDutyIdx, setDraggedDutyIdx] = useState(null);
@@ -298,8 +341,8 @@ export default function App() {
   const [reportFilterStart, setReportFilterStart] = useState(`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`);
   const [reportFilterEnd, setReportFilterEnd] = useState(`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()}`);
 
-  const [aiLoading, setAiLoading] = useState(false);
   const [aiMessage, setAiMessage] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
 
   const [essTabMode, setEssTabMode] = useState('leave'); 
   const [swapDateMy, setSwapDateMy] = useState('');
@@ -310,9 +353,14 @@ export default function App() {
   const selectedYear = 2026;
   const autoAssignedDates = useRef(new Set()); 
 
+  // === MEMOS ===
   const CURRENT_DUTY_LIST = useMemo(() => {
-    if (branchData.duties && branchData.duties[activeDept]) return branchData.duties[activeDept];
-    return activeDept === 'service' ? DEFAULT_SERVICE_DUTIES : DEFAULT_KITCHEN_DUTIES;
+    let list = branchData.duties && branchData.duties[activeDept] ? branchData.duties[activeDept] : (activeDept === 'service' ? DEFAULT_SERVICE_DUTIES : DEFAULT_KITCHEN_DUTIES);
+    return list.map(d => ({
+        ...d,
+        category: d.category || (activeDept === 'service' ? 'FOH_STAFF' : 'BOH_STAFF'),
+        xpDna: d.xpDna || ''
+    }));
   }, [activeDept, branchData.duties]);
 
   const CALENDAR_DAYS = useMemo(() => getDaysInMonth(selectedYear, selectedMonth, branchData.holidays || []), [selectedMonth, selectedYear, branchData.holidays]);
@@ -379,6 +427,26 @@ export default function App() {
   const totalPlannedOT = reportData.reduce((acc, curr) => acc + curr.plannedOT, 0);
   const deltaOT = totalActualOT - totalPlannedOT;
 
+  const activeDayShiftVisibilities = useMemo(() => {
+      let hasMorning = false, hasLateMorning = false, hasAfternoon = false, hasEvening = false, hasNight = false;
+      if (branchData.matrix && activeDay) {
+          CURRENT_DUTY_LIST.forEach(duty => {
+              const slots = branchData.matrix[activeDay.type]?.duties?.[duty.id] || [];
+              slots.forEach(slot => {
+                  const stHour = parseInt(slot.startTime.split(':')[0]) || 0;
+                  if (stHour < 11) hasMorning = true;
+                  else if (stHour === 11) hasLateMorning = true;
+                  else if (stHour >= 12 && stHour < 16) hasAfternoon = true;
+                  else if (stHour >= 16 && stHour < 19) hasEvening = true;
+                  else if (stHour >= 19) hasNight = true;
+              });
+          });
+      }
+      const shiftColCount = (hasMorning ? 1 : 0) + (hasLateMorning ? 1 : 0) + (hasAfternoon ? 1 : 0) + (hasEvening ? 1 : 0) + (hasNight ? 1 : 0);
+      return { hasMorning, hasLateMorning, hasAfternoon, hasEvening, hasNight, bottomColSpan: 1 + shiftColCount + 1 };
+  }, [branchData.matrix, activeDay, CURRENT_DUTY_LIST]);
+
+  // === CALLBACKS ===
   const getStaffDayInfo = useCallback((staffId, dateStr, currentDutyList) => {
     const dayData = schedule[dateStr];
     if (!dayData) return null;
@@ -400,26 +468,7 @@ export default function App() {
     return null;
   }, [schedule, CALENDAR_DAYS, branchData.matrix]);
 
-  const activeDayShiftVisibilities = useMemo(() => {
-      let hasMorning = false, hasLateMorning = false, hasAfternoon = false, hasEvening = false, hasNight = false;
-      if (branchData.matrix && activeDay) {
-          CURRENT_DUTY_LIST.forEach(duty => {
-              const slots = branchData.matrix[activeDay.type]?.duties?.[duty.id] || [];
-              slots.forEach(slot => {
-                  const stHour = parseInt(slot.startTime.split(':')[0]) || 0;
-                  if (stHour < 11) hasMorning = true;
-                  else if (stHour === 11) hasLateMorning = true;
-                  else if (stHour >= 12 && stHour < 16) hasAfternoon = true;
-                  else if (stHour >= 16 && stHour < 19) hasEvening = true;
-                  else if (stHour >= 19) hasNight = true;
-              });
-          });
-      }
-      const shiftColCount = (hasMorning ? 1 : 0) + (hasLateMorning ? 1 : 0) + (hasAfternoon ? 1 : 0) + (hasEvening ? 1 : 0) + (hasNight ? 1 : 0);
-      return { hasMorning, hasLateMorning, hasAfternoon, hasEvening, hasNight, bottomColSpan: 1 + shiftColCount + 1 };
-  }, [branchData.matrix, activeDay, CURRENT_DUTY_LIST]);
-
-  // --- Effects ---
+  // === EFFECTS ===
   useEffect(() => {
     const timer = setTimeout(() => { if (loading) setIsTimeout(true); }, 8000);
     const initAuth = async () => {
@@ -457,8 +506,27 @@ export default function App() {
         const data = snap.data();
         if (!data.duties) data.duties = { service: DEFAULT_SERVICE_DUTIES, kitchen: DEFAULT_KITCHEN_DUTIES };
         if (!data.templates) data.templates = [];
+        if (!data.matrix) {
+            data.matrix = generateDefaultMatrix(data.duties.service, data.duties.kitchen);
+        } else {
+            ['weekday', 'friday', 'weekend'].forEach(dt => {
+                if (!data.matrix[dt]) data.matrix[dt] = { duties: {} };
+                if (!data.matrix[dt].duties) data.matrix[dt].duties = {};
+                ['service', 'kitchen'].forEach(dept => {
+                    (data.duties[dept] || []).forEach(duty => {
+                        if (!data.matrix[dt].duties[duty.id] || data.matrix[dt].duties[duty.id].length === 0) {
+                            data.matrix[dt].duties[duty.id] = [{ 
+                                startTime: dept === 'service' ? "10:00" : "09:00", 
+                                endTime: dept === 'service' ? "19:00" : "18:00", 
+                                maxOtHours: 4.0 
+                            }];
+                        }
+                    });
+                });
+            });
+        }
         setBranchData(data);
-      } else { setBranchData({ staff: [], holidays: [], duties: { service: DEFAULT_SERVICE_DUTIES, kitchen: DEFAULT_KITCHEN_DUTIES }, matrix: generateDefaultMatrix(), templates: [] }); }
+      } else { setBranchData({ staff: [], holidays: [], duties: { service: DEFAULT_SERVICE_DUTIES, kitchen: DEFAULT_KITCHEN_DUTIES }, matrix: generateDefaultMatrix() }); }
     });
     const unsubSched = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'schedules', activeBranchId), (snap) => {
       if (snap.exists()) setSchedule(snap.data().records || {}); else setSchedule({});
@@ -525,7 +593,11 @@ export default function App() {
     if (hasChanges) setSchedule(newSched);
   }, [schedule, branchData.matrix, CURRENT_DUTY_LIST, branchData.holidays]);
 
-  // --- Handlers ---
+  useEffect(() => {
+      setNewDutyCategory(activeDept === 'service' ? 'FOH_STAFF' : 'BOH_STAFF');
+  }, [activeDept]);
+
+  // === HANDLERS ===
   const handleManagerLogin = (e) => {
     e.preventDefault();
     setLoginError('');
@@ -546,7 +618,7 @@ export default function App() {
             const bData = branchSnap.data();
             const staffMatch = bData.staff?.find(s => s.empId === staffLoginInput.trim() || s.name === staffLoginInput.trim());
             if (staffMatch) {
-                setAuthRole('staff'); setActiveBranchId(staffLoginBranch); setStaffFilterPos(staffMatch.id); setView('staff_portal');
+                setAuthRole('staff'); setActiveBranchId(staffLoginBranch); setStaffFilterPos(staffMatch.id); setView('manager');
             } else { setLoginError('ไม่พบข้อมูลพนักงานในสาขานี้'); }
         } else { setLoginError('ไม่พบข้อมูลสาขา'); }
     } catch (err) { setLoginError('เกิดข้อผิดพลาดในการเชื่อมต่อ'); }
@@ -599,7 +671,7 @@ export default function App() {
   const handleAddDuty = () => {
     if (!newDutyJobA.trim()) return;
     const newId = (activeDept === 'service' ? 'D' : 'K') + Date.now();
-    const newDuty = { id: newId, jobA: newDutyJobA.trim(), jobB: newDutyJobB.trim() || '-', reqPos: newDutyReqPos };
+    const newDuty = { id: newId, category: newDutyCategory, jobA: newDutyJobA.trim(), jobB: newDutyJobB.trim() || '-', xpDna: newDutyXpDna.trim(), reqPos: newDutyReqPos };
     setBranchData(prev => {
       const nd = JSON.parse(JSON.stringify(prev));
       if (!nd.duties) nd.duties = { service: DEFAULT_SERVICE_DUTIES, kitchen: DEFAULT_KITCHEN_DUTIES };
@@ -611,7 +683,7 @@ export default function App() {
       });
       return nd;
     });
-    setNewDutyJobA(''); setNewDutyJobB(''); setNewDutyReqPos(['ALL']);
+    setNewDutyJobA(''); setNewDutyJobB(''); setNewDutyXpDna(''); setNewDutyReqPos(['ALL']);
   };
 
   const handleEditDutySave = () => {
@@ -946,7 +1018,6 @@ export default function App() {
                         if (dayData.duties[duty.id][slotIdx].staffId) return; 
 
                         const reqArr = Array.isArray(duty.reqPos) ? duty.reqPos : [duty.reqPos || 'ALL'];
-                        const isAll = reqArr.includes('ALL') || reqArr.length === 0;
 
                         const workingStaffIds = new Set();
                         Object.values(dayData.duties).forEach(ds => { ds.forEach(s => { if(s && s.staffId) workingStaffIds.add(s.staffId); }); });
@@ -954,7 +1025,7 @@ export default function App() {
                         const candidate = sortedDeptStaff.find(s => {
                             if (onLeaveIds.includes(s.id)) return false; 
                             if (workingStaffIds.has(s.id)) return false; 
-                            if (!checkPositionEligibility(s.pos, reqArr)) return false; 
+                            if (!checkPositionEligibility(s.pos, reqArr, activeDept)) return false; 
                             return true;
                         });
 
@@ -988,10 +1059,10 @@ export default function App() {
     }
   };
 
-  // --- Renders ---
+  // === RENDER FUNCTIONS (DEFINED PROPERLY IN SCOPE) ===
   const renderModals = () => {
     return (
-      <>
+      <React.Fragment>
         {showSuccessModal && (
           <div className="fixed inset-0 z-[400] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-300 font-sans">
              <div className="bg-white p-8 rounded-[3rem] shadow-2xl flex flex-col items-center gap-4 animate-in zoom-in-95">
@@ -1044,10 +1115,10 @@ export default function App() {
                                  const lType = LEAVE_TYPES.find(t => t.id === req.type);
                                  const dateObj = new Date(req.dateStr);
                                  detailHtml = (
-                                   <>
+                                   <React.Fragment>
                                      <p className="text-xs font-bold text-slate-500 mt-1">ขอหยุดวันที่: <span className="text-indigo-600">{dateObj.toLocaleDateString('th-TH', { dateStyle: 'medium'})}</span></p>
                                      <p className="text-xs font-bold text-slate-500">ประเภท: <span className={`px-1.5 rounded ${lType?.color}`}>{lType?.label}</span></p>
-                                   </>
+                                   </React.Fragment>
                                  );
                               }
                               return (
@@ -1057,8 +1128,8 @@ export default function App() {
                                           {detailHtml}
                                       </div>
                                       <div className="flex gap-2 w-full sm:w-auto">
-                                          <button onClick={() => handleManagerApproveRequest(req)} className="flex-1 sm:flex-none bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-black hover:bg-emerald-600 transition shadow-sm">อนุมัติ</button>
-                                          <button onClick={() => handleRejectRequest(req.id)} className="flex-1 sm:flex-none bg-slate-100 text-slate-500 px-4 py-2 rounded-xl text-xs font-black hover:bg-red-100 hover:text-red-500 transition">ปฏิเสธ</button>
+                                          <button onClick={() => handleManagerApproveRequest(req)} className="flex-1 sm:flex-none bg-emerald-50 text-emerald-600 px-4 py-2 rounded-xl text-xs font-black hover:bg-emerald-500 hover:text-white transition shadow-sm border border-emerald-200">อนุมัติ</button>
+                                          <button onClick={() => handleRejectRequest(req.id)} className="flex-1 sm:flex-none bg-slate-50 text-slate-500 px-4 py-2 rounded-xl text-xs font-black hover:bg-red-500 hover:text-white transition border border-slate-200">ปฏิเสธ</button>
                                       </div>
                                   </div>
                               );
@@ -1084,7 +1155,7 @@ export default function App() {
              </div>
           </div>
         )}
-      </>
+      </React.Fragment>
     );
   };
 
@@ -1152,6 +1223,7 @@ export default function App() {
     const peerSwapRequests = pendingRequests.filter(r => r.reqType === 'SWAP' && r.targetStaffId === staffFilterPos && r.status === 'PENDING_PEER');
     const myStaffInfo = branchData.staff?.find(s => s.id === staffFilterPos);
     const peerOptions = branchData.staff?.filter(s => s.id !== staffFilterPos && s.pos === myStaffInfo?.pos) || [];
+    const layer = getStaffLayer(activeDept, myStaffInfo?.pos);
     
     return (
       <div className="w-full animate-in fade-in duration-500 pb-24">
@@ -1160,7 +1232,9 @@ export default function App() {
                <div className="bg-emerald-100 p-4 sm:p-5 rounded-full"><UserCircle className="w-10 h-10 sm:w-12 sm:h-12 text-emerald-600" /></div>
                <div>
                   <h2 className="text-2xl sm:text-4xl font-black text-slate-800 tracking-tighter uppercase">{myStaffInfo?.name || 'STAFF'}</h2>
-                  <p className="text-slate-500 text-xs sm:text-sm font-bold uppercase tracking-widest mt-1">ตำแหน่ง: {myStaffInfo?.pos || '-'} | สาขา: {globalConfig.branches?.find(b=>b.id===activeBranchId)?.name}</p>
+                  <p className="text-slate-500 text-xs sm:text-sm font-bold uppercase tracking-widest mt-1 flex items-center gap-2">
+                     ตำแหน่ง: <span className={`px-2 py-0.5 rounded ${layer?.color}`}>{myStaffInfo?.pos || '-'}</span> | สาขา: {globalConfig.branches?.find(b=>b.id===activeBranchId)?.name}
+                  </p>
                </div>
             </div>
             
@@ -1288,6 +1362,241 @@ export default function App() {
     );
   };
 
+  const renderGlobalAdmin = () => {
+    return (
+     <div className="flex-1 space-y-6 sm:space-y-10 animate-in fade-in duration-500 pb-24 w-full">
+       <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-4 sm:gap-6">
+            <div className="bg-emerald-100 p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem]"><Store className="w-8 h-8 sm:w-10 sm:h-10 text-emerald-600" /></div>
+            <div>
+               <h2 className="text-2xl sm:text-4xl font-black text-slate-800 tracking-tighter uppercase">Global Admin</h2>
+               <p className="text-slate-400 text-xs sm:text-sm font-bold uppercase tracking-widest mt-1">จัดการรายชื่อสาขาและสิทธิ์เข้าระบบ</p>
+            </div>
+          </div>
+       </div>
+       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-10">
+          <div className="lg:col-span-1 bg-white p-6 sm:p-10 rounded-[2rem] sm:rounded-[3rem] border border-slate-200 shadow-sm h-fit">
+             <h3 className="text-lg sm:text-xl font-black text-slate-800 mb-6 sm:mb-8 flex items-center gap-2 sm:gap-3 uppercase tracking-tighter"><Plus className="text-emerald-500 w-5 h-5 sm:w-6 sm:h-6" /> สร้างสาขาใหม่</h3>
+             <div className="space-y-4 sm:space-y-5">
+                <div><span className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase ml-2 block mb-1.5 sm:mb-2">ชื่อสาขา</span><input type="text" id="bn" className="w-full border-2 border-slate-50 bg-slate-50/50 rounded-xl sm:rounded-2xl px-4 sm:px-5 py-3 sm:py-4 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none" /></div>
+                <div><span className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase ml-2 block mb-1.5 sm:mb-2">Username</span><input type="text" id="bu" className="w-full border-2 border-slate-50 bg-slate-50/50 rounded-xl sm:rounded-2xl px-4 sm:px-5 py-3 sm:py-4 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none" /></div>
+                <div><span className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase ml-2 block mb-1.5 sm:mb-2">Password</span><input type="text" id="bp" className="w-full border-2 border-slate-50 bg-slate-50/50 rounded-xl sm:rounded-2xl px-4 sm:px-5 py-3 sm:py-4 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none" /></div>
+                <button onClick={() => {
+                  const n = document.getElementById('bn').value; const u = document.getElementById('bu').value; const p = document.getElementById('bp').value;
+                  if(n && u && p) { setGlobalConfig(prev => ({...prev, branches: [...(prev.branches || []), {id: 'b'+Date.now(), name: n, user: u, pass: p}]})); document.getElementById('bn').value = ''; document.getElementById('bu').value = ''; document.getElementById('bp').value = ''; }
+                }} className="w-full bg-emerald-600 text-white py-4 sm:py-5 rounded-xl sm:rounded-3xl font-black text-xs sm:text-sm hover:bg-emerald-700 shadow-xl mt-2 sm:mt-4 uppercase transition-colors">บันทึกสาขา</button>
+             </div>
+          </div>
+          <div className="lg:col-span-2 bg-white p-6 sm:p-10 rounded-[2rem] sm:rounded-[3rem] border border-slate-200 shadow-sm">
+             <h3 className="text-lg sm:text-xl font-black text-slate-800 mb-6 sm:mb-8 flex items-center gap-2 sm:gap-3 uppercase tracking-tighter"><ShieldCheck className="text-indigo-500 w-5 h-5 sm:w-6 sm:h-6" /> รายชื่อสาขาทั้งหมด</h3>
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                {globalConfig.branches?.map((b) => (
+                  <div key={b.id} className="p-5 sm:p-8 bg-slate-50 rounded-[1.5rem] sm:rounded-[2.5rem] border border-transparent hover:border-indigo-100 transition shadow-sm flex justify-between items-start">
+                     <div className="pr-4">
+                        <h4 className="text-base sm:text-xl font-black text-slate-900 uppercase tracking-tighter truncate max-w-[150px] sm:max-w-[200px]">{b.name}</h4>
+                        <p className="text-[8px] sm:text-[9px] text-slate-400 font-bold mt-1.5 sm:mt-2 uppercase truncate">USER: {b.user} | PWD: {b.pass}</p>
+                         {editingBranchId === b.id ? (
+                            <div className="mt-4 space-y-2">
+                               <input type="text" placeholder="Name" value={editBranchData.name || ''} onChange={e => setEditBranchData({...editBranchData, name: e.target.value})} className="w-full border rounded-lg px-2 py-1 text-xs"/>
+                               <input type="text" placeholder="User" value={editBranchData.user || ''} onChange={e => setEditBranchData({...editBranchData, user: e.target.value})} className="w-full border rounded-lg px-2 py-1 text-xs"/>
+                               <input type="text" placeholder="Pass" value={editBranchData.pass || ''} onChange={e => setEditBranchData({...editBranchData, pass: e.target.value})} className="w-full border rounded-lg px-2 py-1 text-xs"/>
+                               <div className="flex gap-2">
+                                  <button onClick={saveEditBranch} className="bg-green-500 text-white px-3 py-1 rounded-lg text-[10px]"><Check className="w-3 h-3"/></button>
+                                  <button onClick={() => setEditingBranchId(null)} className="bg-red-500 text-white px-3 py-1 rounded-lg text-[10px]"><X className="w-3 h-3"/></button>
+                               </div>
+                            </div>
+                         ) : (
+                            <button onClick={() => startEditBranch(b)} className="mt-2 text-indigo-500 text-[10px] font-bold flex items-center gap-1 hover:underline"><Edit2 className="w-3 h-3"/> แก้ไขข้อมูล</button>
+                         )}
+                     </div>
+                     <button onClick={() => setGlobalConfig(prev => ({...prev, branches: prev.branches.filter(x => x.id !== b.id)}))} className="text-slate-300 hover:text-red-500 transition p-2"><Trash2 className="w-5 h-5 sm:w-6 sm:h-6"/></button>
+                  </div>
+                ))}
+             </div>
+          </div>
+       </div>
+     </div>
+    );
+  };
+
+  const renderEmptyBranchAdmin = () => {
+    return (
+     <div className="flex-1 h-[60vh] sm:h-[70vh] flex flex-col items-center justify-center gap-4 sm:gap-6 text-slate-300 font-black uppercase tracking-[0.2em] sm:tracking-[0.4em] text-center px-4 w-full">
+       <Store className="w-16 h-16 sm:w-24 sm:h-24 opacity-10" />
+       <p className="text-sm sm:text-base">กรุณาเลือกสาขาที่ต้องการจัดการจากแถบด้านบน</p>
+     </div>
+    );
+  };
+
+  const renderBranchAdmin = () => {
+    return (
+     <div className="flex-1 space-y-6 sm:space-y-10 animate-in fade-in duration-500 pb-24 w-full">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-10">
+           <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm flex flex-col">
+             <h2 className="text-lg sm:text-xl font-black text-slate-800 mb-4 sm:mb-6 flex items-center gap-2 sm:gap-4 uppercase tracking-tighter"><Users className="w-6 h-6 sm:w-7 sm:h-7 text-indigo-500" /> จัดการพนักงาน ({globalConfig.branches?.find(b=>b.id===activeBranchId)?.name})</h2>
+             
+             <div className="flex flex-col gap-4 mb-6 sm:mb-8 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                 <div className="text-[10px] sm:text-xs font-black text-slate-500 uppercase tracking-widest flex justify-between items-center">
+                    <span>สรุปพนักงาน ({branchData.staff?.filter(s => s.dept === activeDept).length || 0} คน)</span>
+                    <button onClick={() => setStaffFilterPos('ALL')} className={`px-3 py-1 rounded-lg transition-all shadow-sm ${staffFilterPos === 'ALL' ? 'bg-slate-800 text-white' : 'bg-slate-200 text-slate-700'}`}>ดูทั้งหมด</button>
+                 </div>
+                 {DUTY_CATEGORIES[activeDept].map(cat => {
+                    const layerPositions = POSITIONS[activeDept].filter(p => getStaffLayer(activeDept, p).id === cat.id);
+                    return (
+                       <div key={cat.id} className="flex flex-col gap-2 p-3 rounded-xl bg-white border border-slate-200 shadow-sm">
+                          <div className={`text-[10px] font-black px-3 py-1.5 rounded uppercase w-fit ${cat.color}`}>{cat.label}</div>
+                          <div className="flex flex-wrap gap-2">
+                             {layerPositions.map(p => {
+                                 const count = (branchData.staff || []).filter(s => s.dept === activeDept && s.pos === p).length;
+                                 const isSelected = staffFilterPos === p;
+                                 return (
+                                    <button key={p} onClick={() => setStaffFilterPos(isSelected ? 'ALL' : p)} className={`text-[10px] font-black border px-3 py-1.5 rounded-lg transition-all shadow-sm ${isSelected ? 'ring-2 ring-offset-2 ring-indigo-500 scale-105' : 'hover:opacity-80'} ${cat.color} ${count === 0 ? 'opacity-40' : ''}`}>
+                                       {p}: {count}
+                                    </button>
+                                 )
+                             })}
+                          </div>
+                       </div>
+                    )
+                 })}
+             </div>
+
+             <div className="space-y-4 mb-6 sm:mb-10 w-full">
+               <div className="flex flex-col xl:flex-row gap-2 sm:gap-4">
+                  <input type="text" placeholder="รหัสพนง." className="w-full xl:w-24 border-2 border-slate-100 rounded-xl sm:rounded-2xl px-3 py-3 sm:py-4 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none transition shadow-sm" value={newStaffEmpId} onChange={(e) => setNewStaffEmpId(e.target.value)} />
+                  <input type="text" placeholder={`ชื่อพนักงานใหม่ (${newStaffDept === 'service' ? 'บริการ' : 'ครัว'})...`} className="w-full xl:w-auto flex-[2] border-2 border-slate-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none transition shadow-sm" value={newStaffName} onChange={(e) => setNewStaffName(e.target.value)} />
+                  <div className="flex gap-2 sm:gap-4 flex-1">
+                    <select value={newStaffDept} onChange={(e) => { setNewStaffDept(e.target.value); setNewStaffPos(POSITIONS[e.target.value][0]); }} className="flex-1 bg-slate-50 border-2 border-slate-100 rounded-xl sm:rounded-2xl px-3 sm:px-4 py-3 text-[10px] sm:text-xs font-black uppercase outline-none focus:border-indigo-500">
+                       <option value="service">งานบริการ</option><option value="kitchen">งานครัว</option>
+                    </select>
+                    <select value={newStaffPos} onChange={(e) => setNewStaffPos(e.target.value)} className="flex-1 bg-slate-50 border-2 border-slate-100 rounded-xl sm:rounded-2xl px-3 sm:px-4 py-3 text-[10px] sm:text-xs font-black uppercase outline-none focus:border-indigo-500">
+                       {POSITIONS[newStaffDept].map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                    <select value={newStaffDayOff} onChange={(e) => setNewStaffDayOff(e.target.value)} className="flex-1 bg-slate-50 border-2 border-slate-100 rounded-xl sm:rounded-2xl px-3 sm:px-4 py-3 text-[10px] sm:text-xs font-black uppercase outline-none focus:border-indigo-500 text-slate-500">
+                       <option value="">- วันหยุด -</option>{DAYS_OF_WEEK.map(d => <option key={d.id} value={d.id}>{d.label}</option>)}
+                    </select>
+                  </div>
+                  <button onClick={() => { if(newStaffName.trim()){ setBranchData(p => ({...p, staff: [...(p.staff || []), {id: 's' + Date.now(), empId: newStaffEmpId.trim(), name: newStaffName.trim(), dept: newStaffDept, pos: newStaffPos, regularDayOff: newStaffDayOff === '' ? null : parseInt(newStaffDayOff)}]})); setNewStaffName(''); setNewStaffEmpId(''); setNewStaffDayOff(''); } }} className="w-full xl:w-auto bg-slate-900 text-white px-6 sm:px-8 py-3 rounded-xl sm:rounded-2xl font-black text-xs hover:bg-indigo-600 transition uppercase flex items-center justify-center"><UserPlus className="w-4 h-4 sm:w-5 sm:h-5 mr-0 sm:mr-0"/><span className="xl:hidden ml-2">เพิ่มพนักงาน</span></button>
+               </div>
+             </div>
+             <div className="grid grid-cols-1 gap-2 sm:gap-3 max-h-[400px] overflow-y-auto pr-2 sm:pr-3 custom-scrollbar">
+               {branchData.staff?.filter(s => s.dept === activeDept && (staffFilterPos === 'ALL' || s.pos === staffFilterPos)).length === 0 ? (
+                 <div className="text-center py-8 sm:py-10 text-slate-400 font-bold text-[10px] sm:text-sm uppercase tracking-widest border-2 border-dashed rounded-[1.5rem] sm:rounded-[2rem]">ไม่มีพนักงานในแผนก/ตำแหน่งนี้</div>
+               ) : branchData.staff?.filter(s => s.dept === activeDept && (staffFilterPos === 'ALL' || s.pos === staffFilterPos)).map(s => {
+                 const layer = getStaffLayer(s.dept, s.pos);
+                 return (
+                 <div key={s.id} className="flex justify-between items-center p-4 sm:p-5 bg-slate-50 rounded-2xl sm:rounded-3xl border border-transparent hover:border-indigo-100 hover:bg-white transition group shadow-sm">
+                    {editingStaffId === s.id ? (
+                       <div className="flex-1 flex gap-2 items-center flex-wrap">
+                          <input type="text" placeholder="รหัส" value={editStaffData.empId || ''} onChange={e => setEditStaffData({...editStaffData, empId: e.target.value})} className="border rounded px-2 py-1 text-xs w-full sm:w-16"/>
+                          <input type="text" value={editStaffData.name} onChange={e => setEditStaffData({...editStaffData, name: e.target.value})} className="border rounded px-2 py-1 text-xs w-full sm:w-auto flex-1 min-w-[100px]"/>
+                          <select value={editStaffData.pos} onChange={e => setEditStaffData({...editStaffData, pos: e.target.value})} className="border rounded px-2 py-1 text-[10px]">
+                              {POSITIONS[s.dept].map(p => <option key={p} value={p}>{p}</option>)}
+                          </select>
+                          <select value={editStaffData.regularDayOff ?? ''} onChange={e => setEditStaffData({...editStaffData, regularDayOff: e.target.value === '' ? null : parseInt(e.target.value)})} className="border rounded px-2 py-1 text-[10px]">
+                              <option value="">- วันหยุด -</option>{DAYS_OF_WEEK.map(d => <option key={d.id} value={d.id}>{d.label}</option>)}
+                          </select>
+                          <button onClick={saveEditStaff} className="bg-green-500 text-white p-1.5 rounded"><Check className="w-3 h-3"/></button>
+                          <button onClick={() => setEditingStaffId(null)} className="bg-red-500 text-white p-1.5 rounded"><X className="w-3 h-3"/></button>
+                       </div>
+                    ) : (
+                       <React.Fragment>
+                         <div className="flex-1 min-w-0 pr-4">
+                            <span className="text-sm sm:text-base font-black text-slate-800 uppercase truncate block">
+                               {s.empId && <span className="text-slate-400 mr-2 text-xs">[{s.empId}]</span>} {s.name}
+                            </span>
+                            <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-1 items-center">
+                               <span className={`text-[7px] sm:text-[8px] font-black px-1.5 sm:px-2 py-0.5 rounded border uppercase ${layer.color}`}>{s.pos}</span>
+                               <span className="text-[7px] sm:text-[8px] font-black px-1.5 sm:px-2 py-0.5 rounded border border-slate-200 bg-white text-slate-400 uppercase truncate">หยุด: {s.regularDayOff !== undefined && s.regularDayOff !== null ? DAYS_OF_WEEK.find(d => d.id === s.regularDayOff)?.label : '-'}</span>
+                               <button onClick={() => startEditStaff(s)} className="text-slate-300 hover:text-indigo-500"><Edit2 className="w-3 h-3"/></button>
+                            </div>
+                         </div>
+                         <button onClick={() => setBranchData(p=>({...p, staff: p.staff.filter(x=>x.id!==s.id)}))} className="text-slate-300 hover:text-red-500 transition p-2"><Trash2 className="w-4 h-4 sm:w-5 sm:h-5"/></button>
+                       </React.Fragment>
+                    )}
+                 </div>
+               )})}
+             </div>
+           </div>
+           
+           <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm flex flex-col">
+             <h2 className="text-lg sm:text-xl font-black text-slate-800 mb-6 sm:mb-8 flex items-center gap-2 sm:gap-4 uppercase tracking-tighter"><List className="w-6 h-6 sm:w-7 sm:h-7 text-indigo-500" /> จัดการหน้าที่งาน (Duties)</h2>
+             {authRole === 'superadmin' ? (
+               <div className="space-y-4 mb-6 sm:mb-10 w-full">
+                 <div className="flex flex-col gap-2 sm:gap-4">
+                    <div className="flex flex-col xl:flex-row gap-2 sm:gap-4">
+                      <input type="text" placeholder="หน้าที่หลัก (เช่น ต้อนรับหน้าร้าน)" className="flex-[2] border-2 border-slate-100 rounded-xl px-4 py-3 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none" value={newDutyJobA} onChange={e => setNewDutyJobA(e.target.value)} />
+                      <input type="text" placeholder="หน้าที่รอง (เช่น เคลียร์โต๊ะ)" className="flex-1 border-2 border-slate-100 rounded-xl px-4 py-3 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none" value={newDutyJobB} onChange={e => setNewDutyJobB(e.target.value)} />
+                    </div>
+                    <div className="flex flex-col xl:flex-row gap-2 sm:gap-4">
+                      <input type="text" placeholder="XP-DNA SOP" className="flex-[2] border-2 border-slate-100 rounded-xl px-4 py-3 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none" value={newDutyXpDna} onChange={e => setNewDutyXpDna(e.target.value)} />
+                      <select value={newDutyCategory} onChange={e => setNewDutyCategory(e.target.value)} className="border-2 border-slate-100 rounded-xl px-4 py-3 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none">
+                         {DUTY_CATEGORIES[activeDept]?.map(cat => <option key={cat.id} value={cat.id}>{cat.label}</option>)}
+                      </select>
+                      <PositionSelector disabled={false} value={newDutyReqPos} options={POSITIONS[activeDept]} onChange={setNewDutyReqPos} className="w-full xl:min-w-[80px]" />
+                      <button onClick={handleAddDuty} className="w-full xl:w-auto bg-slate-900 text-white px-6 py-3 rounded-xl font-black text-xs hover:bg-indigo-600 transition flex items-center justify-center"><Plus className="w-4 h-4 sm:w-5 sm:h-5"/></button>
+                    </div>
+                 </div>
+               </div>
+             ) : (
+               <p className="text-[10px] text-orange-500 font-bold mb-6 text-center bg-orange-50 py-2 rounded-xl border border-orange-100 uppercase tracking-widest">* โหมดอ่านอย่างเดียว (เฉพาะ Admin ส่วนกลางที่แก้ไขโครงสร้างได้)</p>
+             )}
+             <div className="grid grid-cols-1 gap-2 sm:gap-3 max-h-[400px] overflow-y-auto pr-2 sm:pr-3 custom-scrollbar">
+               {CURRENT_DUTY_LIST.length === 0 ? (
+                 <div className="text-center py-8 sm:py-10 text-slate-400 font-bold text-[10px] sm:text-sm uppercase tracking-widest border-2 border-dashed rounded-[1.5rem]">ไม่มีข้อมูลหน้าที่</div>
+               ) : CURRENT_DUTY_LIST.map((duty, idx) => {
+                 const catInfo = DUTY_CATEGORIES[activeDept]?.find(c => c.id === duty.category);
+                 return (
+                  <div key={duty.id} draggable={authRole === 'superadmin' && editingDutyId === null} onDragStart={() => setDraggedDutyIdx(idx)} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); handleDropDuty(idx); }} onDragEnd={() => setDraggedDutyIdx(null)} className={`flex justify-between items-center p-3 sm:p-4 rounded-2xl border ${draggedDutyIdx === idx ? 'opacity-40 border-indigo-400 bg-indigo-50' : 'bg-slate-50 border-slate-100'} shadow-sm transition hover:bg-white hover:border-indigo-100`}>
+                    {authRole === 'superadmin' && editingDutyId === null && (
+                       <div className="cursor-grab active:cursor-grabbing mr-2 sm:mr-3 text-slate-300 hover:text-indigo-500 flex-shrink-0 touch-none"><GripVertical className="w-4 h-4 sm:w-5 sm:h-5" /></div>
+                    )}
+                    {editingDutyId === duty.id ? (
+                       <div className="flex-1 flex flex-col gap-2">
+                          <div className="flex gap-2">
+                             <input type="text" value={editDutyData.jobA} onChange={e => setEditDutyData({...editDutyData, jobA: e.target.value})} className="border rounded px-2 py-1 text-[10px] sm:text-xs flex-1 font-bold outline-none focus:border-indigo-500 min-w-[100px]"/>
+                             <input type="text" value={editDutyData.jobB} onChange={e => setEditDutyData({...editDutyData, jobB: e.target.value})} className="border rounded px-2 py-1 text-[10px] sm:text-xs flex-1 font-bold outline-none focus:border-indigo-500 min-w-[100px]"/>
+                          </div>
+                          <div className="flex gap-2 items-center">
+                             <input type="text" placeholder="XP-DNA SOP" value={editDutyData.xpDna || ''} onChange={e => setEditDutyData({...editDutyData, xpDna: e.target.value})} className="border rounded px-2 py-1 text-[10px] sm:text-xs flex-1 font-bold outline-none focus:border-indigo-500 min-w-[100px]"/>
+                             <select value={editDutyData.category} onChange={e => setEditDutyData({...editDutyData, category: e.target.value})} className="border rounded px-2 py-1 text-[10px] sm:text-xs font-bold outline-none focus:border-indigo-500">
+                                {DUTY_CATEGORIES[activeDept]?.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+                             </select>
+                             <PositionSelector disabled={false} value={editDutyData.reqPos || ['ALL']} options={POSITIONS[activeDept]} onChange={(val) => setEditDutyData({...editDutyData, reqPos: val})} className="w-full sm:min-w-[80px]" />
+                             <button onClick={handleEditDutySave} className="bg-green-500 text-white p-1.5 rounded-lg"><Check className="w-3 h-3"/></button>
+                             <button onClick={() => setEditingDutyId(null)} className="bg-red-500 text-white p-1.5 rounded-lg"><X className="w-3 h-3"/></button>
+                          </div>
+                       </div>
+                    ) : (
+                       <React.Fragment>
+                         <div className="flex-1 min-w-0 pr-4">
+                           <div className="flex items-center gap-2">
+                              <div className="font-black text-xs sm:text-sm text-slate-800 truncate">{duty.jobA}</div>
+                              <span className="text-[8px] font-black text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100 truncate max-w-[80px] sm:max-w-[120px]" title={(duty.reqPos || ['ALL']).join(', ')}>{(duty.reqPos || ['ALL']).join(', ')}</span>
+                           </div>
+                           <div className="text-[9px] sm:text-[10px] text-slate-400 font-bold truncate mt-0.5 flex items-center gap-2">
+                              {catInfo && <div className={`w-2 h-2 rounded-full ${catInfo.color.split(' ')[0]}`} title={catInfo.label}></div>}
+                              {duty.jobB}
+                              {duty.xpDna && <span className="ml-2 px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded border border-indigo-100">XP-DNA</span>}
+                           </div>
+                         </div>
+                         {authRole === 'superadmin' && (
+                           <div className="flex gap-1 sm:gap-2">
+                             <button onClick={() => { setEditingDutyId(duty.id); setEditDutyData(duty); }} className="text-slate-300 hover:text-indigo-500 p-2"><Edit2 className="w-4 h-4"/></button>
+                             <button onClick={() => handleDeleteDuty(duty.id)} className="text-slate-300 hover:text-red-500 p-2"><Trash2 className="w-4 h-4"/></button>
+                           </div>
+                         )}
+                       </React.Fragment>
+                    )}
+                  </div>
+               )})}
+             </div>
+           </div>
+        </div>
+     </div>
+    );
+  }
+
   const renderManagerDailyCards = () => {
     return (
        <div className="w-full animate-in slide-in-from-bottom-6 duration-500">
@@ -1352,73 +1661,165 @@ export default function App() {
                 {unassignedStaffDaily.length === 0 ? (
                    <span className="text-xs sm:text-sm font-bold text-amber-500/70">จัดกะและวันหยุดครบทุกคนแล้ว 🎉</span>
                 ) : (
-                   unassignedStaffDaily.map(s => (
-                      <span key={s.id} className="bg-white text-amber-800 border border-amber-200 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[10px] sm:text-xs font-black shadow-sm flex items-center gap-2">
-                         <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>{s.name} <span className="text-amber-500/70 font-bold">({s.pos})</span>
+                   unassignedStaffDaily.map(s => {
+                      const layer = getStaffLayer(s.dept, s.pos);
+                      return (
+                      <span key={s.id} className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[10px] sm:text-xs font-black shadow-sm flex items-center gap-2 ${layer.color}`}>
+                         <span className="w-1.5 h-1.5 rounded-full bg-white opacity-50"></span>{s.name} ({s.pos})
                       </span>
-                   ))
+                      );
+                   })
                 )}
              </div>
           </div>
   
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 sm:gap-10 print:hidden w-full">
-             {CURRENT_DUTY_LIST.map(duty => {
-                const slots = branchData.matrix?.[activeDay.type]?.duties?.[duty.id] || [];
-                const assigned = schedule[selectedDateStr]?.duties?.[duty.id] || [];
-                const reqArr = Array.isArray(duty.reqPos) ? duty.reqPos : [duty.reqPos || 'ALL'];
-                const isAll = reqArr.includes('ALL') || reqArr.length === 0;
-                const displayPos = isAll ? 'ALL POS' : reqArr.join(', ');
-                if (slots.length === 0) return null;
+          <div className="space-y-10 w-full print:hidden">
+             {DUTY_CATEGORIES[activeDept].map(cat => {
+                const catDuties = CURRENT_DUTY_LIST.filter(d => d.category === cat.id);
+                if (catDuties.length === 0) return null;
+
                 return (
-                <div key={duty.id} className="bg-white rounded-[2rem] sm:rounded-[3.5rem] shadow-sm border border-slate-200 overflow-hidden flex flex-col transition hover:shadow-xl w-full">
-                   <div className="p-6 sm:p-10 bg-slate-50 border-b border-slate-100 flex justify-between items-start sm:items-center flex-col sm:flex-row gap-3 sm:gap-0">
-                      <div>
-                      <h3 className="font-black text-slate-900 text-base sm:text-xl uppercase tracking-tighter leading-tight max-w-[200px] sm:max-w-none break-words">{duty.jobA}</h3>
-                      <div className="flex items-center gap-2 mt-1">
-                         <span className="text-[9px] sm:text-[11px] text-slate-400 font-bold uppercase italic leading-tight">{duty.jobB}</span>
-                         <span className="text-[8px] sm:text-[9px] font-black px-1.5 sm:px-2 py-0.5 rounded border uppercase bg-emerald-50 text-emerald-600 border-emerald-100">{displayPos}</span>
+                   <div key={cat.id} className="bg-white rounded-[2rem] sm:rounded-[3.5rem] shadow-sm border border-slate-200 overflow-hidden flex flex-col w-full">
+                      <div className={`p-4 sm:p-6 text-center sm:text-left ${cat.color}`}>
+                         <h2 className="text-lg sm:text-xl font-black uppercase tracking-widest">{cat.label}</h2>
                       </div>
+                      <div className="p-6 sm:p-10 grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 sm:gap-10 bg-slate-50/50">
+                         {catDuties.map(duty => {
+                            const slots = branchData.matrix?.[activeDay.type]?.duties?.[duty.id] || [];
+                            const assigned = schedule[selectedDateStr]?.duties?.[duty.id] || [];
+                            const reqArr = Array.isArray(duty.reqPos) ? duty.reqPos : [duty.reqPos || 'ALL'];
+                            const displayPos = (reqArr.includes('ALL') || reqArr.length === 0) ? 'ALL POS' : reqArr.join(', ');
+                            
+                            if (slots.length === 0) return null;
+                            return (
+                               <div key={duty.id} className="bg-white rounded-2xl sm:rounded-3xl shadow-sm border border-slate-200 overflow-hidden flex flex-col transition hover:shadow-xl w-full">
+                                  <div className="p-5 sm:p-6 bg-white border-b border-slate-100 flex justify-between items-start flex-col gap-2">
+                                     <h3 className="font-black text-slate-900 text-sm sm:text-base uppercase tracking-tighter leading-tight break-words">{duty.jobA}</h3>
+                                     <div className="flex items-center gap-2 opacity-90 w-full justify-between">
+                                        <span className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase italic leading-tight">{duty.jobB}</span>
+                                        <div className="flex items-center gap-2">
+                                            {duty.xpDna && <span className="text-[8px] sm:text-[9px] font-black px-1.5 py-0.5 rounded border border-indigo-200 text-indigo-600 uppercase bg-indigo-50">XP-DNA</span>}
+                                            <span className="text-[8px] sm:text-[9px] font-black px-1.5 py-0.5 rounded border border-slate-200 text-slate-500 uppercase bg-slate-50">{displayPos}</span>
+                                        </div>
+                                     </div>
+                                  </div>
+                                  <div className="p-4 sm:p-6 space-y-4 bg-slate-50/30">
+                                     {slots.map((slot, idx) => {
+                                        const data = assigned[idx] || { staffId: "", otHours: 0 };
+                                        return (
+                                           <div key={idx} className={`p-4 sm:p-5 rounded-[1.2rem] sm:rounded-[1.5rem] border-2 transition-all flex flex-col gap-3 ${!data.staffId ? 'border-dashed border-slate-200 bg-white' : 'border-indigo-100 bg-white shadow-sm'}`}>
+                                              <div className="flex justify-between items-center">
+                                              <span className="text-[10px] sm:text-[11px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><Clock className="w-3 h-3 sm:w-4 sm:h-4 text-indigo-400" /> {slot.startTime} - {slot.endTime}</span>
+                                              <div className="flex gap-1.5">
+                                                 <span className={`text-[8px] sm:text-[9px] font-black px-2 py-1 rounded-full uppercase ${data.otHours >= slot.maxOtHours ? 'bg-indigo-600 text-white' : 'bg-indigo-50 text-indigo-500'}`}>Q: {slot.maxOtHours}H</span>
+                                              </div>
+                                              </div>
+                                              <div className="flex flex-col sm:flex-row gap-2">
+                                              <select value={data.staffId} onChange={(e) => updateSchedule(selectedDateStr, duty.id, idx, 'staffId', e.target.value, slot.maxOtHours)} className="w-full sm:flex-[3] bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-black outline-none shadow-sm text-slate-900 focus:border-indigo-500">
+                                                 <option value="">-- เลือกพนักงาน --</option>
+                                                 {branchData.staff?.filter(s => s.dept === activeDept).map(s => {
+                                                    const isUsed = usedStaffIds.includes(s.id) && data.staffId !== s.id;
+                                                    const wrongPos = !checkPositionEligibility(s.pos, reqArr, activeDept) && data.staffId !== s.id;
+                                                    return (isUsed || wrongPos) ? null : <option key={s.id} value={s.id}>{s.name} ({s.pos})</option>
+                                                 })}
+                                              </select>
+                                              <div className={`w-full sm:flex-1 flex flex-row sm:flex-col justify-between sm:justify-center items-center border rounded-xl bg-white transition-all px-3 py-1 ${data.otHours >= slot.maxOtHours ? 'border-indigo-500 bg-indigo-50/20' : 'border-slate-200'}`}>
+                                                 <span className="text-[8px] font-black text-slate-300 uppercase sm:mb-0.5">OT</span>
+                                                 <input type="number" step="0.5" value={data.otHours} onChange={(e) => updateSchedule(selectedDateStr, duty.id, idx, 'otHours', parseFloat(e.target.value) || 0)} className="w-12 sm:w-full text-right sm:text-center font-black text-sm outline-none bg-transparent focus:text-indigo-600" />
+                                              </div>
+                                              </div>
+                                           </div>
+                                        );
+                                     })}
+                                  </div>
+                               </div>
+                            );
+                         })}
                       </div>
-                      <div className="bg-white border border-slate-100 px-4 sm:px-5 py-1.5 sm:py-2.5 rounded-lg sm:rounded-[1.2rem] text-[9px] sm:text-[11px] font-black text-indigo-700 shadow-sm self-end sm:self-auto">{assigned.filter(x => !!x?.staffId).length} / {slots.length}</div>
                    </div>
-                   <div className="p-4 sm:p-10 space-y-4 sm:space-y-8 bg-white">
-                      {slots.map((slot, idx) => {
-                      const data = assigned[idx] || { staffId: "", otHours: 0 };
-                      return (
-                         <div key={idx} className={`p-4 sm:p-8 rounded-[1.5rem] sm:rounded-[2.5rem] border-2 transition-all flex flex-col gap-4 sm:gap-6 ${!data.staffId ? 'border-dashed border-slate-200 bg-slate-50/20' : 'border-indigo-50 bg-white shadow-md sm:shadow-lg shadow-slate-100'}`}>
-                            <div className="flex justify-between items-center">
-                            <span className="text-[10px] sm:text-[12px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 sm:gap-2"><Clock className="w-3 h-3 sm:w-4 sm:h-4 text-indigo-400" /> {slot.startTime} - {slot.endTime}</span>
-                            <div className="flex gap-1.5 sm:gap-2">
-                               <span className={`text-[8px] sm:text-[10px] font-black px-2 sm:px-3 py-1 sm:py-1.5 rounded-full uppercase ${data.otHours >= slot.maxOtHours ? 'bg-indigo-600 text-white' : 'bg-indigo-50 text-indigo-500'}`}>Q: {slot.maxOtHours}H</span>
-                            </div>
-                            </div>
-                            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-                            <select value={data.staffId} onChange={(e) => updateSchedule(selectedDateStr, duty.id, idx, 'staffId', e.target.value, slot.maxOtHours)} className="w-full sm:flex-[3] bg-slate-50 border-2 border-slate-100 rounded-xl sm:rounded-[1.5rem] px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-black outline-none shadow-sm text-slate-900 focus:border-indigo-500">
-                               <option value="">-- เลือกพนักงาน --</option>
-                               {branchData.staff?.filter(s => s.dept === activeDept).map(s => {
-                                  const isUsed = usedStaffIds.includes(s.id) && data.staffId !== s.id;
-                                  const wrongPos = !checkPositionEligibility(s.pos, reqArr, activeDept) && data.staffId !== s.id;
-                                  return (isUsed || wrongPos) ? null : <option key={s.id} value={s.id}>{s.name} ({s.pos})</option>
-                               })}
-                            </select>
-                            <div className={`w-full sm:flex-1 flex flex-row sm:flex-col justify-between sm:justify-center items-center border-2 rounded-xl sm:rounded-[1.5rem] bg-white transition-all px-4 sm:px-0 py-2 sm:py-0 ${data.otHours >= slot.maxOtHours ? 'border-indigo-500 bg-indigo-50/20' : 'border-slate-100'}`}>
-                               <span className="text-[9px] sm:text-[8px] font-black text-slate-300 uppercase sm:mb-1">OT</span>
-                               <input type="number" step="0.5" value={data.otHours} onChange={(e) => updateSchedule(selectedDateStr, duty.id, idx, 'otHours', parseFloat(e.target.value) || 0)} className="w-16 sm:w-full text-right sm:text-center font-black text-lg sm:text-xl outline-none bg-transparent focus:text-indigo-600" />
-                            </div>
-                            </div>
-                         </div>
-                      );
-                      })}
-                   </div>
-                </div>
                 );
              })}
           </div>
        </div>
     );
-  };
+  }
 
-  const renderManagerDailyTable = () => {
+  function renderManagerDailyTable() {
+    const categories = DUTY_CATEGORIES[activeDept] || [];
+    let totalAssignedAll = 0;
+
+    const tableBodyRows = categories.map(cat => {
+       const catDuties = CURRENT_DUTY_LIST.filter(d => d.category === cat.id);
+       const catRows = [];
+
+       catDuties.forEach((duty, dIdx) => {
+          const slots = branchData.matrix?.[activeDay.type]?.duties?.[duty.id] || [];
+          const assigned = schedule[selectedDateStr]?.duties?.[duty.id] || [];
+
+          const activeSlots = slots.map((slot, sIdx) => ({
+             slot,
+             assignedData: assigned[sIdx] || { staffId: "", otHours: 0 },
+             originalIdx: sIdx
+          })).filter(item => item.assignedData.staffId !== "");
+
+          if (activeSlots.length > 0) {
+             catRows.push({ duty, dIdx, activeSlots });
+             totalAssignedAll += activeSlots.length;
+          }
+       });
+
+       if (catRows.length === 0) return null;
+       const totalCatSlots = catRows.reduce((sum, r) => sum + r.activeSlots.length, 0);
+
+       return (
+          <React.Fragment key={cat.id}>
+             {catRows.map((row, rowLocalIdx) => {
+                return row.activeSlots.map((item, slotLocalIdx) => {
+                   const { slot, assignedData, originalIdx } = item;
+                   const staff = branchData.staff?.find(s => s.id === assignedData.staffId);
+                   const staffName = staff ? staff.name : '-';
+                   const stHour = parseInt(slot.startTime.split(':')[0]) || 0;
+                   const isMorning = stHour < 11;
+                   const isLateMorning = stHour === 11;
+                   const isAfternoon = stHour >= 12 && stHour < 16;
+                   const isEvening = stHour >= 16 && stHour < 19;
+                   const isNight = stHour >= 19;
+                   const timeText = `${formatTimeAbbreviation(slot.startTime)}-${formatTimeAbbreviation(slot.endTime)}`;
+                   const otBadge = assignedData.otHours > 0 ? ` (O${assignedData.otHours})` : '';
+
+                   return (
+                      <tr key={`${row.duty.id}-${originalIdx}`} className={`text-center h-10 border border-slate-800 ${cat.color}`}>
+                         {rowLocalIdx === 0 && slotLocalIdx === 0 && (
+                            <td rowSpan={totalCatSlots} className={`border border-slate-800 p-2 font-black uppercase text-[10px] w-[12%] leading-tight bg-slate-900/50 text-white`}>{cat.label}</td>
+                         )}
+                         {slotLocalIdx === 0 && (
+                            <React.Fragment>
+                               <td rowSpan={row.activeSlots.length} className="border border-slate-800 p-2 text-left text-[8px] sm:text-[9px] whitespace-pre-wrap leading-tight text-white opacity-90">{row.duty.xpDna || '-'}</td>
+                               <td rowSpan={row.activeSlots.length} className="border border-slate-800 p-2 font-black text-slate-800 text-left leading-tight text-white">{row.duty.jobA}</td>
+                               <td rowSpan={row.activeSlots.length} className="border border-slate-800 p-2 text-left text-slate-600 text-[8px] leading-tight text-white opacity-80">{row.duty.jobB}</td>
+                               <td rowSpan={row.activeSlots.length} className="border border-slate-800 p-2 font-black text-sm text-white"><u className="underline-offset-2">{row.activeSlots.length}</u></td>
+                            </React.Fragment>
+                         )}
+                         <td className="border border-slate-800 p-2 text-left font-bold text-white">
+                             <div className="flex justify-between items-center">
+                                 <span>{staffName}<span className="text-white opacity-80 ml-1 font-black">{otBadge}</span></span>
+                                 {staff && <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-black/20 border border-white/30`}>{staff.pos}</span>}
+                             </div>
+                         </td>
+                         {activeDayShiftVisibilities.hasMorning && <td className={`border border-slate-800 p-2 font-bold text-[9px] text-white ${isMorning ? 'bg-black/20 shadow-inner' : 'opacity-40'}`}>{isMorning ? timeText : ''}</td>}
+                         {activeDayShiftVisibilities.hasLateMorning && <td className={`border border-slate-800 p-2 font-bold text-[9px] text-white ${isLateMorning ? 'bg-black/20 shadow-inner' : 'opacity-40'}`}>{isLateMorning ? timeText : ''}</td>}
+                         {activeDayShiftVisibilities.hasAfternoon && <td className={`border border-slate-800 p-2 font-bold text-[9px] text-white ${isAfternoon ? 'bg-black/20 shadow-inner' : 'opacity-40'}`}>{isAfternoon ? timeText : ''}</td>}
+                         {activeDayShiftVisibilities.hasEvening && <td className={`border border-slate-800 p-2 font-bold text-[9px] text-white ${isEvening ? 'bg-black/20 shadow-inner' : 'opacity-40'}`}>{isEvening ? timeText : ''}</td>}
+                         {activeDayShiftVisibilities.hasNight && <td className={`border border-slate-800 p-2 font-bold text-[9px] text-white ${isNight ? 'bg-black/20 shadow-inner' : 'opacity-40'}`}>{isNight ? timeText : ''}</td>}
+                         <td className="border border-slate-800 p-2 bg-black/10"></td>
+                      </tr>
+                   );
+                });
+             })}
+          </React.Fragment>
+       );
+    });
+
     return (
        <div className="w-full animate-in fade-in duration-500">
           <div className="bg-white rounded-[2rem] sm:rounded-[3rem] border border-slate-200 shadow-sm overflow-hidden w-full print:border-none print:shadow-none">
@@ -1431,86 +1832,31 @@ export default function App() {
              </div>
              <div className="p-4 sm:p-8 overflow-x-auto w-full">
                 <div className="text-center mb-6">
-                   <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tighter">แผนงานประจำวัน{activeDept === 'service' ? 'แผนกบริการ' : 'แผนกครัว'}</h1>
+                   <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tighter">แผนงานประจำวัน{activeDept === 'service' ? 'แผนกบริการ (FOH)' : 'แผนกครัว (BOH)'}</h1>
                    <p className="text-sm sm:text-base font-bold text-slate-600 mt-2">วัน{activeDay.dayLabel} ที่ <span className="underline underline-offset-4">{activeDay.dayNum}</span> เดือน <span className="underline underline-offset-4">{THAI_MONTHS[selectedMonth]}</span> พ.ศ. <span className="underline underline-offset-4">{selectedYear + 543}</span></p>
                 </div>
-                <table className="w-full border-collapse border-2 border-slate-800 text-[10px] sm:text-xs min-w-[1000px] print:text-[10px]">
+                <table className="w-full border-collapse border-2 border-slate-800 text-[10px] sm:text-xs min-w-[1100px] print:text-[10px] bg-white">
                    <thead>
-                      <tr className="bg-slate-100 text-center print:bg-slate-200">
-                         <th className="border border-slate-800 p-2 w-[10%]">ตำแหน่ง / ระดับพนักงาน</th>
-                         <th className="border border-slate-800 p-2 w-[8%]">JOB CARD No.</th>
-                         <th className="border border-slate-800 p-2 w-[15%]">JOB A</th>
-                         <th className="border border-slate-800 p-2 w-[15%]">JOB B</th>
-                         <th className="border border-slate-800 p-2 w-[5%]">จำนวน</th>
-                         <th className="border border-slate-800 p-2 w-[15%]">ชื่อ</th>
-                         {activeDayShiftVisibilities.hasMorning && <th className="border border-slate-800 p-2 bg-sky-100 print:bg-sky-100 w-[6%]">เช้า(เปิด)</th>}
-                         {activeDayShiftVisibilities.hasLateMorning && <th className="border border-slate-800 p-2 bg-sky-100 print:bg-sky-100 w-[6%]">สาย</th>}
-                         {activeDayShiftVisibilities.hasAfternoon && <th className="border border-slate-800 p-2 bg-sky-100 print:bg-sky-100 w-[6%]">บ่าย</th>}
-                         {activeDayShiftVisibilities.hasEvening && <th className="border border-slate-800 p-2 bg-sky-100 print:bg-sky-100 w-[6%]">เย็น</th>}
-                         {activeDayShiftVisibilities.hasNight && <th className="border border-slate-800 p-2 bg-sky-100 print:bg-sky-100 w-[6%]">ดึก(ปิด)</th>}
-                         <th className="border border-slate-800 p-2 w-[5%]">รอบพัก</th>
+                      <tr className="bg-slate-100 text-center font-black print:bg-slate-200">
+                         <th className="border border-slate-800 p-2">กลุ่มงาน (DUTY)</th>
+                         <th className="border border-slate-800 p-2 w-[15%]">XP-DNA SOP</th>
+                         <th className="border border-slate-800 p-2 w-[18%]">รายละเอียดงานหลัก (JOB A)</th>
+                         <th className="border border-slate-800 p-2 w-[15%]">งานรอง (JOB B)</th>
+                         <th className="border border-slate-800 p-2">จำนวน</th>
+                         <th className="border border-slate-800 p-2 w-[15%]">ชื่อพนักงาน</th>
+                         {activeDayShiftVisibilities.hasMorning && <th className="border border-slate-800 p-2 bg-sky-100 w-[5%]">เช้า(เปิด)</th>}
+                         {activeDayShiftVisibilities.hasLateMorning && <th className="border border-slate-800 p-2 bg-sky-100 w-[5%]">สาย</th>}
+                         {activeDayShiftVisibilities.hasAfternoon && <th className="border border-slate-800 p-2 bg-sky-100 w-[5%]">บ่าย</th>}
+                         {activeDayShiftVisibilities.hasEvening && <th className="border border-slate-800 p-2 bg-sky-100 w-[5%]">เย็น</th>}
+                         {activeDayShiftVisibilities.hasNight && <th className="border border-slate-800 p-2 bg-sky-100 w-[5%]">ดึก(ปิด)</th>}
+                         <th className="border border-slate-800 p-2 w-[6%]">รอบพัก</th>
                       </tr>
                    </thead>
                    <tbody>
-                      {CURRENT_DUTY_LIST.map((duty, dIdx) => {
-                         const slots = branchData.matrix?.[activeDay.type]?.duties?.[duty.id] || [];
-                         const assigned = schedule[selectedDateStr]?.duties?.[duty.id] || [];
-                         const reqPosArr = Array.isArray(duty.reqPos) ? duty.reqPos : [duty.reqPos || 'ALL'];
-                         const posText = reqPosArr.includes('ALL') ? 'ALL POS' : reqPosArr.join(' / ');
-  
-                         const activeSlots = slots.map((slot, sIdx) => ({
-                             slot,
-                             assignedData: assigned[sIdx] || { staffId: "", otHours: 0 },
-                             originalIdx: sIdx
-                         })).filter(item => item.assignedData.staffId !== "");
-
-                         if (activeSlots.length === 0) return null;
-  
-                         return activeSlots.map((item, localIdx) => {
-                            const { slot, assignedData, originalIdx } = item;
-                            const staff = branchData.staff?.find(s => s.id === assignedData.staffId);
-                            const staffName = staff ? `${staff.name} ${assignedData.otHours > 0 ? `(OT ${assignedData.otHours})` : ''}` : '-';
-                            const stHour = parseInt(slot.startTime.split(':')[0]) || 0;
-                            const isMorning = stHour < 11;
-                            const isLateMorning = stHour === 11;
-                            const isAfternoon = stHour >= 12 && stHour < 16;
-                            const isEvening = stHour >= 16 && stHour < 19;
-                            const isNight = stHour >= 19;
-                            const timeText = `${slot.startTime} - ${slot.endTime}`;
-  
-                            return (
-                               <tr key={`${duty.id}-${originalIdx}`} className="text-center h-10">
-                                  {localIdx === 0 && (
-                                     <>
-                                        <td rowSpan={activeSlots.length} className="border border-slate-800 p-2 font-bold uppercase">{posText}</td>
-                                        <td rowSpan={activeSlots.length} className="border border-slate-800 p-2 font-bold text-slate-600">CARD #{dIdx + 1}</td>
-                                        <td rowSpan={activeSlots.length} className="border border-slate-800 p-2 text-left font-black">{duty.jobA}</td>
-                                        <td rowSpan={activeSlots.length} className="border border-slate-800 p-2 text-left text-slate-600 text-[9px] sm:text-[10px]">{duty.jobB}</td>
-                                        <td rowSpan={activeSlots.length} className="border border-slate-800 p-2 font-black text-sm sm:text-base"><u className="underline-offset-2">{activeSlots.length}</u></td>
-                                     </>
-                                  )}
-                                  <td className="border border-slate-800 p-2 text-left font-bold">{staffName}</td>
-                                  {activeDayShiftVisibilities.hasMorning && <td className={`border border-slate-800 p-2 font-bold text-[9px] sm:text-[10px] ${isMorning ? 'bg-slate-200 print:bg-slate-300' : 'bg-slate-50 print:bg-white'}`}>{isMorning ? timeText : ''}</td>}
-                                  {activeDayShiftVisibilities.hasLateMorning && <td className={`border border-slate-800 p-2 font-bold text-[9px] sm:text-[10px] ${isLateMorning ? 'bg-slate-200 print:bg-slate-300' : 'bg-slate-50 print:bg-white'}`}>{isLateMorning ? timeText : ''}</td>}
-                                  {activeDayShiftVisibilities.hasAfternoon && <td className={`border border-slate-800 p-2 font-bold text-[9px] sm:text-[10px] ${isAfternoon ? 'bg-slate-200 print:bg-slate-300' : 'bg-slate-50 print:bg-white'}`}>{isAfternoon ? timeText : ''}</td>}
-                                  {activeDayShiftVisibilities.hasEvening && <td className={`border border-slate-800 p-2 font-bold text-[9px] sm:text-[10px] ${isEvening ? 'bg-slate-200 print:bg-slate-300' : 'bg-slate-50 print:bg-white'}`}>{isEvening ? timeText : ''}</td>}
-                                  {activeDayShiftVisibilities.hasNight && <td className={`border border-slate-800 p-2 font-bold text-[9px] sm:text-[10px] ${isNight ? 'bg-slate-200 print:bg-slate-300' : 'bg-slate-50 print:bg-white'}`}>{isNight ? timeText : ''}</td>}
-                                  <td className="border border-slate-800 p-2"></td>
-                               </tr>
-                            );
-                         });
-                      })}
+                      {tableBodyRows}
                       <tr className="text-center bg-slate-50 print:bg-slate-100 font-black h-12">
-                         <td colSpan={4} className="border border-slate-800 p-2 text-right pr-6 uppercase tracking-widest">Total Staff Required</td>
-                         <td className="border border-slate-800 p-2 text-base"><u className="underline-offset-2 text-indigo-600">
-                            {CURRENT_DUTY_LIST.reduce((acc, duty) => {
-                               const slots = branchData.matrix?.[activeDay.type]?.duties?.[duty.id] || [];
-                               const assigned = schedule[selectedDateStr]?.duties?.[duty.id] || [];
-                               let count = 0;
-                               slots.forEach((s, i) => { if(assigned[i] && assigned[i].staffId) count++; });
-                               return acc + count;
-                            }, 0)}
-                         </u></td>
+                         <td colSpan={4} className="border border-slate-800 p-2 text-right pr-6 uppercase tracking-widest text-slate-800">Total Staff (เฉพาะที่มีรายชื่อ)</td>
+                         <td className="border border-slate-800 p-2 text-base text-indigo-600"><u className="underline-offset-2">{totalAssignedAll}</u></td>
                          <td colSpan={activeDayShiftVisibilities.bottomColSpan + 1} className="border border-slate-800 p-2"></td>
                       </tr>
                    </tbody>
@@ -1519,9 +1865,9 @@ export default function App() {
           </div>
        </div>
     );
-  };
+  }
 
-  const renderManagerMonthly = () => {
+  function renderManagerMonthly() {
     return (
        <div className="w-full animate-in fade-in duration-500">
           <div className="bg-white rounded-[2rem] sm:rounded-[3rem] border border-slate-200 shadow-sm overflow-hidden w-full">
@@ -1546,102 +1892,70 @@ export default function App() {
                 <table className="w-full border-collapse text-left min-w-[1200px]">
                    <thead className="bg-white sticky top-0 z-20 shadow-sm">
                    <tr>
-                      <th className="p-4 sm:p-6 border-b border-r border-slate-100 min-w-[100px] sticky left-0 bg-white z-30 font-black text-xs sm:text-sm text-slate-400 uppercase tracking-widest">Date</th>
-                      {CURRENT_DUTY_LIST.map(duty => {
-                         const reqArr = Array.isArray(duty.reqPos) ? duty.reqPos : [duty.reqPos || 'ALL'];
-                         const isAll = reqArr.includes('ALL') || reqArr.length === 0;
-                         const displayPos = isAll ? 'ALL POS' : reqArr.join(', ');
-                         return (
-                         <th key={duty.id} className="p-4 sm:p-6 border-b border-r border-slate-100 min-w-[250px] last:border-r-0">
-                            <div className="font-black text-slate-900 text-xs sm:text-sm uppercase leading-tight">{duty.jobA}</div>
-                            <div className="flex items-center gap-2 mt-1">
-                               <div className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase italic truncate max-w-[150px]">{duty.jobB}</div>
-                               <div className="text-[7px] font-black bg-emerald-50 text-emerald-600 border border-emerald-100 px-1.5 py-0.5 rounded truncate max-w-[80px]" title={displayPos}>{displayPos}</div>
-                            </div>
+                      <th className="p-4 sm:p-6 border-b border-r border-slate-200 min-w-[150px] sticky left-0 bg-white z-30 font-black text-[10px] text-slate-500 uppercase tracking-widest">กลุ่มงาน (DUTY)</th>
+                      <th className="p-4 sm:p-6 border-b border-r border-slate-200 min-w-[250px] sticky left-[150px] bg-white z-30 font-black text-[10px] text-slate-500 uppercase tracking-widest">รายละเอียดงาน</th>
+                      {CALENDAR_DAYS.map(day => (
+                         <th key={day.dateStr} className="p-3 border-b border-r border-slate-100 text-center min-w-[120px]">
+                             <div className="text-lg font-black text-slate-800">{day.dayNum}</div>
+                             <div className="text-[9px] font-bold text-slate-400 uppercase">{day.dayLabel}</div>
                          </th>
-                         )
-                      })}
+                      ))}
                    </tr>
                    </thead>
                    <tbody className="divide-y divide-slate-100">
-                   {CALENDAR_DAYS.map(day => {
-                      const dayData = schedule[day.dateStr] || {};
-                      const dayConfig = CALENDAR_DAYS.find(c => c.dateStr === day.dateStr);
-                      const type = dayConfig ? dayConfig.type : 'weekday';
-  
-                      const dayUsedStaffIds = new Set();
-                      if (dayData.leaves) dayData.leaves.forEach(l => l.staffId && dayUsedStaffIds.add(l.staffId));
-                      if (dayData.duties) Object.values(dayData.duties).forEach(slots => { slots.forEach(s => s.staffId && dayUsedStaffIds.add(s.staffId)); });
-                      
-                      const unassignedStaffMonthly = branchData.staff?.filter(s => s.dept === activeDept && !dayUsedStaffIds.has(s.id)) || [];
-  
-                      return (
-                         <tr key={day.dateStr} className="hover:bg-slate-50 transition-colors">
-                            <td className="p-4 border-r border-slate-100 sticky left-0 bg-white hover:bg-slate-50 z-10 align-top min-w-[120px]">
-                               <div className="flex flex-col items-center">
-                               <span className="text-xl sm:text-2xl font-black text-slate-900">{day.dayNum}</span>
-                               <span className={`text-[9px] sm:text-[10px] font-black uppercase tracking-widest mt-1 px-2 py-0.5 rounded ${day.type === 'weekend' ? 'bg-orange-100 text-orange-600' : 'text-slate-400 bg-slate-100'}`}>{day.dayLabel}</span>
-                               </div>
-                               <div className="mt-3 space-y-1">
-                               {dayData.leaves?.map((l, i) => {
-                                  const staff = branchData.staff.find(s => s.id === l.staffId);
-                                  if (!staff || staff.dept !== activeDept) return null; 
-                                  const lType = LEAVE_TYPES.find(t => t.id === l.type);
-                                  return <div key={i} className={`text-[8px] font-bold px-1.5 py-1 rounded border ${lType?.color || 'bg-gray-100'} truncate w-full text-center shadow-sm`}>{staff.name.split(' ')[0]}</div>
-                               })}
-                               </div>
-                               {unassignedStaffMonthly.length > 0 && (
-                                  <div className="mt-3 border-t border-slate-100 pt-2 print:hidden">
-                                     <div className="text-[8px] font-black text-amber-500 mb-1 text-center bg-amber-50 rounded py-0.5 border border-amber-100">ว่าง ({unassignedStaffMonthly.length})</div>
-                                     <div className="space-y-1 flex flex-col items-center">
-                                        {unassignedStaffMonthly.map(s => (
-                                           <div key={s.id} className="text-[8px] font-bold px-1.5 py-1 rounded border bg-white text-amber-700 border-amber-200 truncate w-full text-center shadow-sm">{s.name.split(' ')[0]}</div>
-                                        ))}
-                                     </div>
-                                  </div>
-                               )}
-                            </td>
-                            {CURRENT_DUTY_LIST.map(duty => {
-                            const slots = branchData.matrix?.[type]?.duties?.[duty.id] || [];
-                            const assigned = dayData.duties?.[duty.id] || [];
-                            const reqArr = Array.isArray(duty.reqPos) ? duty.reqPos : [duty.reqPos || 'ALL'];
-  
-                            return (
-                               <td key={duty.id} className="p-3 align-top border-r border-slate-100 last:border-r-0">
-                                  <div className="space-y-3">
-                                  {slots.map((slot, idx) => {
-                                     const data = assigned[idx] || { staffId: "", otHours: 0 };
-                                     return (
-                                        <div key={idx} className={`p-2 rounded-xl border ${!data.staffId ? 'border-dashed border-slate-200 bg-slate-50/50' : 'border-indigo-100 bg-white shadow-sm'}`}>
-                                        <div className="flex justify-between items-center mb-1.5">
-                                           <span className="text-[9px] font-bold text-slate-400">{slot.startTime}-{slot.endTime}</span>
-                                           <div className="flex gap-1">
-                                              {data.otHours > 0 && <span className="text-[8px] font-black text-indigo-600 bg-indigo-50 px-1.5 rounded">OT:{data.otHours}</span>}
-                                           </div>
-                                        </div>
-                                        <select value={data.staffId} onChange={(e) => updateSchedule(day.dateStr, duty.id, idx, 'staffId', e.target.value, slot.maxOtHours)} className="w-full text-[10px] font-bold bg-transparent outline-none text-slate-800 truncate mb-1">
-                                           <option value="">-- ว่าง --</option>
-                                           {branchData.staff?.filter(s => s.dept === activeDept).map(s => {
-                                             const isUsedInThisDay = dayUsedStaffIds.has(s.id) && data.staffId !== s.id;
-                                             const wrongPos = !checkPositionEligibility(s.pos, reqArr, activeDept) && data.staffId !== s.id;
-                                             return (isUsedInThisDay || wrongPos) ? null : <option key={s.id} value={s.id}>{s.name}</option>
-                                           })}
-                                        </select>
-                                        {data.staffId && (
-                                           <div className="flex items-center gap-1 mt-1 border-t border-slate-100 pt-1">
-                                              <span className="text-[8px] text-slate-300 font-black">OT</span>
-                                              <input type="number" step="0.5" className="w-full text-[10px] font-black text-right outline-none bg-transparent text-indigo-600" value={data.otHours} onChange={(e) => updateSchedule(day.dateStr, duty.id, idx, 'otHours', parseFloat(e.target.value) || 0)} />
-                                           </div>
-                                        )}
-                                        </div>
-                                     );
-                                  })}
-                                  </div>
-                               </td>
-                            )
-                            })}
-                         </tr>
-                      )
+                   {DUTY_CATEGORIES[activeDept].map(cat => {
+                       const catDuties = CURRENT_DUTY_LIST.filter(d => d.category === cat.id);
+                       if (catDuties.length === 0) return null;
+                       return catDuties.map((duty, dIdx) => {
+                           return (
+                               <tr key={duty.id} className="hover:bg-slate-50 transition-colors">
+                                   {dIdx === 0 && (
+                                       <td rowSpan={catDuties.length} className={`p-4 border-r border-slate-200 sticky left-0 z-10 align-top ${cat.color}`}>
+                                           <div className="font-black text-[10px] sm:text-xs uppercase leading-tight">{cat.label}</div>
+                                       </td>
+                                   )}
+                                   <td className="p-4 border-r border-slate-200 sticky left-[150px] bg-white z-10 align-top">
+                                       <div className="font-black text-sm text-slate-800 leading-tight mb-1">{duty.jobA}</div>
+                                       <div className="font-bold text-[9px] text-slate-500 leading-tight">{duty.jobB}</div>
+                                       <div className="mt-2 text-[8px] font-black px-1.5 py-0.5 rounded border uppercase bg-slate-50 text-slate-500 inline-block">{(duty.reqPos || ['ALL']).join(', ')}</div>
+                                   </td>
+                                   {CALENDAR_DAYS.map(day => {
+                                       const slots = branchData.matrix?.[day.type]?.duties?.[duty.id] || [];
+                                       const assigned = schedule[day.dateStr]?.duties?.[duty.id] || [];
+                                       const dayUsedStaffIds = new Set();
+                                       (schedule[day.dateStr]?.leaves || []).forEach(l => l.staffId && dayUsedStaffIds.add(l.staffId));
+                                       Object.values(schedule[day.dateStr]?.duties || {}).forEach(sls => sls.forEach(s => s.staffId && dayUsedStaffIds.add(s.staffId)));
+                
+                                       return (
+                                           <td key={day.dateStr} className="p-2 border-r border-slate-100 align-top bg-white">
+                                               <div className="space-y-2">
+                                                  {slots.map((slot, idx) => {
+                                                      const data = assigned[idx] || { staffId: "", otHours: 0 };
+                                                      return (
+                                                          <div key={idx} className={`p-2 rounded-lg border ${!data.staffId ? 'border-dashed border-slate-200 bg-slate-50/50' : 'border-indigo-200 bg-indigo-50/30'}`}>
+                                                             <div className="flex justify-between items-center mb-1">
+                                                                <span className="text-[8px] font-bold text-slate-400">{slot.startTime}-{slot.endTime}</span>
+                                                                {data.otHours > 0 && <span className="text-[8px] font-black text-indigo-600 bg-indigo-50 px-1 rounded">OT:{data.otHours}</span>}
+                                                             </div>
+                                                             <select value={data.staffId} onChange={(e) => updateSchedule(day.dateStr, duty.id, idx, 'staffId', e.target.value, slot.maxOtHours)} className="w-full text-[10px] font-bold bg-transparent outline-none text-slate-800 truncate">
+                                                                <option value="">-- ว่าง --</option>
+                                                                {branchData.staff?.filter(s => s.dept === activeDept).map(s => {
+                                                                   const isUsed = dayUsedStaffIds.has(s.id) && data.staffId !== s.id;
+                                                                   const reqArr = Array.isArray(duty.reqPos) ? duty.reqPos : [duty.reqPos || 'ALL'];
+                                                                   const wrongPos = !checkPositionEligibility(s.pos, reqArr, activeDept) && data.staffId !== s.id;
+                                                                   return (isUsed || wrongPos) ? null : <option key={s.id} value={s.id}>{s.name}</option>
+                                                                })}
+                                                             </select>
+                                                          </div>
+                                                      )
+                                                  })}
+                                               </div>
+                                           </td>
+                                       )
+                                   })}
+                               </tr>
+                           )
+                       })
                    })}
                    </tbody>
                 </table>
@@ -1649,9 +1963,9 @@ export default function App() {
           </div>
        </div>
     );
-  };
+  }
 
-  const renderReportView = () => {
+  function renderReportView() {
     return (
        <div className="flex-1 space-y-6 sm:space-y-12 animate-in fade-in duration-500 pb-24 w-full">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0">
@@ -1732,11 +2046,12 @@ export default function App() {
                 <tbody className="divide-y divide-slate-100 font-bold text-slate-700">
                    {reportData.map((s, idx) => {
                       const delta = s.actualOT - s.plannedOT;
+                      const layer = getStaffLayer(s.dept, s.pos);
                       return (
                       <tr key={idx} className="hover:bg-slate-50 transition duration-300">
                          <td className="px-6 sm:px-12 py-4 sm:py-8 sticky left-0 bg-white group-hover:bg-slate-50 transition-colors z-10 border-r border-slate-50">
                             <p className="font-black text-slate-900 uppercase text-sm sm:text-base truncate max-w-[120px] sm:max-w-[200px]">{s.name}</p>
-                            <span className="text-[8px] sm:text-[10px] text-slate-400 font-bold uppercase">{s.dept} - {s.pos}</span>
+                            <span className={`mt-1 inline-block text-[8px] sm:text-[10px] font-bold uppercase px-2 py-0.5 rounded ${layer.color}`}>{s.dept} - {s.pos}</span>
                          </td>
                          <td className="px-4 sm:px-12 py-4 sm:py-8 text-center text-sm sm:text-xl">{s.shifts}</td>
                          <td className="px-4 sm:px-12 py-4 sm:py-8 text-center text-sm sm:text-xl">{s.workHours.toFixed(1)}</td>
@@ -1754,10 +2069,117 @@ export default function App() {
           </div>
        </div>
     );
-  };
+  }
+
+  function renderTemplatesCard() {
+    return (
+       <div className="bg-emerald-50 rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-emerald-100 shadow-sm w-full flex flex-col h-full print:hidden">
+          <h2 className="text-lg sm:text-xl font-black text-emerald-800 mb-6 sm:mb-8 flex items-center gap-2 sm:gap-4 uppercase tracking-tighter"><SaveAll className="w-6 h-6 sm:w-7 sm:h-7 text-emerald-600" /> จัดการแม่แบบ (Templates)</h2>
+          <p className="text-xs font-bold text-emerald-600 mb-4">บันทึกโครงสร้างกะงาน (เวลาเข้า-ออก/OT) และหน้าที่งานทั้งหมดของแผนก <span className="uppercase font-black text-emerald-800">{activeDept}</span> ไว้ใช้ในภายหลัง</p>
+          {authRole === 'superadmin' ? (
+              <div className="flex flex-col sm:flex-row gap-3 mb-6 bg-white p-4 rounded-2xl border border-emerald-200">
+                 <input type="text" placeholder="ตั้งชื่อแม่แบบใหม่ (เช่น สัปดาห์สิ้นเดือน)" value={templateName} onChange={(e) => setTemplateName(e.target.value)} className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold outline-none focus:border-emerald-500" />
+                 <button onClick={handleSaveTemplate} className="bg-emerald-600 text-white px-6 py-3 rounded-xl font-black text-xs hover:bg-emerald-700 shadow-md transition-all whitespace-nowrap">บันทึกแม่แบบนี้</button>
+              </div>
+          ) : (
+              <p className="text-[10px] text-emerald-500 font-bold mb-4 bg-emerald-100/50 py-2 px-4 rounded-xl border border-emerald-200 uppercase tracking-widest">* โหมดอ่านอย่างเดียว (เฉพาะ Admin ส่วนกลางที่บันทึกแม่แบบได้)</p>
+          )}
+          <div className="flex-1 bg-white rounded-2xl border border-emerald-200 p-4 flex flex-col min-h-[150px]">
+              <h3 className="text-xs font-black text-slate-700 uppercase tracking-widest mb-3 flex items-center gap-2"><FolderOpen className="w-4 h-4 text-emerald-500" /> แม่แบบที่บันทึกไว้</h3>
+              {(!globalTemplates || globalTemplates.length === 0) ? (
+                  <div className="flex-1 flex items-center justify-center text-xs font-bold text-slate-400 border-2 border-dashed border-slate-100 rounded-xl">ยังไม่มีแม่แบบที่บันทึกไว้</div>
+              ) : (
+                  <div className="space-y-2 overflow-y-auto max-h-[200px] custom-scrollbar pr-2">
+                      {globalTemplates.map(tpl => (
+                          <div key={tpl.id} className="flex justify-between items-center bg-slate-50 border border-slate-100 p-3 rounded-xl hover:border-emerald-300 transition-colors">
+                              <span className="font-black text-xs text-slate-700 truncate mr-4">{tpl.name}</span>
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                  {authRole === 'superadmin' && (
+                                      <button onClick={() => handleDeleteTemplate(tpl.id)} className="p-2 text-slate-400 hover:text-red-500 transition-colors bg-white rounded-lg border shadow-sm"><Trash2 className="w-3 h-3" /></button>
+                                  )}
+                                  <button onClick={() => handleLoadTemplate(tpl.id)} disabled={authRole !== 'superadmin'} className="bg-emerald-100 text-emerald-700 hover:bg-emerald-500 hover:text-white px-3 py-1.5 rounded-lg text-[10px] font-black transition-colors shadow-sm disabled:opacity-50 uppercase border border-emerald-200">Load</button>
+                              </div>
+                          </div>
+                      ))}
+                  </div>
+              )}
+          </div>
+       </div>
+     );
+  }
+
+  function renderMatrixSettings() {
+    return (
+       <div className="space-y-6 sm:space-y-8 w-full mt-6 sm:mt-10 print:hidden">
+         <h2 className="text-xl sm:text-2xl font-black text-slate-800 px-2 uppercase tracking-tighter flex items-center gap-3 sm:gap-4"><Clock className="w-6 h-6 sm:w-8 sm:h-8 text-indigo-600" /> โครงสร้างกะงานฝั่ง: {activeDept === 'service' ? 'บริการ' : 'ครัว'}</h2>
+         {Object.entries(branchData.matrix || {}).map(([key, data]) => (
+           <div key={key} className="bg-white rounded-[2rem] sm:rounded-[3rem] border border-slate-200 overflow-hidden shadow-sm mb-6 sm:mb-10 w-full">
+             <div className={`px-6 sm:px-10 py-4 sm:py-6 font-black text-base sm:text-lg text-white ${key==='weekday' ? 'bg-slate-900' : key==='friday' ? 'bg-sky-700' : 'bg-orange-600'}`}>{key.toUpperCase()} CYCLE {authRole === 'branch' ? '(VIEW ONLY)' : ''}</div>
+             <div className="overflow-x-auto custom-scrollbar">
+               <table className="w-full text-xs text-left min-w-[800px]">
+                 <tbody className="divide-y divide-slate-100">
+                   {CURRENT_DUTY_LIST.map(duty => {
+                     const catInfo = DUTY_CATEGORIES[activeDept]?.find(c => c.id === duty.category);
+                     return (
+                     <tr key={duty.id}>
+                       <td className="px-6 sm:px-10 py-6 sm:py-8 w-[30%]">
+                          <div className="font-black text-slate-900 text-sm sm:text-lg mb-1 leading-tight flex items-center gap-2">
+                             {catInfo && <div className={`w-3 h-3 rounded-full ${catInfo.color.split(' ')[0]}`} title={catInfo.label}></div>}
+                             {duty.jobA}
+                          </div>
+                          <div className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase italic leading-tight mt-1 sm:ml-5">{duty.jobB}</div>
+                       </td>
+                       <td className="px-6 sm:px-10 py-6 sm:py-8">
+                         <div className="flex flex-wrap gap-4 sm:gap-6">
+                           {(data.duties?.[duty.id] || []).map((slot, idx) => (
+                             <div key={idx} className="flex flex-wrap sm:flex-nowrap items-center gap-3 sm:gap-5 bg-white p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2.2rem] border-2 border-slate-50 shadow-sm transition hover:border-indigo-100 relative">
+                               <div className="flex flex-col gap-1 w-[45%] sm:w-auto"><span className="text-[8px] sm:text-[9px] font-black text-slate-400 uppercase">เริ่ม</span><input type="text" disabled={authRole === 'branch'} className="border rounded-xl p-1.5 sm:p-2 text-[10px] sm:text-xs font-black text-center w-full sm:w-24 disabled:bg-slate-50 disabled:text-slate-300 outline-none focus:border-indigo-500" value={slot.startTime} onChange={(e) => { const nd = JSON.parse(JSON.stringify(branchData)); nd.matrix[key].duties[duty.id][idx].startTime = e.target.value; setBranchData(nd); }} /></div>
+                               <div className="flex flex-col gap-1 w-[45%] sm:w-auto"><span className="text-[8px] sm:text-[9px] font-black text-slate-400 uppercase">เลิก</span><input type="text" disabled={authRole === 'branch'} className="border rounded-xl p-1.5 sm:p-2 text-[10px] sm:text-xs font-black text-center w-full sm:w-24 disabled:bg-slate-50 disabled:text-slate-300 outline-none focus:border-indigo-500" value={slot.endTime || ""} onChange={(e) => { const nd = JSON.parse(JSON.stringify(branchData)); nd.matrix[key].duties[duty.id][idx].endTime = e.target.value; setBranchData(nd); }} /></div>
+                               <div className="flex flex-col gap-1 sm:border-l pl-0 sm:pl-4 w-[80%] sm:w-auto mt-2 sm:mt-0"><span className="text-[8px] sm:text-[9px] font-black text-indigo-500 uppercase">MAX OT</span><input type="number" disabled={authRole === 'branch'} step="0.5" className="w-full sm:w-20 border rounded-xl p-1.5 sm:p-2 text-center font-black bg-indigo-50/50 disabled:opacity-50 outline-none focus:border-indigo-500 text-[10px] sm:text-xs" value={slot.maxOtHours} onChange={(e) => { const nd = JSON.parse(JSON.stringify(branchData)); nd.matrix[key].duties[duty.id][idx].maxOtHours = parseFloat(e.target.value) || 0; setBranchData(nd); }} /></div>
+                               {authRole === 'superadmin' && <button onClick={() => { const nd = JSON.parse(JSON.stringify(branchData)); nd.matrix[key].duties[duty.id].splice(idx,1); setBranchData(nd); }} className="absolute -top-2 -right-2 bg-red-100 text-red-500 hover:bg-red-500 hover:text-white rounded-full p-1.5 transition"><X className="w-3 h-3"/></button>}
+                             </div>
+                           ))}
+                           {authRole === 'superadmin' && <button onClick={() => { const nd = JSON.parse(JSON.stringify(branchData)); if(!nd.matrix[key].duties[duty.id]) nd.matrix[key].duties[duty.id] = []; nd.matrix[key].duties[duty.id].push({startTime:"10:00", endTime:"19:00", maxOtHours:4.0}); setBranchData(nd); }} className="bg-slate-50 border-2 border-dashed border-slate-200 px-4 sm:px-6 py-3 sm:py-4 rounded-[1.5rem] sm:rounded-[2.2rem] text-[9px] sm:text-[11px] font-black text-slate-400 hover:border-indigo-500 transition self-stretch sm:self-center">+ SLOT</button>}
+                         </div>
+                       </td>
+                     </tr>
+                   )})}
+                 </tbody>
+               </table>
+             </div>
+           </div>
+         ))}
+       </div>
+    );
+  }
+
+  let mainContent = null;
+  if (authRole === 'staff') {
+    mainContent = renderStaffPortal();
+  } else if (view === 'branches' && authRole === 'superadmin') {
+    mainContent = renderGlobalAdmin();
+  } else if (view === 'admin') {
+    mainContent = activeBranchId ? renderBranchAdmin() : renderEmptyBranchAdmin();
+  } else if (view === 'manager') {
+    mainContent = (
+       <div className="flex flex-col w-full gap-0">
+          {managerViewMode === 'daily' && renderManagerDailyCards()}
+          {managerViewMode === 'daily_table' && renderManagerDailyTable()}
+          {managerViewMode === 'monthly' && renderManagerMonthly()}
+          <div className="grid grid-cols-1 gap-6 sm:gap-10 w-full mt-6 sm:mt-10">
+             {renderTemplatesCard()}
+             {renderMatrixSettings()}
+          </div>
+       </div>
+    );
+  } else if (view === 'report') {
+    mainContent = renderReportView();
+  } else if (view === 'print') {
+    mainContent = <PrintMonthlyView CALENDAR_DAYS={CALENDAR_DAYS} branchData={branchData} globalConfig={globalConfig} activeBranchId={activeBranchId} THAI_MONTHS={THAI_MONTHS} selectedMonth={selectedMonth} getStaffDayInfo={getStaffDayInfo} setView={setView} activeDept={activeDept} CURRENT_DUTY_LIST={CURRENT_DUTY_LIST} />;
+  }
 
   return (
-    <>
+    <React.Fragment>
       <style dangerouslySetInnerHTML={{ __html: `
         #root { max-width: none !important; margin: 0 !important; padding: 0 !important; text-align: left !important; width: 100% !important; display: flex !important; flex-direction: column !important; min-height: 100vh !important; }
         html, body { scrollbar-gutter: stable; width: 100%; margin: 0; padding: 0; }
@@ -1780,7 +2202,7 @@ export default function App() {
           th, td { border: 1px solid #000 !important; padding: 2px !important; }
         }
       `}} />
-      
+
       {renderModals()}
       {authRole === 'guest' ? renderGuestLogin() : (
         <div className="flex-1 flex flex-col min-h-screen w-full bg-slate-50 text-slate-900 font-sans antialiased overflow-x-hidden">
@@ -1851,319 +2273,41 @@ export default function App() {
                 )}
              </div>
           </nav>
+
           {authRole !== 'staff' && (
               <button onClick={handleGlobalSave} disabled={saveStatus === 'saving'} className="lg:hidden fixed bottom-6 right-6 z-50 bg-indigo-600 text-white p-4 rounded-full shadow-2xl active:scale-90 transition-transform">
                  {saveStatus === 'saving' ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6" />}
               </button>
           )}
+
           <main className="flex-1 flex flex-col p-4 sm:p-8 max-w-[1600px] mx-auto w-full print:p-0 print:m-0 relative">
-            {authRole === 'staff' ? renderStaffPortal() : (
-              <>
-                {(view === 'manager' || view === 'admin') && (
-                   <div className="flex-none flex flex-wrap items-center justify-between gap-4 mb-6 sm:mb-10 print:hidden w-full">
-                      <div className="flex flex-wrap gap-2 sm:gap-4 bg-white p-2 sm:p-3 rounded-[1.5rem] sm:rounded-[2.5rem] border border-slate-200 w-full md:w-fit shadow-sm">
-                         <button onClick={() => { setActiveDept('service'); setStaffFilterPos('ALL'); }} className={`flex-1 md:flex-none flex justify-center items-center gap-2 sm:gap-3 px-4 sm:px-10 py-3 sm:py-4 rounded-[1rem] sm:rounded-[2rem] font-black text-[10px] sm:text-xs transition-all ${activeDept === 'service' ? 'bg-indigo-600 text-white shadow-xl scale-[1.02]' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}><ConciergeBell className="w-4 h-4 sm:w-5 sm:h-5"/> ฝั่งงานบริการ</button>
-                         <button onClick={() => { setActiveDept('kitchen'); setStaffFilterPos('ALL'); }} className={`flex-1 md:flex-none flex justify-center items-center gap-2 sm:gap-3 px-4 sm:px-10 py-3 sm:py-4 rounded-[1rem] sm:rounded-[2rem] font-black text-[10px] sm:text-xs transition-all ${activeDept === 'kitchen' ? 'bg-orange-600 text-white shadow-xl scale-[1.02]' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}><UtensilsCrossed className="w-4 h-4 sm:w-5 sm:h-5"/> ฝั่งงานครัว</button>
-                      </div>
-                      {view === 'manager' && (
-                        <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
-                           <button onClick={() => setManagerViewMode('daily')} className={`px-3 py-2 rounded-xl text-[10px] sm:text-xs font-black transition-all ${managerViewMode === 'daily' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}><CalendarDaysIcon className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1 sm:mr-2"/><span className="hidden sm:inline">จัดกะแบบรายวัน</span><span className="sm:hidden">รายวัน</span></button>
-                           <button onClick={() => setManagerViewMode('monthly')} className={`px-3 py-2 rounded-xl text-[10px] sm:text-xs font-black transition-all ${managerViewMode === 'monthly' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}><CalendarIcon className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1 sm:mr-2"/><span className="hidden sm:inline">จัดกะแบบรายเดือน</span><span className="sm:hidden">รายเดือน</span></button>
-                           <button onClick={() => setManagerViewMode('daily_table')} className={`px-3 py-2 rounded-xl text-[10px] sm:text-xs font-black transition-all ${managerViewMode === 'daily_table' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}><TableProperties className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1 sm:mr-2"/><span className="hidden sm:inline">Duty Roster Chart</span><span className="sm:hidden">Roster</span></button>
-                        </div>
-                      )}
-                   </div>
-                )}
+             
+             {/* --- Manager / Admin View Toggles --- */}
+             {authRole !== 'staff' && (view === 'manager' || view === 'admin') && (
+               <div className="flex-none flex flex-wrap items-center justify-between gap-4 mb-6 sm:mb-10 print:hidden w-full">
+                  <div className="flex flex-wrap gap-2 sm:gap-4 bg-white p-2 sm:p-3 rounded-[1.5rem] sm:rounded-[2.5rem] border border-slate-200 w-full md:w-fit shadow-sm">
+                     <button onClick={() => { setActiveDept('service'); setStaffFilterPos('ALL'); }} className={`flex-1 md:flex-none flex justify-center items-center gap-2 sm:gap-3 px-4 sm:px-10 py-3 sm:py-4 rounded-[1rem] sm:rounded-[2rem] font-black text-[10px] sm:text-xs transition-all ${activeDept === 'service' ? 'bg-indigo-600 text-white shadow-xl scale-[1.02]' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}><ConciergeBell className="w-4 h-4 sm:w-5 sm:h-5"/> ฝั่งงานบริการ</button>
+                     <button onClick={() => { setActiveDept('kitchen'); setStaffFilterPos('ALL'); }} className={`flex-1 md:flex-none flex justify-center items-center gap-2 sm:gap-3 px-4 sm:px-10 py-3 sm:py-4 rounded-[1rem] sm:rounded-[2rem] font-black text-[10px] sm:text-xs transition-all ${activeDept === 'kitchen' ? 'bg-orange-600 text-white shadow-xl scale-[1.02]' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}><UtensilsCrossed className="w-4 h-4 sm:w-5 sm:h-5"/> ฝั่งงานครัว</button>
+                  </div>
+                  {view === 'manager' && (
+                    <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
+                       <button onClick={() => setManagerViewMode('daily')} className={`px-3 py-2 rounded-xl text-[10px] sm:text-xs font-black transition-all ${managerViewMode === 'daily' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}><CalendarDaysIcon className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1 sm:mr-2"/><span className="hidden sm:inline">จัดกะแบบรายวัน</span><span className="sm:hidden">รายวัน</span></button>
+                       <button onClick={() => setManagerViewMode('monthly')} className={`px-3 py-2 rounded-xl text-[10px] sm:text-xs font-black transition-all ${managerViewMode === 'monthly' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}><CalendarIcon className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1 sm:mr-2"/><span className="hidden sm:inline">จัดกะแบบรายเดือน</span><span className="sm:hidden">รายเดือน</span></button>
+                       <button onClick={() => setManagerViewMode('daily_table')} className={`px-3 py-2 rounded-xl text-[10px] sm:text-xs font-black transition-all ${managerViewMode === 'daily_table' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}><TableProperties className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1 sm:mr-2"/><span className="hidden sm:inline">Duty Roster Chart</span><span className="sm:hidden">Roster</span></button>
+                    </div>
+                  )}
+               </div>
+             )}
 
-                {view === 'branches' && authRole === 'superadmin' ? (
-                   <div className="flex-1 space-y-6 sm:space-y-10 animate-in fade-in duration-500 pb-24 w-full">
-                     <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                        <div className="flex items-center gap-4 sm:gap-6">
-                          <div className="bg-emerald-100 p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem]"><Store className="w-8 h-8 sm:w-10 sm:h-10 text-emerald-600" /></div>
-                          <div>
-                             <h2 className="text-2xl sm:text-4xl font-black text-slate-800 tracking-tighter uppercase">Global Admin</h2>
-                             <p className="text-slate-400 text-xs sm:text-sm font-bold uppercase tracking-widest mt-1">จัดการรายชื่อสาขาและสิทธิ์เข้าระบบ</p>
-                          </div>
-                        </div>
-                     </div>
-                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-10">
-                        <div className="lg:col-span-1 bg-white p-6 sm:p-10 rounded-[2rem] sm:rounded-[3rem] border border-slate-200 shadow-sm h-fit">
-                           <h3 className="text-lg sm:text-xl font-black text-slate-800 mb-6 sm:mb-8 flex items-center gap-2 sm:gap-3 uppercase tracking-tighter"><Plus className="text-emerald-500 w-5 h-5 sm:w-6 sm:h-6" /> สร้างสาขาใหม่</h3>
-                           <div className="space-y-4 sm:space-y-5">
-                              <div><span className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase ml-2 block mb-1.5 sm:mb-2">ชื่อสาขา</span><input type="text" id="bn" className="w-full border-2 border-slate-50 bg-slate-50/50 rounded-xl sm:rounded-2xl px-4 sm:px-5 py-3 sm:py-4 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none" /></div>
-                              <div><span className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase ml-2 block mb-1.5 sm:mb-2">Username</span><input type="text" id="bu" className="w-full border-2 border-slate-50 bg-slate-50/50 rounded-xl sm:rounded-2xl px-4 sm:px-5 py-3 sm:py-4 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none" /></div>
-                              <div><span className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase ml-2 block mb-1.5 sm:mb-2">Password</span><input type="text" id="bp" className="w-full border-2 border-slate-50 bg-slate-50/50 rounded-xl sm:rounded-2xl px-4 sm:px-5 py-3 sm:py-4 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none" /></div>
-                              <button onClick={() => {
-                                const n = document.getElementById('bn').value; const u = document.getElementById('bu').value; const p = document.getElementById('bp').value;
-                                if(n && u && p) { setGlobalConfig(prev => ({...prev, branches: [...(prev.branches || []), {id: 'b'+Date.now(), name: n, user: u, pass: p}]})); document.getElementById('bn').value = ''; document.getElementById('bu').value = ''; document.getElementById('bp').value = ''; }
-                              }} className="w-full bg-emerald-600 text-white py-4 sm:py-5 rounded-xl sm:rounded-3xl font-black text-xs sm:text-sm hover:bg-emerald-700 shadow-xl mt-2 sm:mt-4 uppercase transition-colors">บันทึกสาขา</button>
-                           </div>
-                        </div>
-                        <div className="lg:col-span-2 bg-white p-6 sm:p-10 rounded-[2rem] sm:rounded-[3rem] border border-slate-200 shadow-sm">
-                           <h3 className="text-lg sm:text-xl font-black text-slate-800 mb-6 sm:mb-8 flex items-center gap-2 sm:gap-3 uppercase tracking-tighter"><ShieldCheck className="text-indigo-500 w-5 h-5 sm:w-6 sm:h-6" /> รายชื่อสาขาทั้งหมด</h3>
-                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-                              {globalConfig.branches?.map((b) => (
-                                <div key={b.id} className="p-5 sm:p-8 bg-slate-50 rounded-[1.5rem] sm:rounded-[2.5rem] border border-transparent hover:border-indigo-100 transition shadow-sm flex justify-between items-start">
-                                   <div className="pr-4">
-                                      <h4 className="text-base sm:text-xl font-black text-slate-900 uppercase tracking-tighter truncate max-w-[150px] sm:max-w-[200px]">{b.name}</h4>
-                                      <p className="text-[8px] sm:text-[9px] text-slate-400 font-bold mt-1.5 sm:mt-2 uppercase truncate">USER: {b.user} | PWD: {b.pass}</p>
-                                       {editingBranchId === b.id ? (
-                                          <div className="mt-4 space-y-2">
-                                             <input type="text" placeholder="Name" value={editBranchData.name || ''} onChange={e => setEditBranchData({...editBranchData, name: e.target.value})} className="w-full border rounded-lg px-2 py-1 text-xs"/>
-                                             <input type="text" placeholder="User" value={editBranchData.user || ''} onChange={e => setEditBranchData({...editBranchData, user: e.target.value})} className="w-full border rounded-lg px-2 py-1 text-xs"/>
-                                             <input type="text" placeholder="Pass" value={editBranchData.pass || ''} onChange={e => setEditBranchData({...editBranchData, pass: e.target.value})} className="w-full border rounded-lg px-2 py-1 text-xs"/>
-                                             <div className="flex gap-2">
-                                                <button onClick={saveEditBranch} className="bg-green-500 text-white px-3 py-1 rounded-lg text-[10px]"><Check className="w-3 h-3"/></button>
-                                                <button onClick={() => setEditingBranchId(null)} className="bg-red-500 text-white px-3 py-1 rounded-lg text-[10px]"><X className="w-3 h-3"/></button>
-                                             </div>
-                                          </div>
-                                       ) : (
-                                          <button onClick={() => startEditBranch(b)} className="mt-2 text-indigo-500 text-[10px] font-bold flex items-center gap-1 hover:underline"><Edit2 className="w-3 h-3"/> แก้ไขข้อมูล</button>
-                                       )}
-                                   </div>
-                                   <button onClick={() => setGlobalConfig(prev => ({...prev, branches: prev.branches.filter(x => x.id !== b.id)}))} className="text-slate-300 hover:text-red-500 transition p-2"><Trash2 className="w-5 h-5 sm:w-6 sm:h-6"/></button>
-                                </div>
-                              ))}
-                           </div>
-                        </div>
-                     </div>
-                   </div>
-                ) : view === 'admin' ? (
-                   !activeBranchId ? (
-                     <div className="flex-1 h-[60vh] sm:h-[70vh] flex flex-col items-center justify-center gap-4 sm:gap-6 text-slate-300 font-black uppercase tracking-[0.2em] sm:tracking-[0.4em] text-center px-4 w-full">
-                       <Store className="w-16 h-16 sm:w-24 sm:h-24 opacity-10" />
-                       <p className="text-sm sm:text-base">กรุณาเลือกสาขาที่ต้องการจัดการจากแถบด้านบน</p>
-                     </div>
-                   ) : (
-                     <div className="flex-1 space-y-6 sm:space-y-10 animate-in fade-in duration-500 pb-24 w-full">
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-10">
-                           <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm flex flex-col">
-                             <h2 className="text-lg sm:text-xl font-black text-slate-800 mb-4 sm:mb-6 flex items-center gap-2 sm:gap-4 uppercase tracking-tighter"><Users className="w-6 h-6 sm:w-7 sm:h-7 text-indigo-500" /> จัดการพนักงาน ({globalConfig.branches?.find(b=>b.id===activeBranchId)?.name})</h2>
-                             <div className="flex flex-wrap gap-2 mb-6 sm:mb-8 bg-slate-50 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-100">
-                               <div className="text-[10px] sm:text-xs font-black text-slate-500 w-full mb-1 uppercase tracking-widest">สรุปจำนวนพนักงานแยกตามตำแหน่ง (คลิกเพื่อกรอง)</div>
-                               <div className="flex flex-wrap gap-2">
-                                  <button onClick={() => setStaffFilterPos('ALL')} className={`text-[10px] font-black px-2.5 py-1 rounded-lg transition-all shadow-sm ${staffFilterPos === 'ALL' ? 'bg-slate-800 text-white scale-105' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`}>รวม {branchData.staff?.filter(s => s.dept === activeDept).length || 0} คน</button>
-                                  {POSITIONS[activeDept].map(p => {
-                                     const count = (branchData.staff || []).filter(s => s.dept === activeDept && s.pos === p).length;
-                                     const isSelected = staffFilterPos === p;
-                                     if (count === 0) return <button key={p} onClick={() => setStaffFilterPos(isSelected ? 'ALL' : p)} className={`text-[10px] font-bold border px-2.5 py-1 rounded-lg transition-all ${isSelected ? 'bg-indigo-600 text-white border-indigo-600 shadow-md scale-105' : 'bg-white border-slate-200 text-slate-400 hover:bg-slate-50'}`}>{p}: 0</button>;
-                                     return <button key={p} onClick={() => setStaffFilterPos(isSelected ? 'ALL' : p)} className={`text-[10px] font-black border px-2.5 py-1 rounded-lg transition-all shadow-sm ${isSelected ? 'bg-indigo-600 text-white border-indigo-600 scale-105' : 'bg-indigo-100 text-indigo-700 border-indigo-200 hover:bg-indigo-200'}`}>{p}: {count}</button>;
-                                  })}
-                               </div>
-                             </div>
-                             <div className="space-y-4 mb-6 sm:mb-10 w-full">
-                               <div className="flex flex-col xl:flex-row gap-2 sm:gap-4">
-                                  <input type="text" placeholder="รหัสพนง." className="w-full xl:w-24 border-2 border-slate-100 rounded-xl sm:rounded-2xl px-3 py-3 sm:py-4 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none transition shadow-sm" value={newStaffEmpId} onChange={(e) => setNewStaffEmpId(e.target.value)} />
-                                  <input type="text" placeholder={`ชื่อพนักงานใหม่ (${newStaffDept === 'service' ? 'บริการ' : 'ครัว'})...`} className="w-full xl:w-auto flex-[2] border-2 border-slate-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none transition shadow-sm" value={newStaffName} onChange={(e) => setNewStaffName(e.target.value)} />
-                                  <div className="flex gap-2 sm:gap-4 flex-1">
-                                    <select value={newStaffDept} onChange={(e) => { setNewStaffDept(e.target.value); setNewStaffPos(POSITIONS[e.target.value][0]); }} className="flex-1 bg-slate-50 border-2 border-slate-100 rounded-xl sm:rounded-2xl px-3 sm:px-4 py-3 text-[10px] sm:text-xs font-black uppercase outline-none focus:border-indigo-500">
-                                       <option value="service">งานบริการ</option><option value="kitchen">งานครัว</option>
-                                    </select>
-                                    <select value={newStaffPos} onChange={(e) => setNewStaffPos(e.target.value)} className="flex-1 bg-slate-50 border-2 border-slate-100 rounded-xl sm:rounded-2xl px-3 sm:px-4 py-3 text-[10px] sm:text-xs font-black uppercase outline-none focus:border-indigo-500">
-                                       {POSITIONS[newStaffDept].map(p => <option key={p} value={p}>{p}</option>)}
-                                    </select>
-                                    <select value={newStaffDayOff} onChange={(e) => setNewStaffDayOff(e.target.value)} className="flex-1 bg-slate-50 border-2 border-slate-100 rounded-xl sm:rounded-2xl px-3 sm:px-4 py-3 text-[10px] sm:text-xs font-black uppercase outline-none focus:border-indigo-500 text-slate-500">
-                                       <option value="">- วันหยุด -</option>{DAYS_OF_WEEK.map(d => <option key={d.id} value={d.id}>{d.label}</option>)}
-                                    </select>
-                                  </div>
-                                  <button onClick={() => { if(newStaffName.trim()){ setBranchData(p => ({...p, staff: [...(p.staff || []), {id: 's' + Date.now(), empId: newStaffEmpId.trim(), name: newStaffName.trim(), dept: newStaffDept, pos: newStaffPos, regularDayOff: newStaffDayOff === '' ? null : parseInt(newStaffDayOff)}]})); setNewStaffName(''); setNewStaffEmpId(''); setNewStaffDayOff(''); } }} className="w-full xl:w-auto bg-slate-900 text-white px-6 sm:px-8 py-3 rounded-xl sm:rounded-2xl font-black text-xs hover:bg-indigo-600 transition uppercase flex items-center justify-center"><UserPlus className="w-4 h-4 sm:w-5 sm:h-5 mr-0 sm:mr-0"/><span className="xl:hidden ml-2">เพิ่มพนักงาน</span></button>
-                               </div>
-                             </div>
-                             <div className="grid grid-cols-1 gap-2 sm:gap-3 max-h-[400px] overflow-y-auto pr-2 sm:pr-3 custom-scrollbar">
-                               {branchData.staff?.filter(s => s.dept === activeDept && (staffFilterPos === 'ALL' || s.pos === staffFilterPos)).length === 0 ? (
-                                 <div className="text-center py-8 sm:py-10 text-slate-400 font-bold text-[10px] sm:text-sm uppercase tracking-widest border-2 border-dashed rounded-[1.5rem] sm:rounded-[2rem]">ไม่มีพนักงานในแผนก/ตำแหน่งนี้</div>
-                               ) : branchData.staff?.filter(s => s.dept === activeDept && (staffFilterPos === 'ALL' || s.pos === staffFilterPos)).map(s => (
-                                 <div key={s.id} className="flex justify-between items-center p-4 sm:p-5 bg-slate-50 rounded-2xl sm:rounded-3xl border border-transparent hover:border-indigo-100 hover:bg-white transition group shadow-sm">
-                                    {editingStaffId === s.id ? (
-                                       <div className="flex-1 flex gap-2 items-center flex-wrap">
-                                          <input type="text" placeholder="รหัส" value={editStaffData.empId || ''} onChange={e => setEditStaffData({...editStaffData, empId: e.target.value})} className="border rounded px-2 py-1 text-xs w-full sm:w-16"/>
-                                          <input type="text" value={editStaffData.name} onChange={e => setEditStaffData({...editStaffData, name: e.target.value})} className="border rounded px-2 py-1 text-xs w-full sm:w-auto flex-1 min-w-[100px]"/>
-                                          <select value={editStaffData.pos} onChange={e => setEditStaffData({...editStaffData, pos: e.target.value})} className="border rounded px-2 py-1 text-[10px]">
-                                              {POSITIONS[s.dept].map(p => <option key={p} value={p}>{p}</option>)}
-                                          </select>
-                                          <select value={editStaffData.regularDayOff ?? ''} onChange={e => setEditStaffData({...editStaffData, regularDayOff: e.target.value === '' ? null : parseInt(e.target.value)})} className="border rounded px-2 py-1 text-[10px]">
-                                              <option value="">- วันหยุด -</option>{DAYS_OF_WEEK.map(d => <option key={d.id} value={d.id}>{d.label}</option>)}
-                                          </select>
-                                          <button onClick={saveEditStaff} className="bg-green-500 text-white p-1.5 rounded"><Check className="w-3 h-3"/></button>
-                                          <button onClick={() => setEditingStaffId(null)} className="bg-red-500 text-white p-1.5 rounded"><X className="w-3 h-3"/></button>
-                                       </div>
-                                    ) : (
-                                       <>
-                                         <div className="flex-1 min-w-0 pr-4">
-                                            <span className="text-sm sm:text-base font-black text-slate-800 uppercase truncate block">
-                                               {s.empId && <span className="text-slate-400 mr-2 text-xs">[{s.empId}]</span>} {s.name}
-                                            </span>
-                                            <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-1 items-center">
-                                               <span className={`text-[7px] sm:text-[8px] font-black px-1.5 sm:px-2 py-0.5 rounded border uppercase ${s.dept === 'service' ? 'bg-indigo-50 text-indigo-500 border-indigo-100' : 'bg-orange-50 text-orange-500 border-orange-100'}`}>{s.dept}</span>
-                                               <span className="text-[7px] sm:text-[8px] font-black px-1.5 sm:px-2 py-0.5 rounded border border-slate-200 bg-white text-slate-400 uppercase">{s.pos}</span>
-                                               <span className="text-[7px] sm:text-[8px] font-black px-1.5 sm:px-2 py-0.5 rounded border border-slate-200 bg-white text-slate-400 uppercase truncate">หยุด: {s.regularDayOff !== undefined && s.regularDayOff !== null ? DAYS_OF_WEEK.find(d => d.id === s.regularDayOff)?.label : '-'}</span>
-                                               <button onClick={() => startEditStaff(s)} className="text-slate-300 hover:text-indigo-500"><Edit2 className="w-3 h-3"/></button>
-                                            </div>
-                                         </div>
-                                         <button onClick={() => setBranchData(p=>({...p, staff: p.staff.filter(x=>x.id!==s.id)}))} className="text-slate-300 hover:text-red-500 transition p-2"><Trash2 className="w-4 h-4 sm:w-5 sm:h-5"/></button>
-                                       </>
-                                    )}
-                                 </div>
-                               ))}
-                             </div>
-                           </div>
-                           
-                           <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm flex flex-col">
-                             <h2 className="text-lg sm:text-xl font-black text-slate-800 mb-6 sm:mb-8 flex items-center gap-2 sm:gap-4 uppercase tracking-tighter"><List className="w-6 h-6 sm:w-7 sm:h-7 text-indigo-500" /> จัดการหน้าที่งาน (Duties)</h2>
-                             {authRole === 'superadmin' ? (
-                               <div className="space-y-4 mb-6 sm:mb-10 w-full">
-                                 <div className="flex flex-col xl:flex-row gap-2 sm:gap-4">
-                                   <input type="text" placeholder="หน้าที่หลัก (เช่น ต้อนรับหน้าร้าน)" className="flex-1 border-2 border-slate-100 rounded-xl px-4 py-3 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none" value={newDutyJobA} onChange={e => setNewDutyJobA(e.target.value)} />
-                                   <input type="text" placeholder="หน้าที่รอง (เช่น เคลียร์โต๊ะ)" className="flex-1 border-2 border-slate-100 rounded-xl px-4 py-3 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none" value={newDutyJobB} onChange={e => setNewDutyJobB(e.target.value)} />
-                                   <PositionSelector disabled={false} value={newDutyReqPos} options={POSITIONS[activeDept]} onChange={setNewDutyReqPos} className="w-full xl:min-w-[80px]" />
-                                   <button onClick={handleAddDuty} className="w-full xl:w-auto bg-slate-900 text-white px-6 py-3 rounded-xl font-black text-xs hover:bg-indigo-600 transition flex items-center justify-center"><Plus className="w-4 h-4 sm:w-5 sm:h-5"/></button>
-                                 </div>
-                               </div>
-                             ) : (
-                               <p className="text-[10px] text-orange-500 font-bold mb-6 text-center bg-orange-50 py-2 rounded-xl border border-orange-100 uppercase tracking-widest">* โหมดอ่านอย่างเดียว (เฉพาะ Admin ส่วนกลางที่แก้ไขโครงสร้างได้)</p>
-                             )}
-                             <div className="grid grid-cols-1 gap-2 sm:gap-3 max-h-[400px] overflow-y-auto pr-2 sm:pr-3 custom-scrollbar">
-                               {CURRENT_DUTY_LIST.length === 0 ? (
-                                 <div className="text-center py-8 sm:py-10 text-slate-400 font-bold text-[10px] sm:text-sm uppercase tracking-widest border-2 border-dashed rounded-[1.5rem]">ไม่มีข้อมูลหน้าที่</div>
-                               ) : CURRENT_DUTY_LIST.map((duty, idx) => (
-                                  <div key={duty.id} draggable={authRole === 'superadmin' && editingDutyId === null} onDragStart={() => setDraggedDutyIdx(idx)} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); handleDropDuty(idx); }} onDragEnd={() => setDraggedDutyIdx(null)} className={`flex justify-between items-center p-3 sm:p-4 rounded-2xl border ${draggedDutyIdx === idx ? 'opacity-40 border-indigo-400 bg-indigo-50' : 'bg-slate-50 border-slate-100'} shadow-sm transition hover:bg-white hover:border-indigo-100`}>
-                                    {authRole === 'superadmin' && editingDutyId === null && (
-                                       <div className="cursor-grab active:cursor-grabbing mr-2 sm:mr-3 text-slate-300 hover:text-indigo-500 flex-shrink-0 touch-none"><GripVertical className="w-4 h-4 sm:w-5 sm:h-5" /></div>
-                                    )}
-                                    {editingDutyId === duty.id ? (
-                                       <div className="flex-1 flex flex-wrap gap-2 items-center">
-                                          <input type="text" value={editDutyData.jobA} onChange={e => setEditDutyData({...editDutyData, jobA: e.target.value})} className="border rounded px-2 py-1 text-[10px] sm:text-xs flex-1 font-bold outline-none focus:border-indigo-500 min-w-[100px]"/>
-                                          <input type="text" value={editDutyData.jobB} onChange={e => setEditDutyData({...editDutyData, jobB: e.target.value})} className="border rounded px-2 py-1 text-[10px] sm:text-xs flex-1 font-bold outline-none focus:border-indigo-500 min-w-[100px]"/>
-                                          <PositionSelector disabled={false} value={editDutyData.reqPos || ['ALL']} options={POSITIONS[activeDept]} onChange={(val) => setEditDutyData({...editDutyData, reqPos: val})} className="w-full sm:min-w-[80px]" />
-                                          <button onClick={handleEditDutySave} className="bg-green-500 text-white p-1.5 rounded-lg"><Check className="w-3 h-3"/></button>
-                                          <button onClick={() => setEditingDutyId(null)} className="bg-red-500 text-white p-1.5 rounded-lg"><X className="w-3 h-3"/></button>
-                                       </div>
-                                    ) : (
-                                       <>
-                                         <div className="flex-1 min-w-0 pr-4">
-                                           <div className="flex items-center gap-2">
-                                              <div className="font-black text-xs sm:text-sm text-slate-800 truncate">{duty.jobA}</div>
-                                              <span className="text-[8px] font-black text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100 truncate max-w-[80px] sm:max-w-[120px]" title={(duty.reqPos || ['ALL']).join(', ')}>{(duty.reqPos || ['ALL']).join(', ')}</span>
-                                           </div>
-                                           <div className="text-[9px] sm:text-[10px] text-slate-400 font-bold truncate mt-0.5">{duty.jobB}</div>
-                                         </div>
-                                         {authRole === 'superadmin' && (
-                                           <div className="flex gap-1 sm:gap-2">
-                                             <button onClick={() => { setEditingDutyId(duty.id); setEditDutyData(duty); }} className="text-slate-300 hover:text-indigo-500 p-2"><Edit2 className="w-4 h-4"/></button>
-                                             <button onClick={() => handleDeleteDuty(duty.id)} className="text-slate-300 hover:text-red-500 p-2"><Trash2 className="w-4 h-4"/></button>
-                                           </div>
-                                         )}
-                                       </>
-                                    )}
-                                  </div>
-                               ))}
-                             </div>
-                           </div>
-                        </div>
+             {mainContent}
 
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-10 w-full">
-                           <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm w-full">
-                             <h2 className="text-lg sm:text-xl font-black text-slate-800 mb-6 sm:mb-8 flex items-center justify-center gap-2 sm:gap-4 uppercase tracking-tighter"><Coffee className="w-6 h-6 sm:w-7 sm:h-7 text-red-500" /> วันหยุดประจำสาขา</h2>
-                             <div className="grid grid-cols-7 gap-1.5 sm:gap-3">
-                               {CALENDAR_DAYS.map(d => {
-                                 const isHoliday = branchData.holidays?.includes?.(d.dateStr);
-                                 return (
-                                   <button 
-                                     key={d.dateStr} disabled={authRole === 'branch'} onClick={() => { if(authRole === 'superadmin') setBranchData(p=>({...p, holidays: isHoliday ? p.holidays.filter(x=>x!==d.dateStr) : [...(p.holidays || []), d.dateStr]})) }} 
-                                     className={`w-full aspect-square rounded-[0.8rem] sm:rounded-[1.5rem] text-[10px] sm:text-[12px] font-black transition-all border-2 flex items-center justify-center ${isHoliday ? 'bg-red-500 text-white border-red-600 shadow-lg sm:shadow-xl' : 'bg-slate-50 text-slate-400 border-transparent hover:bg-slate-100'} ${authRole === 'branch' ? 'cursor-not-allowed opacity-80' : ''}`}
-                                   >{d.dayNum}</button>
-                                 );
-                               })}
-                             </div>
-                             {authRole === 'branch' && <p className="text-[8px] sm:text-[10px] text-red-400 font-bold mt-6 sm:mt-8 text-center uppercase tracking-widest leading-relaxed">* เฉพาะ Admin ส่วนกลางเท่านั้นที่แก้ไขวันหยุดได้</p>}
-                           </div>
-                           
-                           <div className="bg-emerald-50 rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-emerald-100 shadow-sm w-full flex flex-col">
-                             <h2 className="text-lg sm:text-xl font-black text-emerald-800 mb-6 sm:mb-8 flex items-center gap-2 sm:gap-4 uppercase tracking-tighter"><SaveAll className="w-6 h-6 sm:w-7 sm:h-7 text-emerald-600" /> จัดการแม่แบบ (Templates)</h2>
-                             <p className="text-xs font-bold text-emerald-600 mb-4">บันทึกโครงสร้างกะงาน (เวลาเข้า-ออก/OT) และหน้าที่งานทั้งหมดของแผนก <span className="uppercase font-black text-emerald-800">{activeDept}</span> ไว้ใช้ในภายหลัง</p>
-                             {authRole === 'superadmin' ? (
-                                 <div className="flex flex-col sm:flex-row gap-3 mb-6 bg-white p-4 rounded-2xl border border-emerald-200">
-                                    <input type="text" placeholder="ตั้งชื่อแม่แบบใหม่ (เช่น สัปดาห์สิ้นเดือน)" value={templateName} onChange={(e) => setTemplateName(e.target.value)} className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold outline-none focus:border-emerald-500" />
-                                    <button onClick={handleSaveTemplate} className="bg-emerald-600 text-white px-6 py-3 rounded-xl font-black text-xs hover:bg-emerald-700 shadow-md transition-all whitespace-nowrap">บันทึกแม่แบบนี้</button>
-                                 </div>
-                             ) : (
-                                 <p className="text-[10px] text-emerald-500 font-bold mb-4 bg-emerald-100/50 py-2 px-4 rounded-xl border border-emerald-200 uppercase tracking-widest">* โหมดอ่านอย่างเดียว (เฉพาะ Admin ส่วนกลางที่บันทึกแม่แบบได้)</p>
-                             )}
-                             <div className="flex-1 bg-white rounded-2xl border border-emerald-200 p-4 flex flex-col min-h-[150px]">
-                                 <h3 className="text-xs font-black text-slate-700 uppercase tracking-widest mb-3 flex items-center gap-2"><FolderOpen className="w-4 h-4 text-emerald-500" /> แม่แบบที่บันทึกไว้</h3>
-                                 {(!globalTemplates || globalTemplates.length === 0) ? (
-                                     <div className="flex-1 flex items-center justify-center text-xs font-bold text-slate-400 border-2 border-dashed border-slate-100 rounded-xl">ยังไม่มีแม่แบบที่บันทึกไว้</div>
-                                 ) : (
-                                     <div className="space-y-2 overflow-y-auto max-h-[200px] custom-scrollbar pr-2">
-                                         {globalTemplates.map(tpl => (
-                                             <div key={tpl.id} className="flex justify-between items-center bg-slate-50 border border-slate-100 p-3 rounded-xl hover:border-emerald-300 transition-colors">
-                                                 <span className="font-black text-xs text-slate-700 truncate mr-4">{tpl.name}</span>
-                                                 <div className="flex items-center gap-2 flex-shrink-0">
-                                                     {authRole === 'superadmin' && (
-                                                         <button onClick={() => handleDeleteTemplate(tpl.id)} className="p-2 text-slate-400 hover:text-red-500 transition-colors bg-white rounded-lg border shadow-sm"><Trash2 className="w-3 h-3" /></button>
-                                                     )}
-                                                     <button onClick={() => handleLoadTemplate(tpl.id)} disabled={authRole !== 'superadmin'} className="bg-emerald-100 text-emerald-700 hover:bg-emerald-500 hover:text-white px-3 py-1.5 rounded-lg text-[10px] font-black transition-colors shadow-sm disabled:opacity-50 uppercase border border-emerald-200">Load</button>
-                                                 </div>
-                                             </div>
-                                         ))}
-                                     </div>
-                                 )}
-                             </div>
-                           </div>
-                        </div>
-
-                        <div className="space-y-6 sm:space-y-8 w-full">
-                          <h2 className="text-xl sm:text-2xl font-black text-slate-800 px-2 uppercase tracking-tighter flex items-center gap-3 sm:gap-4"><Clock className="w-6 h-6 sm:w-8 sm:h-8 text-indigo-600" /> โครงสร้างกะงานฝั่ง: {activeDept === 'service' ? 'บริการ' : 'ครัว'}</h2>
-                          {Object.entries(branchData.matrix || {}).map(([key, data]) => (
-                            <div key={key} className="bg-white rounded-[2rem] sm:rounded-[3rem] border border-slate-200 overflow-hidden shadow-sm mb-6 sm:mb-10 w-full">
-                              <div className={`px-6 sm:px-10 py-4 sm:py-6 font-black text-base sm:text-lg text-white ${key==='weekday' ? 'bg-slate-900' : key==='friday' ? 'bg-sky-700' : 'bg-orange-600'}`}>{key.toUpperCase()} CYCLE {authRole === 'branch' ? '(VIEW ONLY)' : ''}</div>
-                              <div className="overflow-x-auto custom-scrollbar">
-                                <table className="w-full text-xs text-left min-w-[800px]">
-                                  <tbody className="divide-y divide-slate-100">
-                                    {CURRENT_DUTY_LIST.map(duty => (
-                                      <tr key={duty.id}>
-                                        <td className="px-6 sm:px-10 py-6 sm:py-8 w-[30%]"><div className="font-black text-slate-900 text-sm sm:text-lg mb-1 leading-tight">{duty.jobA}</div><div className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase italic leading-tight mt-1">{duty.jobB}</div></td>
-                                        <td className="px-6 sm:px-10 py-6 sm:py-8">
-                                          <div className="flex flex-wrap gap-4 sm:gap-6">
-                                            {(data.duties?.[duty.id] || []).map((slot, idx) => (
-                                              <div key={idx} className="flex flex-wrap sm:flex-nowrap items-center gap-3 sm:gap-5 bg-white p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2.2rem] border-2 border-slate-50 shadow-sm transition hover:border-indigo-100 relative">
-                                                <div className="flex flex-col gap-1 w-[45%] sm:w-auto"><span className="text-[8px] sm:text-[9px] font-black text-slate-400 uppercase">เริ่ม</span><input type="text" disabled={authRole === 'branch'} className="border rounded-xl p-1.5 sm:p-2 text-[10px] sm:text-xs font-black text-center w-full sm:w-24 disabled:bg-slate-50 disabled:text-slate-300 outline-none focus:border-indigo-500" value={slot.startTime} onChange={(e) => { const nd = JSON.parse(JSON.stringify(branchData)); nd.matrix[key].duties[duty.id][idx].startTime = e.target.value; setBranchData(nd); }} /></div>
-                                                <div className="flex flex-col gap-1 w-[45%] sm:w-auto"><span className="text-[8px] sm:text-[9px] font-black text-slate-400 uppercase">เลิก</span><input type="text" disabled={authRole === 'branch'} className="border rounded-xl p-1.5 sm:p-2 text-[10px] sm:text-xs font-black text-center w-full sm:w-24 disabled:bg-slate-50 disabled:text-slate-300 outline-none focus:border-indigo-500" value={slot.endTime || ""} onChange={(e) => { const nd = JSON.parse(JSON.stringify(branchData)); nd.matrix[key].duties[duty.id][idx].endTime = e.target.value; setBranchData(nd); }} /></div>
-                                                <div className="flex flex-col gap-1 sm:border-l pl-0 sm:pl-4 w-[80%] sm:w-auto mt-2 sm:mt-0"><span className="text-[8px] sm:text-[9px] font-black text-indigo-500 uppercase">MAX OT</span><input type="number" disabled={authRole === 'branch'} step="0.5" className="w-full sm:w-20 border rounded-xl p-1.5 sm:p-2 text-center font-black bg-indigo-50/50 disabled:opacity-50 outline-none focus:border-indigo-500 text-[10px] sm:text-xs" value={slot.maxOtHours} onChange={(e) => { const nd = JSON.parse(JSON.stringify(branchData)); nd.matrix[key].duties[duty.id][idx].maxOtHours = parseFloat(e.target.value) || 0; setBranchData(nd); }} /></div>
-                                                {authRole === 'superadmin' && <button onClick={() => { const nd = JSON.parse(JSON.stringify(branchData)); nd.matrix[key].duties[duty.id].splice(idx,1); setBranchData(nd); }} className="absolute -top-2 -right-2 bg-red-100 text-red-500 hover:bg-red-500 hover:text-white rounded-full p-1.5 transition"><X className="w-3 h-3"/></button>}
-                                              </div>
-                                            ))}
-                                            {authRole === 'superadmin' && <button onClick={() => { const nd = JSON.parse(JSON.stringify(branchData)); if(!nd.matrix[key].duties[duty.id]) nd.matrix[key].duties[duty.id] = []; nd.matrix[key].duties[duty.id].push({startTime:"10:00", endTime:"19:00", maxOtHours:4.0}); setBranchData(nd); }} className="bg-slate-50 border-2 border-dashed border-slate-200 px-4 sm:px-6 py-3 sm:py-4 rounded-[1.5rem] sm:rounded-[2.2rem] text-[9px] sm:text-[11px] font-black text-slate-400 hover:border-indigo-500 transition self-stretch sm:self-center">+ SLOT</button>}
-                                          </div>
-                                        </td>
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                     </div>
-                   )
-                ) : view === 'manager' ? (
-                   <div className="flex-1 space-y-6 sm:space-y-10 animate-in slide-in-from-bottom-6 duration-500 pb-24 w-full">
-                      {managerViewMode === 'daily' ? renderManagerDailyCards() : managerViewMode === 'daily_table' ? renderManagerDailyTable() : renderManagerMonthly()}
-                   </div>
-                ) : view === 'print' ? (
-                   <PrintMonthlyView CALENDAR_DAYS={CALENDAR_DAYS} branchData={branchData} globalConfig={globalConfig} activeBranchId={activeBranchId} THAI_MONTHS={THAI_MONTHS} selectedMonth={selectedMonth} getStaffDayInfo={getStaffDayInfo} setView={setView} activeDept={activeDept} CURRENT_DUTY_LIST={CURRENT_DUTY_LIST} />
-                ) : (
-                   renderReportView()
-                )}
-              </>
-            )}
-            <footer className="flex-none mt-auto pt-8 text-center pb-8 print:hidden opacity-60 hover:opacity-100 transition-opacity flex flex-col items-center w-full">
-               <div className="flex items-center justify-center gap-3 mb-3"><div className="h-px w-12 bg-slate-300"></div><Award className="w-5 h-5 text-slate-400" /><div className="h-px w-12 bg-slate-300"></div></div>
-               <p className="text-[10px] sm:text-xs font-black text-slate-500 uppercase tracking-[0.3em]">Powered by Super Store Team</p>
-            </footer>
+             <footer className="flex-none mt-auto pt-8 text-center pb-8 print:hidden opacity-60 hover:opacity-100 transition-opacity flex flex-col items-center w-full">
+                <div className="flex items-center justify-center gap-3 mb-3"><div className="h-px w-12 bg-slate-300"></div><Award className="w-5 h-5 text-slate-400" /><div className="h-px w-12 bg-slate-300"></div></div>
+                <p className="text-[10px] sm:text-xs font-black text-slate-500 uppercase tracking-[0.3em]">Powered by Super Store Team</p>
+             </footer>
           </main>
         </div>
       )}
-    </>
+    </React.Fragment>
   );
 }
