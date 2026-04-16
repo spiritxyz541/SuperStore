@@ -943,7 +943,9 @@ export default function App() {
                hasAssigned = true; svcHasStaff = true;
                const staff = branchData.staff?.find(s=>s.id===data.staffId);
                const slot = slots[idx];
-               dutyTxt += `  - ${staff?.name} (${formatTimeAbbreviation(slot.startTime)}-${formatTimeAbbreviation(slot.endTime)})\n`;
+               const shiftPreset = branchData.shiftPresets?.find(p => p.id === slot?.shiftPresetId);
+               const { startTime, endTime } = getShiftTimesForStaff(staff?.pos, shiftPreset);
+               dutyTxt += `  - ${staff?.name} (${formatTimeAbbreviation(startTime)}-${formatTimeAbbreviation(endTime)})\n`;
              }
           });
           if(hasAssigned) txt += dutyTxt;
@@ -962,7 +964,9 @@ export default function App() {
                hasAssigned = true; kitHasStaff = true;
                const staff = branchData.staff?.find(s=>s.id===data.staffId);
                const slot = slots[idx];
-               dutyTxt += `  - ${staff?.name} (${formatTimeAbbreviation(slot.startTime)}-${formatTimeAbbreviation(slot.endTime)})\n`;
+               const shiftPreset = branchData.shiftPresets?.find(p => p.id === slot?.shiftPresetId);
+               const { startTime, endTime } = getShiftTimesForStaff(staff?.pos, shiftPreset);
+               dutyTxt += `  - ${staff?.name} (${formatTimeAbbreviation(startTime)}-${formatTimeAbbreviation(endTime)})\n`;
              }
           });
           if(hasAssigned) txt += dutyTxt;
