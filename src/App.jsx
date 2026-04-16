@@ -961,8 +961,10 @@ export default function App() {
     const newTemplate = { 
         id: 'T'+Date.now(), 
         name: `${templateName.trim()} (${globalConfig.branches?.find(b=>b.id===activeBranchId)?.name || 'Unknown'})`, 
-        duties: branchData.duties, 
+        duties: branchData.duties,
         matrix: branchData.matrix,
+        shiftPresets: branchData.shiftPresets,
+        holidays: branchData.holidays,
         branchId: activeBranchId 
     };
     try {
@@ -978,7 +980,13 @@ export default function App() {
     if (tpl) {
         setConfirmModal({ 
             message: `ยืนยันการโหลดแม่แบบ "${tpl.name}" ใช่หรือไม่? (โครงสร้างปัจจุบันจะถูกเขียนทับทั้งหมด)`, 
-            action: () => { setBranchData(prev => ({ ...prev, duties: tpl.duties, matrix: tpl.matrix })); }
+            action: () => { setBranchData(prev => ({ 
+                ...prev, 
+                duties: tpl.duties, 
+                matrix: tpl.matrix,
+                shiftPresets: tpl.shiftPresets || DEFAULT_SHIFT_PRESETS, // Fallback for old templates
+                holidays: tpl.holidays || [] // Fallback for old templates
+            })); }
         });
     }
   };
@@ -2643,7 +2651,7 @@ export default function App() {
     return (
        <div className="bg-emerald-50 rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-emerald-100 shadow-sm w-full flex flex-col h-full print:hidden">
           <h2 className="text-lg sm:text-xl font-black text-emerald-800 mb-6 sm:mb-8 flex items-center gap-2 sm:gap-4 uppercase tracking-tighter"><SaveAll className="w-6 h-6 sm:w-7 sm:h-7 text-emerald-600" /> จัดการแม่แบบ (Templates)</h2>
-          <p className="text-xs font-bold text-emerald-600 mb-4">บันทึกโครงสร้างกะงาน, หน้าที่งาน และการตั้งค่าทั้งหมดของ <span className="uppercase font-black text-emerald-800">"ทั้งสองแผนก"</span> (บริการและครัว) ไว้ใช้ในภายหลัง</p>
+          <p className="text-xs font-bold text-emerald-600 mb-4">บันทึกการตั้งค่าทั้งหมด (หน้าที่งาน, โครงสร้างกะ, ชื่อกะ, วันหยุดสาขา) ของ <span className="uppercase font-black text-emerald-800">"ทั้งสองแผนก"</span> ไว้ใช้ในภายหลัง</p>
           {authRole === 'superadmin' ? (
               <div className="flex flex-col sm:flex-row gap-3 mb-6 bg-white p-4 rounded-2xl border border-emerald-200">
                  <input type="text" placeholder="ตั้งชื่อแม่แบบใหม่" value={templateName} onChange={(e) => setTemplateName(e.target.value)} className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold outline-none focus:border-emerald-500" />
