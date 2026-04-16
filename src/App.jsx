@@ -373,6 +373,8 @@ export default function App() {
   const dateBarRef = useRef(null);
   const selectedYear = 2026;
   const autoAssignedDates = useRef(new Set()); 
+  const scheduleRef = useRef();
+  scheduleRef.current = schedule;
 
   const CURRENT_DUTY_LIST = useMemo(() => {
     let list = branchData.duties && branchData.duties[activeDept] ? branchData.duties[activeDept] : (activeDept === 'service' ? DEFAULT_SERVICE_DUTIES : DEFAULT_KITCHEN_DUTIES);
@@ -639,6 +641,19 @@ export default function App() {
     } catch (err) { setLoginError('เกิดข้อผิดพลาดในการเชื่อมต่อ'); }
   };
 
+  const autoSaveSchedule = useCallback(async (scheduleData) => {
+    const dataToSave = scheduleData || scheduleRef.current;
+    if (!activeBranchId) return;
+    setSaveStatus('saving');
+    try {
+      await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'schedules', activeBranchId), { records: dataToSave });
+      setSaveStatus('success');
+      setTimeout(() => { setSaveStatus(null); }, 1500);
+    } catch (err) {
+      setSaveStatus('error');
+    }
+  }, [activeBranchId]);
+
   const handleGlobalSave = async () => {
     if (authRole === 'guest' || authRole === 'staff') return;
     setSaveStatus('saving');
@@ -653,7 +668,7 @@ export default function App() {
     } catch (err) { setSaveStatus('error'); }
   };
 
-  const updateSchedule = (dateStr, dutyId, slotIndex, field, value, defaultOt = 0) => {
+  const handleScheduleUpdate = (dateStr, dutyId, slotIndex, field, value, defaultOt = 0) => {
     setSchedule(prev => {
       const newSched = JSON.parse(JSON.stringify(prev));
       if (!newSched[dateStr]) newSched[dateStr] = { duties: {}, leaves: [] };
@@ -661,27 +676,30 @@ export default function App() {
       if (!newSched[dateStr].duties[dutyId]) newSched[dateStr].duties[dutyId] = [];
       const currentSlots = newSched[dateStr].duties[dutyId];
       if (!currentSlots[slotIndex]) currentSlots[slotIndex] = { staffId: "", otHours: 0 };
-      
+
       currentSlots[slotIndex][field] = value;
       currentSlots[slotIndex].otUpdated = true; 
       if (field === 'staffId') {
          if (value !== "") currentSlots[slotIndex].otHours = parseFloat(defaultOt) || 0;
          else currentSlots[slotIndex].otHours = 0;
+         // Auto-save on staff change
+         if (activeBranchId) autoSaveSchedule(newSched);
       }
       return newSched;
     });
   };
 
   const handleLeaveChange = useCallback((dateStr, leaveType, selectedStaffIds) => {
-      setSchedule(prev => {
-          const newSched = JSON.parse(JSON.stringify(prev));
-          if (!newSched[dateStr]) newSched[dateStr] = { duties: {}, leaves: [], autoLeavesAssigned: true };
-          let updatedLeaves = (newSched[dateStr].leaves || []).filter(l => l.type !== leaveType);
-          selectedStaffIds.forEach(staffId => { updatedLeaves.push({ staffId, type: leaveType }); });
-          newSched[dateStr].leaves = updatedLeaves;
-          return newSched;
-      });
-  }, []);
+    setSchedule(prev => {
+        const newSched = JSON.parse(JSON.stringify(prev));
+        if (!newSched[dateStr]) newSched[dateStr] = { duties: {}, leaves: [], autoLeavesAssigned: true };
+        let updatedLeaves = (newSched[dateStr].leaves || []).filter(l => l.type !== leaveType);
+        selectedStaffIds.forEach(staffId => { updatedLeaves.push({ staffId, type: leaveType }); });
+        newSched[dateStr].leaves = updatedLeaves;
+        if (activeBranchId) autoSaveSchedule(newSched);
+        return newSched;
+    });
+  }, [activeBranchId, autoSaveSchedule]);
 
   const handleAddDuty = () => {
     if (!newDutyJobA.trim()) return;
@@ -1752,7 +1770,7 @@ export default function App() {
                                               </div>
                                               </div>
                                               <div className="flex flex-col sm:flex-row gap-2">
-                                              <select value={data.staffId} onChange={(e) => updateSchedule(selectedDateStr, duty.id, idx, 'staffId', e.target.value, slot.maxOtHours)} className="w-full sm:flex-[3] bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-black outline-none shadow-sm text-slate-900 focus:border-indigo-500">
+                                              <select value={data.staffId} onChange={(e) => handleScheduleUpdate(selectedDateStr, duty.id, idx, 'staffId', e.target.value, slot.maxOtHours)} className="w-full sm:flex-[3] bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-black outline-none shadow-sm text-slate-900 focus:border-indigo-500">
                                                  <option value="">-- เลือกพนักงาน --</option>
                                                  {branchData.staff?.filter(s => s.dept === activeDept).map(s => {
                                                     const isUsed = usedStaffIds.includes(s.id) && data.staffId !== s.id;
@@ -1762,7 +1780,7 @@ export default function App() {
                                               </select>
                                               <div className={`w-full sm:flex-1 flex flex-row sm:flex-col justify-between sm:justify-center items-center border rounded-xl bg-white transition-all px-3 py-1 ${data.otHours >= slot.maxOtHours ? 'border-indigo-500 bg-indigo-50/20' : 'border-slate-200'}`}>
                                                  <span className="text-[8px] font-black text-slate-300 uppercase sm:mb-0.5">OT</span>
-                                                 <input type="number" step="0.5" value={data.otHours} onChange={(e) => updateSchedule(selectedDateStr, duty.id, idx, 'otHours', parseFloat(e.target.value) || 0)} className="w-12 sm:w-full text-right sm:text-center font-black text-sm outline-none bg-transparent focus:text-indigo-600" />
+                                                 <input type="number" step="0.5" value={data.otHours} onChange={(e) => handleScheduleUpdate(selectedDateStr, duty.id, idx, 'otHours', parseFloat(e.target.value) || 0)} onBlur={() => autoSaveSchedule()} className="w-12 sm:w-full text-right sm:text-center font-black text-sm outline-none bg-transparent focus:text-indigo-600" />
                                               </div>
                                               </div>
                                            </div>
@@ -1995,7 +2013,7 @@ export default function App() {
                                                                 <span className="text-[8px] font-bold text-slate-400">{slot.startTime}-{slot.endTime}</span>
                                                                 {data.otHours > 0 && <span className="text-[8px] font-black text-indigo-600 bg-indigo-50 px-1 rounded">OT:{data.otHours}</span>}
                                                              </div>
-                                                             <select value={data.staffId} onChange={(e) => updateSchedule(day.dateStr, duty.id, idx, 'staffId', e.target.value, slot.maxOtHours)} className="w-full text-[10px] font-bold bg-transparent outline-none text-slate-800 truncate">
+                                                             <select value={data.staffId} onChange={(e) => handleScheduleUpdate(day.dateStr, duty.id, idx, 'staffId', e.target.value, slot.maxOtHours)} className="w-full text-[10px] font-bold bg-transparent outline-none text-slate-800 truncate">
                                                                 <option value="">-- ว่าง --</option>
                                                                 {branchData.staff?.filter(s => s.dept === activeDept).map(s => {
                                                                    const isUsed = dayUsedStaffIds.has(s.id) && data.staffId !== s.id;
@@ -2306,8 +2324,9 @@ export default function App() {
                       <button onClick={() => setShowRequestsModal(true)} className="relative bg-slate-100 hover:bg-slate-200 p-2.5 rounded-xl text-slate-500 transition cursor-pointer">
                          <Bell className="w-5 h-5" />{pendingRequests.filter(r => r.reqType !== 'SWAP' || r.status === 'PENDING_MANAGER').length > 0 && <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse border border-white"></span>}
                       </button>
-                      <button onClick={handleGlobalSave} disabled={saveStatus === 'saving'} className="bg-indigo-600 text-white px-6 py-2.5 rounded-2xl font-black text-xs hover:bg-indigo-700 active:scale-95 transition flex items-center gap-2">
-                         {saveStatus === 'saving' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} บันทึก
+                      <button onClick={handleGlobalSave} disabled={saveStatus === 'saving'} className="bg-indigo-600 text-white px-4 py-2.5 rounded-2xl font-black text-xs hover:bg-indigo-700 active:scale-95 transition flex items-center gap-2 w-32 justify-center">
+                         {saveStatus === 'saving' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                         <span className="ml-1">{saveStatus === 'saving' ? 'กำลังบันทึก...' : 'บันทึกทั้งหมด'}</span>
                       </button>
                       {saveStatus === 'error' && <div className="text-red-500 text-xs font-bold ml-2">บันทึกไม่สำเร็จ กรุณาลองใหม่</div>}
                       <button onClick={() => {setAuthRole('guest'); setView('manager');}} className="text-slate-400 hover:text-red-500 transition"><LogIn className="w-6 h-6 rotate-180" /></button>
