@@ -646,7 +646,8 @@ export default function App() {
         const [y, m, d] = selectedDateStr.split('-').map(Number);
         const dateObj = new Date(y, m - 1, d);
         const dayOfWeek = dateObj.getDay();
-        const regularOffStaff = branchData.staff.filter(s => s.regularDayOff === dayOfWeek);
+        const isHoliday = branchData.holidays?.includes?.(selectedDateStr);
+        const regularOffStaff = isHoliday ? [] : branchData.staff.filter(s => s.regularDayOff === dayOfWeek);
         const newSched = { ...prev };
         if (!newSched[selectedDateStr]) newSched[selectedDateStr] = { duties: {}, leaves: [] };
         const currentLeaves = newSched[selectedDateStr].leaves || [];
@@ -920,19 +921,23 @@ export default function App() {
       });
   };
 
-  const handleDeleteShiftPreset = (id) => {
+  const handleDeleteShiftPreset = async (id) => {
       if (branchData.shiftPresets?.length <= 1) {
           setConfirmModal({ message: "ไม่สามารถลบกะสุดท้ายได้ ต้องมีอย่างน้อย 1 กะในระบบ" });
           return;
       }
-      let isUsed = Object.values(branchData.matrix).some(dayType => 
-          Object.values(dayType.duties).some(slots => slots.some(s => s.shiftPresetId === id))
+      let isUsed = Object.values(branchData.matrix || {}).some(dayType => 
+          dayType?.duties && Object.values(dayType.duties).some(slots => 
+              Array.isArray(slots) && slots.some(s => s.shiftPresetId === id)
+          )
       );
       if (isUsed) {
           setConfirmModal({ message: "ไม่สามารถลบกะนี้ได้ เนื่องจากมีการใช้งานอยู่ในโครงสร้างกะงาน (CYCLE)" });
           return;
       }
-      setBranchData(prev => ({ ...prev, shiftPresets: prev.shiftPresets.filter(p => p.id !== id) }));
+      const nd = { ...branchData, shiftPresets: (branchData.shiftPresets || []).filter(p => p.id !== id) };
+      setBranchData(nd);
+      if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd);
   };
 
   const handleSaveTemplate = async () => {
@@ -1035,6 +1040,10 @@ export default function App() {
   };
 
   const handleSubmitLeaveRequest = async (dateStr, leaveTypeId) => {
+      if (branchData.holidays?.includes?.(dateStr)) {
+          setConfirmModal({ message: 'ระบบไม่อนุญาตให้ลาหยุดในวันหยุดประจำสาขาได้' });
+          return;
+      }
       const newReq = { id: 'R'+Date.now(), reqType: 'LEAVE', staffId: staffFilterPos, dateStr: dateStr, type: leaveTypeId, status: 'PENDING_MANAGER', timestamp: Date.now() };
       const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'requests', activeBranchId);
       try {
@@ -1237,7 +1246,8 @@ export default function App() {
                 const dayOfWeek = dateObj.getDay();
                 
                 const manuallyOnLeaveIds = new Set((dayData.leaves || []).map(l => l.staffId));
-                const regularOffStaff = branchData.staff?.filter(s => s.regularDayOff === dayOfWeek) || [];
+                const isHoliday = branchData.holidays?.includes?.(dateStr);
+                const regularOffStaff = isHoliday ? [] : branchData.staff?.filter(s => s.regularDayOff === dayOfWeek) || [];
                 
                 let finalLeaves = [...(dayData.leaves || [])];
                 regularOffStaff.forEach(staff => {
@@ -2134,11 +2144,13 @@ export default function App() {
                 {LEAVE_TYPES.map(lt => {
                 const selectedStaffIds = (schedule[selectedDateStr]?.leaves || []).filter(l => l.type === lt.id).map(l => l.staffId);
                 const staffOptions = branchData.staff?.filter(s => { if (s.dept !== activeDept) return false; return !(usedStaffIds.includes(s.id) && !selectedStaffIds.includes(s.id)); }) || [];
+                const isHoliday = branchData.holidays?.includes?.(selectedDateStr);
+                const isBlocked = isHoliday && lt.id === 'OFF';
                 return (
-                   <div key={lt.id} className="bg-slate-50 p-4 sm:p-5 rounded-[1.5rem] flex flex-col gap-4 border border-slate-100 shadow-sm hover:bg-white hover:border-indigo-100 transition-all">
+                   <div key={lt.id} className={`bg-slate-50 p-4 sm:p-5 rounded-[1.5rem] flex flex-col gap-4 border border-slate-100 shadow-sm transition-all ${isBlocked ? 'opacity-50 pointer-events-none grayscale' : 'hover:bg-white hover:border-indigo-100'}`}>
                       <div className="flex items-center gap-3">
                             <span className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black ${lt.color} border border-white shadow-sm flex-shrink-0`}>{lt.shortLabel}</span>
-                            <span className="text-xs sm:text-sm font-black text-slate-700 truncate">{lt.label}</span>
+                            <span className="text-xs sm:text-sm font-black text-slate-700 truncate">{lt.label} {isBlocked && '(ห้ามหยุด)'}</span>
                             <span className="ml-auto text-[10px] font-bold text-slate-400 bg-white px-2 py-1 rounded-lg border shadow-sm flex-shrink-0">{selectedStaffIds.length} คน</span>
                       </div>
                       <StaffMultiSelector value={selectedStaffIds} options={staffOptions} onChange={(newIds) => handleLeaveChange(selectedDateStr, lt.id, newIds)} placeholder="เลือกพนักงาน..." />
@@ -2403,11 +2415,13 @@ export default function App() {
                    {LEAVE_TYPES.map(lt => {
                       const selectedStaffIds = (schedule[selectedDateStr]?.leaves || []).filter(l => l.type === lt.id).map(l => l.staffId);
                       const staffOptions = branchData.staff?.filter(s => { if (s.dept !== activeDept) return false; return !(usedStaffIds.includes(s.id) && !selectedStaffIds.includes(s.id)); }) || [];
+                      const isHoliday = branchData.holidays?.includes?.(selectedDateStr);
+                      const isBlocked = isHoliday && lt.id === 'OFF';
                       return (
-                         <div key={lt.id} className="bg-white p-4 rounded-[1.5rem] flex flex-col gap-3 border border-slate-200 shadow-sm">
+                         <div key={lt.id} className={`bg-white p-4 rounded-[1.5rem] flex flex-col gap-3 border border-slate-200 shadow-sm ${isBlocked ? 'opacity-50 pointer-events-none grayscale' : ''}`}>
                             <div className="flex items-center gap-2">
                                <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-black ${lt.color} border border-white shadow-sm flex-shrink-0`}>{lt.shortLabel}</span>
-                               <span className="text-xs font-black text-slate-700 truncate">{lt.label}</span>
+                               <span className="text-xs font-black text-slate-700 truncate">{lt.label} {isBlocked && '(ห้าม)'}</span>
                             </div>
                             <StaffMultiSelector value={selectedStaffIds} options={staffOptions} onChange={(newIds) => handleLeaveChange(selectedDateStr, lt.id, newIds)} placeholder="เลือกพนักงาน..." />
                          </div>
