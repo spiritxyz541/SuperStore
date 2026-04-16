@@ -375,6 +375,7 @@ export default function App() {
 
 
   const [draggedDutyIdx, setDraggedDutyIdx] = useState(null);
+  const [draggedShiftPresetIdx, setDraggedShiftPresetIdx] = useState(null);
   
   const [staffFilterPos, setStaffFilterPos] = useState('ALL'); 
   const [templateName, setTemplateName] = useState('');
@@ -821,17 +822,18 @@ export default function App() {
      });
   };
 
-  const handleDropDuty = (dropIdx) => {
+  const handleDropDuty = async (dropIdx) => {
      if (draggedDutyIdx === null || draggedDutyIdx === dropIdx) return;
-     setBranchData(prev => {
-        const nd = JSON.parse(JSON.stringify(prev));
-        const dutiesList = nd.duties[activeDept];
-        const draggedItem = dutiesList[draggedDutyIdx];
-        dutiesList.splice(draggedDutyIdx, 1);
-        dutiesList.splice(dropIdx, 0, draggedItem);
-        return nd;
-     });
+     const nd = JSON.parse(JSON.stringify(branchData));
+     const dutiesList = nd.duties[activeDept];
+     const draggedItem = dutiesList[draggedDutyIdx];
+     dutiesList.splice(draggedDutyIdx, 1);
+     dutiesList.splice(dropIdx, 0, draggedItem);
+     setBranchData(nd);
      setDraggedDutyIdx(null);
+     if (activeBranchId) {
+        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd);
+     }
   };
 
   const startEditStaff = (staff) => { setEditingStaffId(staff.id); setEditStaffData({ ...staff }); };
@@ -839,16 +841,27 @@ export default function App() {
   const startEditBranch = (branch) => { setEditingBranchId(branch.id); setEditBranchData({ ...branch }); };
   const saveEditBranch = () => { setGlobalConfig(prev => ({ ...prev, branches: prev.branches.map(b => b.id === editingBranchId ? editBranchData : b) })); setEditingBranchId(null); };
 
+  const handleDropShiftPreset = async (dropIdx) => {
+    if (draggedShiftPresetIdx === null || draggedShiftPresetIdx === dropIdx) return;
+    const nd = JSON.parse(JSON.stringify(branchData));
+    const presetsList = nd.shiftPresets || [];
+    const draggedItem = presetsList[draggedShiftPresetIdx];
+    presetsList.splice(draggedShiftPresetIdx, 1);
+    presetsList.splice(dropIdx, 0, draggedItem);
+    setBranchData(nd);
+    setDraggedShiftPresetIdx(null);
+    if (activeBranchId) {
+        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd);
+    }
+  };
+
   const handleAddShiftPreset = () => {
       const newPreset = {
           id: 'S' + Date.now(),
           name: 'กะใหม่',
           timings: { long: { startTime: '10:00', endTime: '19:30' }, short: { startTime: '10:00', endTime: '19:00' } }
       };
-      const nd = JSON.parse(JSON.stringify(branchData));
-      if (!nd.shiftPresets) nd.shiftPresets = [];
-      nd.shiftPresets.push(newPreset);
-      setBranchData(nd);
+      setBranchData(prev => ({...prev, shiftPresets: [...(prev.shiftPresets || []), newPreset]}));
   };
 
   const handleUpdateShiftPreset = (id, field, value, group = null) => {
@@ -1166,13 +1179,25 @@ export default function App() {
                 const onLeaveIds = new Set(finalLeaves.map(l => l.staffId));
                 const workingStaffIds = new Set(); 
 
-                // 3. Sort duties by priority: HEAD > STAFF > SUPPORT
+                // 3. Sort duties by priority: HEAD > STAFF > SUPPORT, then by highest required position
                 const dutyPriority = { 'HEAD': 1, 'STAFF': 2, 'SUPPORT': 3 };
                 const sortedDuties = [...CURRENT_DUTY_LIST].sort((a, b) => {
                     const getCat = (catStr) => (catStr || '').split('_')[1] || 'OTHER';
                     const priorityA = dutyPriority[getCat(a.category)] || 99;
                     const priorityB = dutyPriority[getCat(b.category)] || 99;
-                    return priorityA - priorityB;
+                    if (priorityA !== priorityB) return priorityA - priorityB;
+
+                    // Secondary sort: prioritize duties that require higher-ranked staff
+                    const getHighestRank = (reqPosArr) => {
+                        if (!reqPosArr || reqPosArr.length === 0 || reqPosArr.includes('ALL')) return 999;
+                        const posList = POSITIONS[activeDept] || [];
+                        const ranks = reqPosArr.map(p => posList.indexOf(p)).filter(r => r !== -1);
+                        return ranks.length > 0 ? Math.min(...ranks) : 999;
+                    };
+
+                    const rankA = getHighestRank(a.reqPos);
+                    const rankB = getHighestRank(b.reqPos);
+                    return rankA - rankB;
                 });
 
                 // 4. Get available staff, sorted by rank (highest first)
@@ -1205,15 +1230,19 @@ export default function App() {
                             checkPositionEligibility(s.pos, reqArr, activeDept)
                         );
 
-                        if (duty.category.includes('HEAD')) {
-                            candidate = potentialCandidates.find(s => s.pos === 'OC') || 
-                                        potentialCandidates.find(s => s.pos === 'AOC') ||
-                                        potentialCandidates[0];
-                        } else if (duty.category.includes('STAFF') || duty.category.includes('SUPPORT')) {
-                            candidate = potentialCandidates.find(s => reqArr.includes(s.pos)) ||
-                                        potentialCandidates[0];
-                        } else {
-                            candidate = potentialCandidates[0];
+                        if (potentialCandidates.length > 0) {
+                            // Priority 1: Find a candidate whose position is explicitly listed in reqPos.
+                            // We pick the highest-ranked one from this subset (potentialCandidates is already sorted).
+                            const directMatches = potentialCandidates.filter(p => reqArr.includes(p.pos));
+                            if (directMatches.length > 0) {
+                                candidate = directMatches[0];
+                            }
+
+                            // Priority 2: If no direct match (all candidates are over-qualified),
+                            // pick the *lowest-ranked* eligible staff to save higher ranks for other duties.
+                            if (!candidate) {
+                                candidate = potentialCandidates[potentialCandidates.length - 1];
+                            }
                         }
 
                         if (candidate) {
@@ -1702,9 +1731,17 @@ export default function App() {
         <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm w-full mt-6 sm:mt-10">
             <h2 className="text-lg sm:text-xl font-black text-slate-800 mb-6 sm:mb-8 flex items-center gap-2 sm:gap-4 uppercase tracking-tighter"><Clock className="w-6 h-6 sm:w-7 sm:h-7 text-indigo-500" /> จัดการชื่อกะ (Shift Presets)</h2>
             <div className="space-y-4">
-                {(branchData.shiftPresets || []).map(p => (
-                    <div key={p.id} className="bg-slate-50 border border-slate-100 p-4 rounded-2xl space-y-3">
+                {(branchData.shiftPresets || []).map((p, idx) => (
+                    <div 
+                        key={p.id} 
+                        draggable={authRole === 'superadmin'}
+                        onDragStart={() => setDraggedShiftPresetIdx(idx)}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={(e) => { e.preventDefault(); handleDropShiftPreset(idx); }}
+                        onDragEnd={() => setDraggedShiftPresetIdx(null)}
+                        className={`bg-slate-50 border border-slate-100 p-4 rounded-2xl space-y-3 transition-all ${draggedShiftPresetIdx === idx ? 'opacity-40 ring-2 ring-indigo-400' : ''} ${authRole === 'superadmin' ? 'cursor-grab active:cursor-grabbing' : ''}`}>
                         <div className="flex items-center gap-4">
+                            {authRole === 'superadmin' && <div className="text-slate-300 hover:text-indigo-500 flex-shrink-0 touch-none"><GripVertical className="w-5 h-5" /></div>}
                             <input type="text" value={p.name} onChange={(e) => handleUpdateShiftPreset(p.id, 'name', e.target.value)} onBlur={async () => { if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }} className="flex-1 font-black text-sm text-indigo-700 bg-transparent outline-none focus:bg-white p-2 rounded-lg"/>
                             <button onClick={() => handleDeleteShiftPreset(p.id)} className="text-slate-300 hover:text-red-500 transition p-2"><Trash2 className="w-4 h-4"/></button>
                         </div>
