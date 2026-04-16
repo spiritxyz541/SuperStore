@@ -2664,23 +2664,22 @@ export default function App() {
                        <td className="px-6 sm:px-10 py-6 sm:py-8">
                          <div className="flex flex-wrap gap-4 sm:gap-6">
                            {(data.duties?.[duty.id] || []).map((matrixSlot, idx) => (
-                              <div key={idx} className="flex flex-col items-start gap-3 bg-white p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2.2rem] border-2 border-slate-50 shadow-sm transition hover:border-indigo-100 relative w-60">
-                                  <div className="flex w-full items-center gap-2">
-                                      <span className="w-16 flex-shrink-0 text-[8px] sm:text-[9px] font-black text-slate-400 uppercase">กะ</span>
+                              <div key={idx} className="bg-white p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2.2rem] border-2 border-slate-50 shadow-sm transition hover:border-indigo-100 relative w-60">
+                                  <div className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-3 w-full">
+                                      <span className="text-[8px] sm:text-[9px] font-black text-slate-400 uppercase">กะ</span>
                                       <select disabled={authRole === 'branch'} value={matrixSlot.shiftPresetId || ''}
                                           onChange={(e) => {
                                               const nd = JSON.parse(JSON.stringify(branchData));
                                               if (nd.matrix?.[key]?.duties?.[duty.id]?.[idx]) { nd.matrix[key].duties[duty.id][idx].shiftPresetId = e.target.value; setBranchData(nd); }
                                           }}
                                           onBlur={async () => { if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }}
-                                          className="flex-1 border rounded-xl p-1.5 sm:p-2 text-[10px] sm:text-xs font-black disabled:bg-slate-50 disabled:text-slate-300 outline-none focus:border-indigo-500">
+                                          className="w-full border rounded-xl p-1.5 sm:p-2 text-[10px] sm:text-xs font-black disabled:bg-slate-50 disabled:text-slate-300 outline-none focus:border-indigo-500">
                                           <option value="" disabled>-- เลือกกะ --</option>
                                           {(branchData.shiftPresets || []).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                                       </select>
-                                  </div>
-                                  <div className="flex w-full items-center gap-2">
-                                      <span className="w-16 flex-shrink-0 text-[8px] sm:text-[9px] font-black text-indigo-500 uppercase">MAX OT</span>
-                                      <input type="number" disabled={authRole === 'branch'} step="0.5" className="flex-1 border rounded-xl p-1.5 sm:p-2 text-center font-black bg-indigo-50/50 disabled:opacity-50 outline-none focus:border-indigo-500 text-[10px] sm:text-xs" value={matrixSlot.maxOtHours}
+
+                                      <span className="text-[8px] sm:text-[9px] font-black text-indigo-500 uppercase">MAX OT</span>
+                                      <input type="number" disabled={authRole === 'branch'} step="0.5" className="w-full border rounded-xl p-1.5 sm:p-2 text-center font-black bg-indigo-50/50 disabled:opacity-50 outline-none focus:border-indigo-500 text-[10px] sm:text-xs" value={matrixSlot.maxOtHours}
                                           onChange={(e) => {
                                               const nd = JSON.parse(JSON.stringify(branchData));
                                               if (nd.matrix?.[key]?.duties?.[duty.id]?.[idx]) { nd.matrix[key].duties[duty.id][idx].maxOtHours = parseFloat(e.target.value) || 0; setBranchData(nd); }
