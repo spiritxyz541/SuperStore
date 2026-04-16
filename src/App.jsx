@@ -376,6 +376,11 @@ export default function App() {
   const scheduleRef = useRef();
   scheduleRef.current = schedule;
 
+  // Data Inspector State
+  const [showDataInspector, setShowDataInspector] = useState(false);
+  const [inspectorBranchId, setInspectorBranchId] = useState(null);
+  const [inspectedData, setInspectedData] = useState({ branch: null, schedule: null, loading: false, error: null });
+
   const CURRENT_DUTY_LIST = useMemo(() => {
     let list = branchData.duties && branchData.duties[activeDept] ? branchData.duties[activeDept] : (activeDept === 'service' ? DEFAULT_SERVICE_DUTIES : DEFAULT_KITCHEN_DUTIES);
     return list.map(d => ({
@@ -1116,6 +1121,56 @@ export default function App() {
       });
   };
 
+  const handleInspectBranch = async (branchId) => {
+    setInspectorBranchId(branchId);
+    if (!branchId) {
+        setInspectedData({ branch: null, schedule: null, loading: false, error: null });
+        return;
+    }
+    setInspectedData({ branch: null, schedule: null, loading: true, error: null });
+    try {
+        const branchDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'branches', branchId);
+        const scheduleDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'schedules', branchId);
+        
+        const branchSnap = await getDoc(branchDocRef);
+        const scheduleSnap = await getDoc(scheduleDocRef);
+
+        setInspectedData({
+            branch: branchSnap.exists() ? branchSnap.data() : { error: 'No branch data found.' },
+            schedule: scheduleSnap.exists() ? scheduleSnap.data() : { error: 'No schedule data found.' },
+            loading: false,
+            error: null
+        });
+    } catch (e) {
+        setInspectedData({ branch: null, schedule: null, loading: false, error: e.message });
+    }
+  };
+
+  const handleResetBranchData = async (branchId) => {
+    if (!branchId) return;
+    const branchToReset = globalConfig.branches.find(b => b.id === branchId);
+    const originalStaff = inspectedData.branch?.staff || [];
+    const resetData = { 
+        staff: originalStaff, holidays: [], duties: { service: DEFAULT_SERVICE_DUTIES, kitchen: DEFAULT_KITCHEN_DUTIES }, 
+        matrix: generateDefaultMatrix(), templates: [] 
+    };
+    try {
+        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', branchId), resetData);
+        setConfirmModal({ message: `Branch data for "${branchToReset?.name}" has been reset successfully (staff list was preserved).` });
+        handleInspectBranch(branchId);
+    } catch (e) { setConfirmModal({ message: `Error resetting branch data: ${e.message}` }); }
+  };
+
+  const handleClearScheduleData = async (branchId) => {
+    if (!branchId) return;
+    const branchToReset = globalConfig.branches.find(b => b.id === branchId);
+    try {
+        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'schedules', branchId), { records: {} });
+        setConfirmModal({ message: `Schedule data for "${branchToReset?.name}" has been cleared.` });
+        handleInspectBranch(branchId);
+    } catch (e) { setConfirmModal({ message: `Error clearing schedule data: ${e.message}` }); }
+  };
+
   const scrollDates = (dir) => {
     if (dateBarRef.current) {
       const amt = dir === 'left' ? -350 : 350;
@@ -1124,6 +1179,35 @@ export default function App() {
   };
 
   // === RENDER DECLARATION HELPER COMPONENTS ===
+
+  function renderDataInspectorModal() {
+    return (
+        <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/70 backdrop-blur-md p-4 animate-in fade-in duration-300 font-sans">
+            <div className="bg-slate-800 text-white rounded-2xl p-6 max-w-4xl w-full shadow-2xl flex flex-col gap-4 max-h-[90vh]">
+                <div className="flex justify-between items-center border-b border-slate-700 pb-4">
+                    <h3 className="text-xl font-black uppercase tracking-wider">Server Data Inspector</h3>
+                    <button onClick={() => setShowDataInspector(false)} className="text-slate-400 hover:bg-slate-700 p-2 rounded-full transition"><X className="w-6 h-6"/></button>
+                </div>
+                <div className="flex gap-4 items-center">
+                    <select onChange={(e) => handleInspectBranch(e.target.value)} className="bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-sm font-bold outline-none flex-1">
+                        <option value="">-- Select a Branch to Inspect --</option>
+                        {globalConfig.branches?.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                    </select>
+                    {inspectorBranchId && (
+                        <div className="flex gap-2">
+                            <button onClick={() => setConfirmModal({ message: 'This will ERASE and RESET the main data (duties, matrix) for this branch, keeping only the staff list. Are you sure?', action: () => handleResetBranchData(inspectorBranchId) })} className="bg-yellow-500 text-black px-4 py-2 rounded-lg text-xs font-black hover:bg-yellow-400 transition">Reset Branch Data</button>
+                            <button onClick={() => setConfirmModal({ message: 'This will ERASE ALL schedule entries for this branch. Are you sure?', action: () => handleClearScheduleData(inspectorBranchId) })} className="bg-red-600 text-white px-4 py-2 rounded-lg text-xs font-black hover:bg-red-500 transition">Clear Schedule</button>
+                        </div>
+                    )}
+                </div>
+                <div className="flex-1 grid grid-cols-2 gap-4 overflow-hidden">
+                    <div className="bg-black/20 rounded-lg p-4 flex flex-col overflow-hidden"><h4 className="font-bold text-slate-400 mb-2">Branch Data Document</h4><pre className="text-xs text-slate-300 overflow-auto custom-scrollbar flex-1">{inspectedData.loading ? 'Loading...' : inspectedData.error ? `Error: ${inspectedData.error}` : JSON.stringify(inspectedData.branch, null, 2)}</pre></div>
+                    <div className="bg-black/20 rounded-lg p-4 flex flex-col overflow-hidden"><h4 className="font-bold text-slate-400 mb-2">Schedule Document</h4><pre className="text-xs text-slate-300 overflow-auto custom-scrollbar flex-1">{inspectedData.loading ? 'Loading...' : inspectedData.error ? `Error: ${inspectedData.error}` : JSON.stringify(inspectedData.schedule, null, 2)}</pre></div>
+                </div>
+            </div>
+        </div>
+    );
+  }
 
   function renderModals() {
     return (
@@ -1219,6 +1303,7 @@ export default function App() {
              </div>
           </div>
         )}
+        {showDataInspector && renderDataInspectorModal()}
       </React.Fragment>
     );
   }
@@ -1234,7 +1319,10 @@ export default function App() {
             <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-white tracking-tighter uppercase mb-2 sm:mb-4">GON SUPER STORE</h1>
             <p className="text-sm sm:text-lg lg:text-xl text-slate-400 font-bold uppercase tracking-[0.2em] sm:tracking-[0.4em]">Manager Assistant</p>
           </div>
-          <div className="hidden lg:block absolute bottom-8 text-center w-full z-10"><p className="text-xs font-bold text-slate-500 tracking-[0.2em] uppercase">Powered by Super Store Team</p></div>
+          <div className="hidden lg:block absolute bottom-8 text-center w-full z-10">
+            <p className="text-xs font-bold text-slate-500 tracking-[0.2em] uppercase">Powered by Super Store Team</p>
+            <button onClick={() => setShowDataInspector(true)} className="mt-2 bg-slate-800 text-slate-400 text-xs font-bold py-1 px-3 rounded-md hover:bg-slate-700 transition">Server Data Inspector</button>
+          </div>
         </div>
         <div className="w-full lg:w-1/2 flex-1 flex flex-col justify-center items-center p-6 sm:p-12 relative bg-white">
           <div className="w-full max-w-md p-8 sm:p-12 rounded-[2rem] sm:rounded-[3rem] shadow-xl sm:shadow-2xl border border-slate-100 bg-white flex flex-col gap-6 sm:gap-8 animate-in slide-in-from-right-8 duration-500 z-10">
@@ -1277,7 +1365,10 @@ export default function App() {
                 </form>
             )}
           </div>
-          <div className="lg:hidden mt-12 text-center w-full z-0"><p className="text-[10px] font-bold text-slate-400 tracking-[0.2em] uppercase">Powered by Super Store Team</p></div>
+          <div className="lg:hidden mt-12 text-center w-full z-0">
+            <p className="text-[10px] font-bold text-slate-400 tracking-[0.2em] uppercase">Powered by Super Store Team</p>
+            <button onClick={() => setShowDataInspector(true)} className="mt-4 bg-slate-200 text-slate-600 text-xs font-bold py-1 px-3 rounded-md hover:bg-slate-300 transition">Server Data Inspector</button>
+          </div>
         </div>
       </div>
     );
