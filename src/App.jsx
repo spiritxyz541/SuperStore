@@ -581,8 +581,15 @@ export default function App() {
         }
         if (!data.duties) data.duties = { service: DEFAULT_SERVICE_DUTIES, kitchen: DEFAULT_KITCHEN_DUTIES };
         if (!data.templates) data.templates = [];
-        if (!data.dayOffLimits) {
-            data.dayOffLimits = { 0: 99, 1: 99, 2: 99, 3: 99, 4: 99, 5: 99, 6: 99 };
+        // Migration for dayOffLimits from old format to new { service: ..., kitchen: ... } format
+        if (!data.dayOffLimits || !data.dayOffLimits.service || !data.dayOffLimits.kitchen) {
+            const defaultLimits = { 0: 99, 1: 99, 2: 99, 3: 99, 4: 99, 5: 99, 6: 99 };
+            // If dayOffLimits exists but is in the old format, use it as the base for both departments
+            const baseLimits = (data.dayOffLimits && !data.dayOffLimits.service) ? data.dayOffLimits : defaultLimits;
+            data.dayOffLimits = {
+                service: { ...defaultLimits, ...baseLimits },
+                kitchen: { ...defaultLimits, ...baseLimits }
+            };
         }
         if (!data.matrix) {
             data.matrix = generateDefaultMatrix(data.duties.service, data.duties.kitchen);
@@ -846,28 +853,37 @@ export default function App() {
   const saveEditBranch = () => { setGlobalConfig(prev => ({ ...prev, branches: prev.branches.map(b => b.id === editingBranchId ? editBranchData : b) })); setEditingBranchId(null); };
 
   const handleUpdateDayOffLimit = async (dayId, limit) => {
+      const newLimit = limit === '' ? 99 : parseInt(limit);
       const nd = JSON.parse(JSON.stringify(branchData));
-      if (!nd.dayOffLimits) nd.dayOffLimits = { 0: 99, 1: 99, 2: 99, 3: 99, 4: 99, 5: 99, 6: 99 };
-      nd.dayOffLimits[dayId] = limit === '' ? 99 : parseInt(limit);
+      if (!nd.dayOffLimits) nd.dayOffLimits = {};
+      if (!nd.dayOffLimits.service) nd.dayOffLimits.service = { 0: 99, 1: 99, 2: 99, 3: 99, 4: 99, 5: 99, 6: 99 };
+      if (!nd.dayOffLimits.kitchen) nd.dayOffLimits.kitchen = { 0: 99, 1: 99, 2: 99, 3: 99, 4: 99, 5: 99, 6: 99 };
+      nd.dayOffLimits[activeDept][dayId] = newLimit;
       setBranchData(nd);
       if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd);
   };
 
   const handleAutoAssignDayOffs = async () => {
       const nd = JSON.parse(JSON.stringify(branchData));
-      const limits = nd.dayOffLimits || { 0: 99, 1: 99, 2: 99, 3: 99, 4: 99, 5: 99, 6: 99 };
-      const counts = {};
+      const limits = nd.dayOffLimits; // Now { service: {...}, kitchen: {...} }
+      const counts = { service: {}, kitchen: {} };
       (nd.staff || []).forEach(s => {
-          if (s.regularDayOff !== null && s.regularDayOff !== undefined) counts[s.regularDayOff] = (counts[s.regularDayOff] || 0) + 1;
+          if (s.regularDayOff !== null && s.regularDayOff !== undefined) {
+              const dept = s.dept || 'service';
+              counts[dept][s.regularDayOff] = (counts[dept][s.regularDayOff] || 0) + 1;
+          }
       });
       let changed = false;
       (nd.staff || []).forEach(s => {
           if (s.regularDayOff === null || s.regularDayOff === undefined || s.regularDayOff === '') {
+              const dept = s.dept || 'service';
+              const deptLimits = limits[dept];
+              const deptCounts = counts[dept];
               const daysOrder = [1, 2, 3, 4, 5, 6, 0];
               for (let dayId of daysOrder) {
-                  if ((counts[dayId] || 0) < limits[dayId]) {
+                  if ((deptCounts[dayId] || 0) < deptLimits[dayId]) {
                       s.regularDayOff = dayId;
-                      counts[dayId] = (counts[dayId] || 0) + 1;
+                      deptCounts[dayId] = (deptCounts[dayId] || 0) + 1;
                       changed = true; break;
                   }
               }
@@ -1386,7 +1402,10 @@ export default function App() {
     const originalStaff = inspectedData.branch?.staff || [];
     const resetData = { 
         staff: originalStaff, holidays: [], duties: { service: DEFAULT_SERVICE_DUTIES, kitchen: DEFAULT_KITCHEN_DUTIES }, 
-        matrix: generateDefaultMatrix(), templates: [], dayOffLimits: { 0: 99, 1: 99, 2: 99, 3: 99, 4: 99, 5: 99, 6: 99 }
+        matrix: generateDefaultMatrix(), templates: [], dayOffLimits: { 
+            service: { 0: 99, 1: 99, 2: 99, 3: 99, 4: 99, 5: 99, 6: 99 },
+            kitchen: { 0: 99, 1: 99, 2: 99, 3: 99, 4: 99, 5: 99, 6: 99 }
+        }
     };
     try {
         await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', branchId), resetData);
@@ -1865,12 +1884,15 @@ export default function App() {
   }
 
   function renderBranchAdmin() {
-    const globalDayOffCounts = {};
+    const dayOffCounts = { service: {}, kitchen: {} };
     (branchData.staff || []).forEach(s => {
        if (s.regularDayOff !== null && s.regularDayOff !== undefined) {
-           globalDayOffCounts[s.regularDayOff] = (globalDayOffCounts[s.regularDayOff] || 0) + 1;
+           const dept = s.dept || 'service';
+           if (!dayOffCounts[dept]) dayOffCounts[dept] = {};
+           dayOffCounts[dept][s.regularDayOff] = (dayOffCounts[dept][s.regularDayOff] || 0) + 1;
        }
     });
+    const activeDeptDayOffCounts = dayOffCounts[activeDept] || {};
 
     return (
      <div className="flex-1 space-y-6 sm:space-y-10 animate-in fade-in duration-500 pb-24 w-full">
@@ -1906,13 +1928,13 @@ export default function App() {
 
              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 mb-6 mt-4">
                 <div className="flex justify-between items-center mb-3">
-                    <h3 className="text-[10px] sm:text-xs font-black text-slate-700 uppercase tracking-widest">โควตาวันหยุดประจำสัปดาห์ (ต่อวัน)</h3>
+                    <h3 className="text-[10px] sm:text-xs font-black text-slate-700 uppercase tracking-widest">โควตาวันหยุด: {activeDept === 'service' ? 'ฝั่งบริการ' : 'ฝั่งครัว'}</h3>
                     <button onClick={handleAutoAssignDayOffs} className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-[10px] font-black hover:bg-indigo-700 transition flex items-center gap-1"><Wand2 className="w-3 h-3"/> จัดวันหยุด Auto</button>
                 </div>
                 <div className="grid grid-cols-4 lg:grid-cols-7 gap-2">
                     {DAYS_OF_WEEK.map(d => {
-                        const limit = branchData.dayOffLimits?.[d.id] ?? 99;
-                        const current = globalDayOffCounts[d.id] || 0;
+                        const limit = branchData.dayOffLimits?.[activeDept]?.[d.id] ?? 99;
+                        const current = activeDeptDayOffCounts[d.id] || 0;
                         return (
                             <div key={d.id} className="bg-white p-2 rounded-xl border border-slate-200 flex flex-col items-center">
                                 <span className="text-[9px] font-bold text-slate-500 mb-1">{d.label}</span>
@@ -1938,13 +1960,14 @@ export default function App() {
                        {POSITIONS[newStaffDept].map(p => <option key={p} value={p}>{p}</option>)}
                     </select>
                     <select value={newStaffDayOff} onChange={(e) => setNewStaffDayOff(e.target.value)} className="flex-1 bg-slate-50 border-2 border-slate-100 rounded-xl sm:rounded-2xl px-3 sm:px-4 py-3 text-[10px] sm:text-xs font-black uppercase outline-none focus:border-indigo-500 text-slate-500">
-                       <option value="">- วันหยุด -</option>
-                       {DAYS_OF_WEEK.map(d => {
-                           const limit = branchData.dayOffLimits?.[d.id] ?? 99;
-                           const current = globalDayOffCounts[d.id] || 0;
-                           const isFull = current >= limit;
-                           return <option key={d.id} value={d.id} disabled={isFull}>{d.label} {isFull ? '(เต็ม)' : ''}</option>
-                       })}
+                        <option value="">- วันหยุด -</option>
+                        {DAYS_OF_WEEK.map(d => {
+                            const deptCounts = dayOffCounts[newStaffDept] || {};
+                            const limit = branchData.dayOffLimits?.[newStaffDept]?.[d.id] ?? 99;
+                            const current = deptCounts[d.id] || 0;
+                            const isFull = current >= limit;
+                            return <option key={d.id} value={d.id} disabled={isFull}>{d.label} {isFull ? '(เต็ม)' : ''}</option>
+                        })}
                     </select>
                   </div>
                   <button onClick={() => { if(newStaffName.trim()){ setBranchData(p => ({...p, staff: [...(p.staff || []), {id: 's' + Date.now(), empId: newStaffEmpId.trim(), name: newStaffName.trim(), dept: newStaffDept, pos: newStaffPos, regularDayOff: newStaffDayOff === '' ? null : parseInt(newStaffDayOff)}]})); setNewStaffName(''); setNewStaffEmpId(''); setNewStaffDayOff(''); } }} className="w-full xl:w-auto bg-slate-900 text-white px-6 sm:px-8 py-3 rounded-xl sm:rounded-2xl font-black text-xs hover:bg-indigo-600 transition uppercase flex items-center justify-center"><UserPlus className="w-4 h-4 sm:w-5 sm:h-5 mr-0 sm:mr-0"/><span className="xl:hidden ml-2">เพิ่มพนักงาน</span></button>
@@ -1965,14 +1988,15 @@ export default function App() {
                               {POSITIONS[s.dept].map(p => <option key={p} value={p}>{p}</option>)}
                           </select>
                           <select value={editStaffData.regularDayOff ?? ''} onChange={e => setEditStaffData({...editStaffData, regularDayOff: e.target.value === '' ? null : parseInt(e.target.value)})} className="border rounded px-2 py-1 text-[10px]">
-                                  <option value="">- วันหยุด -</option>
-                                  {DAYS_OF_WEEK.map(d => {
-                                      const limit = branchData.dayOffLimits?.[d.id] ?? 99;
-                                      let current = globalDayOffCounts[d.id] || 0;
-                                      if (editStaffData.regularDayOff === d.id) current -= 1; 
-                                      const isFull = current >= limit;
-                                      return <option key={d.id} value={d.id} disabled={isFull && editStaffData.regularDayOff !== d.id}>{d.label} {isFull && editStaffData.regularDayOff !== d.id ? '(เต็ม)' : ''}</option>
-                                  })}
+                                    <option value="">- วันหยุด -</option>
+                                    {DAYS_OF_WEEK.map(d => {
+                                        const deptCounts = dayOffCounts[s.dept] || {};
+                                        const limit = branchData.dayOffLimits?.[s.dept]?.[d.id] ?? 99;
+                                        const current = deptCounts[d.id] || 0;
+                                        const isFull = current >= limit;
+                                        const isThisStaffsDayOff = s.regularDayOff === d.id;
+                                        return <option key={d.id} value={d.id} disabled={isFull && !isThisStaffsDayOff}>{d.label} {isFull && !isThisStaffsDayOff ? '(เต็ม)' : ''}</option>
+                                    })}
                           </select>
                           <button onClick={saveEditStaff} className="bg-green-500 text-white p-1.5 rounded"><Check className="w-3 h-3"/></button>
                           <button onClick={() => setEditingStaffId(null)} className="bg-red-500 text-white p-1.5 rounded"><X className="w-3 h-3"/></button>
@@ -2619,7 +2643,7 @@ export default function App() {
     return (
        <div className="bg-emerald-50 rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-emerald-100 shadow-sm w-full flex flex-col h-full print:hidden">
           <h2 className="text-lg sm:text-xl font-black text-emerald-800 mb-6 sm:mb-8 flex items-center gap-2 sm:gap-4 uppercase tracking-tighter"><SaveAll className="w-6 h-6 sm:w-7 sm:h-7 text-emerald-600" /> จัดการแม่แบบ (Templates)</h2>
-          <p className="text-xs font-bold text-emerald-600 mb-4">บันทึกโครงสร้างกะงาน (เวลาเข้า-ออก/OT) และหน้าที่งานทั้งหมดของแผนก <span className="uppercase font-black text-emerald-800">{activeDept}</span> ไว้ใช้ในภายหลัง</p>
+          <p className="text-xs font-bold text-emerald-600 mb-4">บันทึกโครงสร้างกะงาน, หน้าที่งาน และการตั้งค่าทั้งหมดของ <span className="uppercase font-black text-emerald-800">"ทั้งสองแผนก"</span> (บริการและครัว) ไว้ใช้ในภายหลัง</p>
           {authRole === 'superadmin' ? (
               <div className="flex flex-col sm:flex-row gap-3 mb-6 bg-white p-4 rounded-2xl border border-emerald-200">
                  <input type="text" placeholder="ตั้งชื่อแม่แบบใหม่" value={templateName} onChange={(e) => setTemplateName(e.target.value)} className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold outline-none focus:border-emerald-500" />
