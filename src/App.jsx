@@ -10,13 +10,12 @@ import {
 } from 'lucide-react';
 
 /**
- * SUPER STORE Manager Assistant - V13.1 (PERFECT ARCHITECTURE REFACTOR)
+ * SUPER STORE Manager Assistant - V15.7 (ULTIMATE STABILITY FIX)
  * อัปเดต:
- * 1. ขจัดปัญหา ReferenceError และ Objects are not valid as a React child 100% โดยรวบรวม Render Functions ให้อยู่ถูกที่
- * 2. จัดกลุ่ม Duty Layer ตาม SOP (Head, Staff, Support) แยกสี FOH/BOH สมบูรณ์
- * 3. หน้า Roster Chart (รายวัน) เทสีเต็มแถวตาม Layer และปรับสีข้อความให้มองเห็นชัดเจนทั้งพื้นสว่างและทึบ
- * 4. หน้า Admin เพิ่มช่องจัดการ XP-DNA SOP 
- * 5. หน้า Print (รายเดือน) ลบรายละเอียด Job B ออกจากช่องตาราง
+ * 1. ขจัดปัญหา ReferenceError 100% ด้วยการทำ Function Declaration ให้อยู่ใน Scope อย่างถูกต้อง
+ * 2. โครงสร้างเมนู ADMIN: รวบรวม "จัดการพนักงาน", "จัดการหน้าที่", "วันหยุดสาขา", "แม่แบบ" และ "โครงสร้างกะงาน" ครบถ้วน
+ * 3. หน้าจัดกะแบบรายเดือน (Monthly): เพิ่มระบบบันทึกวันลาหยุด พร้อมตัวเลือกวันที่แบบเจาะจง
+ * 4. หน้า Print (รายเดือน): ลบงานรอง (Job B) ออก จัด Layout สะอาดตา
  */
 
 // --- 1. Configurations ---
@@ -26,16 +25,13 @@ const firebaseConfig = {
   projectId: "superstore-31f83",
   storageBucket: "superstore-31f83.firebasestorage.app",
   messagingSenderId: "761097159845",
-  appId: "1:761097159845:web:07ca08e4854b017976794c",
-  measurementId: "G-MCPNHGS2D7"
+  appId: "1:761097159845:web:07ca08e4854b017976794c"
 };
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-
 const appId = "staffsync-v8-stable-prod-final"; 
-const geminiApiKey = ""; 
 
 // --- Constants & Layers ---
 const POSITIONS = {
@@ -45,29 +41,26 @@ const POSITIONS = {
 
 const DUTY_CATEGORIES = {
   service: [
-    { id: 'FOH_HEAD', label: 'Customer Service Head Team', color: 'bg-[#4B7A47] text-white border-[#3A6038]' },
-    { id: 'FOH_STAFF', label: 'Customer Service Staff Team', color: 'bg-[#89C579] text-slate-900 border-[#72A863]' },
-    { id: 'FOH_SUPPORT', label: 'Service Support Team', color: 'bg-[#D9E1D8] text-slate-800 border-[#B5C2B4]' }
+    { id: 'FOH_HEAD', label: 'Customer Service Head Team', color: 'bg-[#4B7A47] text-white border-white/20' },
+    { id: 'FOH_STAFF', label: 'Customer Service Staff Team', color: 'bg-[#89C579] text-slate-900 border-black/20' },
+    { id: 'FOH_SUPPORT', label: 'Service Support Team', color: 'bg-[#D9E1D8] text-slate-800 border-black/20' }
   ],
   kitchen: [
-    { id: 'BOH_HEAD', label: 'Kitchen Head Team', color: 'bg-[#1D4A7A] text-white border-[#15385C]' },
-    { id: 'BOH_STAFF', label: 'Kitchen Staff Team', color: 'bg-[#76B2D6] text-slate-900 border-[#5F94B5]' },
-    { id: 'BOH_SUPPORT', label: 'Kitchen Support Team', color: 'bg-[#D3E5F0] text-slate-800 border-[#AED0E6]' }
+    { id: 'BOH_HEAD', label: 'Kitchen Head Team', color: 'bg-[#1D4A7A] text-white border-white/20' },
+    { id: 'BOH_STAFF', label: 'Kitchen Staff Team', color: 'bg-[#76B2D6] text-slate-900 border-black/20' },
+    { id: 'BOH_SUPPORT', label: 'Kitchen Support Team', color: 'bg-[#D3E5F0] text-slate-800 border-black/20' }
   ]
 };
 
-const getStaffLayer = (dept, pos) => {
-  if (dept === 'service') {
-    if (["OC", "AOC", "SH", "SSD"].includes(pos)) return DUTY_CATEGORIES.service[0];
-    if (["FD", "SD+", "EDC+", "DVT+"].includes(pos)) return DUTY_CATEGORIES.service[1];
-    return DUTY_CATEGORIES.service[2];
-  } else {
-    if (["OC", "AOC", "KH", "SKD"].includes(pos)) return DUTY_CATEGORIES.kitchen[0];
-    if (["KD+", "EDC ครัว+", "DVT ครัว+"].includes(pos)) return DUTY_CATEGORIES.kitchen[1];
-    return DUTY_CATEGORIES.kitchen[2];
-  }
-};
+const LEAVE_TYPES = [
+  { id: 'OFF', label: 'หยุดประจำสัปดาห์', shortLabel: 'ย', color: 'bg-slate-100 text-slate-800' },
+  { id: 'CO', label: 'หยุดชดเชย', shortLabel: 'ชช', color: 'bg-blue-100 text-blue-800' },
+  { id: 'AL', label: 'หยุดพักร้อน', shortLabel: 'พร', color: 'bg-emerald-100 text-emerald-800' },
+  { id: 'SL', label: 'ลาป่วย', shortLabel: 'ป่วย', color: 'bg-red-100 text-red-800' },
+  { id: 'PL', label: 'ลากิจ', shortLabel: 'กิจ', color: 'bg-orange-100 text-orange-800' },
+];
 
+const THAI_MONTHS = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
 const DAYS_OF_WEEK = [{id:0,label:'อาทิตย์'},{id:1,label:'จันทร์'},{id:2,label:'อังคาร'},{id:3,label:'พุธ'},{id:4,label:'พฤหัสบดี'},{id:5,label:'ศุกร์'},{id:6,label:'เสาร์'}];
 
 const DEFAULT_SERVICE_DUTIES = [
@@ -86,22 +79,11 @@ const DEFAULT_KITCHEN_DUTIES = [
   { id: 'K4', category: 'BOH_SUPPORT', jobA: 'อ่างกระทะ', jobB: 'PREP', xpDna: '', reqPos: ["PT ครัว+", "KD", "EDC ครัว", "DVT ครัว", "PT ครัว"] },
 ];
 
-const LEAVE_TYPES = [
-  { id: 'OFF', label: 'หยุดประจำสัปดาห์', shortLabel: 'ย', color: 'bg-slate-100 text-slate-800' },
-  { id: 'CO', label: 'หยุดชดเชย', shortLabel: 'ชช', color: 'bg-blue-100 text-blue-800' },
-  { id: 'AL', label: 'หยุดพักร้อน', shortLabel: 'พร', color: 'bg-emerald-100 text-emerald-800' },
-  { id: 'SL', label: 'ลาป่วย', shortLabel: 'ป่วย', color: 'bg-red-100 text-red-800' },
-  { id: 'PL', label: 'ลากิจ', shortLabel: 'กิจ', color: 'bg-orange-100 text-orange-800' },
-];
-
-const THAI_MONTHS = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
-
-// --- Helper Functions ---
-const checkPositionEligibility = (staffPos, reqPosArr, dept) => {
+// --- Helper Functions (Hoisted) ---
+function checkPositionEligibility(staffPos, reqPosArr, dept) {
   if (!reqPosArr || reqPosArr.length === 0 || reqPosArr.includes('ALL')) return true;
   let targetDept = 'service';
   if(POSITIONS.kitchen.includes(staffPos)) targetDept = 'kitchen';
-  
   const deptPositions = POSITIONS[targetDept] || [];
   const staffRank = deptPositions.indexOf(staffPos);
   if (staffRank === -1) return false; 
@@ -109,9 +91,9 @@ const checkPositionEligibility = (staffPos, reqPosArr, dept) => {
     const reqRank = deptPositions.indexOf(reqPos);
     return reqRank !== -1 && staffRank <= reqRank;
   });
-};
+}
 
-const generateDefaultMatrix = (svc = DEFAULT_SERVICE_DUTIES, ktn = DEFAULT_KITCHEN_DUTIES) => {
+function generateDefaultMatrix(svc = DEFAULT_SERVICE_DUTIES, ktn = DEFAULT_KITCHEN_DUTIES) {
   const m = {};
   ['weekday', 'friday', 'weekend'].forEach(dt => {
     m[dt] = { duties: {} };
@@ -119,9 +101,9 @@ const generateDefaultMatrix = (svc = DEFAULT_SERVICE_DUTIES, ktn = DEFAULT_KITCH
     ktn.forEach(k => m[dt].duties[k.id] = [{ startTime: "09:00", endTime: "18:00", maxOtHours: 4.0 }]);
   });
   return m;
-};
+}
 
-const getDaysInMonth = (year, month, holidays = []) => {
+function getDaysInMonth(year, month, holidays = []) {
   const days = [];
   const date = new Date(year, month, 1);
   while (date.getMonth() === month) {
@@ -134,13 +116,25 @@ const getDaysInMonth = (year, month, holidays = []) => {
     date.setDate(date.getDate() + 1);
   }
   return days;
-};
+}
 
-const formatTimeAbbreviation = (timeStr) => {
+function formatTimeAbbreviation(timeStr) {
     if (!timeStr) return '';
     const [h, m] = timeStr.split(':');
     return `${parseInt(h, 10)}.${m ? m.charAt(0) : '0'}`;
-};
+}
+
+function getStaffLayer(dept, pos) {
+  if (dept === 'service') {
+    if (["OC", "AOC", "SH", "SSD"].includes(pos)) return DUTY_CATEGORIES.service[0];
+    if (["FD", "SD+", "EDC+", "DVT+"].includes(pos)) return DUTY_CATEGORIES.service[1];
+    return DUTY_CATEGORIES.service[2];
+  } else {
+    if (["OC", "AOC", "KH", "SKD"].includes(pos)) return DUTY_CATEGORIES.kitchen[0];
+    if (["KD+", "EDC ครัว+", "DVT ครัว+"].includes(pos)) return DUTY_CATEGORIES.kitchen[1];
+    return DUTY_CATEGORIES.kitchen[2];
+  }
+}
 
 // --- Custom Components ---
 const PositionSelector = ({ value, options, onChange, disabled, className }) => {
@@ -215,8 +209,7 @@ const StaffMultiSelector = ({ value, options, onChange, disabled, placeholder })
   );
 };
 
-const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranchId, THAI_MONTHS, selectedMonth, getStaffDayInfo, setView, activeDept, CURRENT_DUTY_LIST }) => {
-  const filteredStaff = branchData.staff?.filter(s => s.dept === activeDept) || [];
+const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranchId, THAI_MONTHS, selectedMonth, getStaffDayInfo, setView, activeDept, CURRENT_DUTY_LIST, schedule }) => {
   return (
     <div className="p-4 sm:p-10 bg-white animate-in fade-in w-full overflow-x-hidden flex-1">
       <div className="max-w-full mx-auto">
@@ -232,8 +225,8 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
           <table className="w-full border-collapse text-[6px] sm:text-[8px] table-fixed min-w-[800px] sm:min-w-none bg-white">
             <thead>
               <tr className="bg-slate-900 text-white">
-                <th className="border-r border-slate-700 p-2 sm:p-3 text-center sticky left-0 bg-slate-900 z-20 w-16 sm:w-20 font-black uppercase border-b-2 border-slate-600">Duty Layer</th>
-                <th className="border-r border-slate-700 p-2 sm:p-3 text-left sticky left-[4rem] sm:left-[5rem] bg-slate-900 z-20 w-24 sm:w-48 font-black uppercase border-b-2 border-slate-600">Employee (Pos)</th>
+                <th className="border-r border-slate-700 p-2 sm:p-3 text-center sticky left-0 bg-slate-900 z-30 w-16 sm:w-20 font-black uppercase border-b-2 border-slate-600">Duty Layer</th>
+                <th className="border-r border-slate-700 p-2 sm:p-3 text-left sticky left-[4rem] sm:left-[5rem] bg-slate-900 z-30 w-32 sm:w-48 font-black uppercase border-b-2 border-slate-600">Job Duty</th>
                 {CALENDAR_DAYS.map(day => (
                   <th key={day.dateStr} className={`border-r border-slate-700 p-1.5 sm:p-3 min-w-[30px] sm:min-w-[45px] text-center border-b-2 border-slate-600 ${day.type === 'weekend' || branchData.holidays?.includes?.(day.dateStr) ? 'bg-slate-800 text-indigo-300' : ''}`}>
                     <div className="font-black text-[10px] sm:text-sm mb-0.5 sm:mb-1">{day.dayNum}</div><div className="text-[6px] sm:text-[8px] opacity-70 uppercase tracking-tighter">{day.dayLabel}</div>
@@ -242,35 +235,58 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
               </tr>
             </thead>
             <tbody>
-              {filteredStaff.map(s => {
-                const layer = getStaffLayer(s.dept, s.pos);
-                return (
-                  <tr key={s.id} className="h-14 sm:h-24 transition-colors border-b border-slate-200">
-                    <td className={`border-r border-slate-900 p-1 font-black sticky left-0 z-10 text-[5px] sm:text-[7px] uppercase leading-tight text-center ${layer.color}`}>
-                       {layer.label.replace('Customer Service ', '').replace('Kitchen ', '')}
-                    </td>
-                    <td className="border-r-2 sm:border-r-4 border-slate-900 p-2 sm:p-3 font-black sticky left-[4rem] sm:left-[5rem] bg-white z-10 text-[8px] sm:text-[10px] uppercase leading-tight truncate max-w-[100px] sm:max-w-[150px]">
-                       {s.name}
-                       <div className="mt-0.5 text-[6px] text-slate-400 font-bold">({s.pos})</div>
-                    </td>
-                    {CALENDAR_DAYS.map(day => {
-                      const info = getStaffDayInfo(s.id, day.dateStr, CURRENT_DUTY_LIST);
-                      return (
-                        <td key={day.dateStr} className={`border-r border-b border-slate-200 p-0.5 sm:p-1 text-center ${!info ? 'bg-slate-50/40' : ''}`}>
-                          {info?.type === 'work' ? (
-                            <div className="flex flex-col items-center justify-center leading-tight w-full h-full">
-                              <span className="font-black text-slate-800 text-[8px] sm:text-[10px] leading-none tracking-tighter">{formatTimeAbbreviation(info.slot.startTime)}</span>
-                              {info.actual?.otHours > 0 && <div className="text-[6px] sm:text-[7px] font-black text-rose-600 truncate w-full px-0.5 uppercase tracking-tighter mt-0.5">O{info.actual.otHours}</div>}
-                            </div>
-                          ) : info?.type === 'leave' ? (
-                            <div className={`w-full h-full flex items-center justify-center font-black ${info.info.color} rounded-md sm:rounded-xl border sm:border-2 border-white shadow-inner text-[8px] sm:text-[10px]`}><span className="text-center leading-none uppercase p-0.5 sm:p-1">{info.info.shortLabel}</span></div>
-                          ) : <span className="text-[5px] sm:text-[7px] font-black opacity-10 uppercase tracking-widest">OFF</span>}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                );
+              {DUTY_CATEGORIES[activeDept].map(cat => {
+                 const catDuties = CURRENT_DUTY_LIST.filter(d => d.category === cat.id);
+                 if (catDuties.length === 0) return null;
+                 return (
+                   <React.Fragment key={cat.id}>
+                     {catDuties.map((duty, dIdx) => (
+                        <tr key={duty.id} className="h-10 sm:h-14 transition-colors border-b border-slate-200">
+                          {dIdx === 0 && (
+                            <td rowSpan={catDuties.length} className={`border-r border-slate-900 p-2 sm:p-3 font-black sticky left-0 z-10 text-[6px] sm:text-[8px] uppercase leading-tight text-center ${cat.color.split(' ')[0]} ${cat.color.split(' ')[1]}`}>
+                               {cat.label.replace('Customer Service ', '').replace('Kitchen ', '')}
+                            </td>
+                          )}
+                          <td className="border-r-2 sm:border-r-4 border-slate-900 p-2 sm:p-3 font-black sticky left-[4rem] sm:left-[5rem] bg-white z-10 text-[8px] sm:text-[10px] uppercase leading-tight truncate max-w-[100px] sm:max-w-[150px]">
+                             {duty.jobA}
+                          </td>
+                          {CALENDAR_DAYS.map(day => {
+                             const assigned = schedule[day.dateStr]?.duties?.[duty.id] || [];
+                             const assignedNames = assigned.map(a => {
+                                 if (!a.staffId) return null;
+                                 const staff = branchData.staff?.find(st => st.id === a.staffId);
+                                 return staff ? staff.name : null;
+                             }).filter(Boolean);
+                             
+                             return (
+                               <td key={day.dateStr} className={`border-r border-b border-slate-200 p-0.5 sm:p-1 text-center font-bold text-[7px] sm:text-[9px] text-slate-700 leading-tight ${assignedNames.length === 0 ? 'bg-slate-50/50' : ''}`}>
+                                 {assignedNames.length > 0 ? assignedNames.join(', ') : '-'}
+                               </td>
+                             );
+                          })}
+                        </tr>
+                     ))}
+                   </React.Fragment>
+                 );
               })}
+              <tr className="bg-slate-100 border-t-4 border-slate-300">
+                 <td colSpan={2} className="border-r border-slate-400 p-2 sm:p-3 font-black sticky left-0 z-10 text-[8px] sm:text-[10px] uppercase leading-tight text-center bg-slate-200 text-slate-700">
+                    ลาหยุด / พักผ่อน (DAY OFF)
+                 </td>
+                 {CALENDAR_DAYS.map(day => {
+                    const leaves = schedule[day.dateStr]?.leaves || [];
+                    const leaveNames = leaves.map(l => {
+                        const staff = branchData.staff?.find(s => s.id === l.staffId && s.dept === activeDept);
+                        const lType = LEAVE_TYPES.find(t=>t.id===l.type);
+                        return staff ? `${staff.name}(${lType?.shortLabel})` : null;
+                    }).filter(Boolean);
+                    return (
+                        <td key={`leave-${day.dateStr}`} className="border-r border-slate-300 p-0.5 sm:p-1 text-center font-bold text-[6px] sm:text-[8px] text-red-600 leading-tight bg-red-50/30">
+                            {leaveNames.length > 0 ? leaveNames.join(', ') : '-'}
+                        </td>
+                    );
+                 })}
+              </tr>
             </tbody>
           </table>
         </div>
@@ -281,7 +297,6 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
 
 // --- Main App Component ---
 export default function App() {
-  // === STATE HOOKS ===
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
@@ -353,7 +368,6 @@ export default function App() {
   const selectedYear = 2026;
   const autoAssignedDates = useRef(new Set()); 
 
-  // === MEMOS ===
   const CURRENT_DUTY_LIST = useMemo(() => {
     let list = branchData.duties && branchData.duties[activeDept] ? branchData.duties[activeDept] : (activeDept === 'service' ? DEFAULT_SERVICE_DUTIES : DEFAULT_KITCHEN_DUTIES);
     return list.map(d => ({
@@ -446,7 +460,6 @@ export default function App() {
       return { hasMorning, hasLateMorning, hasAfternoon, hasEvening, hasNight, bottomColSpan: 1 + shiftColCount + 1 };
   }, [branchData.matrix, activeDay, CURRENT_DUTY_LIST]);
 
-  // === CALLBACKS ===
   const getStaffDayInfo = useCallback((staffId, dateStr, currentDutyList) => {
     const dayData = schedule[dateStr];
     if (!dayData) return null;
@@ -515,11 +528,7 @@ export default function App() {
                 ['service', 'kitchen'].forEach(dept => {
                     (data.duties[dept] || []).forEach(duty => {
                         if (!data.matrix[dt].duties[duty.id] || data.matrix[dt].duties[duty.id].length === 0) {
-                            data.matrix[dt].duties[duty.id] = [{ 
-                                startTime: dept === 'service' ? "10:00" : "09:00", 
-                                endTime: dept === 'service' ? "19:00" : "18:00", 
-                                maxOtHours: 4.0 
-                            }];
+                            data.matrix[dt].duties[duty.id] = [{ startTime: dept === 'service' ? "10:00" : "09:00", endTime: dept === 'service' ? "19:00" : "18:00", maxOtHours: 4.0 }];
                         }
                     });
                 });
@@ -745,7 +754,6 @@ export default function App() {
   };
   
   const handleLoadTemplate = (tplId) => {
-    if(!tplId) return;
     const tpl = globalTemplates.find(t => t.id === tplId);
     if (tpl) {
         setConfirmModal({ 
@@ -1059,8 +1067,9 @@ export default function App() {
     }
   };
 
-  // === RENDER FUNCTIONS (DEFINED PROPERLY IN SCOPE) ===
-  const renderModals = () => {
+  // === RENDER DECLARATION HELPER COMPONENTS ===
+
+  function renderModals() {
     return (
       <React.Fragment>
         {showSuccessModal && (
@@ -1068,7 +1077,6 @@ export default function App() {
              <div className="bg-white p-8 rounded-[3rem] shadow-2xl flex flex-col items-center gap-4 animate-in zoom-in-95">
                 <div className="bg-green-500 p-4 rounded-full shadow-xl shadow-green-200 animate-bounce"><CheckCircle2 className="w-12 h-12 text-white" /></div>
                 <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight mt-2">Saved Successfully</h3>
-                <p className="text-slate-400 text-sm font-bold">บันทึกข้อมูลลงฐานข้อมูลเรียบร้อยแล้ว</p>
              </div>
           </div>
         )}
@@ -1157,9 +1165,9 @@ export default function App() {
         )}
       </React.Fragment>
     );
-  };
+  }
 
-  const renderGuestLogin = () => {
+  function renderGuestLogin() {
     return (
       <div className="min-h-screen w-full flex flex-col lg:flex-row bg-slate-50 font-sans overflow-hidden">
         <div className="w-full lg:w-1/2 min-h-[40vh] lg:min-h-screen bg-slate-900 relative flex flex-col justify-center items-center p-8 sm:p-12 overflow-hidden shadow-2xl z-10">
@@ -1217,9 +1225,9 @@ export default function App() {
         </div>
       </div>
     );
-  };
+  }
 
-  const renderStaffPortal = () => {
+  function renderStaffPortal() {
     const peerSwapRequests = pendingRequests.filter(r => r.reqType === 'SWAP' && r.targetStaffId === staffFilterPos && r.status === 'PENDING_PEER');
     const myStaffInfo = branchData.staff?.find(s => s.id === staffFilterPos);
     const peerOptions = branchData.staff?.filter(s => s.id !== staffFilterPos && s.pos === myStaffInfo?.pos) || [];
@@ -1360,9 +1368,9 @@ export default function App() {
          </div>
       </div>
     );
-  };
+  }
 
-  const renderGlobalAdmin = () => {
+  function renderGlobalAdmin() {
     return (
      <div className="flex-1 space-y-6 sm:space-y-10 animate-in fade-in duration-500 pb-24 w-full">
        <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -1417,18 +1425,18 @@ export default function App() {
        </div>
      </div>
     );
-  };
+  }
 
-  const renderEmptyBranchAdmin = () => {
+  function renderEmptyBranchAdmin() {
     return (
      <div className="flex-1 h-[60vh] sm:h-[70vh] flex flex-col items-center justify-center gap-4 sm:gap-6 text-slate-300 font-black uppercase tracking-[0.2em] sm:tracking-[0.4em] text-center px-4 w-full">
        <Store className="w-16 h-16 sm:w-24 sm:h-24 opacity-10" />
        <p className="text-sm sm:text-base">กรุณาเลือกสาขาที่ต้องการจัดการจากแถบด้านบน</p>
      </div>
     );
-  };
+  }
 
-  const renderBranchAdmin = () => {
+  function renderBranchAdmin() {
     return (
      <div className="flex-1 space-y-6 sm:space-y-10 animate-in fade-in duration-500 pb-24 w-full">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-10">
@@ -1444,13 +1452,13 @@ export default function App() {
                     const layerPositions = POSITIONS[activeDept].filter(p => getStaffLayer(activeDept, p).id === cat.id);
                     return (
                        <div key={cat.id} className="flex flex-col gap-2 p-3 rounded-xl bg-white border border-slate-200 shadow-sm">
-                          <div className={`text-[10px] font-black px-3 py-1.5 rounded uppercase w-fit ${cat.color}`}>{cat.label}</div>
+                          <div className={`text-[10px] font-black px-3 py-1.5 rounded uppercase w-fit ${cat.color.split(' ')[0]} ${cat.color.split(' ')[1]}`}>{cat.label}</div>
                           <div className="flex flex-wrap gap-2">
                              {layerPositions.map(p => {
                                  const count = (branchData.staff || []).filter(s => s.dept === activeDept && s.pos === p).length;
                                  const isSelected = staffFilterPos === p;
                                  return (
-                                    <button key={p} onClick={() => setStaffFilterPos(isSelected ? 'ALL' : p)} className={`text-[10px] font-black border px-3 py-1.5 rounded-lg transition-all shadow-sm ${isSelected ? 'ring-2 ring-offset-2 ring-indigo-500 scale-105' : 'hover:opacity-80'} ${cat.color} ${count === 0 ? 'opacity-40' : ''}`}>
+                                    <button key={p} onClick={() => setStaffFilterPos(isSelected ? 'ALL' : p)} className={`text-[10px] font-black border px-3 py-1.5 rounded-lg transition-all shadow-sm ${isSelected ? 'ring-2 ring-offset-2 ring-indigo-500 scale-105' : 'hover:opacity-80'} ${cat.color.split(' ')[0]} ${cat.color.split(' ')[1]} ${count === 0 ? 'opacity-40' : ''}`}>
                                        {p}: {count}
                                     </button>
                                  )
@@ -1506,7 +1514,7 @@ export default function App() {
                                {s.empId && <span className="text-slate-400 mr-2 text-xs">[{s.empId}]</span>} {s.name}
                             </span>
                             <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-1 items-center">
-                               <span className={`text-[7px] sm:text-[8px] font-black px-1.5 sm:px-2 py-0.5 rounded border uppercase ${layer.color}`}>{s.pos}</span>
+                               <span className={`text-[7px] sm:text-[8px] font-black px-1.5 sm:px-2 py-0.5 rounded border uppercase ${layer.color.split(' ')[0]} ${layer.color.split(' ')[1]}`}>{s.pos}</span>
                                <span className="text-[7px] sm:text-[8px] font-black px-1.5 sm:px-2 py-0.5 rounded border border-slate-200 bg-white text-slate-400 uppercase truncate">หยุด: {s.regularDayOff !== undefined && s.regularDayOff !== null ? DAYS_OF_WEEK.find(d => d.id === s.regularDayOff)?.label : '-'}</span>
                                <button onClick={() => startEditStaff(s)} className="text-slate-300 hover:text-indigo-500"><Edit2 className="w-3 h-3"/></button>
                             </div>
@@ -1593,11 +1601,34 @@ export default function App() {
              </div>
            </div>
         </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-10 w-full mt-6 sm:mt-10">
+           <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm w-full">
+             <h2 className="text-lg sm:text-xl font-black text-slate-800 mb-6 sm:mb-8 flex items-center justify-center gap-2 sm:gap-4 uppercase tracking-tighter"><Coffee className="w-6 h-6 sm:w-7 sm:h-7 text-red-500" /> วันหยุดประจำสาขา</h2>
+             <div className="grid grid-cols-7 gap-1.5 sm:gap-3">
+               {CALENDAR_DAYS.map(d => {
+                 const isHoliday = branchData.holidays?.includes?.(d.dateStr);
+                 return (
+                   <button 
+                     key={d.dateStr} disabled={authRole === 'branch'} onClick={() => { if(authRole === 'superadmin') setBranchData(p=>({...p, holidays: isHoliday ? p.holidays.filter(x=>x!==d.dateStr) : [...(p.holidays || []), d.dateStr]})) }} 
+                     className={`w-full aspect-square rounded-[0.8rem] sm:rounded-[1.5rem] text-[10px] sm:text-[12px] font-black transition-all border-2 flex items-center justify-center ${isHoliday ? 'bg-red-500 text-white border-red-600 shadow-lg sm:shadow-xl' : 'bg-slate-50 text-slate-400 border-transparent hover:bg-slate-100'} ${authRole === 'branch' ? 'cursor-not-allowed opacity-80' : ''}`}
+                   >{d.dayNum}</button>
+                 );
+               })}
+             </div>
+             {authRole === 'branch' && <p className="text-[8px] sm:text-[10px] text-red-400 font-bold mt-6 sm:mt-8 text-center uppercase tracking-widest leading-relaxed">* เฉพาะ Admin ส่วนกลางเท่านั้นที่แก้ไขวันหยุดได้</p>}
+           </div>
+           
+           {renderTemplatesCard()}
+        </div>
+
+        {renderMatrixSettings()}
+
      </div>
     );
   }
 
-  const renderManagerDailyCards = () => {
+  function renderManagerDailyCards() {
     return (
        <div className="w-full animate-in slide-in-from-bottom-6 duration-500">
           <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 sm:gap-10 print:hidden w-full mb-6">
@@ -1664,7 +1695,7 @@ export default function App() {
                    unassignedStaffDaily.map(s => {
                       const layer = getStaffLayer(s.dept, s.pos);
                       return (
-                      <span key={s.id} className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[10px] sm:text-xs font-black shadow-sm flex items-center gap-2 ${layer.color}`}>
+                      <span key={s.id} className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[10px] sm:text-xs font-black shadow-sm flex items-center gap-2 ${layer.color.split(' ')[0]} ${layer.color.split(' ')[1]}`}>
                          <span className="w-1.5 h-1.5 rounded-full bg-white opacity-50"></span>{s.name} ({s.pos})
                       </span>
                       );
@@ -1748,7 +1779,7 @@ export default function App() {
     const categories = DUTY_CATEGORIES[activeDept] || [];
     let totalAssignedAll = 0;
 
-    const tableBodyRows = categories.map(cat => {
+    const tableBodyRows = categories.flatMap(cat => {
        const catDuties = CURRENT_DUTY_LIST.filter(d => d.category === cat.id);
        const catRows = [];
 
@@ -1768,56 +1799,52 @@ export default function App() {
           }
        });
 
-       if (catRows.length === 0) return null;
+       if (catRows.length === 0) return [];
        const totalCatSlots = catRows.reduce((sum, r) => sum + r.activeSlots.length, 0);
 
-       return (
-          <React.Fragment key={cat.id}>
-             {catRows.map((row, rowLocalIdx) => {
-                return row.activeSlots.map((item, slotLocalIdx) => {
-                   const { slot, assignedData, originalIdx } = item;
-                   const staff = branchData.staff?.find(s => s.id === assignedData.staffId);
-                   const staffName = staff ? staff.name : '-';
-                   const stHour = parseInt(slot.startTime.split(':')[0]) || 0;
-                   const isMorning = stHour < 11;
-                   const isLateMorning = stHour === 11;
-                   const isAfternoon = stHour >= 12 && stHour < 16;
-                   const isEvening = stHour >= 16 && stHour < 19;
-                   const isNight = stHour >= 19;
-                   const timeText = `${formatTimeAbbreviation(slot.startTime)}-${formatTimeAbbreviation(slot.endTime)}`;
-                   const otBadge = assignedData.otHours > 0 ? ` (O${assignedData.otHours})` : '';
+       return catRows.flatMap((row, rowLocalIdx) => {
+          return row.activeSlots.map((item, slotLocalIdx) => {
+             const { slot, assignedData, originalIdx } = item;
+             const staff = branchData.staff?.find(s => s.id === assignedData.staffId);
+             const staffName = staff ? staff.name : '-';
+             const stHour = parseInt(slot.startTime.split(':')[0]) || 0;
+             const isMorning = stHour < 11;
+             const isLateMorning = stHour === 11;
+             const isAfternoon = stHour >= 12 && stHour < 16;
+             const isEvening = stHour >= 16 && stHour < 19;
+             const isNight = stHour >= 19;
+             const timeText = `${formatTimeAbbreviation(slot.startTime)}-${formatTimeAbbreviation(slot.endTime)}`;
+             const otBadge = assignedData.otHours > 0 ? ` (O${assignedData.otHours})` : '';
 
-                   return (
-                      <tr key={`${row.duty.id}-${originalIdx}`} className={`text-center h-10 border border-slate-800 ${cat.color}`}>
-                         {rowLocalIdx === 0 && slotLocalIdx === 0 && (
-                            <td rowSpan={totalCatSlots} className={`border border-slate-800 p-2 font-black uppercase text-[10px] w-[12%] leading-tight bg-slate-900/50 text-white`}>{cat.label}</td>
-                         )}
-                         {slotLocalIdx === 0 && (
-                            <React.Fragment>
-                               <td rowSpan={row.activeSlots.length} className="border border-slate-800 p-2 text-left text-[8px] sm:text-[9px] whitespace-pre-wrap leading-tight text-white opacity-90">{row.duty.xpDna || '-'}</td>
-                               <td rowSpan={row.activeSlots.length} className="border border-slate-800 p-2 font-black text-slate-800 text-left leading-tight text-white">{row.duty.jobA}</td>
-                               <td rowSpan={row.activeSlots.length} className="border border-slate-800 p-2 text-left text-slate-600 text-[8px] leading-tight text-white opacity-80">{row.duty.jobB}</td>
-                               <td rowSpan={row.activeSlots.length} className="border border-slate-800 p-2 font-black text-sm text-white"><u className="underline-offset-2">{row.activeSlots.length}</u></td>
-                            </React.Fragment>
-                         )}
-                         <td className="border border-slate-800 p-2 text-left font-bold text-white">
-                             <div className="flex justify-between items-center">
-                                 <span>{staffName}<span className="text-white opacity-80 ml-1 font-black">{otBadge}</span></span>
-                                 {staff && <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-black/20 border border-white/30`}>{staff.pos}</span>}
-                             </div>
-                         </td>
-                         {activeDayShiftVisibilities.hasMorning && <td className={`border border-slate-800 p-2 font-bold text-[9px] text-white ${isMorning ? 'bg-black/20 shadow-inner' : 'opacity-40'}`}>{isMorning ? timeText : ''}</td>}
-                         {activeDayShiftVisibilities.hasLateMorning && <td className={`border border-slate-800 p-2 font-bold text-[9px] text-white ${isLateMorning ? 'bg-black/20 shadow-inner' : 'opacity-40'}`}>{isLateMorning ? timeText : ''}</td>}
-                         {activeDayShiftVisibilities.hasAfternoon && <td className={`border border-slate-800 p-2 font-bold text-[9px] text-white ${isAfternoon ? 'bg-black/20 shadow-inner' : 'opacity-40'}`}>{isAfternoon ? timeText : ''}</td>}
-                         {activeDayShiftVisibilities.hasEvening && <td className={`border border-slate-800 p-2 font-bold text-[9px] text-white ${isEvening ? 'bg-black/20 shadow-inner' : 'opacity-40'}`}>{isEvening ? timeText : ''}</td>}
-                         {activeDayShiftVisibilities.hasNight && <td className={`border border-slate-800 p-2 font-bold text-[9px] text-white ${isNight ? 'bg-black/20 shadow-inner' : 'opacity-40'}`}>{isNight ? timeText : ''}</td>}
-                         <td className="border border-slate-800 p-2 bg-black/10"></td>
-                      </tr>
-                   );
-                });
-             })}
-          </React.Fragment>
-       );
+             return (
+                <tr key={`${row.duty.id}-${originalIdx}`} className={`text-center h-10 border border-slate-800 ${cat.color.split(' ')[0]} ${cat.color.split(' ')[1]}`}>
+                   {rowLocalIdx === 0 && slotLocalIdx === 0 && (
+                      <td rowSpan={totalCatSlots} className="border border-slate-800 p-2 font-black uppercase text-[10px] w-[12%] leading-tight bg-slate-900/50 text-white">{cat.label}</td>
+                   )}
+                   {slotLocalIdx === 0 && (
+                      <React.Fragment>
+                         <td rowSpan={row.activeSlots.length} className="border border-slate-800 p-2 text-left text-[8px] sm:text-[9px] whitespace-pre-wrap leading-tight text-white opacity-90">{row.duty.xpDna || '-'}</td>
+                         <td rowSpan={row.activeSlots.length} className="border border-slate-800 p-2 font-black text-slate-800 text-left leading-tight text-white">{row.duty.jobA}</td>
+                         <td rowSpan={row.activeSlots.length} className="border border-slate-800 p-2 text-left text-slate-600 text-[8px] leading-tight text-white opacity-80">{row.duty.jobB}</td>
+                         <td rowSpan={row.activeSlots.length} className="border border-slate-800 p-2 font-black text-sm text-white"><u className="underline-offset-2">{row.activeSlots.length}</u></td>
+                      </React.Fragment>
+                   )}
+                   <td className="border border-slate-800 p-2 text-left font-bold text-white">
+                       <div className="flex justify-between items-center">
+                           <span>{staffName}<span className="text-white opacity-80 ml-1 font-black">{otBadge}</span></span>
+                           {staff && <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-black/20 border border-white/30`}>{staff.pos}</span>}
+                       </div>
+                   </td>
+                   {activeDayShiftVisibilities.hasMorning && <td className={`border border-slate-800 p-2 font-bold text-[9px] text-white ${isMorning ? 'bg-black/20 shadow-inner' : 'opacity-40'}`}>{isMorning ? timeText : ''}</td>}
+                   {activeDayShiftVisibilities.hasLateMorning && <td className={`border border-slate-800 p-2 font-bold text-[9px] text-white ${isLateMorning ? 'bg-black/20 shadow-inner' : 'opacity-40'}`}>{isLateMorning ? timeText : ''}</td>}
+                   {activeDayShiftVisibilities.hasAfternoon && <td className={`border border-slate-800 p-2 font-bold text-[9px] text-white ${isAfternoon ? 'bg-black/20 shadow-inner' : 'opacity-40'}`}>{isAfternoon ? timeText : ''}</td>}
+                   {activeDayShiftVisibilities.hasEvening && <td className={`border border-slate-800 p-2 font-bold text-[9px] text-white ${isEvening ? 'bg-black/20 shadow-inner' : 'opacity-40'}`}>{isEvening ? timeText : ''}</td>}
+                   {activeDayShiftVisibilities.hasNight && <td className={`border border-slate-800 p-2 font-bold text-[9px] text-white ${isNight ? 'bg-black/20 shadow-inner' : 'opacity-40'}`}>{isNight ? timeText : ''}</td>}
+                   <td className="border border-slate-800 p-2 bg-black/10"></td>
+                </tr>
+             );
+          });
+       });
     });
 
     return (
@@ -1888,7 +1915,31 @@ export default function App() {
                    </button>
                 </div>
              </div>
-             <div className="overflow-auto custom-scrollbar" style={{ maxHeight: '80vh' }}>
+             
+             {/* ส่วนบันทึกการลาหยุดในหน้ารายเดือน */}
+             <div className="bg-slate-50 p-6 sm:p-8 border-b border-slate-100">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                   <h3 className="text-lg sm:text-xl font-black text-slate-900 flex items-center gap-3"><PlaneTakeoff className="w-5 h-5 text-indigo-600" /> บันทึกการลาหยุดงาน (เลือกวันที่ต้องการ)</h3>
+                   <input type="date" value={selectedDateStr} onChange={(e) => setSelectedDateStr(e.target.value)} className="border-2 border-slate-200 rounded-xl px-4 py-2 font-bold text-sm text-indigo-700 outline-none focus:border-indigo-500" />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                   {LEAVE_TYPES.map(lt => {
+                      const selectedStaffIds = (schedule[selectedDateStr]?.leaves || []).filter(l => l.type === lt.id).map(l => l.staffId);
+                      const staffOptions = branchData.staff?.filter(s => { if (s.dept !== activeDept) return false; return !(usedStaffIds.includes(s.id) && !selectedStaffIds.includes(s.id)); }) || [];
+                      return (
+                         <div key={lt.id} className="bg-white p-4 rounded-[1.5rem] flex flex-col gap-3 border border-slate-200 shadow-sm">
+                            <div className="flex items-center gap-2">
+                               <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-black ${lt.color} border border-white shadow-sm flex-shrink-0`}>{lt.shortLabel}</span>
+                               <span className="text-xs font-black text-slate-700 truncate">{lt.label}</span>
+                            </div>
+                            <StaffMultiSelector value={selectedStaffIds} options={staffOptions} onChange={(newIds) => handleLeaveChange(selectedDateStr, lt.id, newIds)} placeholder="เลือกพนักงาน..." />
+                         </div>
+                      );
+                   })}
+                </div>
+             </div>
+
+             <div className="overflow-auto custom-scrollbar" style={{ maxHeight: '60vh' }}>
                 <table className="w-full border-collapse text-left min-w-[1200px]">
                    <thead className="bg-white sticky top-0 z-20 shadow-sm">
                    <tr>
@@ -1907,10 +1958,11 @@ export default function App() {
                        const catDuties = CURRENT_DUTY_LIST.filter(d => d.category === cat.id);
                        if (catDuties.length === 0) return null;
                        return catDuties.map((duty, dIdx) => {
+                           const reqArr = Array.isArray(duty.reqPos) ? duty.reqPos : [duty.reqPos || 'ALL'];
                            return (
                                <tr key={duty.id} className="hover:bg-slate-50 transition-colors">
                                    {dIdx === 0 && (
-                                       <td rowSpan={catDuties.length} className={`p-4 border-r border-slate-200 sticky left-0 z-10 align-top ${cat.color}`}>
+                                       <td rowSpan={catDuties.length} className={`p-4 border-r border-slate-200 sticky left-0 z-10 align-top ${cat.color.split(' ')[0]} ${cat.color.split(' ')[1]}`}>
                                            <div className="font-black text-[10px] sm:text-xs uppercase leading-tight">{cat.label}</div>
                                        </td>
                                    )}
@@ -1941,7 +1993,6 @@ export default function App() {
                                                                 <option value="">-- ว่าง --</option>
                                                                 {branchData.staff?.filter(s => s.dept === activeDept).map(s => {
                                                                    const isUsed = dayUsedStaffIds.has(s.id) && data.staffId !== s.id;
-                                                                   const reqArr = Array.isArray(duty.reqPos) ? duty.reqPos : [duty.reqPos || 'ALL'];
                                                                    const wrongPos = !checkPositionEligibility(s.pos, reqArr, activeDept) && data.staffId !== s.id;
                                                                    return (isUsed || wrongPos) ? null : <option key={s.id} value={s.id}>{s.name}</option>
                                                                 })}
@@ -2051,7 +2102,7 @@ export default function App() {
                       <tr key={idx} className="hover:bg-slate-50 transition duration-300">
                          <td className="px-6 sm:px-12 py-4 sm:py-8 sticky left-0 bg-white group-hover:bg-slate-50 transition-colors z-10 border-r border-slate-50">
                             <p className="font-black text-slate-900 uppercase text-sm sm:text-base truncate max-w-[120px] sm:max-w-[200px]">{s.name}</p>
-                            <span className={`mt-1 inline-block text-[8px] sm:text-[10px] font-bold uppercase px-2 py-0.5 rounded ${layer.color}`}>{s.dept} - {s.pos}</span>
+                            <span className={`mt-1 inline-block text-[8px] sm:text-[10px] font-bold uppercase px-2 py-0.5 rounded ${layer.color.split(' ')[0]} ${layer.color.split(' ')[1]}`}>{s.dept} - {s.pos}</span>
                          </td>
                          <td className="px-4 sm:px-12 py-4 sm:py-8 text-center text-sm sm:text-xl">{s.shifts}</td>
                          <td className="px-4 sm:px-12 py-4 sm:py-8 text-center text-sm sm:text-xl">{s.workHours.toFixed(1)}</td>
@@ -2078,7 +2129,7 @@ export default function App() {
           <p className="text-xs font-bold text-emerald-600 mb-4">บันทึกโครงสร้างกะงาน (เวลาเข้า-ออก/OT) และหน้าที่งานทั้งหมดของแผนก <span className="uppercase font-black text-emerald-800">{activeDept}</span> ไว้ใช้ในภายหลัง</p>
           {authRole === 'superadmin' ? (
               <div className="flex flex-col sm:flex-row gap-3 mb-6 bg-white p-4 rounded-2xl border border-emerald-200">
-                 <input type="text" placeholder="ตั้งชื่อแม่แบบใหม่ (เช่น สัปดาห์สิ้นเดือน)" value={templateName} onChange={(e) => setTemplateName(e.target.value)} className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold outline-none focus:border-emerald-500" />
+                 <input type="text" placeholder="ตั้งชื่อแม่แบบใหม่" value={templateName} onChange={(e) => setTemplateName(e.target.value)} className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold outline-none focus:border-emerald-500" />
                  <button onClick={handleSaveTemplate} className="bg-emerald-600 text-white px-6 py-3 rounded-xl font-black text-xs hover:bg-emerald-700 shadow-md transition-all whitespace-nowrap">บันทึกแม่แบบนี้</button>
               </div>
           ) : (
@@ -2105,7 +2156,7 @@ export default function App() {
               )}
           </div>
        </div>
-     );
+    );
   }
 
   function renderMatrixSettings() {
@@ -2166,16 +2217,12 @@ export default function App() {
           {managerViewMode === 'daily' && renderManagerDailyCards()}
           {managerViewMode === 'daily_table' && renderManagerDailyTable()}
           {managerViewMode === 'monthly' && renderManagerMonthly()}
-          <div className="grid grid-cols-1 gap-6 sm:gap-10 w-full mt-6 sm:mt-10">
-             {renderTemplatesCard()}
-             {renderMatrixSettings()}
-          </div>
        </div>
     );
   } else if (view === 'report') {
     mainContent = renderReportView();
   } else if (view === 'print') {
-    mainContent = <PrintMonthlyView CALENDAR_DAYS={CALENDAR_DAYS} branchData={branchData} globalConfig={globalConfig} activeBranchId={activeBranchId} THAI_MONTHS={THAI_MONTHS} selectedMonth={selectedMonth} getStaffDayInfo={getStaffDayInfo} setView={setView} activeDept={activeDept} CURRENT_DUTY_LIST={CURRENT_DUTY_LIST} />;
+    mainContent = <PrintMonthlyView CALENDAR_DAYS={CALENDAR_DAYS} branchData={branchData} globalConfig={globalConfig} activeBranchId={activeBranchId} THAI_MONTHS={THAI_MONTHS} selectedMonth={selectedMonth} getStaffDayInfo={getStaffDayInfo} setView={setView} activeDept={activeDept} CURRENT_DUTY_LIST={CURRENT_DUTY_LIST} schedule={schedule} />;
   }
 
   return (
@@ -2236,17 +2283,6 @@ export default function App() {
                       <button onClick={() => {setAuthRole('guest'); setView('manager');}} className="text-slate-400 p-2 bg-slate-100 rounded-lg"><LogIn className="w-4 h-4 rotate-180" /></button>
                    </div>
                 </div>
-                {authRole === 'staff' ? (
-                   <div className="flex-1 flex justify-end items-center gap-4 mt-4 lg:mt-0">
-                       <button onClick={() => setShowRequestsModal(true)} className="relative bg-slate-100 hover:bg-slate-200 p-2.5 rounded-xl text-slate-500 transition cursor-pointer hidden sm:flex">
-                          <Bell className="w-5 h-5" />{pendingRequests.filter(r => r.reqType === 'SWAP' && r.targetStaffId === staffFilterPos && r.status === 'PENDING_PEER').length > 0 && <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse border border-white"></span>}
-                       </button>
-                       <div className="hidden sm:flex items-center gap-2 bg-emerald-50 px-4 py-2 rounded-xl border border-emerald-100 text-emerald-700">
-                          <UserCircle className="w-5 h-5"/><span className="font-black text-xs uppercase">{branchData.staff?.find(s=>s.id===staffFilterPos)?.name || 'Staff'}</span>
-                       </div>
-                       <button onClick={() => {setAuthRole('guest'); setView('manager');}} className="hidden lg:flex text-slate-400 hover:text-red-500 transition items-center gap-2 font-bold text-xs"><LogIn className="w-5 h-5 rotate-180" /> LOGOUT</button>
-                   </div>
-                ) : (
                 <div className="flex items-center gap-2 sm:gap-5 w-full lg:w-auto overflow-x-auto custom-scrollbar pb-1 lg:pb-0 mt-4 lg:mt-0">
                    <div className="flex-shrink-0 flex items-center bg-slate-100 rounded-xl p-1 shadow-inner border border-slate-200">
                       <CalendarDaysIcon className="hidden sm:block w-4 h-4 sm:w-5 sm:h-5 text-slate-400 mx-2 sm:mx-3" />
@@ -2270,7 +2306,6 @@ export default function App() {
                       <button onClick={() => {setAuthRole('guest'); setView('manager');}} className="text-slate-400 hover:text-red-500 transition"><LogIn className="w-6 h-6 rotate-180" /></button>
                    </div>
                 </div>
-                )}
              </div>
           </nav>
 
@@ -2281,8 +2316,6 @@ export default function App() {
           )}
 
           <main className="flex-1 flex flex-col p-4 sm:p-8 max-w-[1600px] mx-auto w-full print:p-0 print:m-0 relative">
-             
-             {/* --- Manager / Admin View Toggles --- */}
              {authRole !== 'staff' && (view === 'manager' || view === 'admin') && (
                <div className="flex-none flex flex-wrap items-center justify-between gap-4 mb-6 sm:mb-10 print:hidden w-full">
                   <div className="flex flex-wrap gap-2 sm:gap-4 bg-white p-2 sm:p-3 rounded-[1.5rem] sm:rounded-[2.5rem] border border-slate-200 w-full md:w-fit shadow-sm">
