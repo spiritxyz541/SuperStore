@@ -2309,6 +2309,7 @@ export default function App() {
                       <button onClick={handleGlobalSave} disabled={saveStatus === 'saving'} className="bg-indigo-600 text-white px-6 py-2.5 rounded-2xl font-black text-xs hover:bg-indigo-700 active:scale-95 transition flex items-center gap-2">
                          {saveStatus === 'saving' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} บันทึก
                       </button>
+                      {saveStatus === 'error' && <div className="text-red-500 text-xs font-bold ml-2">บันทึกไม่สำเร็จ กรุณาลองใหม่</div>}
                       <button onClick={() => {setAuthRole('guest'); setView('manager');}} className="text-slate-400 hover:text-red-500 transition"><LogIn className="w-6 h-6 rotate-180" /></button>
                    </div>
                 </div>
@@ -2320,6 +2321,7 @@ export default function App() {
                  {saveStatus === 'saving' ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6" />}
               </button>
           )}
+          {saveStatus === 'error' && <div className="lg:hidden fixed bottom-20 right-6 z-50 bg-red-500 text-white px-4 py-2 rounded-xl shadow-2xl text-xs font-bold">บันทึกไม่สำเร็จ</div>}
 
           <main className="flex-1 flex flex-col p-4 sm:p-8 max-w-[1600px] mx-auto w-full print:p-0 print:m-0 relative">
              {authRole !== 'staff' && (view === 'manager' || view === 'admin') && (
