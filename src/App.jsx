@@ -97,8 +97,8 @@ function generateDefaultMatrix(svc = DEFAULT_SERVICE_DUTIES, ktn = DEFAULT_KITCH
   const m = {};
   ['weekday', 'friday', 'weekend'].forEach(dt => {
     m[dt] = { duties: {} };
-    svc.forEach(d => m[dt].duties[d.id] = [getNamedDefaultShiftForDuty(d, 'service')]);
-    ktn.forEach(k => m[dt].duties[k.id] = [getNamedDefaultShiftForDuty(k, 'kitchen')]);
+    svc.forEach(d => m[dt].duties[d.id] = [{ startTime: "10:00", endTime: "19:00", maxOtHours: 4.0 }]);
+    ktn.forEach(k => m[dt].duties[k.id] = [{ startTime: "09:00", endTime: "18:00", maxOtHours: 4.0 }]);
   });
   return m;
 }
@@ -277,8 +277,8 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
                              return (
                                <td key={day.dateStr} className={`border-r border-b border-slate-200 p-0.5 sm:p-1 text-center print:border-black ${!info ? 'bg-slate-50/40 print:bg-transparent' : ''}`}>
                                  {info?.type === 'work' ? (
-                                   <div className="flex flex-col items-center justify-center leading-tight w-full h-full" title={`${info.slot.startTime}-${info.slot.endTime}`}>
-                                     <span className="font-black text-slate-800 text-[8px] sm:text-[10px] leading-none tracking-tighter print:text-black">{info.slot.name || formatTimeAbbreviation(info.slot.startTime)}</span>
+                                   <div className="flex flex-col items-center justify-center leading-tight w-full h-full">
+                                     <span className="font-black text-slate-800 text-[8px] sm:text-[10px] leading-none tracking-tighter print:text-black">{formatTimeAbbreviation(info.slot.startTime)}</span>
                                      {info.actual?.otHours > 0 && <div className="text-[6px] sm:text-[7px] font-black text-rose-600 truncate w-full px-0.5 uppercase tracking-tighter mt-0.5 print:text-black">O{info.actual.otHours}</div>}
                                    </div>
                                  ) : info?.type === 'leave' ? (
@@ -536,7 +536,7 @@ export default function App() {
                 ['service', 'kitchen'].forEach(dept => {
                     (data.duties[dept] || []).forEach(duty => {
                         if (!data.matrix[dt].duties[duty.id]) {
-                            data.matrix[dt].duties[duty.id] = [getNamedDefaultShiftForDuty(duty, dept)];
+                            data.matrix[dt].duties[duty.id] = [{ startTime: dept === 'service' ? "10:00" : "09:00", endTime: dept === 'service' ? "19:00" : "18:00", maxOtHours: 4.0 }];
                         }
                     });
                 });
@@ -712,7 +712,7 @@ export default function App() {
       nd.duties[activeDept].push(newDuty);
       if(!nd.matrix) nd.matrix = generateDefaultMatrix();
       ['weekday', 'friday', 'weekend'].forEach(dt => {
-        if(!nd.matrix[dt].duties[newId]) nd.matrix[dt].duties[newId] = [getNamedDefaultShiftForDuty(newDuty, activeDept)];
+        if(!nd.matrix[dt].duties[newId]) nd.matrix[dt].duties[newId] = [{ startTime: "10:00", endTime: "19:00", maxOtHours: 4.0 }];
       });
       return nd;
     });
@@ -1798,8 +1798,8 @@ export default function App() {
                                         const data = assigned[idx] || { staffId: "", otHours: 0 };
                                         return (
                                            <div key={idx} className={`p-4 sm:p-5 rounded-[1.2rem] sm:rounded-[1.5rem] border-2 transition-all flex flex-col gap-3 ${!data.staffId ? 'border-dashed border-slate-200 bg-white' : 'border-indigo-100 bg-white shadow-sm'}`}>
-                                              <div className="flex justify-between items-center" title={`${slot.startTime} - ${slot.endTime}`}>
-                                              <span className="text-[10px] sm:text-[11px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><Clock className="w-3 h-3 sm:w-4 sm:h-4 text-indigo-400" /> {slot.name || `${slot.startTime}-${slot.endTime}`}</span>
+                                              <div className="flex justify-between items-center">
+                                              <span className="text-[10px] sm:text-[11px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><Clock className="w-3 h-3 sm:w-4 sm:h-4 text-indigo-400" /> {slot.startTime} - {slot.endTime}</span>
                                               <div className="flex gap-1.5">
                                                  <span className={`text-[8px] sm:text-[9px] font-black px-2 py-1 rounded-full uppercase ${data.otHours >= slot.maxOtHours ? 'bg-indigo-600 text-white' : 'bg-indigo-50 text-indigo-500'}`}>Q: {slot.maxOtHours}H</span>
                                               </div>
@@ -1872,7 +1872,7 @@ export default function App() {
              const isAfternoon = stHour >= 12 && stHour < 16;
              const isEvening = stHour >= 16 && stHour < 19;
              const isNight = stHour >= 19;
-             const timeText = slot.name || `${formatTimeAbbreviation(slot.startTime)}-${formatTimeAbbreviation(slot.endTime)}`;
+             const timeText = `${formatTimeAbbreviation(slot.startTime)}-${formatTimeAbbreviation(slot.endTime)}`;
              const otBadge = assignedData.otHours > 0 ? ` (O${assignedData.otHours})` : '';
 
              return (
@@ -2044,8 +2044,8 @@ export default function App() {
                                                       const data = assigned[idx] || { staffId: "", otHours: 0 };
                                                       return (
                                                           <div key={idx} className={`p-2 rounded-lg border ${!data.staffId ? 'border-dashed border-slate-200 bg-slate-50/50' : 'border-indigo-200 bg-indigo-50/30'}`}>
-                                                             <div className="flex justify-between items-center mb-1" title={`${slot.startTime}-${slot.endTime}`}>
-                                                                <span className="text-[8px] font-bold text-slate-400 truncate">{slot.name || `${slot.startTime}-${slot.endTime}`}</span>
+                                                             <div className="flex justify-between items-center mb-1">
+                                                                <span className="text-[8px] font-bold text-slate-400">{slot.startTime}-{slot.endTime}</span>
                                                                 {data.otHours > 0 && <span className="text-[8px] font-black text-indigo-600 bg-indigo-50 px-1 rounded">OT:{data.otHours}</span>}
                                                              </div>
                                                              <select value={data.staffId} onChange={(e) => handleScheduleUpdate(day.dateStr, duty.id, idx, 'staffId', e.target.value, slot.maxOtHours)} className="w-full text-[10px] font-bold bg-transparent outline-none text-slate-800 truncate">
@@ -2242,15 +2242,14 @@ export default function App() {
                        <td className="px-6 sm:px-10 py-6 sm:py-8">
                          <div className="flex flex-wrap gap-4 sm:gap-6">
                            {(data.duties?.[duty.id] || []).map((slot, idx) => (
-                             <div key={idx} className="flex flex-wrap items-center gap-3 sm:gap-5 bg-white p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2.2rem] border-2 border-slate-50 shadow-sm transition hover:border-indigo-100 relative">
-                               <div className="flex flex-col gap-1 w-full sm:w-32"><span className="text-[8px] sm:text-[9px] font-black text-slate-400 uppercase">ชื่อกะ</span><input type="text" disabled={authRole === 'branch'} className="border rounded-xl p-1.5 sm:p-2 text-[10px] sm:text-xs font-black text-center w-full disabled:bg-slate-50 disabled:text-slate-300 outline-none focus:border-indigo-500" value={slot.name || ''} onChange={(e) => { const nd = JSON.parse(JSON.stringify(branchData)); nd.matrix[key].duties[duty.id][idx].name = e.target.value; setBranchData(nd); }} onBlur={async () => { if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }} /></div>
+                             <div key={idx} className="flex flex-wrap sm:flex-nowrap items-center gap-3 sm:gap-5 bg-white p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2.2rem] border-2 border-slate-50 shadow-sm transition hover:border-indigo-100 relative">
                                <div className="flex flex-col gap-1 w-[45%] sm:w-auto"><span className="text-[8px] sm:text-[9px] font-black text-slate-400 uppercase">เริ่ม</span><input type="text" disabled={authRole === 'branch'} className="border rounded-xl p-1.5 sm:p-2 text-[10px] sm:text-xs font-black text-center w-full sm:w-24 disabled:bg-slate-50 disabled:text-slate-300 outline-none focus:border-indigo-500" value={slot.startTime} onChange={(e) => { const nd = JSON.parse(JSON.stringify(branchData)); nd.matrix[key].duties[duty.id][idx].startTime = e.target.value; setBranchData(nd); }} onBlur={async () => { if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }} /></div>
                                <div className="flex flex-col gap-1 w-[45%] sm:w-auto"><span className="text-[8px] sm:text-[9px] font-black text-slate-400 uppercase">เลิก</span><input type="text" disabled={authRole === 'branch'} className="border rounded-xl p-1.5 sm:p-2 text-[10px] sm:text-xs font-black text-center w-full sm:w-24 disabled:bg-slate-50 disabled:text-slate-300 outline-none focus:border-indigo-500" value={slot.endTime || ""} onChange={(e) => { const nd = JSON.parse(JSON.stringify(branchData)); nd.matrix[key].duties[duty.id][idx].endTime = e.target.value; setBranchData(nd); }} onBlur={async () => { if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }} /></div>
                                <div className="flex flex-col gap-1 sm:border-l pl-0 sm:pl-4 w-[80%] sm:w-auto mt-2 sm:mt-0"><span className="text-[8px] sm:text-[9px] font-black text-indigo-500 uppercase">MAX OT</span><input type="number" disabled={authRole === 'branch'} step="0.5" className="w-full sm:w-20 border rounded-xl p-1.5 sm:p-2 text-center font-black bg-indigo-50/50 disabled:opacity-50 outline-none focus:border-indigo-500 text-[10px] sm:text-xs" value={slot.maxOtHours} onChange={(e) => { const nd = JSON.parse(JSON.stringify(branchData)); nd.matrix[key].duties[duty.id][idx].maxOtHours = parseFloat(e.target.value) || 0; setBranchData(nd); }} onBlur={async () => { if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }} /></div>
                                {authRole === 'superadmin' && <button onClick={async () => { const nd = JSON.parse(JSON.stringify(branchData)); nd.matrix[key].duties[duty.id].splice(idx,1); setBranchData(nd); if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd); }} className="absolute -top-2 -right-2 bg-red-100 text-red-500 hover:bg-red-500 hover:text-white rounded-full p-1.5 transition"><X className="w-3 h-3"/></button>}
                              </div>
                            ))}
-                           {authRole === 'superadmin' && <button onClick={async () => { const nd = JSON.parse(JSON.stringify(branchData)); if(!nd.matrix[key].duties[duty.id]) nd.matrix[key].duties[duty.id] = []; nd.matrix[key].duties[duty.id].push(getNamedDefaultShiftForDuty(duty, activeDept)); setBranchData(nd); if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd); }} className="bg-slate-50 border-2 border-dashed border-slate-200 px-4 sm:px-6 py-3 sm:py-4 rounded-[1.5rem] sm:rounded-[2.2rem] text-[9px] sm:text-[11px] font-black text-slate-400 hover:border-indigo-500 transition self-stretch sm:self-center">+ SLOT</button>}
+                           {authRole === 'superadmin' && <button onClick={async () => { const nd = JSON.parse(JSON.stringify(branchData)); if(!nd.matrix[key].duties[duty.id]) nd.matrix[key].duties[duty.id] = []; nd.matrix[key].duties[duty.id].push({startTime:"10:00", endTime:"19:00", maxOtHours:4.0}); setBranchData(nd); if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd); }} className="bg-slate-50 border-2 border-dashed border-slate-200 px-4 sm:px-6 py-3 sm:py-4 rounded-[1.5rem] sm:rounded-[2.2rem] text-[9px] sm:text-[11px] font-black text-slate-400 hover:border-indigo-500 transition self-stretch sm:self-center">+ SLOT</button>}
                          </div>
                        </td>
                      </tr>
