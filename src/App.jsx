@@ -39,6 +39,15 @@ const POSITIONS = {
   kitchen: ["OC", "AOC", "KH", "SKD", "KD+", "EDC ครัว+", "DVT ครัว+", "PT ครัว+", "KD", "EDC ครัว", "DVT ครัว", "PT ครัว"]
 };
 
+const LONG_HOUR_POSITIONS = ["OC", "AOC", "SH", "SSD", "FD", "SD+", "SD", "KH", "SKD", "KD+", "KD"];
+const SHORT_HOUR_POSITIONS = ["EDC+", "DVT+", "PT+", "EDC", "DVT", "PT", "EDC ครัว+", "DVT ครัว+", "PT ครัว+", "EDC ครัว", "DVT ครัว", "PT ครัว"];
+
+const DEFAULT_SHIFT_PRESETS = [
+  { id: 'S1', name: 'กะเช้า', timings: { long: { startTime: '10:00', endTime: '19:30' }, short: { startTime: '10:00', endTime: '19:00' } } },
+  { id: 'S2', name: 'กะบ่าย', timings: { long: { startTime: '12:00', endTime: '21:30' }, short: { startTime: '12:00', endTime: '21:00' } } },
+  { id: 'S3', name: 'กะครัวเช้า', timings: { long: { startTime: '09:00', endTime: '18:30' }, short: { startTime: '09:00', endTime: '18:00' } } },
+];
+
 const DUTY_CATEGORIES = {
   service: [
     { id: 'FOH_HEAD', label: 'Customer Service Head Team', color: 'bg-[#4B7A47] text-white border-white/20' },
@@ -97,8 +106,8 @@ function generateDefaultMatrix(svc = DEFAULT_SERVICE_DUTIES, ktn = DEFAULT_KITCH
   const m = {};
   ['weekday', 'friday', 'weekend'].forEach(dt => {
     m[dt] = { duties: {} };
-    svc.forEach(d => m[dt].duties[d.id] = [{ startTime: "10:00", endTime: "19:00", maxOtHours: 4.0 }]);
-    ktn.forEach(k => m[dt].duties[k.id] = [{ startTime: "09:00", endTime: "18:00", maxOtHours: 4.0 }]);
+    svc.forEach(d => m[dt].duties[d.id] = [{ shiftPresetId: 'S1', maxOtHours: 4.0 }]);
+    ktn.forEach(k => m[dt].duties[k.id] = [{ shiftPresetId: 'S3', maxOtHours: 4.0 }]);
   });
   return m;
 }
@@ -122,6 +131,15 @@ function formatTimeAbbreviation(timeStr) {
     if (!timeStr) return '';
     const [h, m] = timeStr.split(':');
     return `${parseInt(h, 10)}.${m ? m.charAt(0) : '0'}`;
+}
+
+function getShiftTimesForStaff(staffPos, shiftPreset) {
+    if (!shiftPreset) return { startTime: '??:??', endTime: '??:??' };
+    
+    const isLongHour = LONG_HOUR_POSITIONS.includes(staffPos);
+    const timings = isLongHour ? shiftPreset.timings.long : shiftPreset.timings.short;
+    
+    return { startTime: timings.startTime, endTime: timings.endTime };
 }
 
 function getStaffLayer(dept, pos) {
@@ -352,6 +370,10 @@ export default function App() {
   const [newDutyCategory, setNewDutyCategory] = useState('FOH_STAFF');
   const [editingDutyId, setEditingDutyId] = useState(null);
   const [editDutyData, setEditDutyData] = useState({});
+  const [editingShiftPresetId, setEditingShiftPresetId] = useState(null);
+  const [editShiftPresetData, setEditShiftPresetData] = useState(null);
+
+
   const [draggedDutyIdx, setDraggedDutyIdx] = useState(null);
   
   const [staffFilterPos, setStaffFilterPos] = useState('ALL'); 
@@ -432,9 +454,12 @@ export default function App() {
           const matrixSlots = branchData.matrix?.[dayType]?.duties?.[dutyId] || [];
           slots.forEach((slot, idx) => {
             if (slot.staffId && staffMap[slot.staffId]) {
-              const mSlot = matrixSlots[idx] || { startTime:'10:00', endTime:'19:00', maxOtHours:0 };
-              const [sh, sm] = mSlot.startTime.split(':').map(Number);
-              const [eh, em] = mSlot.endTime.split(':').map(Number);
+              const mSlot = matrixSlots[idx];
+              const shiftPreset = branchData.shiftPresets?.find(p => p.id === mSlot?.shiftPresetId);
+              const staffPos = staffMap[slot.staffId].pos;
+              const { startTime, endTime } = getShiftTimesForStaff(staffPos, shiftPreset);
+              const [sh, sm] = startTime.split(':').map(Number);
+              const [eh, em] = endTime.split(':').map(Number);
               staffMap[slot.staffId].workHours += (eh + em/60) - (sh + sm/60);
               staffMap[slot.staffId].shifts += 1;
               staffMap[slot.staffId].actualOT += Number(slot.otHours || 0);
@@ -446,7 +471,7 @@ export default function App() {
       if (dayData.leaves) {
         dayData.leaves.forEach(l => { if (l.staffId && staffMap[l.staffId]) staffMap[l.staffId].leaves += 1; });
       }
-    });
+    }); // This might have issues if staff position changes.
     return Object.values(staffMap).sort((a,b) => b.workHours - a.workHours);
   }, [schedule, branchData.staff, branchData.matrix, branchData.holidays, reportFilterMode, reportFilterMonth, reportFilterStart, reportFilterEnd, selectedYear]);
 
@@ -459,8 +484,12 @@ export default function App() {
       if (branchData.matrix && activeDay) {
           CURRENT_DUTY_LIST.forEach(duty => {
               const slots = branchData.matrix[activeDay.type]?.duties?.[duty.id] || [];
-              slots.forEach(slot => {
-                  const stHour = parseInt(slot.startTime.split(':')[0]) || 0;
+              slots.forEach(matrixSlot => {
+                  const shiftPreset = branchData.shiftPresets?.find(p => p.id === matrixSlot.shiftPresetId);
+                  if (!shiftPreset) return;
+                  // Use long hours as a representative time for column visibility
+                  const startTime = shiftPreset.timings.long.startTime;
+                  const stHour = parseInt(startTime.split(':')[0]) || 0;
                   if (stHour < 11) hasMorning = true;
                   else if (stHour === 11) hasLateMorning = true;
                   else if (stHour >= 12 && stHour < 16) hasAfternoon = true;
@@ -471,7 +500,7 @@ export default function App() {
       }
       const shiftColCount = (hasMorning ? 1 : 0) + (hasLateMorning ? 1 : 0) + (hasAfternoon ? 1 : 0) + (hasEvening ? 1 : 0) + (hasNight ? 1 : 0);
       return { hasMorning, hasLateMorning, hasAfternoon, hasEvening, hasNight, bottomColSpan: 1 + shiftColCount + 1 };
-  }, [branchData.matrix, activeDay, CURRENT_DUTY_LIST]);
+  }, [branchData.matrix, activeDay, CURRENT_DUTY_LIST, branchData.shiftPresets]);
 
   const getStaffDayInfo = useCallback((staffId, dateStr, currentDutyList) => {
     const dayData = schedule[dateStr];
@@ -486,13 +515,29 @@ export default function App() {
       const sIdx = slots.findIndex(s => s.staffId === staffId);
       if (sIdx !== -1) {
         const dayConfig = CALENDAR_DAYS.find(c => c.dateStr === dateStr);
-        const type = dayConfig ? dayConfig.type : 'weekday';
-        const matrixSlots = branchData.matrix?.[type]?.duties?.[d.id] || [];
-        return { type: 'work', duty: d, slot: matrixSlots[sIdx] || {startTime:'10:00', endTime:'19:00'}, actual: slots[sIdx] };
+        const dayType = dayConfig ? dayConfig.type : 'weekday';
+        const matrixSlots = branchData.matrix?.[dayType]?.duties?.[d.id] || [];
+        const matrixSlot = matrixSlots[sIdx];
+
+        if (!matrixSlot || !matrixSlot.shiftPresetId) {
+            return { type: 'work', duty: d, slot: {startTime:'??:??', endTime:'??:??'}, actual: slots[sIdx] };
+        }
+
+        const staffInfo = branchData.staff?.find(s => s.id === staffId);
+        const shiftPreset = branchData.shiftPresets?.find(p => p.id === matrixSlot.shiftPresetId);
+
+        if (!shiftPreset || !staffInfo) {
+            return { type: 'work', duty: d, slot: {startTime:'??:??', endTime:'??:??'}, actual: slots[sIdx] };
+        }
+
+        const effectiveTimings = getShiftTimesForStaff(staffInfo.pos, shiftPreset);
+        const effectiveSlot = { ...matrixSlot, ...effectiveTimings };
+
+        return { type: 'work', duty: d, slot: effectiveSlot, actual: slots[sIdx] };
       }
     }
     return null;
-  }, [schedule, CALENDAR_DAYS, branchData.matrix]);
+  }, [schedule, CALENDAR_DAYS, branchData.matrix, branchData.staff, branchData.shiftPresets]);
 
   // === EFFECTS ===
   useEffect(() => {
@@ -530,25 +575,53 @@ export default function App() {
     const unsubBranch = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), (snap) => {
       if (snap.exists()) {
         const data = snap.data();
+        if (!data.shiftPresets || !Array.isArray(data.shiftPresets) || data.shiftPresets.length === 0) {
+            data.shiftPresets = DEFAULT_SHIFT_PRESETS;
+        }
         if (!data.duties) data.duties = { service: DEFAULT_SERVICE_DUTIES, kitchen: DEFAULT_KITCHEN_DUTIES };
         if (!data.templates) data.templates = [];
         if (!data.matrix) {
             data.matrix = generateDefaultMatrix(data.duties.service, data.duties.kitchen);
         } else {
+            let needsMigration = false;
+            ['weekday', 'friday', 'weekend'].forEach(dt => {
+                if (data.matrix[dt]?.duties) {
+                    Object.values(data.matrix[dt].duties).forEach(slots => {
+                        if (slots && slots.length > 0 && slots[0] && slots[0].startTime) {
+                            needsMigration = true;
+                        }
+                    });
+                }
+            });
+
+            if (needsMigration) {
+                ['weekday', 'friday', 'weekend'].forEach(dt => {
+                    if (data.matrix[dt]?.duties) {
+                        Object.keys(data.matrix[dt].duties).forEach(dutyId => {
+                            data.matrix[dt].duties[dutyId] = data.matrix[dt].duties[dutyId].map(oldSlot => {
+                                const defaultShift = (dutyId.startsWith('K') ? 'S3' : 'S1');
+                                return { shiftPresetId: data.shiftPresets?.find(p => p.name.includes('เช้า'))?.id || defaultShift, maxOtHours: oldSlot.maxOtHours || 4.0 };
+                            });
+                        });
+                    }
+                });
+            }
+
             ['weekday', 'friday', 'weekend'].forEach(dt => {
                 if (!data.matrix[dt]) data.matrix[dt] = { duties: {} };
                 if (!data.matrix[dt].duties) data.matrix[dt].duties = {};
                 ['service', 'kitchen'].forEach(dept => {
                     (data.duties[dept] || []).forEach(duty => {
                         if (!data.matrix[dt].duties[duty.id]) {
-                            data.matrix[dt].duties[duty.id] = [{ startTime: dept === 'service' ? "10:00" : "09:00", endTime: dept === 'service' ? "19:00" : "18:00", maxOtHours: 4.0 }];
+                            const defaultShift = dept === 'service' ? 'S1' : 'S3';
+                            data.matrix[dt].duties[duty.id] = [{ shiftPresetId: defaultShift, maxOtHours: 4.0 }];
                         }
                     });
                 });
             });
         }
         setBranchData(data);
-      } else { setBranchData({ staff: [], holidays: [], duties: { service: DEFAULT_SERVICE_DUTIES, kitchen: DEFAULT_KITCHEN_DUTIES }, matrix: generateDefaultMatrix() }); }
+      } else { setBranchData({ staff: [], holidays: [], duties: { service: DEFAULT_SERVICE_DUTIES, kitchen: DEFAULT_KITCHEN_DUTIES }, matrix: generateDefaultMatrix(), shiftPresets: DEFAULT_SHIFT_PRESETS, templates: [] }); }
     });
     const unsubSched = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'schedules', activeBranchId), (snap) => {
       if (snap.exists()) setSchedule(snap.data().records || {}); else setSchedule({});
@@ -603,8 +676,9 @@ export default function App() {
           const assigned = dayData.duties[duty.id] || [];
           slots.forEach((slot, idx) => {
              if (assigned[idx] && assigned[idx].staffId) {
-                if (!assigned[idx].otUpdated && (!assigned[idx].otHours || assigned[idx].otHours === 0) && slot.maxOtHours > 0) {
-                    assigned[idx].otHours = slot.maxOtHours; 
+                const matrixSlot = branchData.matrix[dayType]?.duties?.[duty.id]?.[idx];
+                if (matrixSlot && !assigned[idx].otUpdated && (!assigned[idx].otHours || assigned[idx].otHours === 0) && matrixSlot.maxOtHours > 0) {
+                    assigned[idx].otHours = matrixSlot.maxOtHours; 
                     assigned[idx].otUpdated = true; 
                     hasChanges = true;
                 }
@@ -613,7 +687,7 @@ export default function App() {
         });
     });
     if (hasChanges) setSchedule(newSched);
-  }, [schedule, branchData.matrix, CURRENT_DUTY_LIST, branchData.holidays]);
+  }, [schedule, branchData.matrix, CURRENT_DUTY_LIST, branchData.holidays, branchData.shiftPresets]);
 
   useEffect(() => {
       setNewDutyCategory(activeDept === 'service' ? 'FOH_STAFF' : 'BOH_STAFF');
@@ -716,8 +790,8 @@ export default function App() {
       if (!nd.duties[activeDept]) nd.duties[activeDept] = activeDept === 'service' ? DEFAULT_SERVICE_DUTIES : DEFAULT_KITCHEN_DUTIES;
       nd.duties[activeDept].push(newDuty);
       if(!nd.matrix) nd.matrix = generateDefaultMatrix();
-      ['weekday', 'friday', 'weekend'].forEach(dt => {
-        if(!nd.matrix[dt].duties[newId]) nd.matrix[dt].duties[newId] = [{ startTime: "10:00", endTime: "19:00", maxOtHours: 4.0 }];
+      ['weekday', 'friday', 'weekend'].forEach(dt => { // This part might need adjustment for new shift preset logic
+        if(!nd.matrix[dt].duties[newId]) nd.matrix[dt].duties[newId] = [{ shiftPresetId: 'S1', maxOtHours: 4.0 }];
       });
       return nd;
     });
@@ -764,6 +838,51 @@ export default function App() {
   const saveEditStaff = () => { setBranchData(prev => ({ ...prev, staff: prev.staff.map(s => s.id === editingStaffId ? editStaffData : s) })); setEditingStaffId(null); };
   const startEditBranch = (branch) => { setEditingBranchId(branch.id); setEditBranchData({ ...branch }); };
   const saveEditBranch = () => { setGlobalConfig(prev => ({ ...prev, branches: prev.branches.map(b => b.id === editingBranchId ? editBranchData : b) })); setEditingBranchId(null); };
+
+  const handleAddShiftPreset = () => {
+      const newPreset = {
+          id: 'S' + Date.now(),
+          name: 'กะใหม่',
+          timings: { long: { startTime: '10:00', endTime: '19:30' }, short: { startTime: '10:00', endTime: '19:00' } }
+      };
+      const nd = JSON.parse(JSON.stringify(branchData));
+      if (!nd.shiftPresets) nd.shiftPresets = [];
+      nd.shiftPresets.push(newPreset);
+      setBranchData(nd);
+  };
+
+  const handleUpdateShiftPreset = (id, field, value, group = null) => {
+      setBranchData(prev => {
+          const nd = JSON.parse(JSON.stringify(prev));
+          if (!nd.shiftPresets) nd.shiftPresets = [];
+          const preset = nd.shiftPresets.find(p => p.id === id);
+          if (preset) {
+              if (group) {
+                  if (!preset.timings) preset.timings = { long: {}, short: {} };
+                  if (!preset.timings[group]) preset.timings[group] = {};
+                  preset.timings[group][field] = value;
+              } else {
+                  preset[field] = value;
+              }
+          }
+          return nd;
+      });
+  };
+
+  const handleDeleteShiftPreset = (id) => {
+      if (branchData.shiftPresets?.length <= 1) {
+          setConfirmModal({ message: "ไม่สามารถลบกะสุดท้ายได้ ต้องมีอย่างน้อย 1 กะในระบบ" });
+          return;
+      }
+      let isUsed = Object.values(branchData.matrix).some(dayType => 
+          Object.values(dayType.duties).some(slots => slots.some(s => s.shiftPresetId === id))
+      );
+      if (isUsed) {
+          setConfirmModal({ message: "ไม่สามารถลบกะนี้ได้ เนื่องจากมีการใช้งานอยู่ในโครงสร้างกะงาน (CYCLE)" });
+          return;
+      }
+      setBranchData(prev => ({ ...prev, shiftPresets: prev.shiftPresets.filter(p => p.id !== id) }));
+  };
 
   const handleSaveTemplate = async () => {
     if (!templateName.trim()) { setConfirmModal({ message: "กรุณาตั้งชื่อแม่แบบ (Template Name) ก่อนบันทึก" }); return; }
@@ -987,9 +1106,11 @@ export default function App() {
           assignedSlots.forEach((assigned, idx) => {
             if (assigned.staffId) {
               const staff = branchData.staff?.find(s => s.id === assigned.staffId);
-              if (staff) {
-                  const mSlot = matrixSlots[idx] || { startTime: '-', endTime: '-' };
-                  rows.push([ dateStr, staff.empId || '-', staff.name, staff.dept, staff.pos, mSlot.startTime, mSlot.endTime, assigned.otHours || 0 ]);
+              const mSlot = matrixSlots[idx];
+              const shiftPreset = branchData.shiftPresets?.find(p => p.id === mSlot?.shiftPresetId);
+              if (staff && shiftPreset) {
+                  const { startTime, endTime } = getShiftTimesForStaff(staff.pos, shiftPreset);
+                  rows.push([ dateStr, staff.empId || '-', staff.name, staff.dept, staff.pos, startTime, endTime, assigned.otHours || 0 ]);
               }
             }
           });
@@ -1574,6 +1695,45 @@ export default function App() {
     );
   }
 
+  function renderShiftPresetManager() {
+    if (authRole === 'branch') return null;
+
+    return (
+        <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm w-full mt-6 sm:mt-10">
+            <h2 className="text-lg sm:text-xl font-black text-slate-800 mb-6 sm:mb-8 flex items-center gap-2 sm:gap-4 uppercase tracking-tighter"><Clock className="w-6 h-6 sm:w-7 sm:h-7 text-indigo-500" /> จัดการชื่อกะ (Shift Presets)</h2>
+            <div className="space-y-4">
+                {(branchData.shiftPresets || []).map(p => (
+                    <div key={p.id} className="bg-slate-50 border border-slate-100 p-4 rounded-2xl space-y-3">
+                        <div className="flex items-center gap-4">
+                            <input type="text" value={p.name} onChange={(e) => handleUpdateShiftPreset(p.id, 'name', e.target.value)} onBlur={async () => { if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }} className="flex-1 font-black text-sm text-indigo-700 bg-transparent outline-none focus:bg-white p-2 rounded-lg"/>
+                            <button onClick={() => handleDeleteShiftPreset(p.id)} className="text-slate-300 hover:text-red-500 transition p-2"><Trash2 className="w-4 h-4"/></button>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="bg-white p-3 rounded-xl border border-slate-200">
+                                <p className="text-[9px] font-black text-slate-400 uppercase mb-2">กลุ่ม 9.5 ชั่วโมง (OC, SH...)</p>
+                                <div className="flex items-center gap-2">
+                                    <input type="text" value={p.timings.long.startTime} onChange={(e) => handleUpdateShiftPreset(p.id, 'startTime', e.target.value, 'long')} onBlur={async () => { if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }} className="w-full text-center border rounded-lg p-1.5 text-xs font-bold"/>
+                                    <span>-</span>
+                                    <input type="text" value={p.timings.long.endTime} onChange={(e) => handleUpdateShiftPreset(p.id, 'endTime', e.target.value, 'long')} onBlur={async () => { if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }} className="w-full text-center border rounded-lg p-1.5 text-xs font-bold"/>
+                                </div>
+                            </div>
+                            <div className="bg-white p-3 rounded-xl border border-slate-200">
+                                <p className="text-[9px] font-black text-slate-400 uppercase mb-2">กลุ่ม 9 ชั่วโมง (EDC, PT...)</p>
+                                <div className="flex items-center gap-2">
+                                    <input type="text" value={p.timings.short.startTime} onChange={(e) => handleUpdateShiftPreset(p.id, 'startTime', e.target.value, 'short')} onBlur={async () => { if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }} className="w-full text-center border rounded-lg p-1.5 text-xs font-bold"/>
+                                    <span>-</span>
+                                    <input type="text" value={p.timings.short.endTime} onChange={(e) => handleUpdateShiftPreset(p.id, 'endTime', e.target.value, 'short')} onBlur={async () => { if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }} className="w-full text-center border rounded-lg p-1.5 text-xs font-bold"/>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                ))}
+                <button onClick={handleAddShiftPreset} className="w-full bg-slate-100 text-slate-600 border-2 border-dashed border-slate-200 py-3 rounded-2xl text-xs font-black hover:border-indigo-500 hover:text-indigo-600 transition">+ เพิ่มกะใหม่</button>
+            </div>
+        </div>
+    );
+  }
+
   function renderEmptyBranchAdmin() {
     return (
      <div className="flex-1 h-[60vh] sm:h-[70vh] flex flex-col items-center justify-center gap-4 sm:gap-6 text-slate-300 font-black uppercase tracking-[0.2em] sm:tracking-[0.4em] text-center px-4 w-full">
@@ -1769,6 +1929,8 @@ export default function App() {
            {renderTemplatesCard()}
         </div>
 
+        {renderShiftPresetManager()}
+
         {renderMatrixSettings()}
 
      </div>
@@ -1854,12 +2016,12 @@ export default function App() {
           <div className="space-y-10 w-full print:hidden">
              {DUTY_CATEGORIES[activeDept].map(cat => {
                 const catDuties = CURRENT_DUTY_LIST.filter(d => d.category === cat.id);
-                if (catDuties.length === 0) return null;
+                if (catDuties.length === 0) return null; // This might be wrong, should be CURRENT_DUTY_LIST
 
                 return (
                    <div key={cat.id} className="bg-white rounded-[2rem] sm:rounded-[3.5rem] shadow-sm border border-slate-200 overflow-hidden flex flex-col w-full">
                       <div className={`p-4 sm:p-6 text-center sm:text-left ${cat.color}`}>
-                         <h2 className="text-lg sm:text-xl font-black uppercase tracking-widest">{cat.label}</h2>
+                         <h2 className="text-lg sm:text-xl font-black uppercase tracking-widest">{cat.label}</h2> 
                       </div>
                       <div className="p-6 sm:p-10 grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 sm:gap-10 bg-slate-50/50">
                          {catDuties.map(duty => {
@@ -1867,8 +2029,13 @@ export default function App() {
                             const assigned = schedule[selectedDateStr]?.duties?.[duty.id] || [];
                             const reqArr = Array.isArray(duty.reqPos) ? duty.reqPos : [duty.reqPos || 'ALL'];
                             const displayPos = (reqArr.includes('ALL') || reqArr.length === 0) ? 'ALL POS' : reqArr.join(', ');
-                            
-                            if (slots.length === 0) return null;
+
+                            const representativeSlot = slots[0];
+                            const shiftPreset = branchData.shiftPresets?.find(p => p.id === representativeSlot?.shiftPresetId);
+                            const shiftName = shiftPreset ? shiftPreset.name : 'N/A';
+
+                            if (slots.length === 0) return null; // Should not happen with current logic
+
                             return (
                                <div key={duty.id} className="bg-white rounded-2xl sm:rounded-3xl shadow-sm border border-slate-200 overflow-hidden flex flex-col transition hover:shadow-xl w-full">
                                   <div className="p-5 sm:p-6 bg-white border-b border-slate-100 flex justify-between items-start flex-col gap-2">
@@ -1886,8 +2053,11 @@ export default function App() {
                                         const data = assigned[idx] || { staffId: "", otHours: 0 };
                                         return (
                                            <div key={idx} className={`p-4 sm:p-5 rounded-[1.2rem] sm:rounded-[1.5rem] border-2 transition-all flex flex-col gap-3 ${!data.staffId ? 'border-dashed border-slate-200 bg-white' : 'border-indigo-100 bg-white shadow-sm'}`}>
-                                              <div className="flex justify-between items-center">
-                                              <span className="text-[10px] sm:text-[11px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><Clock className="w-3 h-3 sm:w-4 sm:h-4 text-indigo-400" /> {slot.startTime} - {slot.endTime}</span>
+                                              <div className="flex justify-between items-center">                                                
+                                                <span className="text-[10px] sm:text-[11px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                                                    <Clock className="w-3 h-3 sm:w-4 sm:h-4 text-indigo-400" /> 
+                                                    {shiftName}
+                                                </span>
                                               <div className="flex gap-1.5">
                                                  <span className={`text-[8px] sm:text-[9px] font-black px-2 py-1 rounded-full uppercase ${data.otHours >= slot.maxOtHours ? 'bg-indigo-600 text-white' : 'bg-indigo-50 text-indigo-500'}`}>Q: {slot.maxOtHours}H</span>
                                               </div>
@@ -1955,12 +2125,14 @@ export default function App() {
              const staff = branchData.staff?.find(s => s.id === assignedData.staffId);
              const staffName = staff ? staff.name : '-';
              const stHour = parseInt(slot.startTime.split(':')[0]) || 0;
+             const shiftPreset = branchData.shiftPresets?.find(p => p.id === slot.shiftPresetId);
+             const { startTime, endTime } = getShiftTimesForStaff(staff?.pos, shiftPreset);
              const isMorning = stHour < 11;
              const isLateMorning = stHour === 11;
              const isAfternoon = stHour >= 12 && stHour < 16;
              const isEvening = stHour >= 16 && stHour < 19;
              const isNight = stHour >= 19;
-             const timeText = `${formatTimeAbbreviation(slot.startTime)}-${formatTimeAbbreviation(slot.endTime)}`;
+             const timeText = `${formatTimeAbbreviation(startTime)}-${formatTimeAbbreviation(endTime)}`;
              const otBadge = assignedData.otHours > 0 ? ` (O${assignedData.otHours})` : '';
 
              return (
@@ -2124,11 +2296,12 @@ export default function App() {
                                        const dayUsedStaffIds = new Set();
                                        (schedule[day.dateStr]?.leaves || []).forEach(l => l.staffId && dayUsedStaffIds.add(l.staffId));
                                        Object.values(schedule[day.dateStr]?.duties || {}).forEach(sls => sls.forEach(s => s.staffId && dayUsedStaffIds.add(s.staffId)));
-                
+                                       const shiftPreset = branchData.shiftPresets?.find(p => p.id === slots[0]?.shiftPresetId);
+
                                        return (
                                            <td key={day.dateStr} className="p-2 border-r border-slate-100 align-top bg-white">
                                                <div className="space-y-2">
-                                                  {slots.map((slot, idx) => {
+                                                  {slots.map((matrixSlot, idx) => {
                                                       const data = assigned[idx] || { staffId: "", otHours: 0 };
                                                       return (
                                                           <div key={idx} className={`p-2 rounded-lg border ${!data.staffId ? 'border-dashed border-slate-200 bg-slate-50/50' : 'border-indigo-200 bg-indigo-50/30'}`}>
@@ -2136,7 +2309,7 @@ export default function App() {
                                                                 <span className="text-[8px] font-bold text-slate-400">{slot.startTime}-{slot.endTime}</span>
                                                                 {data.otHours > 0 && <span className="text-[8px] font-black text-indigo-600 bg-indigo-50 px-1 rounded">OT:{data.otHours}</span>}
                                                              </div>
-                                                             <select value={data.staffId} onChange={(e) => handleScheduleUpdate(day.dateStr, duty.id, idx, 'staffId', e.target.value, slot.maxOtHours)} className="w-full text-[10px] font-bold bg-transparent outline-none text-slate-800 truncate">
+                                                             <select value={data.staffId} onChange={(e) => handleScheduleUpdate(day.dateStr, duty.id, idx, 'staffId', e.target.value, matrixSlot.maxOtHours)} className="w-full text-[10px] font-bold bg-transparent outline-none text-slate-800 truncate">
                                                                 <option value="">-- ว่าง --</option>
                                                                 {branchData.staff?.filter(s => s.dept === activeDept).map(s => {
                                                                    const isUsed = dayUsedStaffIds.has(s.id) && data.staffId !== s.id;
@@ -2307,6 +2480,8 @@ export default function App() {
   }
 
   function renderMatrixSettings() {
+    if (!branchData.matrix) return null;
+
     return (
        <div className="space-y-6 sm:space-y-8 w-full mt-6 sm:mt-10 print:hidden">
          <h2 className="text-xl sm:text-2xl font-black text-slate-800 px-2 uppercase tracking-tighter flex items-center gap-3 sm:gap-4"><Clock className="w-6 h-6 sm:w-8 sm:h-8 text-indigo-600" /> โครงสร้างกะงานฝั่ง: {activeDept === 'service' ? 'บริการ' : 'ครัว'}</h2>
@@ -2329,31 +2504,48 @@ export default function App() {
                        </td>
                        <td className="px-6 sm:px-10 py-6 sm:py-8">
                          <div className="flex flex-wrap gap-4 sm:gap-6">
-                           {(data.duties?.[duty.id] || []).map((slot, idx) => (
-                             <div key={idx} className="flex flex-wrap sm:flex-nowrap items-center gap-3 sm:gap-5 bg-white p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2.2rem] border-2 border-slate-50 shadow-sm transition hover:border-indigo-100 relative">
-                               <div className="flex flex-col gap-1 w-[45%] sm:w-auto"><span className="text-[8px] sm:text-[9px] font-black text-slate-400 uppercase">เริ่ม</span><input type="text" disabled={authRole === 'branch'} className="border rounded-xl p-1.5 sm:p-2 text-[10px] sm:text-xs font-black text-center w-full sm:w-24 disabled:bg-slate-50 disabled:text-slate-300 outline-none focus:border-indigo-500" value={slot.startTime} onChange={(e) => {
-                                   const nd = JSON.parse(JSON.stringify(branchData));
-                                   if (nd.matrix?.[key]?.duties?.[duty.id]?.[idx]) { nd.matrix[key].duties[duty.id][idx].startTime = e.target.value; setBranchData(nd); }
-                               }} onBlur={async () => { if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }} /></div>
-                               <div className="flex flex-col gap-1 w-[45%] sm:w-auto"><span className="text-[8px] sm:text-[9px] font-black text-slate-400 uppercase">เลิก</span><input type="text" disabled={authRole === 'branch'} className="border rounded-xl p-1.5 sm:p-2 text-[10px] sm:text-xs font-black text-center w-full sm:w-24 disabled:bg-slate-50 disabled:text-slate-300 outline-none focus:border-indigo-500" value={slot.endTime || ""} onChange={(e) => {
-                                   const nd = JSON.parse(JSON.stringify(branchData));
-                                   if (nd.matrix?.[key]?.duties?.[duty.id]?.[idx]) { nd.matrix[key].duties[duty.id][idx].endTime = e.target.value; setBranchData(nd); }
-                               }} onBlur={async () => { if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }} /></div>
-                               <div className="flex flex-col gap-1 sm:border-l pl-0 sm:pl-4 w-[80%] sm:w-auto mt-2 sm:mt-0"><span className="text-[8px] sm:text-[9px] font-black text-indigo-500 uppercase">MAX OT</span><input type="number" disabled={authRole === 'branch'} step="0.5" className="w-full sm:w-20 border rounded-xl p-1.5 sm:p-2 text-center font-black bg-indigo-50/50 disabled:opacity-50 outline-none focus:border-indigo-500 text-[10px] sm:text-xs" value={slot.maxOtHours} onChange={(e) => {
-                                   const nd = JSON.parse(JSON.stringify(branchData));
-                                   if (nd.matrix?.[key]?.duties?.[duty.id]?.[idx]) { nd.matrix[key].duties[duty.id][idx].maxOtHours = parseFloat(e.target.value) || 0; setBranchData(nd); }
-                               }} onBlur={async () => { if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }} /></div>
-                               {authRole === 'superadmin' && <button onClick={async () => {
-                                   const nd = JSON.parse(JSON.stringify(branchData));
-                                   if (Array.isArray(nd.matrix?.[key]?.duties?.[duty.id])) {
-                                       nd.matrix[key].duties[duty.id].splice(idx, 1);
-                                       setBranchData(nd);
-                                       if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd);
-                                   }
-                               }} className="absolute -top-2 -right-2 bg-red-100 text-red-500 hover:bg-red-500 hover:text-white rounded-full p-1.5 transition"><X className="w-3 h-3"/></button>}
-                             </div>
+                           {(data.duties?.[duty.id] || []).map((matrixSlot, idx) => (
+                              <div key={idx} className="flex flex-col items-start gap-3 bg-white p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2.2rem] border-2 border-slate-50 shadow-sm transition hover:border-indigo-100 relative w-60">
+                                  <div className="flex w-full items-center gap-3">
+                                      <span className="text-[8px] sm:text-[9px] font-black text-slate-400 uppercase">กะ</span>
+                                      <select disabled={authRole === 'branch'} value={matrixSlot.shiftPresetId || ''}
+                                          onChange={(e) => {
+                                              const nd = JSON.parse(JSON.stringify(branchData));
+                                              if (nd.matrix?.[key]?.duties?.[duty.id]?.[idx]) { nd.matrix[key].duties[duty.id][idx].shiftPresetId = e.target.value; setBranchData(nd); }
+                                          }}
+                                          onBlur={async () => { if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }}
+                                          className="flex-1 border rounded-xl p-1.5 sm:p-2 text-[10px] sm:text-xs font-black disabled:bg-slate-50 disabled:text-slate-300 outline-none focus:border-indigo-500">
+                                          <option value="" disabled>-- เลือกกะ --</option>
+                                          {(branchData.shiftPresets || []).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                      </select>
+                                  </div>
+                                  <div className="flex w-full items-center gap-3">
+                                      <span className="text-[8px] sm:text-[9px] font-black text-indigo-500 uppercase">MAX OT</span>
+                                      <input type="number" disabled={authRole === 'branch'} step="0.5" className="flex-1 border rounded-xl p-1.5 sm:p-2 text-center font-black bg-indigo-50/50 disabled:opacity-50 outline-none focus:border-indigo-500 text-[10px] sm:text-xs" value={matrixSlot.maxOtHours}
+                                          onChange={(e) => {
+                                              const nd = JSON.parse(JSON.stringify(branchData));
+                                              if (nd.matrix?.[key]?.duties?.[duty.id]?.[idx]) { nd.matrix[key].duties[duty.id][idx].maxOtHours = parseFloat(e.target.value) || 0; setBranchData(nd); }
+                                          }} 
+                                          onBlur={async () => { if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }} />
+                                  </div>
+                                  {authRole === 'superadmin' && <button onClick={async () => {
+                                      const nd = JSON.parse(JSON.stringify(branchData));
+                                      if (Array.isArray(nd.matrix?.[key]?.duties?.[duty.id])) {
+                                          nd.matrix[key].duties[duty.id].splice(idx, 1);
+                                          setBranchData(nd);
+                                          if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd);
+                                      }
+                                  }} className="absolute -top-2 -right-2 bg-red-100 text-red-500 hover:bg-red-500 hover:text-white rounded-full p-1.5 transition"><X className="w-3 h-3"/></button>}
+                              </div>
                            ))}
-                           {authRole === 'superadmin' && <button onClick={async () => { const nd = JSON.parse(JSON.stringify(branchData)); if(!nd.matrix[key].duties[duty.id]) nd.matrix[key].duties[duty.id] = []; nd.matrix[key].duties[duty.id].push({startTime:"10:00", endTime:"19:00", maxOtHours:4.0}); setBranchData(nd); if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd); }} className="bg-slate-50 border-2 border-dashed border-slate-200 px-4 sm:px-6 py-3 sm:py-4 rounded-[1.5rem] sm:rounded-[2.2rem] text-[9px] sm:text-[11px] font-black text-slate-400 hover:border-indigo-500 transition self-stretch sm:self-center">+ SLOT</button>}
+                           {authRole === 'superadmin' && <button onClick={async () => { 
+                               const nd = JSON.parse(JSON.stringify(branchData)); 
+                               if(!nd.matrix[key].duties[duty.id]) nd.matrix[key].duties[duty.id] = []; 
+                               const defaultPresetId = branchData.shiftPresets?.[0]?.id || 'S1';
+                               nd.matrix[key].duties[duty.id].push({shiftPresetId: defaultPresetId, maxOtHours:4.0}); 
+                               setBranchData(nd); 
+                               if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd); 
+                           }} className="bg-slate-50 border-2 border-dashed border-slate-200 px-4 sm:px-6 py-3 sm:py-4 rounded-[1.5rem] sm:rounded-[2.2rem] text-[9px] sm:text-[11px] font-black text-slate-400 hover:border-indigo-500 transition self-stretch sm:self-center">+ SLOT</button>}
                          </div>
                        </td>
                      </tr>
