@@ -1071,25 +1071,28 @@ export default function App() {
                         if (dayData.duties[duty.id][slotIdx].staffId) return; 
 
                         const reqArr = Array.isArray(duty.reqPos) ? duty.reqPos : [duty.reqPos || 'ALL'];
-                        
-                        let candidate = null;
-                        
+
                         const potentialCandidates = availableStaff.filter(s => 
                             !workingStaffIds.has(s.id) && 
                             checkPositionEligibility(s.pos, reqArr, activeDept)
                         );
 
-                        if (duty.category.includes('HEAD')) {
-                            candidate = potentialCandidates.find(s => s.pos === 'OC') || 
-                                        potentialCandidates.find(s => s.pos === 'AOC') ||
-                                        potentialCandidates[0];
-                        } else if (duty.category.includes('STAFF') || duty.category.includes('SUPPORT')) {
-                            candidate = potentialCandidates.find(s => reqArr.includes(s.pos)) ||
-                                        potentialCandidates[0];
-                        } else {
-                            candidate = potentialCandidates[0];
-                        }
+                        let candidate = null;
+                        if (potentialCandidates.length > 0) {
+                            // Priority 1: Find a candidate whose position is explicitly listed in reqPos.
+                            // We pick the highest-ranked one from this subset (potentialCandidates is already sorted).
+                            const directMatches = potentialCandidates.filter(p => reqArr.includes(p.pos));
+                            if (directMatches.length > 0) {
+                                candidate = directMatches[0];
+                            }
 
+                            // Priority 2: If no direct match (all candidates are over-qualified),
+                            // pick the *lowest-ranked* eligible staff to save higher ranks for other duties.
+                            if (!candidate) {
+                                candidate = potentialCandidates[potentialCandidates.length - 1];
+                            }
+                        }
+                        
                         if (candidate) {
                             dayData.duties[duty.id][slotIdx].staffId = candidate.id;
                             dayData.duties[duty.id][slotIdx].otHours = slot.maxOtHours || 0;
