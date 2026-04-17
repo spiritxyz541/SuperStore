@@ -1369,6 +1369,20 @@ export default function App() {
                             workingStaffIds.add(candidate.id);
                         }
                     });
+
+                    // Fallback: ถ้าจำนวนพนักงานไม่พอกับกะ ให้อนุมัติโอทีคนแรกรอบเช้าจนร้านปิด
+                    const assignedSlots = dayData.duties[duty.id];
+                    const unfilledSlots = assignedSlots.filter(s => !s.staffId);
+                    if (unfilledSlots.length > 0 && unfilledSlots.length < assignedSlots.length) {
+                        const firstAssigned = assignedSlots.find(s => s.staffId);
+                        if (firstAssigned) {
+                            const firstIdx = assignedSlots.indexOf(firstAssigned);
+                            const configuredMaxOt = slots[firstIdx]?.maxOtHours || 4.0;
+                            // อนุมัติ OT เพื่อควบกะที่หายไป (ขั้นต่ำ 4 ชม. หรือตามที่ตั้งไว้ในโควตาสูงสุด)
+                            firstAssigned.otHours = Math.max(configuredMaxOt, 4.0); 
+                            firstAssigned.otUpdated = true;
+                        }
+                    }
                 });
             });
             setAiLoading(false);
