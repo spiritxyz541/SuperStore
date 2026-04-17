@@ -2383,7 +2383,7 @@ export default function App() {
              const otBadge = assignedData.otHours > 0 ? ` (O${assignedData.otHours})` : '';
 
              return (
-                <tr key={`${row.duty.id}-${originalIdx}`} className={`text-center h-[120px] border border-slate-800 ${cat.color.split(' ')[0]} ${cat.color.split(' ')[1]}`}>
+                <tr key={`${row.duty.id}-${originalIdx}`} className={`text-center h-[80px] border border-slate-800 ${cat.color.split(' ')[0]} ${cat.color.split(' ')[1]}`}>
                    {rowLocalIdx === 0 && slotLocalIdx === 0 && (
                       <td rowSpan={totalCatSlots} className="border border-slate-800 p-2 font-black uppercase text-[10px] sm:text-xs leading-tight bg-black/10">{cat.label}</td>
                    )}
@@ -2401,11 +2401,11 @@ export default function App() {
                            {staff && <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-black/10 border border-current opacity-80`}>{staff.pos}</span>}
                        </div>
                    </td>
-                   {activeDayShiftVisibilities.hasMorning && <td className={`border border-slate-800 p-2 font-bold text-[10px] sm:text-xs ${isMorning ? 'bg-black/10 shadow-inner' : 'opacity-30'}`}>{isMorning ? timeText : ''}</td>}
-                   {activeDayShiftVisibilities.hasLateMorning && <td className={`border border-slate-800 p-2 font-bold text-[10px] sm:text-xs ${isLateMorning ? 'bg-black/10 shadow-inner' : 'opacity-30'}`}>{isLateMorning ? timeText : ''}</td>}
-                   {activeDayShiftVisibilities.hasAfternoon && <td className={`border border-slate-800 p-2 font-bold text-[10px] sm:text-xs ${isAfternoon ? 'bg-black/10 shadow-inner' : 'opacity-30'}`}>{isAfternoon ? timeText : ''}</td>}
-                   {activeDayShiftVisibilities.hasEvening && <td className={`border border-slate-800 p-2 font-bold text-[10px] sm:text-xs ${isEvening ? 'bg-black/10 shadow-inner' : 'opacity-30'}`}>{isEvening ? timeText : ''}</td>}
-                   {activeDayShiftVisibilities.hasNight && <td className={`border border-slate-800 p-2 font-bold text-[10px] sm:text-xs ${isNight ? 'bg-black/10 shadow-inner' : 'opacity-30'}`}>{isNight ? timeText : ''}</td>}
+                   {activeDayShiftVisibilities.hasMorning && <td className={`border border-slate-800 p-2 font-bold text-[10px] sm:text-xs ${isMorning ? 'shadow-inner' : 'opacity-30'}`}>{isMorning ? timeText : ''}</td>}
+                   {activeDayShiftVisibilities.hasLateMorning && <td className={`border border-slate-800 p-2 font-bold text-[10px] sm:text-xs ${isLateMorning ? 'shadow-inner' : 'opacity-30'}`}>{isLateMorning ? timeText : ''}</td>}
+                   {activeDayShiftVisibilities.hasAfternoon && <td className={`border border-slate-800 p-2 font-bold text-[10px] sm:text-xs ${isAfternoon ? 'shadow-inner' : 'opacity-30'}`}>{isAfternoon ? timeText : ''}</td>}
+                   {activeDayShiftVisibilities.hasEvening && <td className={`border border-slate-800 p-2 font-bold text-[10px] sm:text-xs ${isEvening ? 'shadow-inner' : 'opacity-30'}`}>{isEvening ? timeText : ''}</td>}
+                   {activeDayShiftVisibilities.hasNight && <td className={`border border-slate-800 p-2 font-bold text-[10px] sm:text-xs ${isNight ? 'shadow-inner' : 'opacity-30'}`}>{isNight ? timeText : ''}</td>}
                    <td className="border border-slate-800 p-2 bg-black/10"></td>
                 </tr>
              );
