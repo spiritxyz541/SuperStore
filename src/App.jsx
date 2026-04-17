@@ -5,7 +5,7 @@ import { getFirestore, doc, setDoc, onSnapshot, collection, getDoc } from 'fireb
 import { 
   Users, AlertCircle, Clock, Save, Plus, Trash2, LayoutDashboard, Printer, ChevronLeft, ChevronRight, 
   Coffee, BarChart3, TrendingUp, Award, PlaneTakeoff, Loader2, Store, ArrowLeftRight, Sparkles, Wand2, 
-  Eraser, Filter, ChevronDown, Download, MessageCircle, Bell, UserCircle, SaveAll, FolderOpen, CheckCircle2, Edit2, X, Check, List, TableProperties, GripVertical, LogIn, ShieldCheck,
+  Eraser, Filter, ChevronDown, Download, MessageCircle, Bell, UserCircle, SaveAll, FolderOpen, CheckCircle2, Edit2, X, Check, List, TableProperties, GripVertical, LogIn, ShieldCheck, Megaphone,
   UtensilsCrossed, ConciergeBell, UserPlus, ArrowUpRight, ArrowDownRight, CalendarDays as CalendarDaysIcon, Calendar as CalendarIcon
 } from 'lucide-react';
 
@@ -385,6 +385,14 @@ export default function App() {
   const [reportFilterStart, setReportFilterStart] = useState(`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`);
   const [reportFilterEnd, setReportFilterEnd] = useState(`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()}`);
 
+  // Landing Page States
+  const [hasSeenLanding, setHasSeenLanding] = useState(false);
+  const [showLanding, setShowLanding] = useState(false);
+  const [landingIndex, setLandingIndex] = useState(0);
+  const [newAnnTitle, setNewAnnTitle] = useState('');
+  const [newAnnContent, setNewAnnContent] = useState('');
+  const [newAnnImage, setNewAnnImage] = useState('');
+
   const [aiMessage, setAiMessage] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
 
@@ -643,6 +651,22 @@ export default function App() {
     return () => { unsubBranch(); unsubSched(); unsubReq(); };
   }, [user, activeBranchId]);
 
+  // Reset Landing Page view when branch changes
+  useEffect(() => {
+      setHasSeenLanding(false);
+  }, [activeBranchId]);
+
+  // Trigger Landing Page
+  useEffect(() => {
+      if (activeBranchId && branchData && branchData.announcements && !hasSeenLanding && authRole !== 'guest' && authRole !== 'superadmin') {
+          const activeAnnouncements = branchData.announcements.filter(a => a.isActive);
+          if (activeAnnouncements.length > 0) {
+              setShowLanding(true); setLandingIndex(0);
+          }
+          setHasSeenLanding(true);
+      }
+  }, [activeBranchId, branchData, hasSeenLanding, authRole]);
+
   useEffect(() => {
     if (!branchData.staff || branchData.staff.length === 0) return;
     if (autoAssignedDates.current.has(selectedDateStr)) return;
@@ -710,9 +734,9 @@ export default function App() {
     e.preventDefault();
     setLoginError('');
     const admin = globalConfig.admins?.find(a => a.user === userInput && a.pass === passInput);
-    if (admin) { setAuthRole('superadmin'); if (globalConfig.branches?.length > 0) setActiveBranchId(globalConfig.branches[0].id); setView('manager'); return; }
+    if (admin) { setAuthRole('superadmin'); if (globalConfig.branches?.length > 0) setActiveBranchId(globalConfig.branches[0].id); setView('manager'); setHasSeenLanding(false); return; }
     const branch = globalConfig.branches?.find(b => b.user === userInput && b.pass === passInput);
-    if (branch) { setAuthRole('branch'); setActiveBranchId(branch.id); setView('manager'); return; }
+    if (branch) { setAuthRole('branch'); setActiveBranchId(branch.id); setView('manager'); setHasSeenLanding(false); return; }
     setLoginError('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
   };
 
@@ -726,7 +750,7 @@ export default function App() {
             const bData = branchSnap.data();
             const staffMatch = bData.staff?.find(s => s.empId === staffLoginInput.trim() || s.name === staffLoginInput.trim());
             if (staffMatch) {
-                setAuthRole('staff'); setActiveBranchId(staffLoginBranch); setStaffFilterPos(staffMatch.id); setView('manager');
+                setAuthRole('staff'); setActiveBranchId(staffLoginBranch); setStaffFilterPos(staffMatch.id); setView('manager'); setHasSeenLanding(false);
             } else { setLoginError('ไม่พบข้อมูลพนักงานในสาขานี้'); }
         } else { setLoginError('ไม่พบข้อมูลสาขา'); }
     } catch (err) { setLoginError('เกิดข้อผิดพลาดในการเชื่อมต่อ'); }
@@ -961,6 +985,27 @@ export default function App() {
           return;
       }
       const nd = { ...branchData, shiftPresets: (branchData.shiftPresets || []).filter(p => p.id !== id) };
+      setBranchData(nd);
+      if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd);
+  };
+
+  const handleAddAnnouncement = async () => {
+      if (!newAnnTitle.trim()) return;
+      const newAnn = { id: 'A'+Date.now(), title: newAnnTitle, content: newAnnContent, imageUrl: newAnnImage, isActive: true };
+      const nd = {...branchData, announcements: [...(branchData.announcements || []), newAnn]};
+      setBranchData(nd);
+      if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd);
+      setNewAnnTitle(''); setNewAnnContent(''); setNewAnnImage('');
+  };
+
+  const handleDeleteAnnouncement = async (id) => {
+      const nd = {...branchData, announcements: branchData.announcements.filter(a => a.id !== id)};
+      setBranchData(nd);
+      if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd);
+  };
+
+  const handleToggleAnnouncement = async (id, isActive) => {
+      const nd = {...branchData, announcements: branchData.announcements.map(a => a.id === id ? {...a, isActive} : a)};
       setBranchData(nd);
       if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd);
   };
@@ -1627,6 +1672,43 @@ export default function App() {
     );
   }
 
+  function renderLandingModal() {
+      const actives = (branchData.announcements || []).filter(a => a.isActive);
+      if (!showLanding || actives.length === 0) return null;
+      const a = actives[landingIndex];
+
+      return (
+          <div className="fixed inset-0 z-[600] flex items-center justify-center bg-slate-900/90 backdrop-blur-md p-4 sm:p-8 animate-in fade-in zoom-in duration-500">
+              <div className="bg-white rounded-[2rem] sm:rounded-[3rem] w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl relative">
+                  {a.imageUrl && (
+                      <div className="w-full h-48 sm:h-72 bg-slate-100 flex-shrink-0 relative">
+                          <img src={a.imageUrl} alt={a.title} className="w-full h-full object-cover" onError={(e) => { e.target.style.display = 'none'; }} />
+                      </div>
+                  )}
+                  <div className="p-6 sm:p-12 flex-1 overflow-y-auto custom-scrollbar flex flex-col">
+                      <h2 className="text-2xl sm:text-4xl font-black text-slate-900 mb-4 tracking-tighter uppercase">{a.title}</h2>
+                      <p className="text-slate-600 text-sm sm:text-lg whitespace-pre-wrap leading-relaxed font-medium">{a.content}</p>
+                  </div>
+                  <div className="p-4 sm:p-6 bg-slate-50 border-t border-slate-100 flex justify-between items-center flex-shrink-0">
+                      <div className="flex gap-2">
+                          {actives.map((_, i) => (
+                              <div key={i} className={`w-2.5 h-2.5 rounded-full transition-all ${i === landingIndex ? 'bg-indigo-600 w-6' : 'bg-slate-300'}`}></div>
+                          ))}
+                      </div>
+                      <div className="flex gap-3">
+                          {landingIndex < actives.length - 1 ? (
+                              <button onClick={() => setLandingIndex(i => i + 1)} className="bg-indigo-600 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black text-xs sm:text-sm hover:bg-indigo-700 active:scale-95 transition shadow-lg">ถัดไป (Next)</button>
+                          ) : (
+                              <button onClick={() => setShowLanding(false)} className="bg-emerald-600 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black text-xs sm:text-sm hover:bg-emerald-700 active:scale-95 transition shadow-lg">เข้าสู่ระบบ (Enter)</button>
+                          )}
+                      </div>
+                  </div>
+                  <button onClick={() => setShowLanding(false)} className="absolute top-4 right-4 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full backdrop-blur-md transition z-10"><X className="w-5 h-5"/></button>
+              </div>
+          </div>
+      );
+  }
+
   function renderGuestLogin() {
     return (
       <div className="min-h-screen w-full flex flex-col lg:flex-row bg-slate-50 font-sans overflow-hidden">
@@ -2219,6 +2301,40 @@ export default function App() {
              {authRole === 'branch' && <p className="text-[8px] sm:text-[10px] text-red-400 font-bold mt-6 sm:mt-8 text-center uppercase tracking-widest leading-relaxed">* เฉพาะ Admin ส่วนกลางเท่านั้นที่แก้ไขวันหยุดได้</p>}
            </div>
            
+           <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm w-full">
+             <h2 className="text-lg sm:text-xl font-black text-slate-800 mb-6 sm:mb-8 flex items-center gap-2 sm:gap-4 uppercase tracking-tighter"><Megaphone className="w-6 h-6 sm:w-7 sm:h-7 text-indigo-500" /> จัดการหน้าประกาศ (Landing Pages)</h2>
+             <div className="flex flex-col lg:flex-row gap-6">
+                <div className="flex-[2] space-y-4 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
+                    {(branchData.announcements || []).map(a => (
+                        <div key={a.id} className={`flex flex-col sm:flex-row gap-4 bg-slate-50 border p-4 rounded-2xl transition-all ${a.isActive ? 'border-indigo-200 shadow-sm' : 'border-slate-200 opacity-60'}`}>
+                            {a.imageUrl && <img src={a.imageUrl} alt="img" className="w-full sm:w-32 h-24 object-cover rounded-xl border border-slate-200" />}
+                            <div className="flex-1 flex flex-col justify-between">
+                                <div>
+                                    <h4 className="font-black text-slate-800 text-sm">{a.title}</h4>
+                                    <p className="text-xs text-slate-500 line-clamp-2 mt-1">{a.content}</p>
+                                </div>
+                                <div className="flex items-center gap-4 mt-3">
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input type="checkbox" checked={a.isActive} onChange={e => handleToggleAnnouncement(a.id, e.target.checked)} className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500" />
+                                        <span className="text-xs font-bold text-slate-600">เปิดใช้งาน (Active)</span>
+                                    </label>
+                                    <button onClick={() => handleDeleteAnnouncement(a.id)} className="text-red-500 hover:text-red-700 text-[10px] font-black uppercase flex items-center gap-1"><Trash2 className="w-3 h-3"/> ลบ</button>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                    {!(branchData.announcements?.length > 0) && <div className="text-center py-10 text-slate-400 font-bold text-xs border-2 border-dashed border-slate-200 rounded-2xl">ยังไม่มีประกาศ/หน้า Landing Page</div>}
+                </div>
+                <div className="flex-1 bg-slate-50 p-5 rounded-2xl border border-slate-200 h-fit space-y-4">
+                    <h3 className="font-black text-slate-700 text-sm flex items-center gap-2"><Plus className="w-4 h-4 text-emerald-500"/> เพิ่มหน้าประกาศใหม่</h3>
+                    <input type="text" placeholder="หัวข้อประกาศ" value={newAnnTitle} onChange={e=>setNewAnnTitle(e.target.value)} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500"/>
+                    <textarea placeholder="เนื้อหารายละเอียด..." value={newAnnContent} onChange={e=>setNewAnnContent(e.target.value)} rows={3} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500 resize-none"></textarea>
+                    <input type="text" placeholder="URL รูปภาพ (ถ้ามี)" value={newAnnImage} onChange={e=>setNewAnnImage(e.target.value)} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500"/>
+                    <button onClick={handleAddAnnouncement} className="w-full bg-indigo-600 text-white py-3 rounded-xl font-black text-xs hover:bg-indigo-700 transition shadow-sm">บันทึกประกาศ</button>
+                </div>
+             </div>
+           </div>
+
            {renderTemplatesCard()}
         </div>
 
@@ -2906,6 +3022,7 @@ export default function App() {
       `}} />
 
       {renderModals()}
+      {renderLandingModal()}
       {authRole === 'guest' ? renderGuestLogin() : (
         <div className="flex-1 flex flex-col min-h-screen w-full bg-slate-50 text-slate-900 font-sans antialiased overflow-x-hidden">
           <nav className="flex-none sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200 print:hidden shadow-sm px-4 sm:px-8 py-3 w-full">
