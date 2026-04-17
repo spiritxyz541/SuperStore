@@ -2289,10 +2289,6 @@ export default function App() {
                             const reqArr = Array.isArray(duty.reqPos) ? duty.reqPos : [duty.reqPos || 'ALL'];
                             const displayPos = (reqArr.includes('ALL') || reqArr.length === 0) ? 'ALL POS' : reqArr.join(', ');
 
-                            const representativeSlot = slots[0];
-                            const shiftPreset = branchData.shiftPresets?.find(p => p.id === representativeSlot?.shiftPresetId);
-                            const shiftName = shiftPreset ? shiftPreset.name : 'N/A';
-
                             if (slots.length === 0) return null; // Should not happen with current logic
 
                             return (
@@ -2310,12 +2306,14 @@ export default function App() {
                                   <div className="p-4 sm:p-6 space-y-4 bg-slate-50/30">
                                      {slots.map((slot, idx) => {
                                         const data = assigned[idx] || { staffId: "", otHours: 0 };
+                                        const currentShiftPreset = branchData.shiftPresets?.find(p => p.id === slot?.shiftPresetId);
+                                        const currentShiftName = currentShiftPreset ? currentShiftPreset.name : 'N/A';
                                         return (
                                            <div key={idx} className={`p-4 sm:p-5 rounded-[1.2rem] sm:rounded-[1.5rem] border-2 transition-all flex flex-col gap-3 ${!data.staffId ? 'border-dashed border-slate-200 bg-white' : 'border-indigo-100 bg-white shadow-sm'}`}>
                                               <div className="flex justify-between items-center">                                                
                                                 <span className="text-[10px] sm:text-[11px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
                                                     <Clock className="w-3 h-3 sm:w-4 sm:h-4 text-indigo-400" /> 
-                                                    {shiftName}
+                                                    {currentShiftName}
                                                 </span>
                                               <div className="flex gap-1.5">
                                                  <span className={`text-[8px] sm:text-[9px] font-black px-2 py-1 rounded-full uppercase ${data.otHours >= slot.maxOtHours ? 'bg-indigo-600 text-white' : 'bg-indigo-50 text-indigo-500'}`}>Q: {slot.maxOtHours}H</span>
