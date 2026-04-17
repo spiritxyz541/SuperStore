@@ -1369,18 +1369,6 @@ export default function App() {
                             workingStaffIds.add(candidate.id);
                         }
                     });
-
-                    // Fallback: ถ้าจำนวนพนักงานไม่พอกับกะ ให้อนุมัติโอทีคนแรกรอบเช้าจนร้านปิด
-                    const assignedSlots = dayData.duties[duty.id];
-                    const unfilledSlots = assignedSlots.filter(s => !s.staffId);
-                    if (unfilledSlots.length > 0 && unfilledSlots.length < assignedSlots.length) {
-                        const firstAssigned = assignedSlots.find(s => s.staffId);
-                        if (firstAssigned) {
-                            // อนุมัติ OT ให้รอบเช้าเพื่อควบกะที่หายไป คงที่ 3.5 ชม.
-                            firstAssigned.otHours = 3.5; 
-                            firstAssigned.otUpdated = true;
-                        }
-                    }
                 });
             });
             setAiLoading(false);
