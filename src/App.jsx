@@ -1679,9 +1679,9 @@ export default function App() {
 
       return (
           <div className="fixed inset-0 z-[600] flex items-center justify-center bg-slate-900/90 backdrop-blur-md p-4 sm:p-8 animate-in fade-in zoom-in duration-500">
-              <div className="bg-white rounded-[2rem] sm:rounded-[3rem] w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl relative">
+              <div className="bg-white rounded-[2rem] sm:rounded-[3rem] w-full max-w-[1200px] max-h-[90vh] flex flex-col overflow-hidden shadow-2xl relative">
                   {a.imageUrl && (
-                      <div className="w-full h-48 sm:h-72 bg-slate-100 flex-shrink-0 relative">
+                      <div className="w-full aspect-[3/2] max-h-[40vh] sm:max-h-[50vh] lg:max-h-[800px] bg-slate-100 flex-shrink-0 relative">
                           <img src={a.imageUrl} alt={a.title} className="w-full h-full object-cover" onError={(e) => { e.target.style.display = 'none'; }} />
                       </div>
                   )}
