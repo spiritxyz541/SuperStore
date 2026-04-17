@@ -1264,6 +1264,24 @@ export default function App() {
             const newSched = JSON.parse(JSON.stringify(prevSched));
             const datesToProcess = mode === 'daily' ? [selectedDateStr] : CALENDAR_DAYS.map(d => d.dateStr);
 
+            const staffOTCount = {};
+            branchData.staff?.forEach(s => staffOTCount[s.id] = 0);
+            
+            if (mode === 'daily') {
+                Object.keys(newSched).forEach(d => {
+                    if (d !== selectedDateStr) {
+                        const dayData = newSched[d];
+                        if (dayData.duties) {
+                            Object.values(dayData.duties).forEach(slots => {
+                                slots.forEach(s => {
+                                    if (s.staffId) staffOTCount[s.staffId] += (s.otHours || 0);
+                                });
+                            });
+                        }
+                    }
+                });
+            }
+
             datesToProcess.forEach(dateStr => {
                 const dayConfig = CALENDAR_DAYS.find(c => c.dateStr === dateStr);
                 const dayType = dayConfig ? dayConfig.type : 'weekday';
@@ -1348,25 +1366,55 @@ export default function App() {
                         );
 
                         if (potentialCandidates.length > 0) {
-                            // Priority 1: Find a candidate whose position is explicitly listed in reqPos.
-                            // We pick the highest-ranked one from this subset (potentialCandidates is already sorted).
-                            const directMatches = potentialCandidates.filter(p => reqArr.includes(p.pos));
-                            if (directMatches.length > 0) {
-                                candidate = directMatches[0];
+                            const isOTSlot = (slot.maxOtHours || 0) > 0;
+                            let validCandidates = potentialCandidates;
+                            
+                            // Exclude HEAD team from OT slots entirely
+                            if (isOTSlot) {
+                                validCandidates = potentialCandidates.filter(p => {
+                                    const layer = getStaffLayer(activeDept, p.pos);
+                                    return !layer.id.includes('HEAD');
+                                });
                             }
+                            
+                            if (validCandidates.length > 0) {
+                                // Sort candidates
+                                validCandidates.sort((a, b) => {
+                                    const aDirect = reqArr.includes(a.pos) ? 1 : 0;
+                                    const bDirect = reqArr.includes(b.pos) ? 1 : 0;
+                                    if (aDirect !== bDirect) return bDirect - aDirect; // Priority 1: Direct matches
+                                    
+                                    if (isOTSlot) {
+                                        const otDiff = staffOTCount[a.id] - staffOTCount[b.id];
+                                        if (otDiff !== 0) return otDiff; // Priority 2: Least accumulated OT
+                                    }
+                                    
+                                    // Priority 3: Rank
+                                    const posList = POSITIONS[activeDept] || [];
+                                    const rankA = posList.indexOf(a.pos);
+                                    const rankB = posList.indexOf(b.pos);
+                                    if (aDirect && bDirect) return rankA - rankB; // Highest rank first
+                                    return rankB - rankA; // Lowest rank first
+                                });
 
-                            // Priority 2: If no direct match (all candidates are over-qualified),
-                            // pick the *lowest-ranked* eligible staff to save higher ranks for other duties.
-                            if (!candidate) {
-                                candidate = potentialCandidates[potentialCandidates.length - 1];
+                                candidate = validCandidates[0];
                             }
                         }
 
                         if (candidate) {
                             dayData.duties[duty.id][slotIdx].staffId = candidate.id;
-                            dayData.duties[duty.id][slotIdx].otHours = slot.maxOtHours || 0;
+                            
+                            const layer = getStaffLayer(activeDept, candidate.pos);
+                            const giveOT = !layer.id.includes('HEAD') && (slot.maxOtHours || 0) > 0;
+                            const assignedOT = giveOT ? slot.maxOtHours : 0;
+                            
+                            dayData.duties[duty.id][slotIdx].otHours = assignedOT;
                             dayData.duties[duty.id][slotIdx].otUpdated = true;
                             workingStaffIds.add(candidate.id);
+                            
+                            if (assignedOT > 0) {
+                                staffOTCount[candidate.id] += assignedOT;
+                            }
                         }
                     });
                 });
@@ -2383,29 +2431,29 @@ export default function App() {
              const otBadge = assignedData.otHours > 0 ? ` (O${assignedData.otHours})` : '';
 
              return (
-                <tr key={`${row.duty.id}-${originalIdx}`} className={`text-center h-[100px] border border-slate-800 ${cat.color.split(' ')[0]} ${cat.color.split(' ')[1]}`}>
+                <tr key={`${row.duty.id}-${originalIdx}`} className={`text-center h-10 sm:h-12 border border-slate-800 ${cat.color.split(' ')[0]} ${cat.color.split(' ')[1]}`}>
                    {rowLocalIdx === 0 && slotLocalIdx === 0 && (
-                      <td rowSpan={totalCatSlots} className="border border-slate-800 p-2 font-black uppercase text-[20px] sm:text-[24px] leading-tight bg-black/10">{cat.label}</td>
+                      <td rowSpan={totalCatSlots} className="border border-slate-800 p-2 font-black uppercase text-[10px] sm:text-xs leading-tight bg-black/10">{cat.label}</td>
                    )}
                    {slotLocalIdx === 0 && (
                       <React.Fragment>
-                         <td rowSpan={row.activeSlots.length} className="border border-slate-800 p-2 text-left text-[16px] sm:text-[20px] whitespace-pre-wrap leading-tight opacity-90">{row.duty.xpDna || '-'}</td>
+                         <td rowSpan={row.activeSlots.length} className="border border-slate-800 p-2 text-left text-[8px] sm:text-[10px] whitespace-pre-wrap leading-tight opacity-90">{row.duty.xpDna || '-'}</td>
                          <td rowSpan={row.activeSlots.length} className="border border-slate-800 p-2 font-black text-left leading-tight">{row.duty.jobA}</td>
-                         <td rowSpan={row.activeSlots.length} className="border border-slate-800 p-2 text-left text-[16px] sm:text-[20px] leading-tight opacity-80">{row.duty.jobB}</td>
-                         <td rowSpan={row.activeSlots.length} className="border border-slate-800 p-2 font-black text-[28px] sm:text-[32px]"><u className="underline-offset-2">{row.activeSlots.length}</u></td>
+                         <td rowSpan={row.activeSlots.length} className="border border-slate-800 p-2 text-left text-[8px] sm:text-[10px] leading-tight opacity-80">{row.duty.jobB}</td>
+                         <td rowSpan={row.activeSlots.length} className="border border-slate-800 p-2 font-black text-sm sm:text-base"><u className="underline-offset-2">{row.activeSlots.length}</u></td>
                       </React.Fragment>
                    )}
-                   <td className="border border-slate-800 p-2 text-left font-bold text-[20px] sm:text-[24px]">
+                   <td className="border border-slate-800 p-2 text-left font-bold text-[10px] sm:text-xs">
                        <div className="flex justify-between items-center">
                            <span>{staffName}<span className="opacity-80 ml-1 font-black">{otBadge}</span></span>
-                           {staff && <span className={`px-1.5 py-0.5 rounded text-[16px] font-black uppercase bg-black/10 border border-current opacity-80`}>{staff.pos}</span>}
+                           {staff && <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-black/10 border border-current opacity-80`}>{staff.pos}</span>}
                        </div>
                    </td>
-                   {activeDayShiftVisibilities.hasMorning && <td className={`border border-slate-800 p-2 font-bold text-[20px] sm:text-[24px] ${isMorning ? 'shadow-inner' : 'opacity-30'}`}>{isMorning ? timeText : ''}</td>}
-                   {activeDayShiftVisibilities.hasLateMorning && <td className={`border border-slate-800 p-2 font-bold text-[20px] sm:text-[24px] ${isLateMorning ? 'shadow-inner' : 'opacity-30'}`}>{isLateMorning ? timeText : ''}</td>}
-                   {activeDayShiftVisibilities.hasAfternoon && <td className={`border border-slate-800 p-2 font-bold text-[20px] sm:text-[24px] ${isAfternoon ? 'shadow-inner' : 'opacity-30'}`}>{isAfternoon ? timeText : ''}</td>}
-                   {activeDayShiftVisibilities.hasEvening && <td className={`border border-slate-800 p-2 font-bold text-[20px] sm:text-[24px] ${isEvening ? 'shadow-inner' : 'opacity-30'}`}>{isEvening ? timeText : ''}</td>}
-                   {activeDayShiftVisibilities.hasNight && <td className={`border border-slate-800 p-2 font-bold text-[20px] sm:text-[24px] ${isNight ? 'shadow-inner' : 'opacity-30'}`}>{isNight ? timeText : ''}</td>}
+                   {activeDayShiftVisibilities.hasMorning && <td className={`border border-slate-800 p-2 font-bold text-[10px] sm:text-xs ${isMorning ? 'shadow-inner' : 'opacity-30'}`}>{isMorning ? timeText : ''}</td>}
+                   {activeDayShiftVisibilities.hasLateMorning && <td className={`border border-slate-800 p-2 font-bold text-[10px] sm:text-xs ${isLateMorning ? 'shadow-inner' : 'opacity-30'}`}>{isLateMorning ? timeText : ''}</td>}
+                   {activeDayShiftVisibilities.hasAfternoon && <td className={`border border-slate-800 p-2 font-bold text-[10px] sm:text-xs ${isAfternoon ? 'shadow-inner' : 'opacity-30'}`}>{isAfternoon ? timeText : ''}</td>}
+                   {activeDayShiftVisibilities.hasEvening && <td className={`border border-slate-800 p-2 font-bold text-[10px] sm:text-xs ${isEvening ? 'shadow-inner' : 'opacity-30'}`}>{isEvening ? timeText : ''}</td>}
+                   {activeDayShiftVisibilities.hasNight && <td className={`border border-slate-800 p-2 font-bold text-[10px] sm:text-xs ${isNight ? 'shadow-inner' : 'opacity-30'}`}>{isNight ? timeText : ''}</td>}
                    <td className="border border-slate-800 p-2 bg-black/10"></td>
                 </tr>
              );
@@ -2428,7 +2476,7 @@ export default function App() {
                    <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tighter">แผนงานประจำวัน{activeDept === 'service' ? 'แผนกบริการ (FOH)' : 'แผนกครัว (BOH)'}</h1>
                    <p className="text-sm sm:text-base font-bold text-slate-600 mt-2">วัน{activeDay.dayLabel} ที่ <span className="underline underline-offset-4">{activeDay.dayNum}</span> เดือน <span className="underline underline-offset-4">{THAI_MONTHS[selectedMonth]}</span> พ.ศ. <span className="underline underline-offset-4">{selectedYear + 543}</span></p>
                 </div>
-                <table className="w-full border-collapse border-2 border-slate-800 text-[20px] sm:text-[24px] min-w-[1400px] print:text-[20px] bg-white">
+                <table className="w-full border-collapse border-2 border-slate-800 text-[10px] sm:text-xs min-w-[1100px] print:text-[10px] bg-white">
                    <thead>
                       <tr className="bg-slate-100 text-center font-black print:bg-slate-200">
                          <th className="border border-slate-800 p-2 w-[8%]">กลุ่มงาน (DUTY)</th>
@@ -2447,9 +2495,9 @@ export default function App() {
                    </thead>
                    <tbody>
                       {tableBodyRows}
-                      <tr className="text-center bg-slate-50 print:bg-slate-100 font-black h-20">
+                      <tr className="text-center bg-slate-50 print:bg-slate-100 font-black h-10 sm:h-12">
                          <td colSpan={4} className="border border-slate-800 p-2 text-right pr-6 uppercase tracking-widest text-slate-800">Total Staff (เฉพาะที่มีรายชื่อ)</td>
-                         <td className="border border-slate-800 p-2 text-[32px] text-indigo-600"><u className="underline-offset-2">{totalAssignedAll}</u></td>
+                         <td className="border border-slate-800 p-2 text-base sm:text-lg text-indigo-600"><u className="underline-offset-2">{totalAssignedAll}</u></td>
                          <td colSpan={activeDayShiftVisibilities.bottomColSpan + 1} className="border border-slate-800 p-2"></td>
                       </tr>
                    </tbody>
@@ -2852,7 +2900,7 @@ export default function App() {
           .print\\:hidden { display: none !important; }
           nav, button, footer { display: none !important; }
           main { padding: 0 !important; margin: 0 !important; min-height: auto !important; }
-          table { width: 100% !important; border-collapse: collapse !important; border: 2px solid #000 !important; font-size: 14px !important; }
+          table { width: 100% !important; border-collapse: collapse !important; border: 2px solid #000 !important; font-size: 7px !important; }
           th, td { border: 1px solid #000 !important; padding: 2px !important; }
         }
       `}} />
