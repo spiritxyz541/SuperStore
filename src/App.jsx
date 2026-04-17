@@ -2383,29 +2383,29 @@ export default function App() {
              const otBadge = assignedData.otHours > 0 ? ` (O${assignedData.otHours})` : '';
 
              return (
-                <tr key={`${row.duty.id}-${originalIdx}`} className={`text-center h-10 border border-slate-800 ${cat.color.split(' ')[0]} ${cat.color.split(' ')[1]}`}>
+                <tr key={`${row.duty.id}-${originalIdx}`} className={`text-center h-[120px] border border-slate-800 ${cat.color.split(' ')[0]} ${cat.color.split(' ')[1]}`}>
                    {rowLocalIdx === 0 && slotLocalIdx === 0 && (
-                      <td rowSpan={totalCatSlots} className="border border-slate-800 p-2 font-black uppercase text-[10px] w-[12%] leading-tight bg-slate-900/50 text-white">{cat.label}</td>
+                      <td rowSpan={totalCatSlots} className="border border-slate-800 p-2 font-black uppercase text-[10px] sm:text-xs leading-tight bg-black/10">{cat.label}</td>
                    )}
                    {slotLocalIdx === 0 && (
                       <React.Fragment>
-                         <td rowSpan={row.activeSlots.length} className="border border-slate-800 p-2 text-left text-[8px] sm:text-[9px] whitespace-pre-wrap leading-tight text-white opacity-90">{row.duty.xpDna || '-'}</td>
-                         <td rowSpan={row.activeSlots.length} className="border border-slate-800 p-2 font-black text-slate-800 text-left leading-tight text-white">{row.duty.jobA}</td>
-                         <td rowSpan={row.activeSlots.length} className="border border-slate-800 p-2 text-left text-slate-600 text-[8px] leading-tight text-white opacity-80">{row.duty.jobB}</td>
-                         <td rowSpan={row.activeSlots.length} className="border border-slate-800 p-2 font-black text-sm text-white"><u className="underline-offset-2">{row.activeSlots.length}</u></td>
+                         <td rowSpan={row.activeSlots.length} className="border border-slate-800 p-2 text-left text-[8px] sm:text-[10px] whitespace-pre-wrap leading-tight opacity-90">{row.duty.xpDna || '-'}</td>
+                         <td rowSpan={row.activeSlots.length} className="border border-slate-800 p-2 font-black text-left leading-tight">{row.duty.jobA}</td>
+                         <td rowSpan={row.activeSlots.length} className="border border-slate-800 p-2 text-left text-[8px] sm:text-[10px] leading-tight opacity-80">{row.duty.jobB}</td>
+                         <td rowSpan={row.activeSlots.length} className="border border-slate-800 p-2 font-black text-sm sm:text-base"><u className="underline-offset-2">{row.activeSlots.length}</u></td>
                       </React.Fragment>
                    )}
-                   <td className="border border-slate-800 p-2 text-left font-bold text-white">
+                   <td className="border border-slate-800 p-2 text-left font-bold text-[10px] sm:text-xs">
                        <div className="flex justify-between items-center">
-                           <span>{staffName}<span className="text-white opacity-80 ml-1 font-black">{otBadge}</span></span>
-                           {staff && <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-black/20 border border-white/30`}>{staff.pos}</span>}
+                           <span>{staffName}<span className="opacity-80 ml-1 font-black">{otBadge}</span></span>
+                           {staff && <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-black/10 border border-current opacity-80`}>{staff.pos}</span>}
                        </div>
                    </td>
-                   {activeDayShiftVisibilities.hasMorning && <td className={`border border-slate-800 p-2 font-bold text-[9px] text-white ${isMorning ? 'bg-black/20 shadow-inner' : 'opacity-40'}`}>{isMorning ? timeText : ''}</td>}
-                   {activeDayShiftVisibilities.hasLateMorning && <td className={`border border-slate-800 p-2 font-bold text-[9px] text-white ${isLateMorning ? 'bg-black/20 shadow-inner' : 'opacity-40'}`}>{isLateMorning ? timeText : ''}</td>}
-                   {activeDayShiftVisibilities.hasAfternoon && <td className={`border border-slate-800 p-2 font-bold text-[9px] text-white ${isAfternoon ? 'bg-black/20 shadow-inner' : 'opacity-40'}`}>{isAfternoon ? timeText : ''}</td>}
-                   {activeDayShiftVisibilities.hasEvening && <td className={`border border-slate-800 p-2 font-bold text-[9px] text-white ${isEvening ? 'bg-black/20 shadow-inner' : 'opacity-40'}`}>{isEvening ? timeText : ''}</td>}
-                   {activeDayShiftVisibilities.hasNight && <td className={`border border-slate-800 p-2 font-bold text-[9px] text-white ${isNight ? 'bg-black/20 shadow-inner' : 'opacity-40'}`}>{isNight ? timeText : ''}</td>}
+                   {activeDayShiftVisibilities.hasMorning && <td className={`border border-slate-800 p-2 font-bold text-[10px] sm:text-xs ${isMorning ? 'bg-black/10 shadow-inner' : 'opacity-30'}`}>{isMorning ? timeText : ''}</td>}
+                   {activeDayShiftVisibilities.hasLateMorning && <td className={`border border-slate-800 p-2 font-bold text-[10px] sm:text-xs ${isLateMorning ? 'bg-black/10 shadow-inner' : 'opacity-30'}`}>{isLateMorning ? timeText : ''}</td>}
+                   {activeDayShiftVisibilities.hasAfternoon && <td className={`border border-slate-800 p-2 font-bold text-[10px] sm:text-xs ${isAfternoon ? 'bg-black/10 shadow-inner' : 'opacity-30'}`}>{isAfternoon ? timeText : ''}</td>}
+                   {activeDayShiftVisibilities.hasEvening && <td className={`border border-slate-800 p-2 font-bold text-[10px] sm:text-xs ${isEvening ? 'bg-black/10 shadow-inner' : 'opacity-30'}`}>{isEvening ? timeText : ''}</td>}
+                   {activeDayShiftVisibilities.hasNight && <td className={`border border-slate-800 p-2 font-bold text-[10px] sm:text-xs ${isNight ? 'bg-black/10 shadow-inner' : 'opacity-30'}`}>{isNight ? timeText : ''}</td>}
                    <td className="border border-slate-800 p-2 bg-black/10"></td>
                 </tr>
              );
@@ -2428,21 +2428,21 @@ export default function App() {
                    <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tighter">แผนงานประจำวัน{activeDept === 'service' ? 'แผนกบริการ (FOH)' : 'แผนกครัว (BOH)'}</h1>
                    <p className="text-sm sm:text-base font-bold text-slate-600 mt-2">วัน{activeDay.dayLabel} ที่ <span className="underline underline-offset-4">{activeDay.dayNum}</span> เดือน <span className="underline underline-offset-4">{THAI_MONTHS[selectedMonth]}</span> พ.ศ. <span className="underline underline-offset-4">{selectedYear + 543}</span></p>
                 </div>
-                <table className="w-full border-collapse border-2 border-slate-800 text-[10px] sm:text-xs min-w-[1100px] print:text-[10px] bg-white">
+                <table className="w-full border-collapse border-2 border-slate-800 text-[10px] sm:text-xs min-w-[1400px] print:text-[10px] bg-white">
                    <thead>
                       <tr className="bg-slate-100 text-center font-black print:bg-slate-200">
-                         <th className="border border-slate-800 p-2">กลุ่มงาน (DUTY)</th>
-                         <th className="border border-slate-800 p-2 w-[15%]">XP-DNA SOP</th>
-                         <th className="border border-slate-800 p-2 w-[18%]">รายละเอียดงานหลัก (JOB A)</th>
-                         <th className="border border-slate-800 p-2 w-[15%]">งานรอง (JOB B)</th>
-                         <th className="border border-slate-800 p-2">จำนวน</th>
+                         <th className="border border-slate-800 p-2 w-[8%]">กลุ่มงาน (DUTY)</th>
+                         <th className="border border-slate-800 p-2 w-[10%]">XP-DNA SOP</th>
+                         <th className="border border-slate-800 p-2 w-[15%]">รายละเอียดงานหลัก (JOB A)</th>
+                         <th className="border border-slate-800 p-2 w-[10%]">งานรอง (JOB B)</th>
+                         <th className="border border-slate-800 p-2 w-[4%]">จำนวน</th>
                          <th className="border border-slate-800 p-2 w-[15%]">ชื่อพนักงาน</th>
-                         {activeDayShiftVisibilities.hasMorning && <th className="border border-slate-800 p-2 bg-sky-100 w-[5%]">เช้า(เปิด)</th>}
-                         {activeDayShiftVisibilities.hasLateMorning && <th className="border border-slate-800 p-2 bg-sky-100 w-[5%]">สาย</th>}
-                         {activeDayShiftVisibilities.hasAfternoon && <th className="border border-slate-800 p-2 bg-sky-100 w-[5%]">บ่าย</th>}
-                         {activeDayShiftVisibilities.hasEvening && <th className="border border-slate-800 p-2 bg-sky-100 w-[5%]">เย็น</th>}
-                         {activeDayShiftVisibilities.hasNight && <th className="border border-slate-800 p-2 bg-sky-100 w-[5%]">ดึก(ปิด)</th>}
-                         <th className="border border-slate-800 p-2 w-[6%]">รอบพัก</th>
+                         {activeDayShiftVisibilities.hasMorning && <th className="border border-slate-800 p-2 bg-sky-100 w-[7%] sm:w-[8%]">เช้า(เปิด)</th>}
+                         {activeDayShiftVisibilities.hasLateMorning && <th className="border border-slate-800 p-2 bg-sky-100 w-[7%] sm:w-[8%]">สาย</th>}
+                         {activeDayShiftVisibilities.hasAfternoon && <th className="border border-slate-800 p-2 bg-sky-100 w-[7%] sm:w-[8%]">บ่าย</th>}
+                         {activeDayShiftVisibilities.hasEvening && <th className="border border-slate-800 p-2 bg-sky-100 w-[7%] sm:w-[8%]">เย็น</th>}
+                         {activeDayShiftVisibilities.hasNight && <th className="border border-slate-800 p-2 bg-sky-100 w-[7%] sm:w-[8%]">ดึก(ปิด)</th>}
+                         <th className="border border-slate-800 p-2 w-[7%] sm:w-[8%]">รอบพัก</th>
                       </tr>
                    </thead>
                    <tbody>
