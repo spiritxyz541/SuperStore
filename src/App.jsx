@@ -39,6 +39,8 @@ const POSITIONS = {
   kitchen: ["OC", "AOC", "KH", "SKD", "KD+", "EDC ครัว+", "DVT ครัว+", "PT ครัว+", "KD", "EDC ครัว", "DVT ครัว", "PT ครัว"]
 };
 
+const HEAD_TEAM_POSITIONS = ["OC", "AOC", "SH", "SSD", "KH", "SKD"];
+
 const LONG_HOUR_POSITIONS = ["OC", "AOC", "SH", "SSD", "FD", "SD+", "SD", "KH", "SKD", "KD+", "KD"];
 const SHORT_HOUR_POSITIONS = ["EDC+", "DVT+", "PT+", "EDC", "DVT", "PT", "EDC ครัว+", "DVT ครัว+", "PT ครัว+", "EDC ครัว", "DVT ครัว", "PT ครัว"];
 
@@ -1264,6 +1266,29 @@ export default function App() {
             const newSched = JSON.parse(JSON.stringify(prevSched));
             const datesToProcess = mode === 'daily' ? [selectedDateStr] : CALENDAR_DAYS.map(d => d.dateStr);
 
+            const yearlyOtTotals = {};
+            (branchData.staff || []).forEach(s => { yearlyOtTotals[s.id] = 0; });
+
+            Object.keys(prevSched).forEach(dateStr => {
+                const dateYear = parseInt(dateStr.split('-')[0], 10);
+                if (dateYear !== selectedYear) return;
+
+                const dayData = prevSched[dateStr];
+                if (dayData && dayData.duties) {
+                    Object.values(dayData.duties).forEach(slots => {
+                        slots.forEach(slot => {
+                            if (slot.staffId && yearlyOtTotals[slot.staffId] !== undefined) {
+                                yearlyOtTotals[slot.staffId] += Number(slot.otHours || 0);
+                            }
+                        });
+                    });
+                }
+            });
+
+            const nonHeadStaffIds = (branchData.staff || [])
+                .filter(s => !HEAD_TEAM_POSITIONS.includes(s.pos))
+                .map(s => s.id);
+
             datesToProcess.forEach(dateStr => {
                 const dayConfig = CALENDAR_DAYS.find(c => c.dateStr === dateStr);
                 const dayType = dayConfig ? dayConfig.type : 'weekday';
@@ -1364,8 +1389,30 @@ export default function App() {
 
                         if (candidate) {
                             dayData.duties[duty.id][slotIdx].staffId = candidate.id;
-                            dayData.duties[duty.id][slotIdx].otHours = slot.maxOtHours || 0;
                             dayData.duties[duty.id][slotIdx].otUpdated = true;
+
+                            const isHead = HEAD_TEAM_POSITIONS.includes(candidate.pos);
+                            let assignedOt = 0;
+
+                            if (!isHead) {
+                                let totalNonHeadOt = 0;
+                                nonHeadStaffIds.forEach(id => {
+                                    totalNonHeadOt += (yearlyOtTotals[id] || 0);
+                                });
+                                const avgOt = nonHeadStaffIds.length > 0 ? totalNonHeadOt / nonHeadStaffIds.length : 0;
+                                const candidateOt = yearlyOtTotals[candidate.id] || 0;
+
+                                if (candidateOt <= avgOt) {
+                                    assignedOt = slot.maxOtHours || 0;
+                                }
+                            }
+
+                            dayData.duties[duty.id][slotIdx].otHours = assignedOt;
+                            
+                            if (yearlyOtTotals[candidate.id] !== undefined) {
+                                yearlyOtTotals[candidate.id] += assignedOt;
+                            }
+
                             workingStaffIds.add(candidate.id);
                         }
                     });
