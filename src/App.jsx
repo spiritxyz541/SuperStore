@@ -1696,6 +1696,9 @@ export default function App() {
                           ))}
                       </div>
                       <div className="flex gap-3">
+                          {landingIndex > 0 && (
+                              <button onClick={() => setLandingIndex(i => i - 1)} className="bg-slate-200 text-slate-700 px-4 sm:px-6 py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black text-xs sm:text-sm hover:bg-slate-300 active:scale-95 transition shadow-sm">ก่อนหน้า</button>
+                          )}
                           {landingIndex < actives.length - 1 ? (
                               <button onClick={() => setLandingIndex(i => i + 1)} className="bg-indigo-600 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black text-xs sm:text-sm hover:bg-indigo-700 active:scale-95 transition shadow-lg">ถัดไป (Next)</button>
                           ) : (
@@ -1703,7 +1706,6 @@ export default function App() {
                           )}
                       </div>
                   </div>
-                  <button onClick={() => setShowLanding(false)} className="absolute top-4 right-4 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full backdrop-blur-md transition z-10"><X className="w-5 h-5"/></button>
               </div>
           </div>
       );
