@@ -863,6 +863,15 @@ export default function App() {
       if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd);
   };
 
+  const handleUpdateStaffLimit = async (catId, limit) => {
+      const newLimit = limit === '' ? null : parseInt(limit);
+      const nd = JSON.parse(JSON.stringify(branchData));
+      if (!nd.staffLimits) nd.staffLimits = {};
+      nd.staffLimits[catId] = newLimit;
+      setBranchData(nd);
+      if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd);
+  };
+
   const handleAutoAssignDayOffs = async () => {
       const nd = JSON.parse(JSON.stringify(branchData));
       const limits = nd.dayOffLimits; // Now { service: {...}, kitchen: {...} }
@@ -1413,7 +1422,8 @@ export default function App() {
         matrix: generateDefaultMatrix(), templates: [], dayOffLimits: { 
             service: { 0: 99, 1: 99, 2: 99, 3: 99, 4: 99, 5: 99, 6: 99 },
             kitchen: { 0: 99, 1: 99, 2: 99, 3: 99, 4: 99, 5: 99, 6: 99 }
-        }
+        },
+        staffLimits: {}
     };
     try {
         await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', branchId), resetData);
@@ -1915,9 +1925,25 @@ export default function App() {
                  </div>
                  {DUTY_CATEGORIES[activeDept].map(cat => {
                     const layerPositions = POSITIONS[activeDept].filter(p => getStaffLayer(activeDept, p).id === cat.id);
+                    const catStaffCount = (branchData.staff || []).filter(s => getStaffLayer(s.dept, s.pos).id === cat.id).length;
+                    const catLimit = branchData.staffLimits?.[cat.id];
+                    const isFull = catLimit !== undefined && catLimit !== null && catStaffCount >= catLimit;
+
                     return (
                        <div key={cat.id} className="flex flex-col gap-2 p-3 rounded-xl bg-white border border-slate-200 shadow-sm">
-                          <div className={`text-[10px] font-black px-3 py-1.5 rounded uppercase w-fit ${cat.color.split(' ')[0]} ${cat.color.split(' ')[1]}`}>{cat.label}</div>
+                          <div className="flex justify-between items-center">
+                             <div className={`text-[10px] font-black px-3 py-1.5 rounded uppercase w-fit ${cat.color.split(' ')[0]} ${cat.color.split(' ')[1]}`}>{cat.label}</div>
+                             <div className="flex items-center gap-2">
+                                <span className={`text-[10px] font-bold ${isFull ? 'text-red-500' : 'text-slate-500'}`}>จำนวน {catStaffCount}/{catLimit !== undefined && catLimit !== null ? catLimit : '∞'}</span>
+                                <input 
+                                   type="number" min="0" disabled={authRole !== 'superadmin'}
+                                   value={catLimit === undefined || catLimit === null ? '' : catLimit}
+                                   onChange={(e) => handleUpdateStaffLimit(cat.id, e.target.value)}
+                                   className="w-12 text-center border rounded p-1 text-[10px] font-bold outline-none focus:border-indigo-500 disabled:bg-slate-50 disabled:text-slate-400"
+                                   placeholder="∞" title="ตั้งค่าจำนวนสูงสุด"
+                                />
+                             </div>
+                          </div>
                           <div className="flex flex-wrap gap-2">
                              {layerPositions.map(p => {
                                  const count = (branchData.staff || []).filter(s => s.dept === activeDept && s.pos === p).length;
@@ -1978,7 +2004,19 @@ export default function App() {
                         })}
                     </select>
                   </div>
-                  <button onClick={() => { if(newStaffName.trim()){ setBranchData(p => ({...p, staff: [...(p.staff || []), {id: 's' + Date.now(), empId: newStaffEmpId.trim(), name: newStaffName.trim(), dept: newStaffDept, pos: newStaffPos, regularDayOff: newStaffDayOff === '' ? null : parseInt(newStaffDayOff)}]})); setNewStaffName(''); setNewStaffEmpId(''); setNewStaffDayOff(''); } }} className="w-full xl:w-auto bg-slate-900 text-white px-6 sm:px-8 py-3 rounded-xl sm:rounded-2xl font-black text-xs hover:bg-indigo-600 transition uppercase flex items-center justify-center"><UserPlus className="w-4 h-4 sm:w-5 sm:h-5 mr-0 sm:mr-0"/><span className="xl:hidden ml-2">เพิ่มพนักงาน</span></button>
+                  <button onClick={() => { 
+                      if(newStaffName.trim()){ 
+                          const layer = getStaffLayer(newStaffDept, newStaffPos);
+                          const limit = branchData.staffLimits?.[layer.id];
+                          const currentCount = (branchData.staff || []).filter(s => getStaffLayer(s.dept, s.pos).id === layer.id).length;
+                          if (limit !== undefined && limit !== null && currentCount >= limit) {
+                              setConfirmModal({ message: `เพิ่มพนักงานไม่ได้ เนื่องจากกลุ่ม ${layer.label} เต็มแล้ว (รับได้สูงสุด ${limit} คน)` });
+                              return;
+                          }
+                          setBranchData(p => ({...p, staff: [...(p.staff || []), {id: 's' + Date.now(), empId: newStaffEmpId.trim(), name: newStaffName.trim(), dept: newStaffDept, pos: newStaffPos, regularDayOff: newStaffDayOff === '' ? null : parseInt(newStaffDayOff)}]})); 
+                          setNewStaffName(''); setNewStaffEmpId(''); setNewStaffDayOff(''); 
+                      } 
+                  }} className="w-full xl:w-auto bg-slate-900 text-white px-6 sm:px-8 py-3 rounded-xl sm:rounded-2xl font-black text-xs hover:bg-indigo-600 transition uppercase flex items-center justify-center"><UserPlus className="w-4 h-4 sm:w-5 sm:h-5 mr-0 sm:mr-0"/><span className="xl:hidden ml-2">เพิ่มพนักงาน</span></button>
                </div>
              </div>
              <div className="grid grid-cols-1 gap-2 sm:gap-3 max-h-[400px] overflow-y-auto pr-2 sm:pr-3 custom-scrollbar">
@@ -2006,7 +2044,19 @@ export default function App() {
                                         return <option key={d.id} value={d.id} disabled={isFull && !isThisStaffsDayOff}>{d.label} {isFull && !isThisStaffsDayOff ? '(เต็ม)' : ''}</option>
                                     })}
                           </select>
-                          <button onClick={saveEditStaff} className="bg-green-500 text-white p-1.5 rounded"><Check className="w-3 h-3"/></button>
+                          <button onClick={() => {
+                              const s = branchData.staff.find(x => x.id === editingStaffId);
+                              if (editStaffData.pos !== s.pos || editStaffData.dept !== s.dept) {
+                                  const layer = getStaffLayer(editStaffData.dept, editStaffData.pos);
+                                  const limit = branchData.staffLimits?.[layer.id];
+                                  const currentCount = (branchData.staff || []).filter(x => x.id !== editingStaffId && getStaffLayer(x.dept, x.pos).id === layer.id).length;
+                                  if (limit !== undefined && limit !== null && currentCount >= limit) {
+                                      setConfirmModal({ message: `เปลี่ยนตำแหน่งไม่ได้ เนื่องจากกลุ่ม ${layer.label} เต็มแล้ว (รับได้สูงสุด ${limit} คน)` });
+                                      return;
+                                  }
+                              }
+                              saveEditStaff();
+                          }} className="bg-green-500 text-white p-1.5 rounded"><Check className="w-3 h-3"/></button>
                           <button onClick={() => setEditingStaffId(null)} className="bg-red-500 text-white p-1.5 rounded"><X className="w-3 h-3"/></button>
                        </div>
                     ) : (
