@@ -1376,10 +1376,8 @@ export default function App() {
                     if (unfilledSlots.length > 0 && unfilledSlots.length < assignedSlots.length) {
                         const firstAssigned = assignedSlots.find(s => s.staffId);
                         if (firstAssigned) {
-                            const firstIdx = assignedSlots.indexOf(firstAssigned);
-                            const configuredMaxOt = slots[firstIdx]?.maxOtHours || 4.0;
-                            // อนุมัติ OT เพื่อควบกะที่หายไป (ขั้นต่ำ 4 ชม. หรือตามที่ตั้งไว้ในโควตาสูงสุด)
-                            firstAssigned.otHours = Math.max(configuredMaxOt, 4.0); 
+                            // อนุมัติ OT ให้รอบเช้าเพื่อควบกะที่หายไป คงที่ 3.5 ชม.
+                            firstAssigned.otHours = 3.5; 
                             firstAssigned.otUpdated = true;
                         }
                     }
