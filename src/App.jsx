@@ -392,6 +392,8 @@ export default function App() {
   const [newAnnTitle, setNewAnnTitle] = useState('');
   const [newAnnContent, setNewAnnContent] = useState('');
   const [newAnnImage, setNewAnnImage] = useState('');
+  const [newAnnStartDate, setNewAnnStartDate] = useState('');
+  const [newAnnEndDate, setNewAnnEndDate] = useState('');
 
   const [aiMessage, setAiMessage] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
@@ -659,7 +661,14 @@ export default function App() {
   // Trigger Landing Page
   useEffect(() => {
       if (activeBranchId && branchData && branchData.announcements && !hasSeenLanding && authRole !== 'guest' && authRole !== 'superadmin') {
-          const activeAnnouncements = branchData.announcements.filter(a => a.isActive);
+          const today = new Date();
+          const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+          const activeAnnouncements = branchData.announcements.filter(a => {
+              if (!a.isActive) return false;
+              if (a.startDate && a.startDate > todayStr) return false;
+              if (a.endDate && a.endDate < todayStr) return false;
+              return true;
+          });
           if (activeAnnouncements.length > 0) {
               setShowLanding(true); setLandingIndex(0);
           }
@@ -991,11 +1000,11 @@ export default function App() {
 
   const handleAddAnnouncement = async () => {
       if (!newAnnTitle.trim()) return;
-      const newAnn = { id: 'A'+Date.now(), title: newAnnTitle, content: newAnnContent, imageUrl: newAnnImage, isActive: true };
+      const newAnn = { id: 'A'+Date.now(), title: newAnnTitle, content: newAnnContent, imageUrl: newAnnImage, isActive: true, startDate: newAnnStartDate, endDate: newAnnEndDate };
       const nd = {...branchData, announcements: [...(branchData.announcements || []), newAnn]};
       setBranchData(nd);
       if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd);
-      setNewAnnTitle(''); setNewAnnContent(''); setNewAnnImage('');
+      setNewAnnTitle(''); setNewAnnContent(''); setNewAnnImage(''); setNewAnnStartDate(''); setNewAnnEndDate('');
   };
 
   const handleDeleteAnnouncement = async (id) => {
@@ -1673,23 +1682,21 @@ export default function App() {
   }
 
   function renderLandingModal() {
-      const actives = (branchData.announcements || []).filter(a => a.isActive);
+      const today = new Date();
+      const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      const actives = (branchData.announcements || []).filter(a => {
+          if (!a.isActive) return false;
+          if (a.startDate && a.startDate > todayStr) return false;
+          if (a.endDate && a.endDate < todayStr) return false;
+          return true;
+      });
       if (!showLanding || actives.length === 0) return null;
       const a = actives[landingIndex];
 
       return (
           <div className="fixed inset-0 z-[600] flex items-center justify-center bg-slate-900/90 backdrop-blur-md p-4 sm:p-8 animate-in fade-in zoom-in duration-500">
               <div className="bg-white rounded-[2rem] sm:rounded-[3rem] w-full max-w-[1200px] max-h-[90vh] flex flex-col overflow-hidden shadow-2xl relative">
-                  {a.imageUrl && (
-                      <div className="w-full aspect-[3/2] max-h-[40vh] sm:max-h-[50vh] lg:max-h-[800px] bg-slate-100 flex-shrink-0 relative">
-                          <img src={a.imageUrl} alt={a.title} className="w-full h-full object-cover" onError={(e) => { e.target.style.display = 'none'; }} />
-                      </div>
-                  )}
-                  <div className="p-6 sm:p-12 flex-1 overflow-y-auto custom-scrollbar flex flex-col">
-                      <h2 className="text-2xl sm:text-4xl font-black text-slate-900 mb-4 tracking-tighter uppercase">{a.title}</h2>
-                      <p className="text-slate-600 text-sm sm:text-lg whitespace-pre-wrap leading-relaxed font-medium">{a.content}</p>
-                  </div>
-                  <div className="p-4 sm:p-6 bg-slate-50 border-t border-slate-100 flex justify-between items-center flex-shrink-0">
+                  <div className="p-4 sm:p-6 bg-slate-50 border-b border-slate-100 flex justify-between items-center flex-shrink-0 z-10">
                       <div className="flex gap-2">
                           {actives.map((_, i) => (
                               <div key={i} className={`w-2.5 h-2.5 rounded-full transition-all ${i === landingIndex ? 'bg-indigo-600 w-6' : 'bg-slate-300'}`}></div>
@@ -1700,10 +1707,20 @@ export default function App() {
                               <button onClick={() => setLandingIndex(i => i - 1)} className="bg-slate-200 text-slate-700 px-4 sm:px-6 py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black text-xs sm:text-sm hover:bg-slate-300 active:scale-95 transition shadow-sm">ก่อนหน้า</button>
                           )}
                           {landingIndex < actives.length - 1 ? (
-                              <button onClick={() => setLandingIndex(i => i + 1)} className="bg-indigo-600 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black text-xs sm:text-sm hover:bg-indigo-700 active:scale-95 transition shadow-lg">ถัดไป (Next)</button>
+                              <button onClick={() => setLandingIndex(i => i + 1)} className="bg-indigo-600 text-white px-6 sm:px-8 py-2 sm:py-3 rounded-xl sm:rounded-2xl font-black text-xs sm:text-sm hover:bg-indigo-700 active:scale-95 transition shadow-lg">ถัดไป (Next)</button>
                           ) : (
-                              <button onClick={() => setShowLanding(false)} className="bg-emerald-600 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black text-xs sm:text-sm hover:bg-emerald-700 active:scale-95 transition shadow-lg">เข้าสู่ระบบ (Enter)</button>
+                              <button onClick={() => setShowLanding(false)} className="bg-emerald-600 text-white px-6 sm:px-8 py-2 sm:py-3 rounded-xl sm:rounded-2xl font-black text-xs sm:text-sm hover:bg-emerald-700 active:scale-95 transition shadow-lg">เข้าสู่ระบบ (Enter)</button>
                           )}
+                      </div>
+                  </div>
+                  <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col relative">
+                      {a.imageUrl && (
+                          <div className="w-full aspect-[3/2] max-h-[40vh] sm:max-h-[50vh] lg:max-h-[800px] bg-slate-100 flex-shrink-0 relative">
+                              <img src={a.imageUrl} alt={a.title} className="w-full h-full object-cover" onError={(e) => { e.target.style.display = 'none'; }} />
+                          </div>
+                      )}
+                      <div className="p-6 sm:p-12 flex-1 flex flex-col">
+                          <p className="text-slate-600 text-sm sm:text-lg whitespace-pre-wrap leading-relaxed font-medium">{a.content}</p>
                       </div>
                   </div>
               </div>
@@ -2303,7 +2320,8 @@ export default function App() {
              {authRole === 'branch' && <p className="text-[8px] sm:text-[10px] text-red-400 font-bold mt-6 sm:mt-8 text-center uppercase tracking-widest leading-relaxed">* เฉพาะ Admin ส่วนกลางเท่านั้นที่แก้ไขวันหยุดได้</p>}
            </div>
            
-           <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm w-full">
+           {authRole === 'superadmin' && (
+             <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm w-full mt-6 sm:mt-10 lg:mt-0">
              <h2 className="text-lg sm:text-xl font-black text-slate-800 mb-6 sm:mb-8 flex items-center gap-2 sm:gap-4 uppercase tracking-tighter"><Megaphone className="w-6 h-6 sm:w-7 sm:h-7 text-indigo-500" /> จัดการหน้าประกาศ (Landing Pages)</h2>
              <div className="flex flex-col lg:flex-row gap-6">
                 <div className="flex-[2] space-y-4 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
@@ -2314,6 +2332,15 @@ export default function App() {
                                 <div>
                                     <h4 className="font-black text-slate-800 text-sm">{a.title}</h4>
                                     <p className="text-xs text-slate-500 line-clamp-2 mt-1">{a.content}</p>
+                                    <div className="mt-2 text-[10px] font-bold text-slate-500 flex gap-2">
+                                        {a.startDate || a.endDate ? (
+                                            <span className="bg-white px-2 py-1 rounded-md border border-slate-200 shadow-sm">
+                                                🗓️ {a.startDate ? new Date(a.startDate).toLocaleDateString('th-TH', {month:'short', day:'numeric'}) : 'เริ่มต้น'} - {a.endDate ? new Date(a.endDate).toLocaleDateString('th-TH', {month:'short', day:'numeric'}) : 'ไม่มีกำหนด'}
+                                            </span>
+                                        ) : (
+                                            <span className="bg-white px-2 py-1 rounded-md border border-slate-200 shadow-sm">🗓️ แสดงตลอด (ไม่มีกำหนด)</span>
+                                        )}
+                                    </div>
                                 </div>
                                 <div className="flex items-center gap-4 mt-3">
                                     <label className="flex items-center gap-2 cursor-pointer">
@@ -2329,13 +2356,27 @@ export default function App() {
                 </div>
                 <div className="flex-1 bg-slate-50 p-5 rounded-2xl border border-slate-200 h-fit space-y-4">
                     <h3 className="font-black text-slate-700 text-sm flex items-center gap-2"><Plus className="w-4 h-4 text-emerald-500"/> เพิ่มหน้าประกาศใหม่</h3>
-                    <input type="text" placeholder="หัวข้อประกาศ" value={newAnnTitle} onChange={e=>setNewAnnTitle(e.target.value)} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500"/>
+                    <input type="text" placeholder="ชื่อ Content (สำหรับดูหลังบ้าน)" value={newAnnTitle} onChange={e=>setNewAnnTitle(e.target.value)} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500"/>
                     <textarea placeholder="เนื้อหารายละเอียด..." value={newAnnContent} onChange={e=>setNewAnnContent(e.target.value)} rows={3} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500 resize-none"></textarea>
-                    <input type="text" placeholder="URL รูปภาพ (ถ้ามี)" value={newAnnImage} onChange={e=>setNewAnnImage(e.target.value)} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500"/>
+                    <div className="flex gap-2">
+                        <div className="flex-1">
+                            <span className="text-[9px] font-black text-slate-500 uppercase ml-1 mb-1 block">เริ่มแสดง (Start)</span>
+                            <input type="date" value={newAnnStartDate} onChange={e=>setNewAnnStartDate(e.target.value)} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500"/>
+                        </div>
+                        <div className="flex-1">
+                            <span className="text-[9px] font-black text-slate-500 uppercase ml-1 mb-1 block">สิ้นสุด (End)</span>
+                            <input type="date" value={newAnnEndDate} onChange={e=>setNewAnnEndDate(e.target.value)} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500"/>
+                        </div>
+                    </div>
+                    <div>
+                        <input type="text" placeholder="URL รูปภาพ (ถ้ามี)" value={newAnnImage} onChange={e=>setNewAnnImage(e.target.value)} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500"/>
+                        <p className="text-[9px] text-slate-400 font-bold mt-1.5 ml-1">* แนะนำรูปภาพขนาด 1200 x 800 px (สัดส่วน 3:2)</p>
+                    </div>
                     <button onClick={handleAddAnnouncement} className="w-full bg-indigo-600 text-white py-3 rounded-xl font-black text-xs hover:bg-indigo-700 transition shadow-sm">บันทึกประกาศ</button>
                 </div>
              </div>
            </div>
+           )}
 
            {renderTemplatesCard()}
         </div>
