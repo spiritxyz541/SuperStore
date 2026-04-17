@@ -1715,12 +1715,12 @@ export default function App() {
                   </div>
                   <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col relative">
                       {a.imageUrl && (
-                          <div className="w-full aspect-[3/2] max-h-[40vh] sm:max-h-[50vh] lg:max-h-[800px] bg-slate-100 flex-shrink-0 relative">
+                          <div className="w-full aspect-video max-h-[40vh] sm:max-h-[50vh] lg:max-h-[720px] bg-slate-100 flex-shrink-0 relative">
                               <img src={a.imageUrl} alt={a.title} className="w-full h-full object-cover" onError={(e) => { e.target.style.display = 'none'; }} />
                           </div>
                       )}
                       <div className="p-6 sm:p-12 flex-1 flex flex-col">
-                          <p className="text-slate-600 text-sm sm:text-lg whitespace-pre-wrap leading-relaxed font-medium">{a.content}</p>
+                          <div className="text-slate-600 text-sm sm:text-lg whitespace-pre-wrap leading-relaxed font-medium" dangerouslySetInnerHTML={{ __html: a.content }}></div>
                       </div>
                   </div>
               </div>
@@ -2331,7 +2331,7 @@ export default function App() {
                             <div className="flex-1 flex flex-col justify-between">
                                 <div>
                                     <h4 className="font-black text-slate-800 text-sm">{a.title}</h4>
-                                    <p className="text-xs text-slate-500 line-clamp-2 mt-1">{a.content}</p>
+                                  <div className="text-xs text-slate-500 line-clamp-2 mt-1" dangerouslySetInnerHTML={{ __html: a.content }}></div>
                                     <div className="mt-2 text-[10px] font-bold text-slate-500 flex gap-2">
                                         {a.startDate || a.endDate ? (
                                             <span className="bg-white px-2 py-1 rounded-md border border-slate-200 shadow-sm">
@@ -2370,7 +2370,7 @@ export default function App() {
                     </div>
                     <div>
                         <input type="text" placeholder="URL รูปภาพ (ถ้ามี)" value={newAnnImage} onChange={e=>setNewAnnImage(e.target.value)} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500"/>
-                        <p className="text-[9px] text-slate-400 font-bold mt-1.5 ml-1">* แนะนำรูปภาพขนาด 1200 x 800 px (สัดส่วน 3:2)</p>
+                      <p className="text-[9px] text-slate-400 font-bold mt-1.5 ml-1">* แนะนำรูปภาพขนาด 1280 x 720 px (สัดส่วน 16:9)</p>
                     </div>
                     <button onClick={handleAddAnnouncement} className="w-full bg-indigo-600 text-white py-3 rounded-xl font-black text-xs hover:bg-indigo-700 transition shadow-sm">บันทึกประกาศ</button>
                 </div>
