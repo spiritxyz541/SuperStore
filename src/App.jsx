@@ -490,6 +490,7 @@ export default function App() {
   const [showDataInspector, setShowDataInspector] = useState(false);
   const [inspectorBranchId, setInspectorBranchId] = useState(null);
   const [inspectedData, setInspectedData] = useState({ branch: null, schedule: null, loading: false, error: null });
+  const [inspectorTab, setInspectorTab] = useState('staff');
 
   const CURRENT_DUTY_LIST = useMemo(() => {
     let list = branchData.duties && branchData.duties[activeDept] ? branchData.duties[activeDept] : (activeDept === 'service' ? DEFAULT_SERVICE_DUTIES : DEFAULT_KITCHEN_DUTIES);
@@ -1688,7 +1689,7 @@ export default function App() {
   function renderDataInspectorModal() {
     return (
         <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/70 backdrop-blur-md p-4 animate-in fade-in duration-300 font-sans">
-            <div className="bg-slate-800 text-white rounded-2xl p-6 max-w-4xl w-full shadow-2xl flex flex-col gap-4 max-h-[90vh]">
+            <div className="bg-slate-800 text-white rounded-2xl p-6 max-w-5xl w-full shadow-2xl flex flex-col gap-4 max-h-[90vh]">
                 <div className="flex justify-between items-center border-b border-slate-700 pb-4">
                     <h3 className="text-xl font-black uppercase tracking-wider">Server Data Inspector</h3>
                     <button onClick={() => setShowDataInspector(false)} className="text-slate-400 hover:bg-slate-700 p-2 rounded-full transition"><X className="w-6 h-6"/></button>
@@ -1705,9 +1706,108 @@ export default function App() {
                         </div>
                     )}
                 </div>
-                <div className="flex-1 grid grid-cols-2 gap-4 overflow-hidden">
-                    <div className="bg-black/20 rounded-lg p-4 flex flex-col overflow-hidden"><h4 className="font-bold text-slate-400 mb-2">Branch Data Document</h4><pre className="text-xs text-slate-300 overflow-auto custom-scrollbar flex-1">{inspectedData.loading ? 'Loading...' : inspectedData.error ? `Error: ${inspectedData.error}` : JSON.stringify(inspectedData.branch, null, 2)}</pre></div>
-                    <div className="bg-black/20 rounded-lg p-4 flex flex-col overflow-hidden"><h4 className="font-bold text-slate-400 mb-2">Schedule Document</h4><pre className="text-xs text-slate-300 overflow-auto custom-scrollbar flex-1">{inspectedData.loading ? 'Loading...' : inspectedData.error ? `Error: ${inspectedData.error}` : JSON.stringify(inspectedData.schedule, null, 2)}</pre></div>
+                
+                {inspectorBranchId && (
+                <div className="flex gap-2 border-b border-slate-700 pb-2 overflow-x-auto custom-scrollbar flex-shrink-0">
+                    {['staff', 'duties', 'holidays', 'schedule', 'raw'].map(tab => (
+                        <button key={tab} onClick={() => setInspectorTab(tab)} className={`px-4 py-2 rounded-lg text-xs font-bold uppercase transition whitespace-nowrap ${inspectorTab === tab ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-slate-400 hover:bg-slate-600'}`}>
+                            {tab}
+                        </button>
+                    ))}
+                </div>
+                )}
+
+                <div className="flex-1 overflow-hidden flex flex-col">
+                    {inspectedData.loading ? (
+                        <div className="flex-1 flex items-center justify-center text-slate-400"><Loader2 className="w-8 h-8 animate-spin"/></div>
+                    ) : inspectedData.error ? (
+                        <div className="flex-1 flex items-center justify-center text-red-400">Error: {inspectedData.error}</div>
+                    ) : !inspectorBranchId ? (
+                        <div className="flex-1 flex items-center justify-center text-slate-500 font-bold uppercase tracking-widest">Please select a branch to view data.</div>
+                    ) : (
+                        <div className="flex-1 overflow-y-auto custom-scrollbar bg-slate-900 rounded-xl border border-slate-700 p-0 sm:p-4">
+                            {inspectorTab === 'staff' && (
+                                <table className="w-full text-left text-xs border-collapse">
+                                   <thead className="sticky top-0 bg-slate-800 shadow-md">
+                                      <tr><th className="p-3 border-b border-slate-600">ID</th><th className="p-3 border-b border-slate-600">Emp ID</th><th className="p-3 border-b border-slate-600">Name</th><th className="p-3 border-b border-slate-600">Dept</th><th className="p-3 border-b border-slate-600">Position</th><th className="p-3 border-b border-slate-600">Day Off</th></tr>
+                                   </thead>
+                                   <tbody>
+                                      {inspectedData.branch?.staff?.length ? inspectedData.branch.staff.map(s => (
+                                          <tr key={s.id} className="hover:bg-slate-800/50 transition-colors">
+                                              <td className="p-3 border-b border-slate-700/50 text-slate-400">{s.id}</td>
+                                              <td className="p-3 border-b border-slate-700/50">{s.empId || '-'}</td>
+                                              <td className="p-3 border-b border-slate-700/50 font-black text-indigo-300">{s.name}</td>
+                                              <td className="p-3 border-b border-slate-700/50">{s.dept === 'service' ? 'FOH' : 'BOH'}</td>
+                                              <td className="p-3 border-b border-slate-700/50"><span className="bg-slate-700 px-2 py-1 rounded font-bold">{s.pos}</span></td>
+                                              <td className="p-3 border-b border-slate-700/50">{s.regularDayOff !== null && s.regularDayOff !== undefined ? ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'][s.regularDayOff] : '-'}</td>
+                                          </tr>
+                                      )) : <tr><td colSpan="6" className="p-4 text-center text-slate-500">No staff data</td></tr>}
+                                   </tbody>
+                                </table>
+                            )}
+                            {inspectorTab === 'duties' && (
+                                <table className="w-full text-left text-xs border-collapse">
+                                   <thead className="sticky top-0 bg-slate-800 shadow-md">
+                                      <tr><th className="p-3 border-b border-slate-600">Dept</th><th className="p-3 border-b border-slate-600">ID</th><th className="p-3 border-b border-slate-600">Category</th><th className="p-3 border-b border-slate-600">Job A</th><th className="p-3 border-b border-slate-600">Job B</th><th className="p-3 border-b border-slate-600">Req Pos</th></tr>
+                                   </thead>
+                                   <tbody>
+                                      {['service', 'kitchen'].flatMap(dept => 
+                                          (inspectedData.branch?.duties?.[dept] || []).map(d => (
+                                              <tr key={d.id} className="hover:bg-slate-800/50 transition-colors">
+                                                  <td className="p-3 border-b border-slate-700/50 uppercase text-slate-400 font-bold">{dept}</td>
+                                                  <td className="p-3 border-b border-slate-700/50 text-slate-400">{d.id}</td>
+                                                  <td className="p-3 border-b border-slate-700/50"><span className="bg-slate-700 px-2 py-1 rounded text-[10px] font-bold">{d.category.replace('FOH_', '').replace('BOH_', '')}</span></td>
+                                                  <td className="p-3 border-b border-slate-700/50 font-black text-emerald-300">{d.jobA}</td>
+                                                  <td className="p-3 border-b border-slate-700/50 text-slate-300">{d.jobB}</td>
+                                                  <td className="p-3 border-b border-slate-700/50 text-slate-400 text-[10px]">{(d.reqPos || []).join(', ')}</td>
+                                              </tr>
+                                          ))
+                                      )}
+                                   </tbody>
+                                </table>
+                            )}
+                            {inspectorTab === 'holidays' && (
+                                <table className="w-full text-left text-xs border-collapse">
+                                   <thead className="sticky top-0 bg-slate-800 shadow-md">
+                                      <tr><th className="p-3 border-b border-slate-600 w-16">#</th><th className="p-3 border-b border-slate-600">Holiday Date</th></tr>
+                                   </thead>
+                                   <tbody>
+                                      {inspectedData.branch?.holidays?.length ? inspectedData.branch.holidays.sort().map((h, i) => (
+                                          <tr key={h} className="hover:bg-slate-800/50 transition-colors">
+                                              <td className="p-3 border-b border-slate-700/50 text-slate-500 font-bold">{i + 1}</td>
+                                              <td className="p-3 border-b border-slate-700/50 font-black text-orange-300">{h}</td>
+                                          </tr>
+                                      )) : <tr><td colSpan="2" className="p-4 text-center text-slate-500">No holidays assigned</td></tr>}
+                                   </tbody>
+                                </table>
+                            )}
+                            {inspectorTab === 'schedule' && (
+                                <table className="w-full text-left text-xs border-collapse">
+                                   <thead className="sticky top-0 bg-slate-800 shadow-md">
+                                      <tr><th className="p-3 border-b border-slate-600">Date</th><th className="p-3 border-b border-slate-600 text-center">Assigned Duties (Slots)</th><th className="p-3 border-b border-slate-600 text-center">Leaves</th></tr>
+                                   </thead>
+                                   <tbody>
+                                      {Object.keys(inspectedData.schedule?.records || {}).length ? Object.entries(inspectedData.schedule.records).sort(([a],[b])=>a.localeCompare(b)).map(([date, data]) => {
+                                          const assignedCount = Object.values(data.duties || {}).flat().filter(s => s.staffId).length;
+                                          const leaveCount = data.leaves?.length || 0;
+                                          return (
+                                          <tr key={date} className="hover:bg-slate-800/50 transition-colors">
+                                              <td className="p-3 border-b border-slate-700/50 font-black text-sky-300">{date}</td>
+                                              <td className="p-3 border-b border-slate-700/50 text-center"><span className="bg-slate-700 px-3 py-1 rounded-full font-bold">{assignedCount}</span></td>
+                                              <td className="p-3 border-b border-slate-700/50 text-center"><span className={`px-3 py-1 rounded-full font-bold ${leaveCount > 0 ? 'bg-orange-500/20 text-orange-300' : 'bg-slate-700 text-slate-300'}`}>{leaveCount}</span></td>
+                                          </tr>
+                                      )}) : <tr><td colSpan="3" className="p-4 text-center text-slate-500">No schedule records found</td></tr>}
+                                   </tbody>
+                                </table>
+                            )}
+                            {inspectorTab === 'raw' && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-full p-4">
+                                    <div className="flex flex-col h-full"><h4 className="font-bold text-slate-400 mb-2">Branch Document</h4><pre className="text-[10px] text-slate-300 overflow-auto custom-scrollbar bg-black/30 p-4 rounded-xl flex-1">{JSON.stringify(inspectedData.branch, null, 2)}</pre></div>
+                                    <div className="flex flex-col h-full"><h4 className="font-bold text-slate-400 mb-2">Schedule Document</h4><pre className="text-[10px] text-slate-300 overflow-auto custom-scrollbar bg-black/30 p-4 rounded-xl flex-1">{JSON.stringify(inspectedData.schedule, null, 2)}</pre></div>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
