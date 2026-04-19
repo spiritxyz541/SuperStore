@@ -88,6 +88,41 @@ const DEFAULT_KITCHEN_DUTIES = [
   { id: 'K4', category: 'BOH_SUPPORT', jobA: 'อ่างกระทะ', jobB: 'PREP', xpDna: '', reqPos: ["PT ครัว+", "KD", "EDC ครัว", "DVT ครัว", "PT ครัว"] },
 ];
 
+const DEFAULT_GUIDE_STEPS = [
+  {
+     id: 'G1',
+     title: "รายเดือน: ADMIN (อัปเดตข้อมูลพนักงาน)",
+     content: "เริ่มต้นการจัดกะรายเดือน ผู้จัดการมีหน้าที่อัปเดตข้อมูลรายชื่อและวันหยุดประจำสัปดาห์ให้เป็นปัจจุบันที่สุดในเมนู <b>ADMIN</b>:<br><br>• <b>เพิ่ม/ลดพนักงาน:</b> เลื่อนไปที่ตารางจัดการพนักงาน กรอกรหัส ชื่อ แผนก ตำแหน่ง และวันหยุดประจำสัปดาห์ (ถ้ามี) แล้วกด เพิ่มพนักงาน หรือลบออก<br>• <b>ดูโควตาวันหยุด:</b> ระบบจะแสดงโควตาวันหยุด (จันทร์-อาทิตย์) ที่แอดมินกำหนดไว้ หากวันไหนขึ้นเต็มจะไม่สามารถให้หยุดเพิ่มได้<br>• <b>จัดวันหยุดอัตโนมัติ:</b> กดปุ่ม จัดวันหยุด Auto เพื่อให้ระบบสุ่มใส่วันหยุดประจำสัปดาห์ให้พนักงาน",
+     image: "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=1200&q=80",
+     color: "bg-emerald-500",
+     stepNum: "1"
+  },
+  {
+     id: 'G2',
+     title: "รายเดือน: MANAGER (ใส่วันหยุดชดเชย ลาพักร้อน & จัดกะ Auto)",
+     content: "ไปที่เมนู <b>MANAGER</b> และเลือกมุมมอง <b>จัดกะแบบรายเดือน</b> เพื่อจัดการวันลาก่อนรันระบบ:<br><br>• <b>บันทึกวันลาหยุด:</b> ใส่วันหยุดชดเชย (CO) หรือ ลาพักร้อน (AL) ล่วงหน้าในปฏิทินรายเดือนให้เรียบร้อย<br>• <b>จัดกะอัตโนมัติ:</b> กดปุ่ม จัดกะอัตโนมัติ (ทั้งเดือน) เพื่อให้ AI นำข้อมูลทั้งหมดมาจ่ายงานเข้ากะรายวันให้ครบถ้วน",
+     image: "https://images.unsplash.com/photo-1506784365847-bbad939e9335?auto=format&fit=crop&w=1200&q=80",
+     color: "bg-indigo-600",
+     stepNum: "2"
+  },
+  {
+     id: 'G3',
+     title: "รายเดือน: EUNITE (ทำข้อมูลบนระบบ Eunite)",
+     content: "หลังจาก AI จัดตารางงานเรียบร้อยและผู้จัดการได้รีวิวข้อมูลครบถ้วนแล้ว:<br><br>• <b>เชื่อมโยงระบบ:</b> นำข้อมูลตารางการทำงานที่ได้ ไปดำเนินการทำข้อมูลต่อบน <b>ระบบ Eunite</b><br>• <b>ส่งออกข้อมูล:</b> สามารถไปที่เมนู <b>REPORT</b> เพื่อกด Export CSV นำข้อมูลชั่วโมงทำงานและ OT ไปตรวจเช็คหรือใช้งานต่อได้",
+     image: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80",
+     color: "bg-orange-500",
+     stepNum: "3"
+  },
+  {
+     id: 'G4',
+     title: "รายวัน: MANAGER (ใช้ บทบาทหน้าที่ประจำวัน)",
+     content: "สำหรับการดำเนินงานหน้าสาขารายวัน จะใช้ตารางรายวันเพื่อจัดการหน้าร้าน (Operation):<br><br>• <b>บทบาทหน้าที่ประจำวัน (Duty Roster Chart):</b> กดเปลี่ยนมุมมองเพื่อดูตารางสรุปหน้าที่ของวันนี้ ว่าพนักงานแต่ละคนต้องทำงานหลัก/งานรองอะไร เข้ากะเวลาไหน และมีรอบพักเบรคช่วงไหนบ้าง<br>• <b>พิมพ์ตาราง (Print):</b> กดสั่งพิมพ์ตารางนี้เพื่อนำไปแปะบอร์ดที่ร้านสำหรับบรีฟพนักงานก่อนเริ่มงานทุกวัน",
+     image: "https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?auto=format&fit=crop&w=1200&q=80",
+     color: "bg-sky-500",
+     stepNum: "4"
+  }
+];
+
 // --- Helper Functions (Hoisted) ---
 function checkPositionEligibility(staffPos, reqPosArr, dept) {
   if (!reqPosArr || reqPosArr.length === 0 || reqPosArr.includes('ALL')) return true;
@@ -384,6 +419,9 @@ export default function App() {
   const [reportFilterMonth, setReportFilterMonth] = useState(new Date().getMonth());
   const [reportFilterStart, setReportFilterStart] = useState(`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`);
   const [reportFilterEnd, setReportFilterEnd] = useState(`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()}`);
+
+  const [isEditingGuide, setIsEditingGuide] = useState(false);
+  const [editGuideSteps, setEditGuideSteps] = useState([]);
 
   // Landing Page States
   const [hasSeenLanding, setHasSeenLanding] = useState(false);
@@ -1019,17 +1057,16 @@ export default function App() {
       if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd);
   };
 
-  const handleFormatContent = (tagStart, tagEnd, editorId) => {
+  const handleFormatContent = (tagStart, tagEnd, editorId, textValue, setTextValue) => {
       const textarea = document.getElementById(editorId);
       if (!textarea) return;
       const start = textarea.selectionStart;
       const end = textarea.selectionEnd;
-      const text = newAnnContent;
-      const before = text.substring(0, start);
-      const selected = text.substring(start, end);
-      const after = text.substring(end, text.length);
+      const before = textValue.substring(0, start);
+      const selected = textValue.substring(start, end);
+      const after = textValue.substring(end, textValue.length);
       
-      setNewAnnContent(before + tagStart + selected + tagEnd + after);
+      setTextValue(before + tagStart + selected + tagEnd + after);
       
       setTimeout(() => {
           textarea.focus();
@@ -1037,29 +1074,43 @@ export default function App() {
       }, 0);
   };
 
-  const renderRichTextToolbar = (editorId) => (
+  const renderRichTextToolbar = (editorId, textValue, setTextValue) => (
       <div className="flex flex-wrap gap-1 bg-slate-100 p-2 rounded-t-xl border border-slate-200 border-b-0 items-center">
-          <button type="button" onClick={() => handleFormatContent('<b>', '</b>', editorId)} className="p-1.5 text-slate-700 hover:bg-white hover:shadow-sm rounded transition" title="ตัวหนา"><Bold className="w-4 h-4"/></button>
-          <button type="button" onClick={() => handleFormatContent('<i>', '</i>', editorId)} className="p-1.5 text-slate-700 hover:bg-white hover:shadow-sm rounded transition" title="ตัวเอียง"><Italic className="w-4 h-4"/></button>
-          <button type="button" onClick={() => handleFormatContent('<u>', '</u>', editorId)} className="p-1.5 text-slate-700 hover:bg-white hover:shadow-sm rounded transition" title="ขีดเส้นใต้"><Underline className="w-4 h-4"/></button>
+          <button type="button" onClick={() => handleFormatContent('<b>', '</b>', editorId, textValue, setTextValue)} className="p-1.5 text-slate-700 hover:bg-white hover:shadow-sm rounded transition" title="ตัวหนา"><Bold className="w-4 h-4"/></button>
+          <button type="button" onClick={() => handleFormatContent('<i>', '</i>', editorId, textValue, setTextValue)} className="p-1.5 text-slate-700 hover:bg-white hover:shadow-sm rounded transition" title="ตัวเอียง"><Italic className="w-4 h-4"/></button>
+          <button type="button" onClick={() => handleFormatContent('<u>', '</u>', editorId, textValue, setTextValue)} className="p-1.5 text-slate-700 hover:bg-white hover:shadow-sm rounded transition" title="ขีดเส้นใต้"><Underline className="w-4 h-4"/></button>
           <div className="w-px h-5 bg-slate-300 mx-1"></div>
-          <button type="button" onClick={() => handleFormatContent('<span style="color: #ef4444;">', '</span>', editorId)} className="w-5 h-5 rounded-md bg-red-500 hover:scale-110 transition shadow-sm" title="สีแดง"></button>
-          <button type="button" onClick={() => handleFormatContent('<span style="color: #f59e0b;">', '</span>', editorId)} className="w-5 h-5 rounded-md bg-amber-500 hover:scale-110 transition shadow-sm" title="สีส้ม"></button>
-          <button type="button" onClick={() => handleFormatContent('<span style="color: #10b981;">', '</span>', editorId)} className="w-5 h-5 rounded-md bg-emerald-500 hover:scale-110 transition shadow-sm" title="สีเขียว"></button>
-          <button type="button" onClick={() => handleFormatContent('<span style="color: #3b82f6;">', '</span>', editorId)} className="w-5 h-5 rounded-md bg-blue-500 hover:scale-110 transition shadow-sm" title="สีน้ำเงิน"></button>
-          <button type="button" onClick={() => handleFormatContent('<span style="color: #8b5cf6;">', '</span>', editorId)} className="w-5 h-5 rounded-md bg-indigo-500 hover:scale-110 transition shadow-sm" title="สีม่วง"></button>
+          <button type="button" onClick={() => handleFormatContent('<span style="color: #ef4444;">', '</span>', editorId, textValue, setTextValue)} className="w-5 h-5 rounded-md bg-red-500 hover:scale-110 transition shadow-sm" title="สีแดง"></button>
+          <button type="button" onClick={() => handleFormatContent('<span style="color: #f59e0b;">', '</span>', editorId, textValue, setTextValue)} className="w-5 h-5 rounded-md bg-amber-500 hover:scale-110 transition shadow-sm" title="สีส้ม"></button>
+          <button type="button" onClick={() => handleFormatContent('<span style="color: #10b981;">', '</span>', editorId, textValue, setTextValue)} className="w-5 h-5 rounded-md bg-emerald-500 hover:scale-110 transition shadow-sm" title="สีเขียว"></button>
+          <button type="button" onClick={() => handleFormatContent('<span style="color: #3b82f6;">', '</span>', editorId, textValue, setTextValue)} className="w-5 h-5 rounded-md bg-blue-500 hover:scale-110 transition shadow-sm" title="สีน้ำเงิน"></button>
+          <button type="button" onClick={() => handleFormatContent('<span style="color: #8b5cf6;">', '</span>', editorId, textValue, setTextValue)} className="w-5 h-5 rounded-md bg-indigo-500 hover:scale-110 transition shadow-sm" title="สีม่วง"></button>
           <div className="w-px h-5 bg-slate-300 mx-1"></div>
-          <button type="button" onClick={() => handleFormatContent('<span style="font-size: 24px; font-weight: 900;">', '</span>', editorId)} className="px-2 py-1 text-slate-700 hover:bg-white hover:shadow-sm rounded text-[11px] font-black transition" title="หัวข้อใหญ่">H1</button>
-          <button type="button" onClick={() => handleFormatContent('<span style="font-size: 20px; font-weight: 800;">', '</span>', editorId)} className="px-2 py-1 text-slate-700 hover:bg-white hover:shadow-sm rounded text-[11px] font-bold transition" title="หัวข้อกลาง">H2</button>
+          <button type="button" onClick={() => handleFormatContent('<span style="font-size: 24px; font-weight: 900;">', '</span>', editorId, textValue, setTextValue)} className="px-2 py-1 text-slate-700 hover:bg-white hover:shadow-sm rounded text-[11px] font-black transition" title="หัวข้อใหญ่">H1</button>
+          <button type="button" onClick={() => handleFormatContent('<span style="font-size: 20px; font-weight: 800;">', '</span>', editorId, textValue, setTextValue)} className="px-2 py-1 text-slate-700 hover:bg-white hover:shadow-sm rounded text-[11px] font-bold transition" title="หัวข้อกลาง">H2</button>
           <div className="w-px h-5 bg-slate-300 mx-1"></div>
           <button type="button" onClick={() => {
               const url = window.prompt('ใส่ URL ที่ต้องการลิงก์ไป (เช่น https://google.com):');
-              if (url) handleFormatContent(`<a href="${url}" target="_blank" class="text-blue-600 underline hover:text-blue-800">`, '</a>', editorId);
+              if (url) handleFormatContent(`<a href="${url}" target="_blank" class="text-blue-600 underline hover:text-blue-800">`, '</a>', editorId, textValue, setTextValue);
           }} className="p-1.5 text-slate-700 hover:bg-white hover:shadow-sm rounded transition" title="แทรกลิงก์"><LinkIcon className="w-4 h-4"/></button>
           <div className="w-px h-5 bg-slate-300 mx-1"></div>
-          <button type="button" onClick={() => handleFormatContent('<br>', '', editorId)} className="px-2 py-1 text-slate-700 hover:bg-white hover:shadow-sm rounded text-[10px] font-bold transition" title="ขึ้นบรรทัดใหม่">↵ ปัดบรรทัด</button>
+          <button type="button" onClick={() => handleFormatContent('<br>', '', editorId, textValue, setTextValue)} className="px-2 py-1 text-slate-700 hover:bg-white hover:shadow-sm rounded text-[10px] font-bold transition" title="ขึ้นบรรทัดใหม่">↵ ปัดบรรทัด</button>
       </div>
   );
+
+  const handleSaveGuide = async () => {
+      const nc = { ...globalConfig, guideSteps: editGuideSteps };
+      setGlobalConfig(nc);
+      setSaveStatus('saving');
+      try {
+          await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'master'), nc);
+          setIsEditingGuide(false);
+          setSaveStatus('success');
+          setTimeout(() => setSaveStatus(null), 1500);
+      } catch (err) {
+          setSaveStatus('error');
+      }
+  };
 
   const handleSaveTemplate = async () => {
     if (!templateName.trim()) { setConfirmModal({ message: "กรุณาตั้งชื่อแม่แบบ (Template Name) ก่อนบันทึก" }); return; }
@@ -2400,7 +2451,7 @@ export default function App() {
                     <h3 className="font-black text-slate-700 text-sm flex items-center gap-2"><Plus className="w-4 h-4 text-emerald-500"/> เพิ่มหน้าประกาศใหม่</h3>
                     <input type="text" placeholder="ชื่อ Content (สำหรับดูหลังบ้าน)" value={newAnnTitle} onChange={e=>setNewAnnTitle(e.target.value)} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500"/>
                     <div className="flex flex-col shadow-sm rounded-xl">
-                        {renderRichTextToolbar('branch-ann-editor')}
+                        {renderRichTextToolbar('branch-ann-editor', newAnnContent, setNewAnnContent)}
                         <textarea id="branch-ann-editor" placeholder="พิมพ์เนื้อหารายละเอียดที่นี่... (รองรับ HTML หรือกดปุ่มด้านบน)" value={newAnnContent} onChange={e=>setNewAnnContent(e.target.value)} rows={8} className="w-full border border-slate-200 border-t-0 rounded-b-xl px-3 py-2 text-xs font-medium outline-none focus:border-indigo-500 resize-y"></textarea>
                     </div>
                     <div className="flex gap-2">
