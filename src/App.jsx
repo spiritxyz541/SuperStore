@@ -3080,10 +3080,14 @@ export default function App() {
                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-slate-900 text-white font-black text-lg sm:text-xl flex items-center justify-center flex-shrink-0 shadow-md">1</div>
                    <div className="flex-1 w-full min-w-0">
                       <h3 className="text-base sm:text-lg font-black text-slate-800 mb-2">การจัดการพนักงานและวันหยุด (Staff & Day-off Management)</h3>
-                      <p className="text-xs sm:text-sm font-bold text-slate-600 leading-relaxed mb-4">
-                         หลังจากระบบตั้งค่าตรรกะกะงาน (Logic) มาให้แล้ว ผู้จัดการมีหน้าที่ <strong className="text-slate-800">เพิ่มหรือลดรายชื่อพนักงาน</strong> ให้อยู่ในโควตาจำนวนคนที่ Superstore Team กำหนดไว้ <br className="hidden sm:block"/>
-                         และต้อง <strong className="text-slate-800">จัดการจัดสรรวันหยุดประจำสัปดาห์</strong> ของพนักงานแต่ละคนให้เป็นไปตามโควตาที่ Admin ส่วนกลางตั้งไว้ เพื่อให้มั่นใจว่าจะมีกำลังคนเพียงพอในแต่ละวัน
+                      <p className="text-xs sm:text-sm font-bold text-slate-600 leading-relaxed mb-3">
+                         ผู้จัดการมีหน้าที่จัดการรายชื่อและวันหยุดให้ตรงกับความจริงก่อนเริ่มจัดกะ โดยเข้าใช้งานที่เมนู <strong className="text-slate-800">ADMIN</strong> เพื่อเตรียมข้อมูลให้ AI:
                       </p>
+                      <ul className="text-xs sm:text-sm font-bold text-slate-600 space-y-2 mb-4 list-disc list-inside">
+                         <li><strong className="text-indigo-600">เพิ่ม/ลดพนักงาน:</strong> เลื่อนไปที่ตารางจัดการพนักงาน กรอกรหัส ชื่อ แผนก ตำแหน่ง และวันหยุดประจำสัปดาห์ (ถ้ามี) แล้วกด <span className="bg-slate-900 text-white px-2 py-0.5 rounded text-[10px]">เพิ่มพนักงาน</span> หรือกดไอคอน <Trash2 className="w-3 h-3 inline text-red-500"/> ถังขยะเพื่อลบออก</li>
+                         <li><strong className="text-indigo-600">ดูโควตาวันหยุด:</strong> ระบบจะแสดงโควตาวันหยุด (จันทร์-อาทิตย์) ที่แอดมินส่วนกลางกำหนดไว้ในกล่องด้านบน หากวันไหนขึ้นตัวแดง (เต็ม) จะไม่สามารถให้พนักงานหยุดในวันนั้นเพิ่มได้</li>
+                         <li><strong className="text-indigo-600">จัดวันหยุดอัตโนมัติ:</strong> กดปุ่ม <span className="bg-indigo-600 text-white px-2 py-0.5 rounded text-[10px]"><Wand2 className="w-3 h-3 inline"/> จัดวันหยุด Auto</span> เพื่อให้ระบบสุ่มใส่วันหยุดประจำสัปดาห์ให้พนักงานที่ยังไม่ระบุวันหยุดให้ครบถ้วน (โดยอิงจากโควตาที่เหลือ)</li>
+                      </ul>
                       <div className="border-2 border-slate-100 rounded-2xl overflow-hidden shadow-sm bg-slate-50 mt-2">
                          {/* TODO: เปลี่ยน URL รูปภาพด้านล่างเป็นรูปตัวอย่างหน้าจัดการพนักงานของคุณ */}
                          <img src="https://placehold.co/1200x600/f8fafc/475569?text=Screenshot:+Staff+%26+Day-off+Management" alt="Step 1" className="w-full h-auto object-cover" />
@@ -3095,9 +3099,13 @@ export default function App() {
                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-indigo-600 text-white font-black text-lg sm:text-xl flex items-center justify-center flex-shrink-0 shadow-md">2</div>
                    <div className="flex-1 w-full min-w-0">
                       <h3 className="text-base sm:text-lg font-black text-slate-800 mb-2">การจัดกะอัตโนมัติประจำเดือน (Monthly Auto-Scheduling)</h3>
-                      <p className="text-xs sm:text-sm font-bold text-slate-600 leading-relaxed mb-3">
-                         เมื่อเข้าสู่หน้า <strong>MANAGER</strong> ให้เลือกแท็บ <strong>จัดกะแบบรายเดือน</strong> จากนั้นกดปุ่ม <span className="text-indigo-600 font-black">✨ จัดกะอัตโนมัติ</span>
+                      <p className="text-xs sm:text-sm font-bold text-slate-600 leading-relaxed mb-4">
+                         ไปที่เมนู <strong className="text-slate-800">MANAGER</strong> และเลือกมุมมอง <strong>จัดกะแบบรายเดือน</strong> เพื่อเริ่มจัดกะงานทั้งสาขา:
                       </p>
+                      <ul className="text-xs sm:text-sm font-bold text-slate-600 space-y-2 mb-4 list-disc list-inside">
+                         <li><strong className="text-indigo-600">จัดกะอัตโนมัติ:</strong> กดปุ่ม <span className="bg-slate-900 text-white px-2 py-0.5 rounded text-[10px]"><Wand2 className="w-3 h-3 text-yellow-400 inline"/> จัดกะอัตโนมัติ (ทั้งเดือน)</span> AI จะทำการรันข้อมูลและจ่ายงานเข้ากะทั้งเดือนให้ทันที</li>
+                         <li><strong className="text-indigo-600">ล้างกะงาน:</strong> หากต้องการเริ่มจัดใหม่ทั้งหมด สามารถกดปุ่มไอคอน <span className="text-red-500 border border-red-200 px-1 py-0.5 rounded bg-white"><Eraser className="w-3 h-3 inline"/></span> เพื่อเคลียร์ตารางกะงานทิ้งทั้งหมด</li>
+                      </ul>
                       <div className="bg-slate-50 p-4 sm:p-5 rounded-2xl border border-slate-200 mb-4">
                          <span className="text-[10px] sm:text-xs font-black text-slate-500 uppercase tracking-widest block mb-2 sm:mb-3">⚙️ ตรรกะของระบบ AI ในการจัดกะ:</span>
                          <ul className="text-xs font-bold text-slate-600 space-y-2 list-disc list-inside ml-2">
@@ -3118,10 +3126,14 @@ export default function App() {
                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-emerald-500 text-white font-black text-lg sm:text-xl flex items-center justify-center flex-shrink-0 shadow-md">3</div>
                    <div className="flex-1 w-full min-w-0">
                       <h3 className="text-base sm:text-lg font-black text-slate-800 mb-2">การรีวิวตารางงานและการจัดการวันลา (Review & Leave Management)</h3>
-                      <p className="text-xs sm:text-sm font-bold text-slate-600 leading-relaxed mb-4">
-                         ผู้จัดการต้องคอยรีวิวตรวจสอบความเรียบร้อย และดูแลการลง <strong>วันหยุดพักร้อน (AL)</strong> หรือ <strong>วันหยุดชดเชย (CO)</strong> <br/><br/>
-                         <strong className="text-slate-800">กรณีคนไม่พอ (Shortage):</strong> หากมีพนักงานหยุดพักร้อนหรือหยุดชดเชยจนทำให้กะงานมีคนไม่พอ ผู้จัดการสามารถบริหารจัดการได้โดย <strong className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">เพิ่มชั่วโมง OT ให้กับพนักงานกะเช้า</strong> เพื่อให้พนักงานลากยาวดูแลร้านทดแทนกำลังคนที่ขาดหายไป
+                      <p className="text-xs sm:text-sm font-bold text-slate-600 leading-relaxed mb-3">
+                         ตรวจสอบความถูกต้อง จัดการคำขอต่างๆ และแก้ปัญหาในกรณีฉุกเฉิน:
                       </p>
+                      <ul className="text-xs sm:text-sm font-bold text-slate-600 space-y-2 mb-4 list-disc list-inside">
+                         <li><strong className="text-indigo-600">บันทึกการลาหยุด:</strong> ในหน้ามุมมองรายเดือนหรือรายวัน จะมีกล่องเลือก "วันที่" และ "ประเภทการลา" เลือกพนักงานที่ต้องการ ระบบจะทำการถอดชื่อพนักงานออกจากกะงานวันนั้นทันที</li>
+                         <li><strong className="text-indigo-600">อนุมัติคำขอ (Staff Portal):</strong> หากมีจุดสีแดงแจ้งเตือนที่ไอคอน <span className="bg-slate-100 px-1.5 py-0.5 rounded-full"><Bell className="w-3 h-3 inline text-slate-500"/></span> มุมขวาบน ให้คลิกเพื่อตรวจสอบคำขอ "สลับกะ" หรือ "ลาหยุด" ของพนักงาน และกด อนุมัติ/ปฏิเสธ</li>
+                         <li><strong className="text-indigo-600">ปรับแก้ OT (Shortage):</strong> กรณีคนขาดหรือลากะทันหัน สามารถเพิ่มชั่วโมง OT แบบ Manual ให้กับพนักงานกะเช้าให้ลากยาวดูแลร้านต่อได้ โดยเปลี่ยนตัวเลขในช่อง <span className="border border-slate-200 px-1 py-0 text-[10px] rounded">OT</span> ในมุมมองรายวัน</li>
+                      </ul>
                       <div className="border-2 border-slate-100 rounded-2xl overflow-hidden shadow-sm bg-slate-50 mt-2">
                          {/* TODO: เปลี่ยน URL รูปภาพด้านล่างเป็นรูปตัวอย่างหน้าจัดการวันลา/OT */}
                          <img src="https://placehold.co/1200x600/f8fafc/475569?text=Screenshot:+Review+%26+Leave+Management" alt="Step 3" className="w-full h-auto object-cover" />
@@ -3132,11 +3144,16 @@ export default function App() {
                 <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-orange-500 text-white font-black text-lg sm:text-xl flex items-center justify-center flex-shrink-0 shadow-md">4</div>
                    <div className="flex-1 w-full min-w-0">
-                      <h3 className="text-base sm:text-lg font-black text-slate-800 mb-2">การใช้แผนงานประจำวัน (Duty Roster Chart)</h3>
-                      <p className="text-xs sm:text-sm font-bold text-slate-600 leading-relaxed mb-4">
-                         เมื่อจัดกะและตรวจสอบเรียบร้อย ผู้จัดการสามารถใช้หน้า <strong>Duty Roster Chart</strong> เพื่อดูแผนงานประจำวัน (Daily Plan) ได้ <br/>
-                         ซึ่งจะแสดงให้เห็นชัดเจนเลยว่า <strong>ใครทำหน้าที่อะไร (Job A / Job B) ประจำตำแหน่งไหน เข้ากะกี่โมงถึงกี่โมง และมีเวลาเบรคอย่างไรบ้าง</strong> เพื่อใช้บรีฟพนักงานตอนเริ่มงาน (Operation)
+                      <h3 className="text-base sm:text-lg font-black text-slate-800 mb-2">การใช้แผนงานประจำวันและรายงาน (Daily Plan & Export)</h3>
+                      <p className="text-xs sm:text-sm font-bold text-slate-600 leading-relaxed mb-3">
+                         นำตารางที่จัดเสร็จแล้วไปใช้บรีฟหน้าร้าน (Briefing) และส่งออกสรุปข้อมูลประจำเดือน:
                       </p>
+                      <ul className="text-xs sm:text-sm font-bold text-slate-600 space-y-2 mb-4 list-disc list-inside">
+                         <li><strong className="text-indigo-600">Duty Roster Chart:</strong> ไปที่มุมมองตาราง <strong>Duty Roster Chart</strong> เพื่อดูแจกแจงหน้าที่รายคนแบบเข้าใจง่าย แจ้งเวลาเข้ากะและรอบพักเบรคของวันนั้นๆ</li>
+                         <li><strong className="text-indigo-600">พิมพ์ตาราง (Print):</strong> กดปุ่ม <span className="bg-slate-900 text-white px-2 py-0.5 rounded text-[10px]"><Printer className="w-3 h-3 inline"/> พิมพ์ตารางนี้</span> เพื่อสั่งปริ้นท์แผนงานรายวันไปแปะบอร์ดที่ร้าน</li>
+                         <li><strong className="text-indigo-600">แชร์ลง LINE:</strong> ในหน้ามุมมอง "รายวัน" จะมีปุ่ม <span className="bg-[#00B900] text-white px-2 py-0.5 rounded text-[10px]"><MessageCircle className="w-3 h-3 inline"/> Copy to LINE</span> สามารถกดเพื่อคัดลอกข้อความสรุปกะงานไปวางในแชทกลุ่มร้านได้เลย</li>
+                         <li><strong className="text-indigo-600">วิเคราะห์ข้อมูล (Report):</strong> เข้าเมนู <strong>REPORT</strong> (ด้านบน) เพื่อดูสรุปชั่วโมงทำงานและ OT ประจำเดือน พร้อมปุ่ม <span className="bg-green-600 text-white px-2 py-0.5 rounded text-[10px]"><Download className="w-3 h-3 inline"/> Export (CSV)</span> เพื่อโหลดข้อมูลไปทำเงินเดือนต่อไป</li>
+                      </ul>
                       <div className="border-2 border-slate-100 rounded-2xl overflow-hidden shadow-sm bg-slate-50 mt-2">
                          {/* TODO: เปลี่ยน URL รูปภาพด้านล่างเป็นรูปตัวอย่างหน้าพิมพ์ตารางงาน (Roster Chart) */}
                          <img src="https://placehold.co/1200x600/f8fafc/475569?text=Screenshot:+Duty+Roster+Chart" alt="Step 4" className="w-full h-auto object-cover" />
