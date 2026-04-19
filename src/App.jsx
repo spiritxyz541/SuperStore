@@ -484,6 +484,7 @@ export default function App() {
   const [inspectedData, setInspectedData] = useState({ branch: null, schedule: null, loading: false, error: null });
   const [inspectorTab, setInspectorTab] = useState('staff');
   const [inspectorBackups, setInspectorBackups] = useState([]);
+  const [inspectorRestoreMode, setInspectorRestoreMode] = useState('all');
 
   const CURRENT_DUTY_LIST = useMemo(() => {
     let list = branchData.duties && branchData.duties[activeDept] ? branchData.duties[activeDept] : (activeDept === 'service' ? DEFAULT_SERVICE_DUTIES : DEFAULT_KITCHEN_DUTIES);
@@ -1731,12 +1732,16 @@ export default function App() {
       }
   };
 
-  const handleRestoreBackup = async (backup) => {
+  const handleRestoreBackup = async (backup, mode) => {
       if(!backup || !backup.branchData || !backup.schedule) return;
       try {
-          await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', inspectorBranchId), backup.branchData);
-          await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'schedules', inspectorBranchId), { records: backup.schedule });
-          setConfirmModal({ message: `กู้คืนข้อมูลของวันที่ ${backup.backupDate} สำเร็จแล้ว!` });
+          if (mode === 'all' || mode === 'branch') {
+              await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', inspectorBranchId), backup.branchData);
+          }
+          if (mode === 'all' || mode === 'schedule') {
+              await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'schedules', inspectorBranchId), { records: backup.schedule });
+          }
+          setConfirmModal({ message: `กู้คืนข้อมูล (${mode === 'all' ? 'ทั้งหมด' : mode === 'schedule' ? 'เฉพาะกะงาน' : 'เฉพาะข้อมูลสาขา'}) ของวันที่ ${backup.backupDate} สำเร็จแล้ว!` });
           handleInspectBranch(inspectorBranchId);
       } catch(e) { setConfirmModal({ message: `การกู้คืนล้มเหลว: ${e.message}` }); }
   };
@@ -1953,7 +1958,14 @@ export default function App() {
                                 <div className="p-4 h-full flex flex-col">
                                    <div className="flex justify-between items-center mb-4">
                                       <h4 className="font-black text-amber-400 uppercase tracking-widest text-xs">Available Backups (Last 31 Days)</h4>
-                                      <button onClick={() => loadBackups(inspectorBranchId)} className="bg-slate-700 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold hover:bg-slate-600 transition">🔄 Refresh List</button>
+                                      <div className="flex items-center gap-2">
+                                          <select value={inspectorRestoreMode} onChange={e => setInspectorRestoreMode(e.target.value)} className="bg-slate-700 text-white px-2 py-1.5 rounded-lg text-[10px] font-bold outline-none border border-slate-600">
+                                              <option value="all">กู้คืนทั้งหมด (All Data)</option>
+                                              <option value="schedule">เฉพาะตารางกะงาน (Schedule)</option>
+                                              <option value="branch">เฉพาะสาขา/พนักงาน (Branch)</option>
+                                          </select>
+                                          <button onClick={() => loadBackups(inspectorBranchId)} className="bg-slate-700 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold hover:bg-slate-600 transition">🔄 Refresh</button>
+                                      </div>
                                    </div>
                                    <div className="flex-1 overflow-y-auto custom-scrollbar bg-black/20 rounded-xl border border-slate-700">
                                        {inspectedData.loadingBackups ? (
@@ -1972,7 +1984,10 @@ export default function App() {
                                                          <td className="p-3 border-b border-slate-700/50 text-slate-400">{new Date(b.timestamp).toLocaleString('th-TH')}</td>
                                                          <td className="p-3 border-b border-slate-700/50 text-slate-500 font-bold">{Object.keys(b.schedule || {}).length} Schedule Days, {b.branchData?.staff?.length || 0} Staff</td>
                                                          <td className="p-3 border-b border-slate-700/50 text-right">
-                                                             <button onClick={() => setConfirmModal({ message: `คุณต้องการ RESTORE ข้อมูลกลับไปยังวันที่ ${b.backupDate} ใช่หรือไม่?\n\nคำเตือน: ข้อมูลปัจจุบันจะถูกเขียนทับทั้งหมด!`, action: () => handleRestoreBackup(b) })} className="bg-red-600 hover:bg-red-500 text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-colors shadow-lg">Restore Data</button>
+                                                             <button onClick={() => {
+                                                                 const modeText = inspectorRestoreMode === 'all' ? 'ทั้งหมด (ข้อมูลพนักงาน + กะงาน)' : inspectorRestoreMode === 'schedule' ? 'เฉพาะตารางกะงาน (Schedule Only)' : 'เฉพาะข้อมูลสาขา/พนักงาน (Branch Data Only)';
+                                                                 setConfirmModal({ message: `คุณต้องการ RESTORE ข้อมูลกลับไปยังวันที่ ${b.backupDate} ใช่หรือไม่?\n\nโหมดที่เลือก: ${modeText}\n\nคำเตือน: ข้อมูลปัจจุบันในส่วนที่เลือกจะถูกเขียนทับ!`, action: () => handleRestoreBackup(b, inspectorRestoreMode) });
+                                                             }} className="bg-red-600 hover:bg-red-500 text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-colors shadow-lg">Restore Data</button>
                                                          </td>
                                                      </tr>
                                                  ))}
