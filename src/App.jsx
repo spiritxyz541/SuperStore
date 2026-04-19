@@ -2086,20 +2086,15 @@ export default function App() {
           </div>
           <div className="hidden lg:block absolute bottom-8 text-center w-full z-10">
             <p className="text-xs font-bold text-slate-500 tracking-[0.2em] uppercase">Powered by Super Store Team</p>
-            <button onClick={() => setShowDataInspector(true)} className="mt-2 bg-slate-800 text-slate-400 text-xs font-bold py-1 px-3 rounded-md hover:bg-slate-700 transition">Server Data Inspector</button>
+            <button onClick={handleOpenInspector} className="mt-2 bg-slate-800 text-slate-400 text-xs font-bold py-1 px-3 rounded-md hover:bg-slate-700 transition">Server Data Inspector</button>
           </div>
         </div>
         <div className="w-full lg:w-1/2 flex-1 flex flex-col justify-center items-center p-6 sm:p-12 relative bg-white">
           <div className="w-full max-w-md p-8 sm:p-12 rounded-[2rem] sm:rounded-[3rem] shadow-xl sm:shadow-2xl border border-slate-100 bg-white flex flex-col gap-6 sm:gap-8 animate-in slide-in-from-right-8 duration-500 z-10">
-            <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200 mb-2">
-              <button onClick={() => { setLoginMode('manager'); setLoginError(''); }} className={`flex-1 py-3 rounded-xl text-xs sm:text-sm font-black transition-all ${loginMode === 'manager' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}>Manager Login</button>
-              <button onClick={() => { setLoginMode('staff'); setLoginError(''); }} className={`flex-1 py-3 rounded-xl text-xs sm:text-sm font-black transition-all ${loginMode === 'staff' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400'}`}>Staff Portal</button>
-            </div>
             <div className="text-center w-full">
-               <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tighter uppercase">{loginMode === 'manager' ? 'Welcome Back' : 'Employee Self-Service'}</h2>
-               <p className="text-slate-400 text-xs sm:text-sm font-bold mt-2">{loginMode === 'manager' ? 'Sign in to your management account' : 'ลงชื่อเข้าใช้ด้วยรหัสพนักงานของคุณ'}</p>
+               <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tighter uppercase">Welcome Back</h2>
+               <p className="text-slate-400 text-xs sm:text-sm font-bold mt-2">Sign in to your management account</p>
             </div>
-            {loginMode === 'manager' ? (
                 <form onSubmit={handleManagerLogin} className="w-full space-y-4 sm:space-y-5">
                   <div>
                     <label className="block text-[10px] sm:text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-4">Username</label>
@@ -2112,27 +2107,10 @@ export default function App() {
                   {loginError && <p className="text-xs sm:text-sm text-red-500 font-bold bg-red-50 px-4 py-3 rounded-xl w-full text-center">{loginError}</p>}
                   <button type="submit" className="w-full bg-indigo-600 text-white py-4 sm:py-5 rounded-[1.5rem] font-black text-sm shadow-xl shadow-indigo-200 hover:bg-indigo-700 hover:shadow-indigo-300 active:scale-95 transition-all mt-4">LOGIN TO SYSTEM</button>
                 </form>
-            ) : (
-                <form onSubmit={handleStaffLogin} className="w-full space-y-4 sm:space-y-5">
-                  <div>
-                    <label className="block text-[10px] sm:text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-4">Select Branch</label>
-                    <select value={staffLoginBranch} onChange={(e) => setStaffLoginBranch(e.target.value)} className="w-full bg-slate-50 border-2 border-slate-100 rounded-[1.5rem] px-5 py-3 sm:py-4 text-sm font-bold focus:border-emerald-500 focus:bg-white outline-none transition text-slate-700">
-                       <option value="">-- เลือกสาขาของคุณ --</option>
-                       {globalConfig.branches?.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[10px] sm:text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-4">Employee ID / Name</label>
-                    <input type="text" placeholder="รหัสพนักงาน หรือ ชื่อที่ระบบบันทึกไว้" className="w-full bg-slate-50 border-2 border-slate-100 rounded-[1.5rem] px-5 py-3 sm:py-4 text-sm font-bold focus:border-emerald-500 focus:bg-white outline-none transition" value={staffLoginInput} onChange={(e) => setStaffLoginInput(e.target.value)} />
-                  </div>
-                  {loginError && <p className="text-xs sm:text-sm text-red-500 font-bold bg-red-50 px-4 py-3 rounded-xl w-full text-center">{loginError}</p>}
-                  <button type="submit" className="w-full bg-emerald-600 text-white py-4 sm:py-5 rounded-[1.5rem] font-black text-sm shadow-xl shadow-emerald-200 hover:bg-emerald-700 hover:shadow-emerald-300 active:scale-95 transition-all mt-4">ACCESS STAFF PORTAL</button>
-                </form>
-            )}
           </div>
           <div className="lg:hidden mt-12 text-center w-full z-0">
             <p className="text-[10px] font-bold text-slate-400 tracking-[0.2em] uppercase">Powered by Super Store Team</p>
-            <button onClick={() => setShowDataInspector(true)} className="mt-4 bg-slate-200 text-slate-600 text-xs font-bold py-1 px-3 rounded-md hover:bg-slate-300 transition">Server Data Inspector</button>
+                <button onClick={handleOpenInspector} className="mt-4 bg-slate-200 text-slate-600 text-xs font-bold py-1 px-3 rounded-md hover:bg-slate-300 transition">Server Data Inspector</button>
           </div>
         </div>
       </div>
