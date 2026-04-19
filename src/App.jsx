@@ -3091,6 +3091,7 @@ export default function App() {
                       <li>จัดกะรายเดือนอัตโนมัติ (AI)</li>
                       <li>จัดกะรายวันอัตโนมัติ (AI)</li>
                       <li>จัดการวันลา</li>
+                      <li>บทบาทหน้าที่ประจำวัน (Duty Roster Chart)</li>
                       <li>พิมพ์ตาราง (Print)</li>
                    </ul>
                 </div>
@@ -3104,17 +3105,20 @@ export default function App() {
              </div>
 
              <div className="mt-2 bg-white/5 p-5 rounded-2xl border border-white/10 overflow-x-auto custom-scrollbar pb-4 sm:pb-6">
-                <h3 className="font-black text-sky-400 mb-4 flex items-center gap-2"><ArrowLeftRight className="w-4 h-4"/> Manager Workflow (ลำดับการทำงานรายเดือน)</h3>
-                <div className="flex items-center gap-2 sm:gap-4 text-[10px] sm:text-xs font-black text-slate-300 w-max">
+                <h3 className="font-black text-sky-400 mb-4 flex items-center gap-2"><ArrowLeftRight className="w-4 h-4"/> Manager Workflow (รายเดือน)</h3>
+                <div className="flex items-center gap-2 sm:gap-4 text-[10px] sm:text-xs font-black text-slate-300 w-max mb-6">
                    <div className="bg-emerald-500/20 text-emerald-300 px-4 py-3 rounded-xl border border-emerald-500/30 flex items-center gap-2"><span className="bg-emerald-500 text-slate-900 w-5 h-5 rounded-full flex items-center justify-center">1</span> ADMIN<br/>อัปเดตข้อมูลคน</div>
                    <span className="text-slate-600">→</span>
-                   <div className="bg-indigo-500/20 text-indigo-300 px-4 py-3 rounded-xl border border-indigo-500/30 flex items-center gap-2"><span className="bg-indigo-500 text-white w-5 h-5 rounded-full flex items-center justify-center">2</span> MANAGER<br/>กดจัดกะ Auto</div>
+                   <div className="bg-indigo-500/20 text-indigo-300 px-4 py-3 rounded-xl border border-indigo-500/30 flex items-center gap-2"><span className="bg-indigo-500 text-white w-5 h-5 rounded-full flex items-center justify-center">2</span> MANAGER<br/>ใส่วันหยุดชดเชย / ลาพักร้อน</div>
                    <span className="text-slate-600">→</span>
-                   <div className="bg-indigo-500/20 text-indigo-300 px-4 py-3 rounded-xl border border-indigo-500/30 flex items-center gap-2"><span className="bg-indigo-500 text-white w-5 h-5 rounded-full flex items-center justify-center">3</span> MANAGER<br/>รีวิว / จัดการคำขอ</div>
+                   <div className="bg-indigo-500/20 text-indigo-300 px-4 py-3 rounded-xl border border-indigo-500/30 flex items-center gap-2"><span className="bg-indigo-500 text-white w-5 h-5 rounded-full flex items-center justify-center">3</span> MANAGER<br/>จัดกะประจำเดือน Auto</div>
                    <span className="text-slate-600">→</span>
-                   <div className="bg-sky-500/20 text-sky-300 px-4 py-3 rounded-xl border border-sky-500/30 flex items-center gap-2"><span className="bg-sky-500 text-slate-900 w-5 h-5 rounded-full flex items-center justify-center">4</span> MANAGER<br/>ใช้แผนงานประจำวัน</div>
-                   <span className="text-slate-600">→</span>
-                   <div className="bg-orange-500/20 text-orange-300 px-4 py-3 rounded-xl border border-orange-500/30 flex items-center gap-2"><span className="bg-orange-500 text-slate-900 w-5 h-5 rounded-full flex items-center justify-center">5</span> REPORT<br/>โหลดสรุปส่งสิ้นเดือน</div>
+                   <div className="bg-orange-500/20 text-orange-300 px-4 py-3 rounded-xl border border-orange-500/30 flex items-center gap-2"><span className="bg-orange-500 text-slate-900 w-5 h-5 rounded-full flex items-center justify-center">4</span> EUNITE<br/>ทำข้อมูลบนระบบ Eunite</div>
+                </div>
+                <div className="h-px w-full bg-white/10 mb-6"></div>
+                <h3 className="font-black text-amber-400 mb-4 flex items-center gap-2"><CalendarDaysIcon className="w-4 h-4"/> Manager Workflow (รายวัน)</h3>
+                <div className="flex items-center gap-2 sm:gap-4 text-[10px] sm:text-xs font-black text-slate-300 w-max">
+                   <div className="bg-sky-500/20 text-sky-300 px-4 py-3 rounded-xl border border-sky-500/30 flex items-center gap-2"><span className="bg-sky-500 text-slate-900 w-5 h-5 rounded-full flex items-center justify-center">1</span> MANAGER<br/>ใช้ บทบาทหน้าที่ประจำวัน<br/>(Duty Roster Chart)</div>
                 </div>
              </div>
           </div>
@@ -3130,11 +3134,11 @@ export default function App() {
 
              <div className="space-y-8 mt-2">
                 <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
-                   <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-slate-900 text-white font-black text-lg sm:text-xl flex items-center justify-center flex-shrink-0 shadow-md">1</div>
+                   <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-emerald-500 text-white font-black text-lg sm:text-xl flex items-center justify-center flex-shrink-0 shadow-md">1</div>
                    <div className="flex-1 w-full min-w-0">
-                      <h3 className="text-base sm:text-lg font-black text-slate-800 mb-2">การจัดการพนักงานและวันหยุด (Staff & Day-off Management)</h3>
+                      <h3 className="text-base sm:text-lg font-black text-slate-800 mb-2">รายเดือน: ADMIN (อัปเดตข้อมูลพนักงาน)</h3>
                       <p className="text-xs sm:text-sm font-bold text-slate-600 leading-relaxed mb-3">
-                         ผู้จัดการมีหน้าที่จัดการรายชื่อและวันหยุดให้ตรงกับความจริงก่อนเริ่มจัดกะ โดยเข้าใช้งานที่เมนู <strong className="text-slate-800">ADMIN</strong> เพื่อเตรียมข้อมูลให้ AI:
+                         เริ่มต้นการจัดกะรายเดือน ผู้จัดการมีหน้าที่อัปเดตข้อมูลรายชื่อและวันหยุดประจำสัปดาห์ให้เป็นปัจจุบันที่สุดในเมนู <strong className="text-slate-800">ADMIN</strong>:
                       </p>
                       <ul className="text-xs sm:text-sm font-bold text-slate-600 space-y-2 mb-4 list-disc list-inside">
                          <li><strong className="text-indigo-600">เพิ่ม/ลดพนักงาน:</strong> เลื่อนไปที่ตารางจัดการพนักงาน กรอกรหัส ชื่อ แผนก ตำแหน่ง และวันหยุดประจำสัปดาห์ (ถ้ามี) แล้วกด <span className="bg-slate-900 text-white px-2 py-0.5 rounded text-[10px]">เพิ่มพนักงาน</span> หรือกดไอคอน <Trash2 className="w-3 h-3 inline text-red-500"/> ถังขยะเพื่อลบออก</li>
@@ -3150,23 +3154,14 @@ export default function App() {
                 <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-indigo-600 text-white font-black text-lg sm:text-xl flex items-center justify-center flex-shrink-0 shadow-md">2</div>
                    <div className="flex-1 w-full min-w-0">
-                      <h3 className="text-base sm:text-lg font-black text-slate-800 mb-2">การจัดกะอัตโนมัติประจำเดือน (Monthly Auto-Scheduling)</h3>
+                      <h3 className="text-base sm:text-lg font-black text-slate-800 mb-2">รายเดือน: MANAGER (ใส่วันหยุดชดเชย ลาพักร้อน & จัดกะ Auto)</h3>
                       <p className="text-xs sm:text-sm font-bold text-slate-600 leading-relaxed mb-4">
-                         ไปที่เมนู <strong className="text-slate-800">MANAGER</strong> และเลือกมุมมอง <strong>จัดกะแบบรายเดือน</strong> เพื่อเริ่มจัดกะงานทั้งสาขา:
+                         ไปที่เมนู <strong className="text-slate-800">MANAGER</strong> และเลือกมุมมอง <strong>จัดกะแบบรายเดือน</strong> เพื่อจัดการวันลาก่อนรันระบบ:
                       </p>
                       <ul className="text-xs sm:text-sm font-bold text-slate-600 space-y-2 mb-4 list-disc list-inside">
-                         <li><strong className="text-indigo-600">จัดกะอัตโนมัติ:</strong> กดปุ่ม <span className="bg-slate-900 text-white px-2 py-0.5 rounded text-[10px]"><Wand2 className="w-3 h-3 text-yellow-400 inline"/> จัดกะอัตโนมัติ (ทั้งเดือน)</span> AI จะทำการรันข้อมูลและจ่ายงานเข้ากะทั้งเดือนให้ทันที</li>
-                         <li><strong className="text-indigo-600">ล้างกะงาน:</strong> หากต้องการเริ่มจัดใหม่ทั้งหมด สามารถกดปุ่มไอคอน <span className="text-red-500 border border-red-200 px-1 py-0.5 rounded bg-white"><Eraser className="w-3 h-3 inline"/></span> เพื่อเคลียร์ตารางกะงานทิ้งทั้งหมด</li>
+                         <li><strong className="text-indigo-600">บันทึกวันลาหยุด:</strong> ใส่วันหยุดชดเชย (CO) หรือ ลาพักร้อน (AL) ล่วงหน้าในปฏิทินรายเดือนให้เรียบร้อย</li>
+                         <li><strong className="text-indigo-600">จัดกะอัตโนมัติ:</strong> กดปุ่ม <span className="bg-slate-900 text-white px-2 py-0.5 rounded text-[10px]"><Wand2 className="w-3 h-3 text-yellow-400 inline"/> จัดกะอัตโนมัติ (ทั้งเดือน)</span> เพื่อให้ AI นำข้อมูลทั้งหมดมาจ่ายงานเข้ากะรายวันให้ครบถ้วน</li>
                       </ul>
-                      <div className="bg-slate-50 p-4 sm:p-5 rounded-2xl border border-slate-200 mb-4">
-                         <span className="text-[10px] sm:text-xs font-black text-slate-500 uppercase tracking-widest block mb-2 sm:mb-3">⚙️ ตรรกะของระบบ AI ในการจัดกะ:</span>
-                         <ul className="text-xs font-bold text-slate-600 space-y-2 list-disc list-inside ml-2">
-                            <li><strong>ข้ามวันหยุด:</strong> ระบบจะไม่จัดกะในวันหยุดประจำสัปดาห์และวันลาของพนักงาน</li>
-                            <li><strong>เรียงลำดับความสำคัญ:</strong> เลือกจ่ายงานให้กลุ่ม HEAD ก่อน แล้วตามด้วยกลุ่ม STAFF และ SUPPORT</li>
-                            <li><strong>คุณสมบัติพนักงาน:</strong> จ่ายงานให้พนักงานที่มีตำแหน่งตรงกับความต้องการ (Req Pos) ของหน้านั้นๆ เสมอ</li>
-                            <li><strong>การหมุนเวียน OT (Fair OT):</strong> หากช่องกะนั้นมีโควตา OT ระบบจะพยายามแจกจ่าย OT ให้กับพนักงานที่มีชั่วโมง OT สะสมน้อยที่สุดก่อน เพื่อให้ได้รายได้เท่าเทียมกัน (โดยระบบจะหลีกเลี่ยงการจัดพนักงานกลุ่ม HEAD ลงในช่องที่มี OT เสมอ)</li>
-                         </ul>
-                      </div>
                       <div className="border-2 border-slate-100 rounded-2xl overflow-hidden shadow-sm bg-slate-50 mt-2">
                          <img src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=1200&q=80" alt="Mockup: Auto Scheduling" className="w-full h-48 sm:h-72 object-cover object-center opacity-90 hover:opacity-100 transition-all duration-500 hover:scale-105" />
                       </div>
@@ -3174,16 +3169,15 @@ export default function App() {
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
-                   <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-emerald-500 text-white font-black text-lg sm:text-xl flex items-center justify-center flex-shrink-0 shadow-md">3</div>
+                   <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-orange-500 text-white font-black text-lg sm:text-xl flex items-center justify-center flex-shrink-0 shadow-md">3</div>
                    <div className="flex-1 w-full min-w-0">
-                      <h3 className="text-base sm:text-lg font-black text-slate-800 mb-2">การรีวิวตารางงานและการจัดการวันลา (Review & Leave Management)</h3>
+                      <h3 className="text-base sm:text-lg font-black text-slate-800 mb-2">รายเดือน: EUNITE (ทำข้อมูลบนระบบ Eunite)</h3>
                       <p className="text-xs sm:text-sm font-bold text-slate-600 leading-relaxed mb-3">
-                         ตรวจสอบความถูกต้อง จัดการคำขอต่างๆ และแก้ปัญหาในกรณีฉุกเฉิน:
+                         หลังจาก AI จัดตารางงานเรียบร้อยและผู้จัดการได้รีวิวข้อมูลครบถ้วนแล้ว:
                       </p>
                       <ul className="text-xs sm:text-sm font-bold text-slate-600 space-y-2 mb-4 list-disc list-inside">
-                         <li><strong className="text-indigo-600">บันทึกการลาหยุด:</strong> ในหน้ามุมมองรายเดือนหรือรายวัน จะมีกล่องเลือก "วันที่" และ "ประเภทการลา" เลือกพนักงานที่ต้องการ ระบบจะทำการถอดชื่อพนักงานออกจากกะงานวันนั้นทันที</li>
-                         <li><strong className="text-indigo-600">อนุมัติคำขอ (Staff Portal):</strong> หากมีจุดสีแดงแจ้งเตือนที่ไอคอน <span className="bg-slate-100 px-1.5 py-0.5 rounded-full"><Bell className="w-3 h-3 inline text-slate-500"/></span> มุมขวาบน ให้คลิกเพื่อตรวจสอบคำขอ "สลับกะ" หรือ "ลาหยุด" ของพนักงาน และกด อนุมัติ/ปฏิเสธ</li>
-                         <li><strong className="text-indigo-600">ปรับแก้ OT (Shortage):</strong> กรณีคนขาดหรือลากะทันหัน สามารถเพิ่มชั่วโมง OT แบบ Manual ให้กับพนักงานกะเช้าให้ลากยาวดูแลร้านต่อได้ โดยเปลี่ยนตัวเลขในช่อง <span className="border border-slate-200 px-1 py-0 text-[10px] rounded">OT</span> ในมุมมองรายวัน</li>
+                         <li><strong className="text-orange-600">เชื่อมโยงระบบ:</strong> นำข้อมูลตารางการทำงานที่ได้ ไปดำเนินการทำข้อมูลต่อบน <strong>ระบบ Eunite</strong></li>
+                         <li><strong className="text-orange-600">ส่งออกข้อมูล:</strong> สามารถไปที่เมนู <strong>REPORT</strong> เพื่อกด Export CSV นำข้อมูลชั่วโมงทำงานและ OT ไปตรวจเช็คหรือใช้งานต่อได้</li>
                       </ul>
                       <div className="border-2 border-slate-100 rounded-2xl overflow-hidden shadow-sm bg-slate-50 mt-2">
                          <img src="https://images.unsplash.com/photo-1554774853-719586f82d77?auto=format&fit=crop&w=1200&q=80" alt="Mockup: Leave Management" className="w-full h-48 sm:h-72 object-cover object-center opacity-90 hover:opacity-100 transition-all duration-500 hover:scale-105" />
@@ -3192,17 +3186,15 @@ export default function App() {
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
-                   <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-orange-500 text-white font-black text-lg sm:text-xl flex items-center justify-center flex-shrink-0 shadow-md">4</div>
+                   <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-sky-500 text-white font-black text-lg sm:text-xl flex items-center justify-center flex-shrink-0 shadow-md">4</div>
                    <div className="flex-1 w-full min-w-0">
-                      <h3 className="text-base sm:text-lg font-black text-slate-800 mb-2">การใช้แผนงานประจำวันและรายงาน (Daily Plan & Export)</h3>
+                      <h3 className="text-base sm:text-lg font-black text-slate-800 mb-2">รายวัน: MANAGER (ใช้ บทบาทหน้าที่ประจำวัน)</h3>
                       <p className="text-xs sm:text-sm font-bold text-slate-600 leading-relaxed mb-3">
-                         นำตารางที่จัดเสร็จแล้วไปใช้บรีฟหน้าร้าน (Briefing) และส่งออกสรุปข้อมูลประจำเดือน:
+                         สำหรับการดำเนินงานหน้าสาขารายวัน จะใช้ตารางรายวันเพื่อจัดการหน้าร้าน (Operation):
                       </p>
                       <ul className="text-xs sm:text-sm font-bold text-slate-600 space-y-2 mb-4 list-disc list-inside">
-                         <li><strong className="text-indigo-600">Duty Roster Chart:</strong> ไปที่มุมมองตาราง <strong>Duty Roster Chart</strong> เพื่อดูแจกแจงหน้าที่รายคนแบบเข้าใจง่าย แจ้งเวลาเข้ากะและรอบพักเบรคของวันนั้นๆ</li>
-                         <li><strong className="text-indigo-600">พิมพ์ตาราง (Print):</strong> กดปุ่ม <span className="bg-slate-900 text-white px-2 py-0.5 rounded text-[10px]"><Printer className="w-3 h-3 inline"/> พิมพ์ตารางนี้</span> เพื่อสั่งปริ้นท์แผนงานรายวันไปแปะบอร์ดที่ร้าน</li>
-                         <li><strong className="text-indigo-600">แชร์ลง LINE:</strong> ในหน้ามุมมอง "รายวัน" จะมีปุ่ม <span className="bg-[#00B900] text-white px-2 py-0.5 rounded text-[10px]"><MessageCircle className="w-3 h-3 inline"/> Copy to LINE</span> สามารถกดเพื่อคัดลอกข้อความสรุปกะงานไปวางในแชทกลุ่มร้านได้เลย</li>
-                         <li><strong className="text-indigo-600">วิเคราะห์ข้อมูล (Report):</strong> เข้าเมนู <strong>REPORT</strong> (ด้านบน) เพื่อดูสรุปชั่วโมงทำงานและ OT ประจำเดือน พร้อมปุ่ม <span className="bg-green-600 text-white px-2 py-0.5 rounded text-[10px]"><Download className="w-3 h-3 inline"/> Export (CSV)</span> เพื่อโหลดข้อมูลไปทำเงินเดือนต่อไป</li>
+                         <li><strong className="text-sky-600">บทบาทหน้าที่ประจำวัน (Duty Roster Chart):</strong> กดเปลี่ยนมุมมองเพื่อดูตารางสรุปหน้าที่ของวันนี้ ว่าพนักงานแต่ละคนต้องทำงานหลัก/งานรองอะไร เข้ากะเวลาไหน และมีรอบพักเบรคช่วงไหนบ้าง</li>
+                         <li><strong className="text-sky-600">พิมพ์ตาราง (Print):</strong> กดสั่งพิมพ์ตารางนี้เพื่อนำไปแปะบอร์ดที่ร้านสำหรับบรีฟพนักงานก่อนเริ่มงานทุกวัน</li>
                       </ul>
                       <div className="border-2 border-slate-100 rounded-2xl overflow-hidden shadow-sm bg-slate-50 mt-2">
                          <img src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80" alt="Mockup: Daily Plan & Export" className="w-full h-48 sm:h-72 object-cover object-center opacity-90 hover:opacity-100 transition-all duration-500 hover:scale-105" />
