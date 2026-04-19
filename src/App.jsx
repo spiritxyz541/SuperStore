@@ -2201,7 +2201,7 @@ export default function App() {
 
     return (
      <div className="flex-1 space-y-6 sm:space-y-10 animate-in fade-in duration-500 pb-24 w-full">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-10">
+        <div className={`grid grid-cols-1 ${authRole === 'superadmin' ? 'lg:grid-cols-2' : ''} gap-6 sm:gap-10`}>
            <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm flex flex-col">
              <h2 className="text-lg sm:text-xl font-black text-slate-800 mb-4 sm:mb-6 flex items-center gap-2 sm:gap-4 uppercase tracking-tighter"><Users className="w-6 h-6 sm:w-7 sm:h-7 text-indigo-500" /> จัดการพนักงาน ({globalConfig.branches?.find(b=>b.id===activeBranchId)?.name})</h2>
              
@@ -2366,9 +2366,9 @@ export default function App() {
              </div>
            </div>
            
+           {authRole === 'superadmin' && (
            <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm flex flex-col">
              <h2 className="text-lg sm:text-xl font-black text-slate-800 mb-6 sm:mb-8 flex items-center gap-2 sm:gap-4 uppercase tracking-tighter"><List className="w-6 h-6 sm:w-7 sm:h-7 text-indigo-500" /> จัดการหน้าที่งาน (Duties)</h2>
-             {authRole === 'superadmin' ? (
                <div className="space-y-4 mb-6 sm:mb-10 w-full">
                  <div className="flex flex-col gap-2 sm:gap-4">
                     <div className="flex flex-col xl:flex-row gap-2 sm:gap-4">
@@ -2385,9 +2385,6 @@ export default function App() {
                     </div>
                  </div>
                </div>
-             ) : (
-               <p className="text-[10px] text-orange-500 font-bold mb-6 text-center bg-orange-50 py-2 rounded-xl border border-orange-100 uppercase tracking-widest">* โหมดอ่านอย่างเดียว (เฉพาะ Admin ส่วนกลางที่แก้ไขโครงสร้างได้)</p>
-             )}
              <div className="grid grid-cols-1 gap-2 sm:gap-3 max-h-[400px] overflow-y-auto pr-2 sm:pr-3 custom-scrollbar">
                {CURRENT_DUTY_LIST.length === 0 ? (
                  <div className="text-center py-8 sm:py-10 text-slate-400 font-bold text-[10px] sm:text-sm uppercase tracking-widest border-2 border-dashed rounded-[1.5rem]">ไม่มีข้อมูลหน้าที่</div>
@@ -2439,8 +2436,10 @@ export default function App() {
                )})}
              </div>
            </div>
+           )}
         </div>
 
+        {authRole === 'superadmin' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-10 w-full mt-6 sm:mt-10">
            <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm w-full">
              <h2 className="text-lg sm:text-xl font-black text-slate-800 mb-6 sm:mb-8 flex items-center justify-center gap-2 sm:gap-4 uppercase tracking-tighter"><Coffee className="w-6 h-6 sm:w-7 sm:h-7 text-red-500" /> วันหยุดประจำสาขา</h2>
@@ -2455,11 +2454,9 @@ export default function App() {
                  );
                })}
              </div>
-             {authRole === 'branch' && <p className="text-[8px] sm:text-[10px] text-red-400 font-bold mt-6 sm:mt-8 text-center uppercase tracking-widest leading-relaxed">* เฉพาะ Admin ส่วนกลางเท่านั้นที่แก้ไขวันหยุดได้</p>}
            </div>
            
-           {authRole === 'superadmin' && (
-             <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm w-full mt-6 sm:mt-10 lg:mt-0">
+           <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm w-full mt-6 sm:mt-10 lg:mt-0">
              <h2 className="text-lg sm:text-xl font-black text-slate-800 mb-6 sm:mb-8 flex items-center gap-2 sm:gap-4 uppercase tracking-tighter"><Megaphone className="w-6 h-6 sm:w-7 sm:h-7 text-indigo-500" /> จัดการหน้าประกาศ (Landing Pages)</h2>
              <div className="flex flex-col lg:flex-row gap-6">
                 <div className="flex-[2] space-y-4 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
@@ -2517,14 +2514,14 @@ export default function App() {
                 </div>
              </div>
            </div>
-           )}
 
            {renderTemplatesCard()}
         </div>
+        )}
 
-        {renderShiftPresetManager()}
+        {authRole === 'superadmin' && renderShiftPresetManager()}
 
-        {renderMatrixSettings()}
+        {authRole === 'superadmin' && renderMatrixSettings()}
 
      </div>
     );
