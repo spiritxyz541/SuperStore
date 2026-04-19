@@ -3146,7 +3146,7 @@ export default function App() {
                          <li><strong className="text-indigo-600">จัดวันหยุดอัตโนมัติ:</strong> กดปุ่ม <span className="bg-indigo-600 text-white px-2 py-0.5 rounded text-[10px]"><Wand2 className="w-3 h-3 inline"/> จัดวันหยุด Auto</span> เพื่อให้ระบบสุ่มใส่วันหยุดประจำสัปดาห์ให้พนักงานที่ยังไม่ระบุวันหยุดให้ครบถ้วน (โดยอิงจากโควตาที่เหลือ)</li>
                       </ul>
                       <div className="border-2 border-slate-100 rounded-2xl overflow-hidden shadow-sm bg-slate-50 mt-2">
-                         <img src="https://images.unsplash.com/photo-1600880292203-757bb62b4baf?auto=format&fit=crop&w=1200&q=80" alt="Mockup: Staff Management" className="w-full h-48 sm:h-72 object-cover object-center opacity-90 hover:opacity-100 transition-all duration-500 hover:scale-105" />
+                         <img src="https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=1200&q=80" alt="Mockup: Staff Management" className="w-full h-48 sm:h-72 object-cover object-center opacity-90 hover:opacity-100 transition-all duration-500 hover:scale-105" />
                       </div>
                    </div>
                 </div>
@@ -3163,7 +3163,7 @@ export default function App() {
                          <li><strong className="text-indigo-600">จัดกะอัตโนมัติ:</strong> กดปุ่ม <span className="bg-slate-900 text-white px-2 py-0.5 rounded text-[10px]"><Wand2 className="w-3 h-3 text-yellow-400 inline"/> จัดกะอัตโนมัติ (ทั้งเดือน)</span> เพื่อให้ AI นำข้อมูลทั้งหมดมาจ่ายงานเข้ากะรายวันให้ครบถ้วน</li>
                       </ul>
                       <div className="border-2 border-slate-100 rounded-2xl overflow-hidden shadow-sm bg-slate-50 mt-2">
-                         <img src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=1200&q=80" alt="Mockup: Auto Scheduling" className="w-full h-48 sm:h-72 object-cover object-center opacity-90 hover:opacity-100 transition-all duration-500 hover:scale-105" />
+                         <img src="https://images.unsplash.com/photo-1506784365847-bbad939e9335?auto=format&fit=crop&w=1200&q=80" alt="Mockup: Auto Scheduling" className="w-full h-48 sm:h-72 object-cover object-center opacity-90 hover:opacity-100 transition-all duration-500 hover:scale-105" />
                       </div>
                    </div>
                 </div>
@@ -3180,7 +3180,7 @@ export default function App() {
                          <li><strong className="text-orange-600">ส่งออกข้อมูล:</strong> สามารถไปที่เมนู <strong>REPORT</strong> เพื่อกด Export CSV นำข้อมูลชั่วโมงทำงานและ OT ไปตรวจเช็คหรือใช้งานต่อได้</li>
                       </ul>
                       <div className="border-2 border-slate-100 rounded-2xl overflow-hidden shadow-sm bg-slate-50 mt-2">
-                         <img src="https://images.unsplash.com/photo-1554774853-719586f82d77?auto=format&fit=crop&w=1200&q=80" alt="Mockup: Leave Management" className="w-full h-48 sm:h-72 object-cover object-center opacity-90 hover:opacity-100 transition-all duration-500 hover:scale-105" />
+                         <img src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80" alt="Mockup: Eunite Integration" className="w-full h-48 sm:h-72 object-cover object-center opacity-90 hover:opacity-100 transition-all duration-500 hover:scale-105" />
                       </div>
                    </div>
                 </div>
@@ -3197,7 +3197,7 @@ export default function App() {
                          <li><strong className="text-sky-600">พิมพ์ตาราง (Print):</strong> กดสั่งพิมพ์ตารางนี้เพื่อนำไปแปะบอร์ดที่ร้านสำหรับบรีฟพนักงานก่อนเริ่มงานทุกวัน</li>
                       </ul>
                       <div className="border-2 border-slate-100 rounded-2xl overflow-hidden shadow-sm bg-slate-50 mt-2">
-                         <img src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80" alt="Mockup: Daily Plan & Export" className="w-full h-48 sm:h-72 object-cover object-center opacity-90 hover:opacity-100 transition-all duration-500 hover:scale-105" />
+                         <img src="https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?auto=format&fit=crop&w=1200&q=80" alt="Mockup: Daily Duty Roster" className="w-full h-48 sm:h-72 object-cover object-center opacity-90 hover:opacity-100 transition-all duration-500 hover:scale-105" />
                       </div>
                    </div>
                 </div>
