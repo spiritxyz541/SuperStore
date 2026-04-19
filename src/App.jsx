@@ -452,6 +452,7 @@ export default function App() {
   const [editGuideSteps, setEditGuideSteps] = useState([]);
   const [editSiteMap, setEditSiteMap] = useState([]);
   const [editWorkflow, setEditWorkflow] = useState({ monthly: [], daily: [] });
+  const [zoomedImage, setZoomedImage] = useState(null);
 
   // Landing Page States
   const [hasSeenLanding, setHasSeenLanding] = useState(false);
@@ -1708,6 +1709,12 @@ export default function App() {
   function renderModals() {
     return (
       <React.Fragment>
+        {zoomedImage && (
+          <div className="fixed inset-0 z-[700] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in duration-300 cursor-zoom-out" onClick={() => setZoomedImage(null)}>
+             <button onClick={() => setZoomedImage(null)} className="absolute top-4 right-4 sm:top-6 sm:right-6 text-white/50 hover:text-white transition bg-white/10 hover:bg-white/20 p-2 sm:p-3 rounded-full"><X className="w-6 h-6 sm:w-8 sm:h-8"/></button>
+             <img src={zoomedImage} alt="Zoomed View" className="max-w-[95vw] max-h-[90vh] object-contain rounded-xl shadow-2xl animate-in zoom-in-95 cursor-default" onClick={(e) => e.stopPropagation()} />
+          </div>
+        )}
         {showSuccessModal && (
           <div className="fixed inset-0 z-[400] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-300 font-sans">
              <div className="bg-white p-8 rounded-[3rem] shadow-2xl flex flex-col items-center gap-4 animate-in zoom-in-95">
@@ -3319,8 +3326,11 @@ export default function App() {
                              <h3 className="text-base sm:text-lg font-black text-slate-800 mb-2">{step.title}</h3>
                              <div className="text-xs sm:text-sm font-medium text-slate-600 leading-relaxed mb-4 whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: step.content }}></div>
                              {step.image && (
-                                <div className="border-2 border-slate-100 rounded-2xl overflow-hidden shadow-sm bg-slate-50 mt-2">
-                                   <img src={step.image} alt={step.title} className="w-full h-48 sm:h-72 object-cover object-center opacity-90 hover:opacity-100 transition-all duration-500 hover:scale-105" />
+                                <div className="border-2 border-slate-100 rounded-2xl overflow-hidden shadow-sm bg-slate-50 mt-2 cursor-zoom-in aspect-video relative group" onClick={() => setZoomedImage(step.image)}>
+                                   <img src={step.image} alt={step.title} className="w-full h-full object-cover object-center opacity-90 group-hover:opacity-100 transition-all duration-500 group-hover:scale-105" />
+                                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                                       <span className="bg-black/60 text-white px-4 py-2 rounded-xl text-xs font-black opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-md shadow-xl flex items-center gap-2">🔍 ขยายรูปภาพ</span>
+                                   </div>
                                 </div>
                              )}
                           </div>
