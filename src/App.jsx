@@ -141,6 +141,13 @@ const DEFAULT_WORKFLOW = {
     ]
 };
 
+const DEFAULT_GUIDE_HEADER = {
+  title: "Site Map & Workflow",
+  subtitle: "โครงสร้างระบบและลำดับขั้นตอนการทำงาน",
+  journeyTitle: "Manager Journey Guide",
+  journeySubtitle: "คู่มือสรุปขั้นตอนการทำงานสำหรับผู้จัดการสาขา"
+};
+
 // --- Helper Functions (Hoisted) ---
 function checkPositionEligibility(staffPos, reqPosArr, dept) {
   if (!reqPosArr || reqPosArr.length === 0 || reqPosArr.includes('ALL')) return true;
@@ -452,6 +459,7 @@ export default function App() {
   const [editGuideSteps, setEditGuideSteps] = useState([]);
   const [editSiteMap, setEditSiteMap] = useState([]);
   const [editWorkflow, setEditWorkflow] = useState({ monthly: [], daily: [] });
+  const [editGuideHeader, setEditGuideHeader] = useState({});
   const [zoomedImage, setZoomedImage] = useState(null);
 
   // Landing Page States
@@ -1130,7 +1138,7 @@ export default function App() {
   );
 
   const handleSaveGuide = async () => {
-      const nc = { ...globalConfig, guideSteps: editGuideSteps, siteMap: editSiteMap, workflow: editWorkflow };
+      const nc = { ...globalConfig, guideSteps: editGuideSteps, siteMap: editSiteMap, workflow: editWorkflow, guideHeader: editGuideHeader };
       setGlobalConfig(nc);
       setSaveStatus('saving');
       try {
@@ -3155,6 +3163,7 @@ export default function App() {
     const guideSteps = globalConfig.guideSteps || DEFAULT_GUIDE_STEPS;
     const siteMapData = isEditingGuide ? editSiteMap : (globalConfig.siteMap || DEFAULT_SITE_MAP);
     const workflowData = isEditingGuide ? editWorkflow : (globalConfig.workflow || DEFAULT_WORKFLOW);
+    const headerData = isEditingGuide ? editGuideHeader : (globalConfig.guideHeader || DEFAULT_GUIDE_HEADER);
 
     const toggleGuideEdit = () => {
         if (isEditingGuide) { 
@@ -3163,6 +3172,7 @@ export default function App() {
             setEditGuideSteps(guideSteps); 
             setEditSiteMap(globalConfig.siteMap || DEFAULT_SITE_MAP);
             setEditWorkflow(globalConfig.workflow || DEFAULT_WORKFLOW);
+            setEditGuideHeader(globalConfig.guideHeader || DEFAULT_GUIDE_HEADER);
             setIsEditingGuide(true); 
         }
     };
@@ -3172,12 +3182,19 @@ export default function App() {
           {/* Site Map & Workflow Card */}
           <div className="bg-slate-900 rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-800 shadow-xl text-white flex flex-col gap-6">
              <div className="flex items-center justify-between border-b border-slate-700 pb-6">
-                <div className="flex items-center gap-4 sm:gap-6">
+                <div className="flex items-center gap-4 sm:gap-6 flex-1 pr-4">
                     <div className="bg-white/10 p-4 rounded-[1.5rem]"><LayoutDashboard className="w-8 h-8 text-white" /></div>
-                    <div>
-                       <h2 className="text-2xl sm:text-3xl font-black tracking-tighter uppercase">Site Map & Workflow</h2>
-                       <p className="text-slate-400 text-xs sm:text-sm font-bold mt-1">โครงสร้างระบบและลำดับขั้นตอนการทำงาน</p>
-                    </div>
+                    {isEditingGuide ? (
+                       <div className="space-y-2 w-full max-w-md">
+                          <input type="text" value={headerData.title} onChange={e => setEditGuideHeader({...editGuideHeader, title: e.target.value})} className="w-full bg-slate-800 text-white font-black text-xl sm:text-2xl border border-slate-600 rounded-lg px-3 py-1 outline-none focus:border-emerald-500" placeholder="หัวข้อหลัก..." />
+                          <input type="text" value={headerData.subtitle} onChange={e => setEditGuideHeader({...editGuideHeader, subtitle: e.target.value})} className="w-full bg-slate-800 text-slate-300 font-bold text-xs sm:text-sm border border-slate-600 rounded-lg px-3 py-1 outline-none focus:border-emerald-500" placeholder="คำอธิบาย..." />
+                       </div>
+                    ) : (
+                       <div>
+                          <h2 className="text-2xl sm:text-3xl font-black tracking-tighter uppercase">{headerData.title}</h2>
+                          <p className="text-slate-400 text-xs sm:text-sm font-bold mt-1">{headerData.subtitle}</p>
+                       </div>
+                    )}
                 </div>
                 {authRole === 'superadmin' && (
                    <button onClick={toggleGuideEdit} className={`px-4 py-2 sm:px-6 sm:py-3 rounded-xl sm:rounded-2xl font-black text-xs sm:text-sm flex items-center gap-2 transition shadow-sm ${isEditingGuide ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-800 text-white border border-slate-700 hover:bg-slate-700'}`}>
@@ -3265,12 +3282,19 @@ export default function App() {
 
           <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm flex flex-col gap-6">
              <div className="flex items-center justify-between border-b border-slate-100 pb-6">
-                <div className="flex items-center gap-4 sm:gap-6">
+                <div className="flex items-center gap-4 sm:gap-6 flex-1 pr-4">
                    <div className="bg-indigo-100 p-4 rounded-[1.5rem]"><BookOpen className="w-8 h-8 text-indigo-600" /></div>
-                   <div>
-                      <h2 className="text-2xl sm:text-3xl font-black text-slate-800 tracking-tighter uppercase">Manager Journey Guide</h2>
-                      <p className="text-slate-400 text-xs sm:text-sm font-bold mt-1">คู่มือสรุปขั้นตอนการทำงานสำหรับผู้จัดการสาขา</p>
-                   </div>
+                   {isEditingGuide ? (
+                       <div className="space-y-2 w-full max-w-md">
+                          <input type="text" value={headerData.journeyTitle} onChange={e => setEditGuideHeader({...editGuideHeader, journeyTitle: e.target.value})} className="w-full bg-slate-50 text-slate-800 font-black text-xl sm:text-2xl border border-slate-200 rounded-lg px-3 py-1 outline-none focus:border-indigo-500" placeholder="หัวข้อ Journey..." />
+                          <input type="text" value={headerData.journeySubtitle} onChange={e => setEditGuideHeader({...editGuideHeader, journeySubtitle: e.target.value})} className="w-full bg-slate-50 text-slate-500 font-bold text-xs sm:text-sm border border-slate-200 rounded-lg px-3 py-1 outline-none focus:border-indigo-500" placeholder="คำอธิบาย..." />
+                       </div>
+                   ) : (
+                       <div>
+                          <h2 className="text-2xl sm:text-3xl font-black text-slate-800 tracking-tighter uppercase">{headerData.journeyTitle}</h2>
+                          <p className="text-slate-400 text-xs sm:text-sm font-bold mt-1">{headerData.journeySubtitle}</p>
+                       </div>
+                   )}
                 </div>
                 {authRole === 'superadmin' && (
                    <button onClick={toggleGuideEdit} className={`px-4 py-2 sm:px-6 sm:py-3 rounded-xl sm:rounded-2xl font-black text-xs sm:text-sm flex items-center gap-2 transition shadow-sm ${isEditingGuide ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
