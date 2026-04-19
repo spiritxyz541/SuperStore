@@ -4,7 +4,7 @@ import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken }
 import { getFirestore, doc, setDoc, onSnapshot, collection, getDoc } from 'firebase/firestore';
 import { 
   Users, AlertCircle, Clock, Save, Plus, Trash2, LayoutDashboard, Printer, ChevronLeft, ChevronRight, 
-  Coffee, BarChart3, TrendingUp, Award, PlaneTakeoff, Loader2, Store, ArrowLeftRight, Sparkles, Wand2, Bold, Italic, Underline, Link as LinkIcon,
+  Coffee, BarChart3, TrendingUp, Award, PlaneTakeoff, Loader2, Store, ArrowLeftRight, Sparkles, Wand2, Bold, Italic, Underline, Link as LinkIcon, BookOpen,
   Eraser, Filter, ChevronDown, Download, MessageCircle, Bell, UserCircle, SaveAll, FolderOpen, CheckCircle2, Edit2, X, Check, List, TableProperties, GripVertical, LogIn, ShieldCheck, Megaphone,
   UtensilsCrossed, ConciergeBell, UserPlus, ArrowUpRight, ArrowDownRight, CalendarDays as CalendarDaysIcon, Calendar as CalendarIcon
 } from 'lucide-react';
@@ -3063,6 +3063,76 @@ export default function App() {
     );
   }
 
+  function renderGuideView() {
+    return (
+       <div className="flex-1 space-y-6 sm:space-y-8 animate-in fade-in duration-500 pb-24 w-full max-w-5xl mx-auto">
+          <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm flex flex-col gap-6">
+             <div className="flex items-center gap-4 sm:gap-6 border-b border-slate-100 pb-6">
+                <div className="bg-indigo-100 p-4 rounded-[1.5rem]"><BookOpen className="w-8 h-8 text-indigo-600" /></div>
+                <div>
+                   <h2 className="text-2xl sm:text-3xl font-black text-slate-800 tracking-tighter uppercase">Manager Journey Guide</h2>
+                   <p className="text-slate-400 text-xs sm:text-sm font-bold mt-1">คู่มือสรุปขั้นตอนการทำงานสำหรับผู้จัดการสาขา</p>
+                </div>
+             </div>
+
+             <div className="space-y-8 mt-2">
+                <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
+                   <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-slate-900 text-white font-black text-lg sm:text-xl flex items-center justify-center flex-shrink-0 shadow-md">1</div>
+                   <div>
+                      <h3 className="text-base sm:text-lg font-black text-slate-800 mb-2">การจัดการพนักงานและวันหยุด (Staff & Day-off Management)</h3>
+                      <p className="text-xs sm:text-sm font-bold text-slate-600 leading-relaxed">
+                         หลังจากระบบตั้งค่าตรรกะกะงาน (Logic) มาให้แล้ว ผู้จัดการมีหน้าที่ <strong className="text-slate-800">เพิ่มหรือลดรายชื่อพนักงาน</strong> ให้อยู่ในโควตาจำนวนคนที่ Superstore Team กำหนดไว้ <br className="hidden sm:block"/>
+                         และต้อง <strong className="text-slate-800">จัดการจัดสรรวันหยุดประจำสัปดาห์</strong> ของพนักงานแต่ละคนให้เป็นไปตามโควตาที่ Admin ส่วนกลางตั้งไว้ เพื่อให้มั่นใจว่าจะมีกำลังคนเพียงพอในแต่ละวัน
+                      </p>
+                   </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
+                   <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-indigo-600 text-white font-black text-lg sm:text-xl flex items-center justify-center flex-shrink-0 shadow-md">2</div>
+                   <div>
+                      <h3 className="text-base sm:text-lg font-black text-slate-800 mb-2">การจัดกะอัตโนมัติประจำเดือน (Monthly Auto-Scheduling)</h3>
+                      <p className="text-xs sm:text-sm font-bold text-slate-600 leading-relaxed mb-3">
+                         เมื่อเข้าสู่หน้า <strong>MANAGER</strong> ให้เลือกแท็บ <strong>จัดกะแบบรายเดือน</strong> จากนั้นกดปุ่ม <span className="text-indigo-600 font-black">✨ จัดกะอัตโนมัติ</span>
+                      </p>
+                      <div className="bg-slate-50 p-4 sm:p-5 rounded-2xl border border-slate-200">
+                         <span className="text-[10px] sm:text-xs font-black text-slate-500 uppercase tracking-widest block mb-2 sm:mb-3">⚙️ ตรรกะของระบบ AI ในการจัดกะ:</span>
+                         <ul className="text-xs font-bold text-slate-600 space-y-2 list-disc list-inside ml-2">
+                            <li><strong>ข้ามวันหยุด:</strong> ระบบจะไม่จัดกะในวันหยุดประจำสัปดาห์และวันลาของพนักงาน</li>
+                            <li><strong>เรียงลำดับความสำคัญ:</strong> เลือกจ่ายงานให้กลุ่ม HEAD ก่อน แล้วตามด้วยกลุ่ม STAFF และ SUPPORT</li>
+                            <li><strong>คุณสมบัติพนักงาน:</strong> จ่ายงานให้พนักงานที่มีตำแหน่งตรงกับความต้องการ (Req Pos) ของหน้านั้นๆ เสมอ</li>
+                            <li><strong>การหมุนเวียน OT (Fair OT):</strong> หากช่องกะนั้นมีโควตา OT ระบบจะพยายามแจกจ่าย OT ให้กับพนักงานที่มีชั่วโมง OT สะสมน้อยที่สุดก่อน เพื่อให้ได้รายได้เท่าเทียมกัน (โดยระบบจะหลีกเลี่ยงการจัดพนักงานกลุ่ม HEAD ลงในช่องที่มี OT เสมอ)</li>
+                         </ul>
+                      </div>
+                   </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
+                   <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-emerald-500 text-white font-black text-lg sm:text-xl flex items-center justify-center flex-shrink-0 shadow-md">3</div>
+                   <div>
+                      <h3 className="text-base sm:text-lg font-black text-slate-800 mb-2">การรีวิวตารางงานและการจัดการวันลา (Review & Leave Management)</h3>
+                      <p className="text-xs sm:text-sm font-bold text-slate-600 leading-relaxed">
+                         ผู้จัดการต้องคอยรีวิวตรวจสอบความเรียบร้อย และดูแลการลง <strong>วันหยุดพักร้อน (AL)</strong> หรือ <strong>วันหยุดชดเชย (CO)</strong> <br/><br/>
+                         <strong className="text-slate-800">กรณีคนไม่พอ (Shortage):</strong> หากมีพนักงานหยุดพักร้อนหรือหยุดชดเชยจนทำให้กะงานมีคนไม่พอ ผู้จัดการสามารถบริหารจัดการได้โดย <strong className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">เพิ่มชั่วโมง OT ให้กับพนักงานกะเช้า</strong> เพื่อให้พนักงานลากยาวดูแลร้านทดแทนกำลังคนที่ขาดหายไป
+                      </p>
+                   </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
+                   <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-orange-500 text-white font-black text-lg sm:text-xl flex items-center justify-center flex-shrink-0 shadow-md">4</div>
+                   <div>
+                      <h3 className="text-base sm:text-lg font-black text-slate-800 mb-2">การใช้แผนงานประจำวัน (Duty Roster Chart)</h3>
+                      <p className="text-xs sm:text-sm font-bold text-slate-600 leading-relaxed">
+                         เมื่อจัดกะและตรวจสอบเรียบร้อย ผู้จัดการสามารถใช้หน้า <strong>Duty Roster Chart</strong> เพื่อดูแผนงานประจำวัน (Daily Plan) ได้ <br/>
+                         ซึ่งจะแสดงให้เห็นชัดเจนเลยว่า <strong>ใครทำหน้าที่อะไร (Job A / Job B) ประจำตำแหน่งไหน เข้ากะกี่โมงถึงกี่โมง และมีเวลาเบรคอย่างไรบ้าง</strong> เพื่อใช้บรีฟพนักงานตอนเริ่มงาน (Operation)
+                      </p>
+                   </div>
+                </div>
+             </div>
+          </div>
+       </div>
+    );
+  }
+
   let mainContent = null;
   if (authRole === 'staff') {
     mainContent = renderStaffPortal();
@@ -3080,6 +3150,8 @@ export default function App() {
     );
   } else if (view === 'report') {
     mainContent = renderReportView();
+  } else if (view === 'guide') {
+    mainContent = renderGuideView();
   } else if (view === 'print') {
     mainContent = <PrintMonthlyView CALENDAR_DAYS={CALENDAR_DAYS} branchData={branchData} globalConfig={globalConfig} activeBranchId={activeBranchId} THAI_MONTHS={THAI_MONTHS} selectedMonth={selectedMonth} getStaffDayInfo={getStaffDayInfo} setView={setView} activeDept={activeDept} CURRENT_DUTY_LIST={CURRENT_DUTY_LIST} schedule={schedule} />;
   }
@@ -3154,6 +3226,7 @@ export default function App() {
                       <button onClick={() => setView('manager')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'manager' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>MANAGER</button>
                       <button onClick={() => setView('report')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'report' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>REPORT</button>
                       <button onClick={() => setView('admin')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'admin' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>ADMIN</button>
+                      <button onClick={() => setView('guide')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'guide' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>GUIDE</button>
                       {authRole === 'superadmin' && <button onClick={() => setView('branches')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'branches' ? 'bg-white text-emerald-600 shadow-sm border border-emerald-50' : 'text-slate-500'}`}>BRANCHES</button>}
                    </div>
                    <div className="hidden lg:flex flex-shrink-0 items-center gap-3 ml-2 pl-5 border-l border-slate-200">
