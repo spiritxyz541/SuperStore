@@ -3064,6 +3064,8 @@ export default function App() {
   }
 
   function renderGuideView() {
+    const guideSteps = globalConfig.guideSteps || DEFAULT_GUIDE_STEPS;
+
     return (
        <div className="flex-1 space-y-6 sm:space-y-8 animate-in fade-in duration-500 pb-24 w-full max-w-5xl mx-auto">
           {/* Site Map & Workflow Card */}
@@ -3124,83 +3126,69 @@ export default function App() {
           </div>
 
           <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm flex flex-col gap-6">
-             <div className="flex items-center gap-4 sm:gap-6 border-b border-slate-100 pb-6">
-                <div className="bg-indigo-100 p-4 rounded-[1.5rem]"><BookOpen className="w-8 h-8 text-indigo-600" /></div>
-                <div>
-                   <h2 className="text-2xl sm:text-3xl font-black text-slate-800 tracking-tighter uppercase">Manager Journey Guide</h2>
-                   <p className="text-slate-400 text-xs sm:text-sm font-bold mt-1">คู่มือสรุปขั้นตอนการทำงานสำหรับผู้จัดการสาขา</p>
+             <div className="flex items-center justify-between border-b border-slate-100 pb-6">
+                <div className="flex items-center gap-4 sm:gap-6">
+                   <div className="bg-indigo-100 p-4 rounded-[1.5rem]"><BookOpen className="w-8 h-8 text-indigo-600" /></div>
+                   <div>
+                      <h2 className="text-2xl sm:text-3xl font-black text-slate-800 tracking-tighter uppercase">Manager Journey Guide</h2>
+                      <p className="text-slate-400 text-xs sm:text-sm font-bold mt-1">คู่มือสรุปขั้นตอนการทำงานสำหรับผู้จัดการสาขา</p>
+                   </div>
                 </div>
+                {authRole === 'superadmin' && (
+                   <button 
+                      onClick={() => {
+                         if (isEditingGuide) { handleSaveGuide(); } 
+                         else { setEditGuideSteps(guideSteps); setIsEditingGuide(true); }
+                      }} 
+                      className={`px-4 py-2 sm:px-6 sm:py-3 rounded-xl sm:rounded-2xl font-black text-xs sm:text-sm flex items-center gap-2 transition shadow-sm ${isEditingGuide ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                   >
+                      {isEditingGuide ? <><Save className="w-4 h-4"/> บันทึกคู่มือ</> : <><Edit2 className="w-4 h-4"/> แก้ไขคู่มือ</>}
+                   </button>
+                )}
              </div>
 
              <div className="space-y-8 mt-2">
-                <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
-                   <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-emerald-500 text-white font-black text-lg sm:text-xl flex items-center justify-center flex-shrink-0 shadow-md">1</div>
-                   <div className="flex-1 w-full min-w-0">
-                      <h3 className="text-base sm:text-lg font-black text-slate-800 mb-2">รายเดือน: ADMIN (อัปเดตข้อมูลพนักงาน)</h3>
-                      <p className="text-xs sm:text-sm font-bold text-slate-600 leading-relaxed mb-3">
-                         เริ่มต้นการจัดกะรายเดือน ผู้จัดการมีหน้าที่อัปเดตข้อมูลรายชื่อและวันหยุดประจำสัปดาห์ให้เป็นปัจจุบันที่สุดในเมนู <strong className="text-slate-800">ADMIN</strong>:
-                      </p>
-                      <ul className="text-xs sm:text-sm font-bold text-slate-600 space-y-2 mb-4 list-disc list-inside">
-                         <li><strong className="text-indigo-600">เพิ่ม/ลดพนักงาน:</strong> เลื่อนไปที่ตารางจัดการพนักงาน กรอกรหัส ชื่อ แผนก ตำแหน่ง และวันหยุดประจำสัปดาห์ (ถ้ามี) แล้วกด <span className="bg-slate-900 text-white px-2 py-0.5 rounded text-[10px]">เพิ่มพนักงาน</span> หรือกดไอคอน <Trash2 className="w-3 h-3 inline text-red-500"/> ถังขยะเพื่อลบออก</li>
-                         <li><strong className="text-indigo-600">ดูโควตาวันหยุด:</strong> ระบบจะแสดงโควตาวันหยุด (จันทร์-อาทิตย์) ที่แอดมินส่วนกลางกำหนดไว้ในกล่องด้านบน หากวันไหนขึ้นตัวแดง (เต็ม) จะไม่สามารถให้พนักงานหยุดในวันนั้นเพิ่มได้</li>
-                         <li><strong className="text-indigo-600">จัดวันหยุดอัตโนมัติ:</strong> กดปุ่ม <span className="bg-indigo-600 text-white px-2 py-0.5 rounded text-[10px]"><Wand2 className="w-3 h-3 inline"/> จัดวันหยุด Auto</span> เพื่อให้ระบบสุ่มใส่วันหยุดประจำสัปดาห์ให้พนักงานที่ยังไม่ระบุวันหยุดให้ครบถ้วน (โดยอิงจากโควตาที่เหลือ)</li>
-                      </ul>
-                      <div className="border-2 border-slate-100 rounded-2xl overflow-hidden shadow-sm bg-slate-50 mt-2">
-                         <img src="https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=1200&q=80" alt="Mockup: Staff Management" className="w-full h-48 sm:h-72 object-cover object-center opacity-90 hover:opacity-100 transition-all duration-500 hover:scale-105" />
-                      </div>
-                   </div>
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
-                   <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-indigo-600 text-white font-black text-lg sm:text-xl flex items-center justify-center flex-shrink-0 shadow-md">2</div>
-                   <div className="flex-1 w-full min-w-0">
-                      <h3 className="text-base sm:text-lg font-black text-slate-800 mb-2">รายเดือน: MANAGER (ใส่วันหยุดชดเชย ลาพักร้อน & จัดกะ Auto)</h3>
-                      <p className="text-xs sm:text-sm font-bold text-slate-600 leading-relaxed mb-4">
-                         ไปที่เมนู <strong className="text-slate-800">MANAGER</strong> และเลือกมุมมอง <strong>จัดกะแบบรายเดือน</strong> เพื่อจัดการวันลาก่อนรันระบบ:
-                      </p>
-                      <ul className="text-xs sm:text-sm font-bold text-slate-600 space-y-2 mb-4 list-disc list-inside">
-                         <li><strong className="text-indigo-600">บันทึกวันลาหยุด:</strong> ใส่วันหยุดชดเชย (CO) หรือ ลาพักร้อน (AL) ล่วงหน้าในปฏิทินรายเดือนให้เรียบร้อย</li>
-                         <li><strong className="text-indigo-600">จัดกะอัตโนมัติ:</strong> กดปุ่ม <span className="bg-slate-900 text-white px-2 py-0.5 rounded text-[10px]"><Wand2 className="w-3 h-3 text-yellow-400 inline"/> จัดกะอัตโนมัติ (ทั้งเดือน)</span> เพื่อให้ AI นำข้อมูลทั้งหมดมาจ่ายงานเข้ากะรายวันให้ครบถ้วน</li>
-                      </ul>
-                      <div className="border-2 border-slate-100 rounded-2xl overflow-hidden shadow-sm bg-slate-50 mt-2">
-                         <img src="https://images.unsplash.com/photo-1506784365847-bbad939e9335?auto=format&fit=crop&w=1200&q=80" alt="Mockup: Auto Scheduling" className="w-full h-48 sm:h-72 object-cover object-center opacity-90 hover:opacity-100 transition-all duration-500 hover:scale-105" />
-                      </div>
-                   </div>
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
-                   <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-orange-500 text-white font-black text-lg sm:text-xl flex items-center justify-center flex-shrink-0 shadow-md">3</div>
-                   <div className="flex-1 w-full min-w-0">
-                      <h3 className="text-base sm:text-lg font-black text-slate-800 mb-2">รายเดือน: EUNITE (ทำข้อมูลบนระบบ Eunite)</h3>
-                      <p className="text-xs sm:text-sm font-bold text-slate-600 leading-relaxed mb-3">
-                         หลังจาก AI จัดตารางงานเรียบร้อยและผู้จัดการได้รีวิวข้อมูลครบถ้วนแล้ว:
-                      </p>
-                      <ul className="text-xs sm:text-sm font-bold text-slate-600 space-y-2 mb-4 list-disc list-inside">
-                         <li><strong className="text-orange-600">เชื่อมโยงระบบ:</strong> นำข้อมูลตารางการทำงานที่ได้ ไปดำเนินการทำข้อมูลต่อบน <strong>ระบบ Eunite</strong></li>
-                         <li><strong className="text-orange-600">ส่งออกข้อมูล:</strong> สามารถไปที่เมนู <strong>REPORT</strong> เพื่อกด Export CSV นำข้อมูลชั่วโมงทำงานและ OT ไปตรวจเช็คหรือใช้งานต่อได้</li>
-                      </ul>
-                      <div className="border-2 border-slate-100 rounded-2xl overflow-hidden shadow-sm bg-slate-50 mt-2">
-                         <img src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80" alt="Mockup: Eunite Integration" className="w-full h-48 sm:h-72 object-cover object-center opacity-90 hover:opacity-100 transition-all duration-500 hover:scale-105" />
-                      </div>
-                   </div>
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
-                   <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-sky-500 text-white font-black text-lg sm:text-xl flex items-center justify-center flex-shrink-0 shadow-md">4</div>
-                   <div className="flex-1 w-full min-w-0">
-                      <h3 className="text-base sm:text-lg font-black text-slate-800 mb-2">รายวัน: MANAGER (ใช้ บทบาทหน้าที่ประจำวัน)</h3>
-                      <p className="text-xs sm:text-sm font-bold text-slate-600 leading-relaxed mb-3">
-                         สำหรับการดำเนินงานหน้าสาขารายวัน จะใช้ตารางรายวันเพื่อจัดการหน้าร้าน (Operation):
-                      </p>
-                      <ul className="text-xs sm:text-sm font-bold text-slate-600 space-y-2 mb-4 list-disc list-inside">
-                         <li><strong className="text-sky-600">บทบาทหน้าที่ประจำวัน (Duty Roster Chart):</strong> กดเปลี่ยนมุมมองเพื่อดูตารางสรุปหน้าที่ของวันนี้ ว่าพนักงานแต่ละคนต้องทำงานหลัก/งานรองอะไร เข้ากะเวลาไหน และมีรอบพักเบรคช่วงไหนบ้าง</li>
-                         <li><strong className="text-sky-600">พิมพ์ตาราง (Print):</strong> กดสั่งพิมพ์ตารางนี้เพื่อนำไปแปะบอร์ดที่ร้านสำหรับบรีฟพนักงานก่อนเริ่มงานทุกวัน</li>
-                      </ul>
-                      <div className="border-2 border-slate-100 rounded-2xl overflow-hidden shadow-sm bg-slate-50 mt-2">
-                         <img src="https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?auto=format&fit=crop&w=1200&q=80" alt="Mockup: Daily Duty Roster" className="w-full h-48 sm:h-72 object-cover object-center opacity-90 hover:opacity-100 transition-all duration-500 hover:scale-105" />
-                      </div>
-                   </div>
-                </div>
+                {isEditingGuide ? (
+                   editGuideSteps.map((step, idx) => (
+                       <div key={step.id} className="bg-slate-50 p-6 rounded-2xl border border-slate-200 space-y-4">
+                           <div className="flex items-center gap-4">
+                              <div className={`w-10 h-10 rounded-xl text-white font-black flex items-center justify-center flex-shrink-0 ${step.color}`}>{step.stepNum}</div>
+                              <input type="text" value={step.title} onChange={e => {
+                                  const n = [...editGuideSteps]; n[idx].title = e.target.value; setEditGuideSteps(n);
+                              }} className="flex-1 border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:border-indigo-500" placeholder="หัวข้อ..." />
+                           </div>
+                           <div className="flex flex-col shadow-sm rounded-xl">
+                               {renderRichTextToolbar(`guide-editor-${step.id}`, step.content, (val) => {
+                                   const n = [...editGuideSteps]; n[idx].content = val; setEditGuideSteps(n);
+                               })}
+                               <textarea id={`guide-editor-${step.id}`} value={step.content} onChange={e => {
+                                   const n = [...editGuideSteps]; n[idx].content = e.target.value; setEditGuideSteps(n);
+                               }} rows={5} className="w-full border border-slate-200 border-t-0 rounded-b-xl px-4 py-3 text-xs font-medium outline-none focus:border-indigo-500 resize-y" placeholder="รายละเอียด... (รองรับ HTML)"></textarea>
+                           </div>
+                           <div>
+                               <span className="text-[10px] font-black text-slate-500 uppercase block mb-1">URL รูปภาพอ้างอิง:</span>
+                               <input type="text" value={step.image} onChange={e => {
+                                  const n = [...editGuideSteps]; n[idx].image = e.target.value; setEditGuideSteps(n);
+                              }} className="w-full border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold outline-none focus:border-indigo-500" placeholder="https://..." />
+                           </div>
+                       </div>
+                   ))
+                ) : (
+                   guideSteps.map((step) => (
+                       <div key={step.id} className="flex flex-col sm:flex-row gap-4 sm:gap-6">
+                          <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-2xl text-white font-black text-lg sm:text-xl flex items-center justify-center flex-shrink-0 shadow-md ${step.color}`}>{step.stepNum}</div>
+                          <div className="flex-1 w-full min-w-0">
+                             <h3 className="text-base sm:text-lg font-black text-slate-800 mb-2">{step.title}</h3>
+                             <div className="text-xs sm:text-sm font-medium text-slate-600 leading-relaxed mb-4 whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: step.content }}></div>
+                             {step.image && (
+                                <div className="border-2 border-slate-100 rounded-2xl overflow-hidden shadow-sm bg-slate-50 mt-2">
+                                   <img src={step.image} alt={step.title} className="w-full h-48 sm:h-72 object-cover object-center opacity-90 hover:opacity-100 transition-all duration-500 hover:scale-105" />
+                                </div>
+                             )}
+                          </div>
+                       </div>
+                   ))
+                )}
              </div>
           </div>
        </div>
