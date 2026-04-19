@@ -2646,7 +2646,10 @@ export default function App() {
                     <input type="text" placeholder="ชื่อ Content (สำหรับดูหลังบ้าน)" value={newAnnTitle} onChange={e=>setNewAnnTitle(e.target.value)} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500"/>
                     <div className="flex flex-col shadow-sm rounded-xl">
                         {renderRichTextToolbar('branch-ann-editor', newAnnContent, setNewAnnContent)}
-                        <textarea id="branch-ann-editor" placeholder="พิมพ์เนื้อหารายละเอียดที่นี่... (รองรับ HTML หรือกดปุ่มด้านบน)" value={newAnnContent} onChange={e=>setNewAnnContent(e.target.value)} rows={8} className="w-full border border-slate-200 border-t-0 rounded-b-xl px-3 py-2 text-xs font-medium outline-none focus:border-indigo-500 resize-y"></textarea>
+                        <div className="flex flex-col md:flex-row border border-slate-200 border-t-0 rounded-b-xl overflow-hidden min-h-[150px]">
+                           <textarea id="branch-ann-editor" placeholder="พิมพ์เนื้อหารายละเอียดที่นี่... (รองรับ HTML หรือกดปุ่มด้านบน)" value={newAnnContent} onChange={e=>setNewAnnContent(e.target.value)} className="w-full md:w-1/2 p-3 text-xs font-medium outline-none focus:border-indigo-500 resize-y border-b md:border-b-0 md:border-r border-slate-200 min-h-[150px]"></textarea>
+                           <div className="w-full md:w-1/2 p-3 bg-slate-50 text-xs text-slate-600 overflow-y-auto whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: newAnnContent || '<span class="text-slate-400 italic font-bold">แสดงผลตัวอย่าง (Preview)...</span>' }}></div>
+                        </div>
                     </div>
                     <div className="flex gap-2">
                         <div className="flex-1">
@@ -3473,9 +3476,10 @@ export default function App() {
                                    {renderRichTextToolbar(`guide-editor-${step.id}`, step.content, (val) => {
                                        const n = [...editGuideSteps]; n[idx].content = val; setEditGuideSteps(n);
                                    })}
-                                   <textarea id={`guide-editor-${step.id}`} value={step.content} onChange={e => {
-                                       const n = [...editGuideSteps]; n[idx].content = e.target.value; setEditGuideSteps(n);
-                                   }} rows={5} className="w-full border border-slate-200 border-t-0 rounded-b-xl px-4 py-3 text-xs font-medium outline-none focus:border-indigo-500 resize-y" placeholder="รายละเอียด... (รองรับ HTML)"></textarea>
+                                   <div className="flex flex-col md:flex-row border border-slate-200 border-t-0 rounded-b-xl overflow-hidden min-h-[150px]">
+                                       <textarea id={`guide-editor-${step.id}`} value={step.content} onChange={e => { const n = [...editGuideSteps]; n[idx].content = e.target.value; setEditGuideSteps(n); }} className="w-full md:w-1/2 p-4 text-xs font-medium outline-none focus:border-indigo-500 resize-y border-b md:border-b-0 md:border-r border-slate-200 min-h-[150px]" placeholder="รายละเอียด... (รองรับ HTML)"></textarea>
+                                       <div className="w-full md:w-1/2 p-4 bg-slate-50 text-xs text-slate-600 overflow-y-auto whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: step.content || '<span class="text-slate-400 italic font-bold">แสดงผลตัวอย่าง (Preview)...</span>' }}></div>
+                                   </div>
                                </div>
                                <div>
                                    <span className="text-[10px] font-black text-slate-500 uppercase block mb-1">URL รูปภาพอ้างอิง:</span>
