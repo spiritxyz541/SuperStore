@@ -1019,6 +1019,48 @@ export default function App() {
       if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd);
   };
 
+  const handleFormatContent = (tagStart, tagEnd, editorId) => {
+      const textarea = document.getElementById(editorId);
+      if (!textarea) return;
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const text = newAnnContent;
+      const before = text.substring(0, start);
+      const selected = text.substring(start, end);
+      const after = text.substring(end, text.length);
+      
+      setNewAnnContent(before + tagStart + selected + tagEnd + after);
+      
+      setTimeout(() => {
+          textarea.focus();
+          textarea.setSelectionRange(start + tagStart.length, end + tagStart.length);
+      }, 0);
+  };
+
+  const renderRichTextToolbar = (editorId) => (
+      <div className="flex flex-wrap gap-1 bg-slate-100 p-2 rounded-t-xl border border-slate-200 border-b-0 items-center">
+          <button type="button" onClick={() => handleFormatContent('<b>', '</b>', editorId)} className="p-1.5 text-slate-700 hover:bg-white hover:shadow-sm rounded transition" title="ตัวหนา"><Bold className="w-4 h-4"/></button>
+          <button type="button" onClick={() => handleFormatContent('<i>', '</i>', editorId)} className="p-1.5 text-slate-700 hover:bg-white hover:shadow-sm rounded transition" title="ตัวเอียง"><Italic className="w-4 h-4"/></button>
+          <button type="button" onClick={() => handleFormatContent('<u>', '</u>', editorId)} className="p-1.5 text-slate-700 hover:bg-white hover:shadow-sm rounded transition" title="ขีดเส้นใต้"><Underline className="w-4 h-4"/></button>
+          <div className="w-px h-5 bg-slate-300 mx-1"></div>
+          <button type="button" onClick={() => handleFormatContent('<span style="color: #ef4444;">', '</span>', editorId)} className="w-5 h-5 rounded-md bg-red-500 hover:scale-110 transition shadow-sm" title="สีแดง"></button>
+          <button type="button" onClick={() => handleFormatContent('<span style="color: #f59e0b;">', '</span>', editorId)} className="w-5 h-5 rounded-md bg-amber-500 hover:scale-110 transition shadow-sm" title="สีส้ม"></button>
+          <button type="button" onClick={() => handleFormatContent('<span style="color: #10b981;">', '</span>', editorId)} className="w-5 h-5 rounded-md bg-emerald-500 hover:scale-110 transition shadow-sm" title="สีเขียว"></button>
+          <button type="button" onClick={() => handleFormatContent('<span style="color: #3b82f6;">', '</span>', editorId)} className="w-5 h-5 rounded-md bg-blue-500 hover:scale-110 transition shadow-sm" title="สีน้ำเงิน"></button>
+          <button type="button" onClick={() => handleFormatContent('<span style="color: #8b5cf6;">', '</span>', editorId)} className="w-5 h-5 rounded-md bg-indigo-500 hover:scale-110 transition shadow-sm" title="สีม่วง"></button>
+          <div className="w-px h-5 bg-slate-300 mx-1"></div>
+          <button type="button" onClick={() => handleFormatContent('<span style="font-size: 24px; font-weight: 900;">', '</span>', editorId)} className="px-2 py-1 text-slate-700 hover:bg-white hover:shadow-sm rounded text-[11px] font-black transition" title="หัวข้อใหญ่">H1</button>
+          <button type="button" onClick={() => handleFormatContent('<span style="font-size: 20px; font-weight: 800;">', '</span>', editorId)} className="px-2 py-1 text-slate-700 hover:bg-white hover:shadow-sm rounded text-[11px] font-bold transition" title="หัวข้อกลาง">H2</button>
+          <div className="w-px h-5 bg-slate-300 mx-1"></div>
+          <button type="button" onClick={() => {
+              const url = window.prompt('ใส่ URL ที่ต้องการลิงก์ไป (เช่น https://google.com):');
+              if (url) handleFormatContent(`<a href="${url}" target="_blank" class="text-blue-600 underline hover:text-blue-800">`, '</a>', editorId);
+          }} className="p-1.5 text-slate-700 hover:bg-white hover:shadow-sm rounded transition" title="แทรกลิงก์"><LinkIcon className="w-4 h-4"/></button>
+          <div className="w-px h-5 bg-slate-300 mx-1"></div>
+          <button type="button" onClick={() => handleFormatContent('<br>', '', editorId)} className="px-2 py-1 text-slate-700 hover:bg-white hover:shadow-sm rounded text-[10px] font-bold transition" title="ขึ้นบรรทัดใหม่">↵ ปัดบรรทัด</button>
+      </div>
+  );
+
   const handleSaveTemplate = async () => {
     if (!templateName.trim()) { setConfirmModal({ message: "กรุณาตั้งชื่อแม่แบบ (Template Name) ก่อนบันทึก" }); return; }
     const newTemplate = { 
@@ -2357,7 +2399,10 @@ export default function App() {
                 <div className="flex-1 bg-slate-50 p-5 rounded-2xl border border-slate-200 h-fit space-y-4">
                     <h3 className="font-black text-slate-700 text-sm flex items-center gap-2"><Plus className="w-4 h-4 text-emerald-500"/> เพิ่มหน้าประกาศใหม่</h3>
                     <input type="text" placeholder="ชื่อ Content (สำหรับดูหลังบ้าน)" value={newAnnTitle} onChange={e=>setNewAnnTitle(e.target.value)} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500"/>
-                    <textarea placeholder="เนื้อหารายละเอียด..." value={newAnnContent} onChange={e=>setNewAnnContent(e.target.value)} rows={3} className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500 resize-none"></textarea>
+                    <div className="flex flex-col shadow-sm rounded-xl">
+                        {renderRichTextToolbar('branch-ann-editor')}
+                        <textarea id="branch-ann-editor" placeholder="พิมพ์เนื้อหารายละเอียดที่นี่... (รองรับ HTML หรือกดปุ่มด้านบน)" value={newAnnContent} onChange={e=>setNewAnnContent(e.target.value)} rows={8} className="w-full border border-slate-200 border-t-0 rounded-b-xl px-3 py-2 text-xs font-medium outline-none focus:border-indigo-500 resize-y"></textarea>
+                    </div>
                     <div className="flex gap-2">
                         <div className="flex-1">
                             <span className="text-[9px] font-black text-slate-500 uppercase ml-1 mb-1 block">เริ่มแสดง (Start)</span>
