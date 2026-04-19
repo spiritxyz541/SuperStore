@@ -831,35 +831,46 @@ export default function App() {
       }
   };
 
-  // === AUTO BACKUP SYSTEM ===
+  // === GLOBAL AUTO BACKUP SYSTEM (แบคอัปทุกสาขา) ===
   useEffect(() => {
-      if (!activeBranchId || authRole === 'guest') return;
-      if (!branchData || !branchData.duties || !schedule) return;
+      if (!user || !globalConfig || !globalConfig.branches || globalConfig.branches.length === 0) return;
 
-      const checkAndBackup = async () => {
+      const checkAndBackupAll = async () => {
           const now = new Date();
           if (now.getHours() >= 9) {
               const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
               const dayOfMonth = now.getDate(); // 1-31 (ใช้สำหรับเวียนทับทุก 30/31 วัน)
               
-              if (branchData.lastBackupDate !== todayStr) {
+              if (globalConfig.lastGlobalBackupDate !== todayStr) {
                   try {
-                      const backupRef = doc(db, 'artifacts', appId, 'public', 'data', 'backups', `${activeBranchId}_day_${dayOfMonth}`);
-                      await setDoc(backupRef, { backupDate: todayStr, timestamp: Date.now(), branchData: branchData, schedule: schedule });
-                      const branchRef = doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId);
-                      await setDoc(branchRef, { lastBackupDate: todayStr }, { merge: true });
-                      console.log(`Auto Backup completed for ${activeBranchId} on ${todayStr} (Slot: day_${dayOfMonth})`);
+                      console.log("Starting Global Auto Backup for all branches...");
+                      
+                      for (const b of globalConfig.branches) {
+                          const branchRef = doc(db, 'artifacts', appId, 'public', 'data', 'branches', b.id);
+                          const schedRef = doc(db, 'artifacts', appId, 'public', 'data', 'schedules', b.id);
+                          const [bSnap, sSnap] = await Promise.all([getDoc(branchRef), getDoc(schedRef)]);
+                          
+                          if (bSnap.exists() && sSnap.exists()) {
+                              const backupRef = doc(db, 'artifacts', appId, 'public', 'data', 'backups', `${b.id}_day_${dayOfMonth}`);
+                              await setDoc(backupRef, { backupDate: todayStr, timestamp: Date.now(), branchData: bSnap.data(), schedule: sSnap.data().records || {} });
+                          }
+                      }
+                      
+                      const newConfig = { ...globalConfig, lastGlobalBackupDate: todayStr };
+                      setGlobalConfig(newConfig);
+                      await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'master'), { lastGlobalBackupDate: todayStr }, { merge: true });
+                      console.log(`Global Auto Backup completed on ${todayStr} (Slot: day_${dayOfMonth})`);
                   } catch (e) {
-                      console.error("Auto backup failed:", e);
+                      console.error("Global Auto backup failed:", e);
                   }
               }
           }
       };
       
-      checkAndBackup();
-      const intervalId = setInterval(checkAndBackup, 60000); // Check every minute
+      checkAndBackupAll();
+      const intervalId = setInterval(checkAndBackupAll, 60000); // Check every minute
       return () => clearInterval(intervalId);
-  }, [activeBranchId, authRole, branchData, schedule]);
+  }, [user, globalConfig.lastGlobalBackupDate, globalConfig.branches]);
 
   const autoSaveSchedule = useCallback(async (scheduleData) => {
     const dataToSave = scheduleData || scheduleRef.current;
