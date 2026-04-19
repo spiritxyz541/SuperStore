@@ -415,9 +415,6 @@ export default function App() {
   const [confirmModal, setConfirmModal] = useState(null);
   const [showRequestsModal, setShowRequestsModal] = useState(false);
   
-  const [loginMode, setLoginMode] = useState('manager'); 
-  const [staffLoginBranch, setStaffLoginBranch] = useState('');
-  const [staffLoginInput, setStaffLoginInput] = useState('');
   const [userInput, setUserInput] = useState('');
   const [passInput, setPassInput] = useState('');
   const [loginError, setLoginError] = useState('');
@@ -475,11 +472,6 @@ export default function App() {
   const [aiMessage, setAiMessage] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
 
-  const [essTabMode, setEssTabMode] = useState('leave'); 
-  const [swapDateMy, setSwapDateMy] = useState('');
-  const [swapDatePeer, setSwapDatePeer] = useState('');
-  const [swapPeerId, setSwapPeerId] = useState('');
-  
   const dateBarRef = useRef(null);
   const selectedYear = 2026;
   const autoAssignedDates = useRef(new Set()); 
@@ -827,21 +819,46 @@ export default function App() {
     setLoginError('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
   };
 
-  const handleStaffLogin = async (e) => {
-    e.preventDefault();
-    setLoginError('');
-    if (!staffLoginBranch || !staffLoginInput.trim()) { setLoginError('กรุณาเลือกร้านและกรอกรหัสพนักงานให้ครบถ้วน'); return; }
-    try {
-        const branchSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', staffLoginBranch));
-        if (branchSnap.exists()) {
-            const bData = branchSnap.data();
-            const staffMatch = bData.staff?.find(s => s.empId === staffLoginInput.trim() || s.name === staffLoginInput.trim());
-            if (staffMatch) {
-                setAuthRole('staff'); setActiveBranchId(staffLoginBranch); setStaffFilterPos(staffMatch.id); setView('manager'); setHasSeenLanding(false);
-            } else { setLoginError('ไม่พบข้อมูลพนักงานในสาขานี้'); }
-        } else { setLoginError('ไม่พบข้อมูลสาขา'); }
-    } catch (err) { setLoginError('เกิดข้อผิดพลาดในการเชื่อมต่อ'); }
+  const handleOpenInspector = () => {
+      const pwd = window.prompt("กรุณาใส่รหัสผ่าน Admin เพื่อเข้าสู่ Data Inspector:");
+      if (!pwd) return;
+      const isAdmin = globalConfig.admins?.some(a => a.pass === pwd);
+      if (isAdmin || pwd === "superstore") {
+          setShowDataInspector(true);
+      } else {
+          window.alert("Access Denied: รหัสผ่านไม่ถูกต้อง");
+      }
   };
+
+  // === AUTO BACKUP SYSTEM ===
+  useEffect(() => {
+      if (!activeBranchId || authRole === 'guest') return;
+      if (!branchData || !branchData.duties || !schedule) return;
+
+      const checkAndBackup = async () => {
+          const now = new Date();
+          if (now.getHours() >= 9) {
+              const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+              const dayOfMonth = now.getDate(); // 1-31 (ใช้สำหรับเวียนทับทุก 30/31 วัน)
+              
+              if (branchData.lastBackupDate !== todayStr) {
+                  try {
+                      const backupRef = doc(db, 'artifacts', appId, 'public', 'data', 'backups', `${activeBranchId}_day_${dayOfMonth}`);
+                      await setDoc(backupRef, { backupDate: todayStr, timestamp: Date.now(), branchData: branchData, schedule: schedule });
+                      const branchRef = doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId);
+                      await setDoc(branchRef, { lastBackupDate: todayStr }, { merge: true });
+                      console.log(`Auto Backup completed for ${activeBranchId} on ${todayStr} (Slot: day_${dayOfMonth})`);
+                  } catch (e) {
+                      console.error("Auto backup failed:", e);
+                  }
+              }
+          }
+      };
+      
+      checkAndBackup();
+      const intervalId = setInterval(checkAndBackup, 60000); // Check every minute
+      return () => clearInterval(intervalId);
+  }, [activeBranchId, authRole, branchData, schedule]);
 
   const autoSaveSchedule = useCallback(async (scheduleData) => {
     const dataToSave = scheduleData || scheduleRef.current;
