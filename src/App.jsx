@@ -4,7 +4,7 @@ import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken }
 import { getFirestore, doc, setDoc, onSnapshot, collection, getDoc } from 'firebase/firestore';
 import { 
   Users, AlertCircle, Clock, Save, Plus, Trash2, LayoutDashboard, Printer, ChevronLeft, ChevronRight, 
-  Coffee, BarChart3, TrendingUp, Award, PlaneTakeoff, Loader2, Store, ArrowLeftRight, Sparkles, Wand2, 
+  Coffee, BarChart3, TrendingUp, Award, PlaneTakeoff, Loader2, Store, ArrowLeftRight, Sparkles, Wand2, Bold, Italic, Underline, Link as LinkIcon,
   Eraser, Filter, ChevronDown, Download, MessageCircle, Bell, UserCircle, SaveAll, FolderOpen, CheckCircle2, Edit2, X, Check, List, TableProperties, GripVertical, LogIn, ShieldCheck, Megaphone,
   UtensilsCrossed, ConciergeBell, UserPlus, ArrowUpRight, ArrowDownRight, CalendarDays as CalendarDaysIcon, Calendar as CalendarIcon
 } from 'lucide-react';
@@ -1550,48 +1550,6 @@ export default function App() {
       dateBarRef.current.scrollBy({ left: amt, behavior: 'smooth' });
     }
   };
-
-  const handleFormatContent = (tagStart, tagEnd, editorId) => {
-      const textarea = document.getElementById(editorId);
-      if (!textarea) return;
-      const start = textarea.selectionStart;
-      const end = textarea.selectionEnd;
-      const text = newAnnContent;
-      const before = text.substring(0, start);
-      const selected = text.substring(start, end);
-      const after = text.substring(end, text.length);
-      
-      setNewAnnContent(before + tagStart + selected + tagEnd + after);
-      
-      setTimeout(() => {
-          textarea.focus();
-          textarea.setSelectionRange(start + tagStart.length, end + tagStart.length);
-      }, 0);
-  };
-
-  const renderRichTextToolbar = (editorId) => (
-      <div className="flex flex-wrap gap-1 bg-slate-100 p-2 rounded-t-xl border border-slate-200 border-b-0 items-center">
-          <button type="button" onClick={() => handleFormatContent('<b>', '</b>', editorId)} className="p-1.5 text-slate-700 hover:bg-white hover:shadow-sm rounded transition" title="ตัวหนา"><Bold className="w-4 h-4"/></button>
-          <button type="button" onClick={() => handleFormatContent('<i>', '</i>', editorId)} className="p-1.5 text-slate-700 hover:bg-white hover:shadow-sm rounded transition" title="ตัวเอียง"><Italic className="w-4 h-4"/></button>
-          <button type="button" onClick={() => handleFormatContent('<u>', '</u>', editorId)} className="p-1.5 text-slate-700 hover:bg-white hover:shadow-sm rounded transition" title="ขีดเส้นใต้"><Underline className="w-4 h-4"/></button>
-          <div className="w-px h-5 bg-slate-300 mx-1"></div>
-          <button type="button" onClick={() => handleFormatContent('<span style="color: #ef4444;">', '</span>', editorId)} className="w-5 h-5 rounded-md bg-red-500 hover:scale-110 transition shadow-sm" title="สีแดง"></button>
-          <button type="button" onClick={() => handleFormatContent('<span style="color: #f59e0b;">', '</span>', editorId)} className="w-5 h-5 rounded-md bg-amber-500 hover:scale-110 transition shadow-sm" title="สีส้ม"></button>
-          <button type="button" onClick={() => handleFormatContent('<span style="color: #10b981;">', '</span>', editorId)} className="w-5 h-5 rounded-md bg-emerald-500 hover:scale-110 transition shadow-sm" title="สีเขียว"></button>
-          <button type="button" onClick={() => handleFormatContent('<span style="color: #3b82f6;">', '</span>', editorId)} className="w-5 h-5 rounded-md bg-blue-500 hover:scale-110 transition shadow-sm" title="สีน้ำเงิน"></button>
-          <button type="button" onClick={() => handleFormatContent('<span style="color: #8b5cf6;">', '</span>', editorId)} className="w-5 h-5 rounded-md bg-indigo-500 hover:scale-110 transition shadow-sm" title="สีม่วง"></button>
-          <div className="w-px h-5 bg-slate-300 mx-1"></div>
-          <button type="button" onClick={() => handleFormatContent('<span style="font-size: 24px; font-weight: 900;">', '</span>', editorId)} className="px-2 py-1 text-slate-700 hover:bg-white hover:shadow-sm rounded text-[11px] font-black transition" title="หัวข้อใหญ่">H1</button>
-          <button type="button" onClick={() => handleFormatContent('<span style="font-size: 20px; font-weight: 800;">', '</span>', editorId)} className="px-2 py-1 text-slate-700 hover:bg-white hover:shadow-sm rounded text-[11px] font-bold transition" title="หัวข้อกลาง">H2</button>
-          <div className="w-px h-5 bg-slate-300 mx-1"></div>
-          <button type="button" onClick={() => {
-              const url = prompt('ใส่ URL ที่ต้องการลิงก์ไป (เช่น https://google.com):');
-              if (url) handleFormatContent(`<a href="${url}" target="_blank" class="text-blue-600 underline hover:text-blue-800">`, '</a>', editorId);
-          }} className="p-1.5 text-slate-700 hover:bg-white hover:shadow-sm rounded transition" title="แทรกลิงก์"><LinkIcon className="w-4 h-4"/></button>
-          <div className="w-px h-5 bg-slate-300 mx-1"></div>
-          <button type="button" onClick={() => handleFormatContent('<br>', '', editorId)} className="px-2 py-1 text-slate-700 hover:bg-white hover:shadow-sm rounded text-[10px] font-bold transition" title="ขึ้นบรรทัดใหม่">↵ ปัดบรรทัด</button>
-      </div>
-  );
 
   // === RENDER DECLARATION HELPER COMPONENTS ===
 
