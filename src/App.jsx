@@ -3595,7 +3595,7 @@ export default function App() {
                       <div className="hidden sm:flex items-center bg-slate-100 rounded-xl p-1 ml-2 sm:ml-6 border border-slate-200 shadow-inner">
                          <ArrowLeftRight className="w-3 h-3 sm:w-4 sm:h-4 text-slate-400 mx-2 sm:mx-3" />
                          <select value={activeBranchId || ''} onChange={(e) => setActiveBranchId(e.target.value)} className="bg-transparent text-[9px] sm:text-[11px] font-black outline-none py-1 sm:py-2 pr-2 sm:pr-4 text-indigo-600 cursor-pointer uppercase max-w-[120px] sm:max-w-none">
-                         <option value="">-- SELECT BRANCH --</option>{globalConfig.branches?.map(b => <option key={b.id} value={b.id}>{b.name.substring(0,15).toUpperCase()}</option>)}
+                              <option value="">-- SELECT BRANCH --</option>{globalConfig.branches?.map(b => <option key={b.id} value={b.id}>{b.name.substring(0,40).toUpperCase()}</option>)}
                          </select>
                       </div>
                    )}
