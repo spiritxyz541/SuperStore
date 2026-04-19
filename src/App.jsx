@@ -3078,19 +3078,20 @@ export default function App() {
 
              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="bg-white/5 p-5 rounded-2xl border border-white/10">
-                   <h3 className="font-black text-emerald-400 mb-3 flex items-center gap-2"><Users className="w-4 h-4"/> 1. ADMIN (จัดการข้อมูล)</h3>
+                   <h3 className="font-black text-emerald-400 mb-3 flex items-center gap-2"><Users className="w-4 h-4"/> 1. ADMIN (จัดการพนักงาน)</h3>
                    <ul className="text-xs font-bold text-slate-300 space-y-2 list-disc list-inside">
                       <li>เพิ่ม/ลบ/แก้ไขพนักงาน</li>
-                      <li>กำหนดโควตาวันหยุด</li>
-                      <li>ตั้งค่าหน้าที่งาน (Duties)</li>
+                      <li>กำหนดวันหยุดประจำสัปดาห์</li>
                    </ul>
                 </div>
                 <div className="bg-white/5 p-5 rounded-2xl border border-white/10">
-                   <h3 className="font-black text-indigo-400 mb-3 flex items-center gap-2"><CalendarDaysIcon className="w-4 h-4"/> 2. MANAGER (จัดกะงาน)</h3>
+                   <h3 className="font-black text-indigo-400 mb-3 flex items-center gap-2"><CalendarDaysIcon className="w-4 h-4"/> 2. MANAGER (จัดแผนงาน)</h3>
                    <ul className="text-xs font-bold text-slate-300 space-y-2 list-disc list-inside">
+                      <li>จัดแผนงานประจำเดือน</li>
                       <li>จัดกะรายเดือนอัตโนมัติ (AI)</li>
-                      <li>ตรวจสอบและแก้ไขกะรายวัน</li>
-                      <li>จัดการวันลา / พิมพ์ตาราง (Print)</li>
+                      <li>จัดกะรายวันอัตโนมัติ (AI)</li>
+                      <li>จัดการวันลา</li>
+                      <li>พิมพ์ตาราง (Print)</li>
                    </ul>
                 </div>
                 <div className="bg-white/5 p-5 rounded-2xl border border-white/10">
