@@ -483,6 +483,7 @@ export default function App() {
   const [inspectorBranchId, setInspectorBranchId] = useState(null);
   const [inspectedData, setInspectedData] = useState({ branch: null, schedule: null, loading: false, error: null });
   const [inspectorTab, setInspectorTab] = useState('staff');
+  const [inspectorBackups, setInspectorBackups] = useState([]);
 
   const CURRENT_DUTY_LIST = useMemo(() => {
     let list = branchData.duties && branchData.duties[activeDept] ? branchData.duties[activeDept] : (activeDept === 'service' ? DEFAULT_SERVICE_DUTIES : DEFAULT_KITCHEN_DUTIES);
@@ -1642,6 +1643,7 @@ export default function App() {
 
   const handleInspectBranch = async (branchId) => {
     setInspectorBranchId(branchId);
+    setInspectorBackups([]);
     if (!branchId) {
         setInspectedData({ branch: null, schedule: null, loading: false, error: null });
         return;
@@ -1700,6 +1702,34 @@ export default function App() {
     } catch (e) { setConfirmModal({ message: `Error clearing schedule data: ${e.message}` }); }
   };
 
+  const loadBackups = async (branchId) => {
+      if (!branchId) return;
+      setInspectedData(prev => ({ ...prev, loadingBackups: true }));
+      try {
+          const promises = [];
+          for(let i=1; i<=31; i++) {
+              promises.push(getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'backups', `${branchId}_day_${i}`)));
+          }
+          const snaps = await Promise.all(promises);
+          const backups = snaps.filter(s => s.exists()).map(s => ({ id: s.id, ...s.data() })).sort((a,b) => b.timestamp - a.timestamp);
+          setInspectorBackups(backups);
+      } catch (e) {
+          console.error("Error loading backups", e);
+      } finally {
+          setInspectedData(prev => ({ ...prev, loadingBackups: false }));
+      }
+  };
+
+  const handleRestoreBackup = async (backup) => {
+      if(!backup || !backup.branchData || !backup.schedule) return;
+      try {
+          await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', inspectorBranchId), backup.branchData);
+          await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'schedules', inspectorBranchId), { records: backup.schedule });
+          setConfirmModal({ message: `กู้คืนข้อมูลของวันที่ ${backup.backupDate} สำเร็จแล้ว!` });
+          handleInspectBranch(inspectorBranchId);
+      } catch(e) { setConfirmModal({ message: `การกู้คืนล้มเหลว: ${e.message}` }); }
+  };
+
   const scrollDates = (dir) => {
     if (dateBarRef.current) {
       const amt = dir === 'left' ? -350 : 350;
@@ -1710,7 +1740,7 @@ export default function App() {
   // === RENDER DECLARATION HELPER COMPONENTS ===
 
   function renderDataInspectorModal() {
-    const activeTabs = inspectorBranchId === 'GLOBAL' ? ['guides', 'templates', 'raw_global'] : ['staff', 'duties', 'holidays', 'announcements', 'schedule', 'raw'];
+    const activeTabs = inspectorBranchId === 'GLOBAL' ? ['guides', 'templates', 'raw_global'] : ['staff', 'duties', 'holidays', 'announcements', 'schedule', 'backups', 'raw'];
 
     return (
         <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/70 backdrop-blur-md p-4 animate-in fade-in duration-300 font-sans">
@@ -1736,7 +1766,10 @@ export default function App() {
                 {inspectorBranchId && (
                 <div className="flex gap-2 border-b border-slate-700 pb-2 overflow-x-auto custom-scrollbar flex-shrink-0">
                     {activeTabs.map(tab => (
-                        <button key={tab} onClick={() => setInspectorTab(tab)} className={`px-4 py-2 rounded-lg text-xs font-bold uppercase transition whitespace-nowrap ${inspectorTab === tab ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-slate-400 hover:bg-slate-600'}`}>
+                        <button key={tab} onClick={() => { 
+                            setInspectorTab(tab); 
+                            if (tab === 'backups' && inspectorBackups.length === 0) loadBackups(inspectorBranchId);
+                        }} className={`px-4 py-2 rounded-lg text-xs font-bold uppercase transition whitespace-nowrap ${inspectorTab === tab ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-slate-400 hover:bg-slate-600'}`}>
                             {tab.replace('_', ' ')}
                         </button>
                     ))}
@@ -1904,6 +1937,39 @@ export default function App() {
                                       )) : <tr><td colSpan="5" className="p-4 text-center text-slate-500">No announcements data</td></tr>}
                                    </tbody>
                                 </table>
+                            )}
+                            {inspectorTab === 'backups' && (
+                                <div className="p-4 h-full flex flex-col">
+                                   <div className="flex justify-between items-center mb-4">
+                                      <h4 className="font-black text-amber-400 uppercase tracking-widest text-xs">Available Backups (Last 31 Days)</h4>
+                                      <button onClick={() => loadBackups(inspectorBranchId)} className="bg-slate-700 text-white px-3 py-1.5 rounded-lg text-[10px] font-bold hover:bg-slate-600 transition">🔄 Refresh List</button>
+                                   </div>
+                                   <div className="flex-1 overflow-y-auto custom-scrollbar bg-black/20 rounded-xl border border-slate-700">
+                                       {inspectedData.loadingBackups ? (
+                                           <div className="flex justify-center items-center h-32 text-slate-400"><Loader2 className="w-8 h-8 animate-spin"/></div>
+                                       ) : inspectorBackups.length === 0 ? (
+                                           <div className="text-center p-8 text-slate-500 font-bold text-xs uppercase">No backups found for this branch.</div>
+                                       ) : (
+                                           <table className="w-full text-left text-xs border-collapse">
+                                              <thead className="sticky top-0 bg-slate-800 shadow-md">
+                                                 <tr><th className="p-3 border-b border-slate-600">Backup Date</th><th className="p-3 border-b border-slate-600">Timestamp</th><th className="p-3 border-b border-slate-600">Size (Approx)</th><th className="p-3 border-b border-slate-600 text-right">Actions</th></tr>
+                                              </thead>
+                                              <tbody>
+                                                 {inspectorBackups.map(b => (
+                                                     <tr key={b.id} className="hover:bg-slate-800/50 transition-colors">
+                                                         <td className="p-3 border-b border-slate-700/50 font-black text-amber-300">{b.backupDate}</td>
+                                                         <td className="p-3 border-b border-slate-700/50 text-slate-400">{new Date(b.timestamp).toLocaleString('th-TH')}</td>
+                                                         <td className="p-3 border-b border-slate-700/50 text-slate-500 font-bold">{Object.keys(b.schedule || {}).length} Schedule Days, {b.branchData?.staff?.length || 0} Staff</td>
+                                                         <td className="p-3 border-b border-slate-700/50 text-right">
+                                                             <button onClick={() => setConfirmModal({ message: `คุณต้องการ RESTORE ข้อมูลกลับไปยังวันที่ ${b.backupDate} ใช่หรือไม่?\n\nคำเตือน: ข้อมูลปัจจุบันจะถูกเขียนทับทั้งหมด!`, action: () => handleRestoreBackup(b) })} className="bg-red-600 hover:bg-red-500 text-white px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-colors shadow-lg">Restore Data</button>
+                                                         </td>
+                                                     </tr>
+                                                 ))}
+                                              </tbody>
+                                           </table>
+                                       )}
+                                   </div>
+                                </div>
                             )}
                             {inspectorTab === 'schedule' && (
                                 <table className="w-full text-left text-xs border-collapse">
