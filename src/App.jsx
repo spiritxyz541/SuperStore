@@ -123,6 +123,24 @@ const DEFAULT_GUIDE_STEPS = [
   }
 ];
 
+const DEFAULT_SITE_MAP = [
+  { id: 'SM1', title: '1. ADMIN (จัดการพนักงาน)', color: 'text-emerald-400', items: ['เพิ่ม/ลบ/แก้ไขพนักงาน', 'กำหนดวันหยุดประจำสัปดาห์'] },
+  { id: 'SM2', title: '2. MANAGER (จัดแผนงาน)', color: 'text-indigo-400', items: ['จัดแผนงานประจำเดือน', 'จัดกะรายเดือนอัตโนมัติ (AI)', 'จัดกะรายวันอัตโนมัติ (AI)', 'จัดการวันลา', 'บทบาทหน้าที่ประจำวัน (Duty Roster Chart)', 'พิมพ์ตาราง (Print)'] },
+  { id: 'SM3', title: '3. REPORT (สรุปผล)', color: 'text-orange-400', items: ['สรุปชั่วโมงทำงานและ OT', 'Export CSV นำไปทำเงินเดือน'] }
+];
+
+const DEFAULT_WORKFLOW = {
+    monthly: [
+        { id: 'WM1', text: 'ADMIN\nอัปเดตข้อมูลคน', theme: 'emerald' },
+        { id: 'WM2', text: 'MANAGER\nใส่วันหยุดชดเชย / ลาพักร้อน', theme: 'indigo' },
+        { id: 'WM3', text: 'MANAGER\nจัดกะประจำเดือน Auto', theme: 'indigo' },
+        { id: 'WM4', text: 'EUNITE\nทำข้อมูลบนระบบ Eunite', theme: 'orange' }
+    ],
+    daily: [
+        { id: 'WD1', text: 'MANAGER\nใช้ บทบาทหน้าที่ประจำวัน\n(Duty Roster Chart)', theme: 'sky' }
+    ]
+};
+
 // --- Helper Functions (Hoisted) ---
 function checkPositionEligibility(staffPos, reqPosArr, dept) {
   if (!reqPosArr || reqPosArr.length === 0 || reqPosArr.includes('ALL')) return true;
@@ -186,6 +204,16 @@ function getStaffLayer(dept, pos) {
     if (["OC", "AOC", "KH", "SKD"].includes(pos)) return DUTY_CATEGORIES.kitchen[0];
     if (["KD+", "EDC ครัว+", "DVT ครัว+"].includes(pos)) return DUTY_CATEGORIES.kitchen[1];
     return DUTY_CATEGORIES.kitchen[2];
+  }
+}
+
+function getWorkflowTheme(theme) {
+  switch(theme) {
+      case 'emerald': return { wrap: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30', dot: 'bg-emerald-500 text-slate-900' };
+      case 'indigo': return { wrap: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30', dot: 'bg-indigo-500 text-white' };
+      case 'orange': return { wrap: 'bg-orange-500/20 text-orange-300 border-orange-500/30', dot: 'bg-orange-500 text-slate-900' };
+      case 'sky': return { wrap: 'bg-sky-500/20 text-sky-300 border-sky-500/30', dot: 'bg-sky-500 text-slate-900' };
+      default: return { wrap: 'bg-slate-500/20 text-slate-300 border-slate-500/30', dot: 'bg-slate-500 text-white' };
   }
 }
 
@@ -422,6 +450,8 @@ export default function App() {
 
   const [isEditingGuide, setIsEditingGuide] = useState(false);
   const [editGuideSteps, setEditGuideSteps] = useState([]);
+  const [editSiteMap, setEditSiteMap] = useState([]);
+  const [editWorkflow, setEditWorkflow] = useState({ monthly: [], daily: [] });
 
   // Landing Page States
   const [hasSeenLanding, setHasSeenLanding] = useState(false);
@@ -1099,7 +1129,7 @@ export default function App() {
   );
 
   const handleSaveGuide = async () => {
-      const nc = { ...globalConfig, guideSteps: editGuideSteps };
+      const nc = { ...globalConfig, guideSteps: editGuideSteps, siteMap: editSiteMap, workflow: editWorkflow };
       setGlobalConfig(nc);
       setSaveStatus('saving');
       try {
@@ -3116,62 +3146,112 @@ export default function App() {
 
   function renderGuideView() {
     const guideSteps = globalConfig.guideSteps || DEFAULT_GUIDE_STEPS;
+    const siteMapData = isEditingGuide ? editSiteMap : (globalConfig.siteMap || DEFAULT_SITE_MAP);
+    const workflowData = isEditingGuide ? editWorkflow : (globalConfig.workflow || DEFAULT_WORKFLOW);
+
+    const toggleGuideEdit = () => {
+        if (isEditingGuide) { 
+            handleSaveGuide(); 
+        } else { 
+            setEditGuideSteps(guideSteps); 
+            setEditSiteMap(globalConfig.siteMap || DEFAULT_SITE_MAP);
+            setEditWorkflow(globalConfig.workflow || DEFAULT_WORKFLOW);
+            setIsEditingGuide(true); 
+        }
+    };
 
     return (
        <div className="flex-1 space-y-6 sm:space-y-8 animate-in fade-in duration-500 pb-24 w-full max-w-5xl mx-auto">
           {/* Site Map & Workflow Card */}
           <div className="bg-slate-900 rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-800 shadow-xl text-white flex flex-col gap-6">
-             <div className="flex items-center gap-4 sm:gap-6 border-b border-slate-700 pb-6">
-                <div className="bg-white/10 p-4 rounded-[1.5rem]"><LayoutDashboard className="w-8 h-8 text-white" /></div>
-                <div>
-                   <h2 className="text-2xl sm:text-3xl font-black tracking-tighter uppercase">Site Map & Workflow</h2>
-                   <p className="text-slate-400 text-xs sm:text-sm font-bold mt-1">โครงสร้างระบบและลำดับขั้นตอนการทำงาน</p>
+             <div className="flex items-center justify-between border-b border-slate-700 pb-6">
+                <div className="flex items-center gap-4 sm:gap-6">
+                    <div className="bg-white/10 p-4 rounded-[1.5rem]"><LayoutDashboard className="w-8 h-8 text-white" /></div>
+                    <div>
+                       <h2 className="text-2xl sm:text-3xl font-black tracking-tighter uppercase">Site Map & Workflow</h2>
+                       <p className="text-slate-400 text-xs sm:text-sm font-bold mt-1">โครงสร้างระบบและลำดับขั้นตอนการทำงาน</p>
+                    </div>
                 </div>
+                {authRole === 'superadmin' && (
+                   <button onClick={toggleGuideEdit} className={`px-4 py-2 sm:px-6 sm:py-3 rounded-xl sm:rounded-2xl font-black text-xs sm:text-sm flex items-center gap-2 transition shadow-sm ${isEditingGuide ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-800 text-white border border-slate-700 hover:bg-slate-700'}`}>
+                      {isEditingGuide ? <><Save className="w-4 h-4"/> บันทึกภาพรวม</> : <><Edit2 className="w-4 h-4"/> แก้ไขภาพรวม</>}
+                   </button>
+                )}
              </div>
 
              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-white/5 p-5 rounded-2xl border border-white/10">
-                   <h3 className="font-black text-emerald-400 mb-3 flex items-center gap-2"><Users className="w-4 h-4"/> 1. ADMIN (จัดการพนักงาน)</h3>
-                   <ul className="text-xs font-bold text-slate-300 space-y-2 list-disc list-inside">
-                      <li>เพิ่ม/ลบ/แก้ไขพนักงาน</li>
-                      <li>กำหนดวันหยุดประจำสัปดาห์</li>
-                   </ul>
-                </div>
-                <div className="bg-white/5 p-5 rounded-2xl border border-white/10">
-                   <h3 className="font-black text-indigo-400 mb-3 flex items-center gap-2"><CalendarDaysIcon className="w-4 h-4"/> 2. MANAGER (จัดแผนงาน)</h3>
-                   <ul className="text-xs font-bold text-slate-300 space-y-2 list-disc list-inside">
-                      <li>จัดแผนงานประจำเดือน</li>
-                      <li>จัดกะรายเดือนอัตโนมัติ (AI)</li>
-                      <li>จัดกะรายวันอัตโนมัติ (AI)</li>
-                      <li>จัดการวันลา</li>
-                      <li>บทบาทหน้าที่ประจำวัน (Duty Roster Chart)</li>
-                      <li>พิมพ์ตาราง (Print)</li>
-                   </ul>
-                </div>
-                <div className="bg-white/5 p-5 rounded-2xl border border-white/10">
-                   <h3 className="font-black text-orange-400 mb-3 flex items-center gap-2"><BarChart3 className="w-4 h-4"/> 3. REPORT (สรุปผล)</h3>
-                   <ul className="text-xs font-bold text-slate-300 space-y-2 list-disc list-inside">
-                      <li>สรุปชั่วโมงทำงานและ OT</li>
-                      <li>Export CSV นำไปทำเงินเดือน</li>
-                   </ul>
-                </div>
+                {siteMapData.map((col, cIdx) => (
+                    <div key={col.id} className="bg-white/5 p-5 rounded-2xl border border-white/10">
+                       {isEditingGuide ? (
+                           <div className="space-y-3">
+                               <input type="text" value={col.title} onChange={e => { const n = [...editSiteMap]; n[cIdx].title = e.target.value; setEditSiteMap(n); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg p-2 text-sm font-black outline-none focus:border-emerald-500 text-white" placeholder="ชื่อหมวดหมู่..." />
+                               <textarea value={(col.items || []).join('\n')} onChange={e => { const n = [...editSiteMap]; n[cIdx].items = e.target.value.split('\n'); setEditSiteMap(n); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg p-2 text-xs font-bold outline-none focus:border-emerald-500 text-white resize-y" rows={6} placeholder="รายละเอียด (ขึ้นบรรทัดใหม่ = 1 รายการ)"></textarea>
+                           </div>
+                       ) : (
+                           <React.Fragment>
+                               <h3 className={`font-black ${col.color || 'text-white'} mb-3 flex items-center gap-2`}><LayoutDashboard className="w-4 h-4"/> {col.title}</h3>
+                               <ul className="text-xs font-bold text-slate-300 space-y-2 list-disc list-inside whitespace-pre-wrap">
+                                  {(col.items || []).map((item, i) => item.trim() ? <li key={i}>{item}</li> : null)}
+                               </ul>
+                           </React.Fragment>
+                       )}
+                    </div>
+                ))}
              </div>
 
              <div className="mt-2 bg-white/5 p-5 rounded-2xl border border-white/10 overflow-x-auto custom-scrollbar pb-4 sm:pb-6">
                 <h3 className="font-black text-sky-400 mb-4 flex items-center gap-2"><ArrowLeftRight className="w-4 h-4"/> Manager Workflow (รายเดือน)</h3>
                 <div className="flex items-center gap-2 sm:gap-4 text-[10px] sm:text-xs font-black text-slate-300 w-max mb-6">
-                   <div className="bg-emerald-500/20 text-emerald-300 px-4 py-3 rounded-xl border border-emerald-500/30 flex items-center gap-2"><span className="bg-emerald-500 text-slate-900 w-5 h-5 rounded-full flex items-center justify-center">1</span> ADMIN<br/>อัปเดตข้อมูลคน</div>
-                   <span className="text-slate-600">→</span>
-                   <div className="bg-indigo-500/20 text-indigo-300 px-4 py-3 rounded-xl border border-indigo-500/30 flex items-center gap-2"><span className="bg-indigo-500 text-white w-5 h-5 rounded-full flex items-center justify-center">2</span> MANAGER<br/>ใส่วันหยุดชดเชย / ลาพักร้อน</div>
-                   <span className="text-slate-600">→</span>
-                   <div className="bg-indigo-500/20 text-indigo-300 px-4 py-3 rounded-xl border border-indigo-500/30 flex items-center gap-2"><span className="bg-indigo-500 text-white w-5 h-5 rounded-full flex items-center justify-center">3</span> MANAGER<br/>จัดกะประจำเดือน Auto</div>
-                   <span className="text-slate-600">→</span>
-                   <div className="bg-orange-500/20 text-orange-300 px-4 py-3 rounded-xl border border-orange-500/30 flex items-center gap-2"><span className="bg-orange-500 text-slate-900 w-5 h-5 rounded-full flex items-center justify-center">4</span> EUNITE<br/>ทำข้อมูลบนระบบ Eunite</div>
+                   {workflowData.monthly.map((step, sIdx) => {
+                       const theme = getWorkflowTheme(step.theme);
+                       return (
+                           <React.Fragment key={step.id}>
+                               {isEditingGuide ? (
+                                   <div className="flex items-center gap-2 bg-slate-800 p-2 rounded-xl border border-slate-600">
+                                       <textarea value={step.text} onChange={e => { const n = {...editWorkflow}; n.monthly[sIdx].text = e.target.value; setEditWorkflow(n); }} className="bg-transparent outline-none w-32 text-[10px] resize-none text-white" rows={2} />
+                                       <select value={step.theme} onChange={e => { const n = {...editWorkflow}; n.monthly[sIdx].theme = e.target.value; setEditWorkflow(n); }} className="bg-slate-700 text-[10px] outline-none rounded p-1 text-white"><option value="emerald">เขียว</option><option value="indigo">ม่วง</option><option value="orange">ส้ม</option><option value="sky">ฟ้า</option></select>
+                                       <button onClick={() => { const n = {...editWorkflow}; n.monthly.splice(sIdx, 1); setEditWorkflow(n); }} className="text-red-400 hover:text-red-300"><X className="w-3 h-3"/></button>
+                                   </div>
+                               ) : (
+                                   <div className={`px-4 py-3 rounded-xl border flex items-center gap-2 whitespace-pre-wrap ${theme.wrap}`}>
+                                       <span className={`w-5 h-5 rounded-full flex items-center justify-center ${theme.dot}`}>{sIdx + 1}</span>
+                                       {step.text}
+                                   </div>
+                               )}
+                               {(sIdx < workflowData.monthly.length - 1 || isEditingGuide) && <span className="text-slate-600">→</span>}
+                           </React.Fragment>
+                       )
+                   })}
+                   {isEditingGuide && (
+                       <button onClick={() => { const n = {...editWorkflow}; n.monthly.push({ id: 'WM'+Date.now(), text: 'NEW\nSTEP', theme: 'indigo' }); setEditWorkflow(n); }} className="bg-slate-800 border border-slate-600 text-white px-3 py-2 rounded-xl text-[10px] hover:bg-slate-700 transition">+ เพิ่ม</button>
+                   )}
                 </div>
                 <div className="h-px w-full bg-white/10 mb-6"></div>
                 <h3 className="font-black text-amber-400 mb-4 flex items-center gap-2"><CalendarDaysIcon className="w-4 h-4"/> Manager Workflow (รายวัน)</h3>
                 <div className="flex items-center gap-2 sm:gap-4 text-[10px] sm:text-xs font-black text-slate-300 w-max">
-                   <div className="bg-sky-500/20 text-sky-300 px-4 py-3 rounded-xl border border-sky-500/30 flex items-center gap-2"><span className="bg-sky-500 text-slate-900 w-5 h-5 rounded-full flex items-center justify-center">1</span> MANAGER<br/>ใช้ บทบาทหน้าที่ประจำวัน<br/>(Duty Roster Chart)</div>
+                   {workflowData.daily.map((step, sIdx) => {
+                       const theme = getWorkflowTheme(step.theme);
+                       return (
+                           <React.Fragment key={step.id}>
+                               {isEditingGuide ? (
+                                   <div className="flex items-center gap-2 bg-slate-800 p-2 rounded-xl border border-slate-600">
+                                       <textarea value={step.text} onChange={e => { const n = {...editWorkflow}; n.daily[sIdx].text = e.target.value; setEditWorkflow(n); }} className="bg-transparent outline-none w-32 text-[10px] resize-none text-white" rows={2} />
+                                       <select value={step.theme} onChange={e => { const n = {...editWorkflow}; n.daily[sIdx].theme = e.target.value; setEditWorkflow(n); }} className="bg-slate-700 text-[10px] outline-none rounded p-1 text-white"><option value="emerald">เขียว</option><option value="indigo">ม่วง</option><option value="orange">ส้ม</option><option value="sky">ฟ้า</option></select>
+                                       <button onClick={() => { const n = {...editWorkflow}; n.daily.splice(sIdx, 1); setEditWorkflow(n); }} className="text-red-400 hover:text-red-300"><X className="w-3 h-3"/></button>
+                                   </div>
+                               ) : (
+                                   <div className={`px-4 py-3 rounded-xl border flex items-center gap-2 whitespace-pre-wrap ${theme.wrap}`}>
+                                       <span className={`w-5 h-5 rounded-full flex items-center justify-center ${theme.dot}`}>{sIdx + 1}</span>
+                                       {step.text}
+                                   </div>
+                               )}
+                               {(sIdx < workflowData.daily.length - 1 || isEditingGuide) && <span className="text-slate-600">→</span>}
+                           </React.Fragment>
+                       )
+                   })}
+                   {isEditingGuide && (
+                       <button onClick={() => { const n = {...editWorkflow}; n.daily.push({ id: 'WD'+Date.now(), text: 'NEW\nSTEP', theme: 'sky' }); setEditWorkflow(n); }} className="bg-slate-800 border border-slate-600 text-white px-3 py-2 rounded-xl text-[10px] hover:bg-slate-700 transition">+ เพิ่ม</button>
+                   )}
                 </div>
              </div>
           </div>
@@ -3186,13 +3266,7 @@ export default function App() {
                    </div>
                 </div>
                 {authRole === 'superadmin' && (
-                   <button 
-                      onClick={() => {
-                         if (isEditingGuide) { handleSaveGuide(); } 
-                         else { setEditGuideSteps(guideSteps); setIsEditingGuide(true); }
-                      }} 
-                      className={`px-4 py-2 sm:px-6 sm:py-3 rounded-xl sm:rounded-2xl font-black text-xs sm:text-sm flex items-center gap-2 transition shadow-sm ${isEditingGuide ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-                   >
+                   <button onClick={toggleGuideEdit} className={`px-4 py-2 sm:px-6 sm:py-3 rounded-xl sm:rounded-2xl font-black text-xs sm:text-sm flex items-center gap-2 transition shadow-sm ${isEditingGuide ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
                       {isEditingGuide ? <><Save className="w-4 h-4"/> บันทึกคู่มือ</> : <><Edit2 className="w-4 h-4"/> แก้ไขคู่มือ</>}
                    </button>
                 )}
@@ -3200,30 +3274,43 @@ export default function App() {
 
              <div className="space-y-8 mt-2">
                 {isEditingGuide ? (
-                   editGuideSteps.map((step, idx) => (
-                       <div key={step.id} className="bg-slate-50 p-6 rounded-2xl border border-slate-200 space-y-4">
-                           <div className="flex items-center gap-4">
-                              <div className={`w-10 h-10 rounded-xl text-white font-black flex items-center justify-center flex-shrink-0 ${step.color}`}>{step.stepNum}</div>
-                              <input type="text" value={step.title} onChange={e => {
-                                  const n = [...editGuideSteps]; n[idx].title = e.target.value; setEditGuideSteps(n);
-                              }} className="flex-1 border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:border-indigo-500" placeholder="หัวข้อ..." />
+                   <React.Fragment>
+                       {editGuideSteps.map((step, idx) => (
+                           <div key={step.id} className="bg-slate-50 p-6 rounded-2xl border border-slate-200 space-y-4">
+                               <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 sm:gap-4">
+                                  <div className={`w-10 h-10 rounded-xl text-white font-black flex items-center justify-center flex-shrink-0 ${step.color}`}>
+                                      <input type="text" value={step.stepNum} onChange={e => { const n = [...editGuideSteps]; n[idx].stepNum = e.target.value; setEditGuideSteps(n); }} className="w-full text-center bg-transparent outline-none text-white placeholder-white/50" placeholder="#" />
+                                  </div>
+                                  <input type="text" value={step.title} onChange={e => {
+                                      const n = [...editGuideSteps]; n[idx].title = e.target.value; setEditGuideSteps(n);
+                                  }} className="flex-1 w-full sm:w-auto border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:border-indigo-500" placeholder="หัวข้อ..." />
+                                  <select value={step.color} onChange={e => { const n = [...editGuideSteps]; n[idx].color = e.target.value; setEditGuideSteps(n); }} className="border border-slate-200 rounded-xl px-2 py-2 text-xs font-bold outline-none text-slate-600">
+                                      <option value="bg-emerald-500">เขียว</option><option value="bg-indigo-600">ม่วง</option><option value="bg-orange-500">ส้ม</option><option value="bg-sky-500">ฟ้า</option><option value="bg-rose-500">แดง</option><option value="bg-slate-900">ดำ</option>
+                                  </select>
+                                  <button onClick={() => { setEditGuideSteps(editGuideSteps.filter(s => s.id !== step.id)); }} className="bg-red-50 hover:bg-red-500 text-red-500 hover:text-white p-2 rounded-xl transition shadow-sm"><Trash2 className="w-4 h-4"/></button>
+                               </div>
+                               <div className="flex flex-col shadow-sm rounded-xl">
+                                   {renderRichTextToolbar(`guide-editor-${step.id}`, step.content, (val) => {
+                                       const n = [...editGuideSteps]; n[idx].content = val; setEditGuideSteps(n);
+                                   })}
+                                   <textarea id={`guide-editor-${step.id}`} value={step.content} onChange={e => {
+                                       const n = [...editGuideSteps]; n[idx].content = e.target.value; setEditGuideSteps(n);
+                                   }} rows={5} className="w-full border border-slate-200 border-t-0 rounded-b-xl px-4 py-3 text-xs font-medium outline-none focus:border-indigo-500 resize-y" placeholder="รายละเอียด... (รองรับ HTML)"></textarea>
+                               </div>
+                               <div>
+                                   <span className="text-[10px] font-black text-slate-500 uppercase block mb-1">URL รูปภาพอ้างอิง:</span>
+                                   <input type="text" value={step.image} onChange={e => {
+                                      const n = [...editGuideSteps]; n[idx].image = e.target.value; setEditGuideSteps(n);
+                                  }} className="w-full border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold outline-none focus:border-indigo-500" placeholder="https://..." />
+                               </div>
                            </div>
-                           <div className="flex flex-col shadow-sm rounded-xl">
-                               {renderRichTextToolbar(`guide-editor-${step.id}`, step.content, (val) => {
-                                   const n = [...editGuideSteps]; n[idx].content = val; setEditGuideSteps(n);
-                               })}
-                               <textarea id={`guide-editor-${step.id}`} value={step.content} onChange={e => {
-                                   const n = [...editGuideSteps]; n[idx].content = e.target.value; setEditGuideSteps(n);
-                               }} rows={5} className="w-full border border-slate-200 border-t-0 rounded-b-xl px-4 py-3 text-xs font-medium outline-none focus:border-indigo-500 resize-y" placeholder="รายละเอียด... (รองรับ HTML)"></textarea>
-                           </div>
-                           <div>
-                               <span className="text-[10px] font-black text-slate-500 uppercase block mb-1">URL รูปภาพอ้างอิง:</span>
-                               <input type="text" value={step.image} onChange={e => {
-                                  const n = [...editGuideSteps]; n[idx].image = e.target.value; setEditGuideSteps(n);
-                              }} className="w-full border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold outline-none focus:border-indigo-500" placeholder="https://..." />
-                           </div>
-                       </div>
-                   ))
+                       ))}
+                       <button onClick={() => {
+                           setEditGuideSteps([...editGuideSteps, { id: 'G'+Date.now(), title: 'หัวข้อใหม่', content: '', image: '', color: 'bg-indigo-600', stepNum: String(editGuideSteps.length + 1) }]);
+                       }} className="w-full border-2 border-dashed border-slate-300 text-slate-500 hover:text-indigo-600 hover:border-indigo-400 hover:bg-indigo-50 py-4 rounded-2xl font-black transition flex items-center justify-center gap-2">
+                           <Plus className="w-5 h-5"/> เพิ่มหัวข้อใหม่ (Add Step)
+                       </button>
+                   </React.Fragment>
                 ) : (
                    guideSteps.map((step) => (
                        <div key={step.id} className="flex flex-col sm:flex-row gap-4 sm:gap-6">
