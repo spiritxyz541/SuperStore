@@ -807,6 +807,15 @@ export default function App() {
   }, [schedule, branchData.matrix, CURRENT_DUTY_LIST, branchData.holidays, branchData.shiftPresets]);
 
   useEffect(() => {
+      if (selectedDateStr) {
+          const dateMonth = parseInt(selectedDateStr.split('-')[1], 10) - 1;
+          if (dateMonth !== selectedMonth) {
+              setSelectedMonth(dateMonth);
+          }
+      }
+  }, [selectedDateStr, selectedMonth]);
+
+  useEffect(() => {
       setNewDutyCategory(activeDept === 'service' ? 'FOH_STAFF' : 'BOH_STAFF');
   }, [activeDept]);
 
