@@ -1629,6 +1629,12 @@ export default function App() {
         setInspectedData({ branch: null, schedule: null, loading: false, error: null });
         return;
     }
+    if (branchId === 'GLOBAL') {
+        setInspectedData({ branch: null, schedule: null, loading: false, error: null });
+        setInspectorTab('guides');
+        return;
+    }
+    setInspectorTab('staff');
     setInspectedData({ branch: null, schedule: null, loading: true, error: null });
     try {
         const branchDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'branches', branchId);
@@ -1687,9 +1693,11 @@ export default function App() {
   // === RENDER DECLARATION HELPER COMPONENTS ===
 
   function renderDataInspectorModal() {
+    const activeTabs = inspectorBranchId === 'GLOBAL' ? ['guides', 'templates', 'raw_global'] : ['staff', 'duties', 'holidays', 'announcements', 'schedule', 'raw'];
+
     return (
         <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/70 backdrop-blur-md p-4 animate-in fade-in duration-300 font-sans">
-            <div className="bg-slate-800 text-white rounded-2xl p-6 max-w-5xl w-full shadow-2xl flex flex-col gap-4 max-h-[90vh]">
+            <div className="bg-slate-800 text-white rounded-2xl p-6 max-w-6xl w-full shadow-2xl flex flex-col gap-4 max-h-[90vh]">
                 <div className="flex justify-between items-center border-b border-slate-700 pb-4">
                     <h3 className="text-xl font-black uppercase tracking-wider">Server Data Inspector</h3>
                     <button onClick={() => setShowDataInspector(false)} className="text-slate-400 hover:bg-slate-700 p-2 rounded-full transition"><X className="w-6 h-6"/></button>
@@ -1697,9 +1705,10 @@ export default function App() {
                 <div className="flex gap-4 items-center">
                     <select onChange={(e) => handleInspectBranch(e.target.value)} className="bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-sm font-bold outline-none flex-1">
                         <option value="">-- Select a Branch to Inspect --</option>
-                        {globalConfig.branches?.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                        <option value="GLOBAL">🌐 GLOBAL DATA (Guides, Configs, Templates)</option>
+                        {globalConfig.branches?.map(b => <option key={b.id} value={b.id}>🏠 {b.name}</option>)}
                     </select>
-                    {inspectorBranchId && (
+                    {inspectorBranchId && inspectorBranchId !== 'GLOBAL' && (
                         <div className="flex gap-2">
                             <button onClick={() => setConfirmModal({ message: 'This will ERASE and RESET the main data (duties, matrix) for this branch, keeping only the staff list. Are you sure?', action: () => handleResetBranchData(inspectorBranchId) })} className="bg-yellow-500 text-black px-4 py-2 rounded-lg text-xs font-black hover:bg-yellow-400 transition">Reset Branch Data</button>
                             <button onClick={() => setConfirmModal({ message: 'This will ERASE ALL schedule entries for this branch. Are you sure?', action: () => handleClearScheduleData(inspectorBranchId) })} className="bg-red-600 text-white px-4 py-2 rounded-lg text-xs font-black hover:bg-red-500 transition">Clear Schedule</button>
@@ -1709,9 +1718,9 @@ export default function App() {
                 
                 {inspectorBranchId && (
                 <div className="flex gap-2 border-b border-slate-700 pb-2 overflow-x-auto custom-scrollbar flex-shrink-0">
-                    {['staff', 'duties', 'holidays', 'schedule', 'raw'].map(tab => (
+                    {activeTabs.map(tab => (
                         <button key={tab} onClick={() => setInspectorTab(tab)} className={`px-4 py-2 rounded-lg text-xs font-bold uppercase transition whitespace-nowrap ${inspectorTab === tab ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-slate-400 hover:bg-slate-600'}`}>
-                            {tab}
+                            {tab.replace('_', ' ')}
                         </button>
                     ))}
                 </div>
@@ -1724,6 +1733,84 @@ export default function App() {
                         <div className="flex-1 flex items-center justify-center text-red-400">Error: {inspectedData.error}</div>
                     ) : !inspectorBranchId ? (
                         <div className="flex-1 flex items-center justify-center text-slate-500 font-bold uppercase tracking-widest">Please select a branch to view data.</div>
+                    ) : inspectorBranchId === 'GLOBAL' ? (
+                        <div className="flex-1 overflow-y-auto custom-scrollbar bg-slate-900 rounded-xl border border-slate-700 p-0 sm:p-4">
+                            {inspectorTab === 'guides' && (
+                                <div className="flex flex-col gap-6 p-4">
+                                    <div className="bg-black/20 p-4 rounded-xl border border-slate-700">
+                                        <h4 className="font-black text-emerald-400 mb-3 uppercase tracking-widest text-xs border-b border-slate-700 pb-2">Guide Steps (Manager Journey)</h4>
+                                        <table className="w-full text-left text-xs border-collapse">
+                                           <thead>
+                                              <tr><th className="p-2 border-b border-slate-600 w-12">Step</th><th className="p-2 border-b border-slate-600">Title</th><th className="p-2 border-b border-slate-600">Color</th><th className="p-2 border-b border-slate-600">Has Image</th></tr>
+                                           </thead>
+                                           <tbody>
+                                              {(globalConfig.guideSteps || []).map(g => (
+                                                  <tr key={g.id} className="hover:bg-slate-800/50">
+                                                      <td className="p-2 border-b border-slate-700/50 font-black text-slate-300">{g.stepNum}</td>
+                                                      <td className="p-2 border-b border-slate-700/50 font-bold text-sky-300">{g.title}</td>
+                                                      <td className="p-2 border-b border-slate-700/50"><span className={`px-2 py-0.5 rounded text-[9px] ${g.color}`}>{g.color}</span></td>
+                                                      <td className="p-2 border-b border-slate-700/50 text-slate-400">{g.image ? 'Yes' : 'No'}</td>
+                                                  </tr>
+                                              ))}
+                                           </tbody>
+                                        </table>
+                                    </div>
+                                    <div className="bg-black/20 p-4 rounded-xl border border-slate-700">
+                                        <h4 className="font-black text-orange-400 mb-3 uppercase tracking-widest text-xs border-b border-slate-700 pb-2">Site Map</h4>
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                            {(globalConfig.siteMap || []).map(sm => (
+                                                <div key={sm.id} className="bg-slate-800 p-3 rounded-lg border border-slate-600">
+                                                    <div className={`font-black text-sm mb-2 ${sm.color}`}>{sm.title}</div>
+                                                    <ul className="list-disc list-inside text-[10px] text-slate-300 space-y-1">
+                                                        {(sm.items || []).map((it, i) => <li key={i}>{it}</li>)}
+                                                    </ul>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div className="bg-black/20 p-4 rounded-xl border border-slate-700">
+                                        <h4 className="font-black text-indigo-400 mb-3 uppercase tracking-widest text-xs border-b border-slate-700 pb-2">Workflow</h4>
+                                        <div className="flex flex-col gap-4">
+                                            <div>
+                                                <span className="text-[10px] font-bold text-slate-500 uppercase">Monthly</span>
+                                                <div className="flex flex-wrap gap-2 mt-1 text-[10px]">
+                                                    {(globalConfig.workflow?.monthly || []).map(w => <span key={w.id} className="bg-slate-700 px-2 py-1 rounded text-slate-300 whitespace-pre-wrap">{w.text}</span>)}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <span className="text-[10px] font-bold text-slate-500 uppercase">Daily</span>
+                                                <div className="flex flex-wrap gap-2 mt-1 text-[10px]">
+                                                    {(globalConfig.workflow?.daily || []).map(w => <span key={w.id} className="bg-slate-700 px-2 py-1 rounded text-slate-300 whitespace-pre-wrap">{w.text}</span>)}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                            {inspectorTab === 'templates' && (
+                                <table className="w-full text-left text-xs border-collapse">
+                                   <thead className="sticky top-0 bg-slate-800 shadow-md">
+                                      <tr><th className="p-3 border-b border-slate-600 w-24">ID</th><th className="p-3 border-b border-slate-600">Template Name</th><th className="p-3 border-b border-slate-600 text-center">Duties</th><th className="p-3 border-b border-slate-600 text-center">Presets</th></tr>
+                                   </thead>
+                                   <tbody>
+                                      {globalTemplates?.length ? globalTemplates.map(t => (
+                                          <tr key={t.id} className="hover:bg-slate-800/50 transition-colors">
+                                              <td className="p-3 border-b border-slate-700/50 text-slate-400">{t.id}</td>
+                                              <td className="p-3 border-b border-slate-700/50 font-black text-emerald-300">{t.name}</td>
+                                              <td className="p-3 border-b border-slate-700/50 text-center font-bold text-slate-300">S: {t.duties?.service?.length||0} / K: {t.duties?.kitchen?.length||0}</td>
+                                              <td className="p-3 border-b border-slate-700/50 text-center font-bold text-slate-300">{t.shiftPresets?.length||0}</td>
+                                          </tr>
+                                      )) : <tr><td colSpan="4" className="p-4 text-center text-slate-500">No templates found</td></tr>}
+                                   </tbody>
+                                </table>
+                            )}
+                            {inspectorTab === 'raw_global' && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-full p-4">
+                                    <div className="flex flex-col h-full"><h4 className="font-bold text-slate-400 mb-2">Master Config Document</h4><pre className="text-[10px] text-slate-300 overflow-auto custom-scrollbar bg-black/30 p-4 rounded-xl flex-1">{JSON.stringify(globalConfig, null, 2)}</pre></div>
+                                    <div className="flex flex-col h-full"><h4 className="font-bold text-slate-400 mb-2">Templates Document</h4><pre className="text-[10px] text-slate-300 overflow-auto custom-scrollbar bg-black/30 p-4 rounded-xl flex-1">{JSON.stringify(globalTemplates, null, 2)}</pre></div>
+                                </div>
+                            )}
+                        </div>
                     ) : (
                         <div className="flex-1 overflow-y-auto custom-scrollbar bg-slate-900 rounded-xl border border-slate-700 p-0 sm:p-4">
                             {inspectorTab === 'staff' && (
@@ -1778,6 +1865,26 @@ export default function App() {
                                               <td className="p-3 border-b border-slate-700/50 font-black text-orange-300">{h}</td>
                                           </tr>
                                       )) : <tr><td colSpan="2" className="p-4 text-center text-slate-500">No holidays assigned</td></tr>}
+                                   </tbody>
+                                </table>
+                            )}
+                            {inspectorTab === 'announcements' && (
+                                <table className="w-full text-left text-xs border-collapse">
+                                   <thead className="sticky top-0 bg-slate-800 shadow-md">
+                                      <tr><th className="p-3 border-b border-slate-600 w-24">ID</th><th className="p-3 border-b border-slate-600 min-w-[150px]">Title</th><th className="p-3 border-b border-slate-600 text-center w-24">Status</th><th className="p-3 border-b border-slate-600 w-32">Duration</th><th className="p-3 border-b border-slate-600">Content (Excerpt)</th></tr>
+                                   </thead>
+                                   <tbody>
+                                      {inspectedData.branch?.announcements?.length ? inspectedData.branch.announcements.map(a => (
+                                          <tr key={a.id} className="hover:bg-slate-800/50 transition-colors">
+                                              <td className="p-3 border-b border-slate-700/50 text-slate-400">{a.id}</td>
+                                              <td className="p-3 border-b border-slate-700/50 font-black text-indigo-300 truncate max-w-[150px]">{a.title}</td>
+                                              <td className="p-3 border-b border-slate-700/50 text-center">
+                                                  <span className={`px-2 py-1 rounded font-bold text-[9px] ${a.isActive ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700 text-slate-500'}`}>{a.isActive ? 'ACTIVE' : 'HIDDEN'}</span>
+                                              </td>
+                                              <td className="p-3 border-b border-slate-700/50 text-slate-400 text-[9px]">{a.startDate || 'Any'} <br/> {a.endDate || 'Any'}</td>
+                                              <td className="p-3 border-b border-slate-700/50 text-slate-400 truncate max-w-[200px] text-[10px]">{a.content?.replace(/<[^>]*>?/gm, '')}</td>
+                                          </tr>
+                                      )) : <tr><td colSpan="5" className="p-4 text-center text-slate-500">No announcements data</td></tr>}
                                    </tbody>
                                 </table>
                             )}
