@@ -3066,6 +3066,58 @@ export default function App() {
   function renderGuideView() {
     return (
        <div className="flex-1 space-y-6 sm:space-y-8 animate-in fade-in duration-500 pb-24 w-full max-w-5xl mx-auto">
+          {/* Site Map & Workflow Card */}
+          <div className="bg-slate-900 rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-800 shadow-xl text-white flex flex-col gap-6">
+             <div className="flex items-center gap-4 sm:gap-6 border-b border-slate-700 pb-6">
+                <div className="bg-white/10 p-4 rounded-[1.5rem]"><LayoutDashboard className="w-8 h-8 text-white" /></div>
+                <div>
+                   <h2 className="text-2xl sm:text-3xl font-black tracking-tighter uppercase">Site Map & Workflow</h2>
+                   <p className="text-slate-400 text-xs sm:text-sm font-bold mt-1">โครงสร้างระบบและลำดับขั้นตอนการทำงาน</p>
+                </div>
+             </div>
+
+             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-white/5 p-5 rounded-2xl border border-white/10">
+                   <h3 className="font-black text-emerald-400 mb-3 flex items-center gap-2"><Users className="w-4 h-4"/> 1. ADMIN (จัดการข้อมูล)</h3>
+                   <ul className="text-xs font-bold text-slate-300 space-y-2 list-disc list-inside">
+                      <li>เพิ่ม/ลบ/แก้ไขพนักงาน</li>
+                      <li>กำหนดโควตาวันหยุด</li>
+                      <li>ตั้งค่าหน้าที่งาน (Duties)</li>
+                   </ul>
+                </div>
+                <div className="bg-white/5 p-5 rounded-2xl border border-white/10">
+                   <h3 className="font-black text-indigo-400 mb-3 flex items-center gap-2"><CalendarDaysIcon className="w-4 h-4"/> 2. MANAGER (จัดกะงาน)</h3>
+                   <ul className="text-xs font-bold text-slate-300 space-y-2 list-disc list-inside">
+                      <li>จัดกะรายเดือนอัตโนมัติ (AI)</li>
+                      <li>ตรวจสอบและแก้ไขกะรายวัน</li>
+                      <li>จัดการวันลา / พิมพ์ตาราง (Print)</li>
+                   </ul>
+                </div>
+                <div className="bg-white/5 p-5 rounded-2xl border border-white/10">
+                   <h3 className="font-black text-orange-400 mb-3 flex items-center gap-2"><BarChart3 className="w-4 h-4"/> 3. REPORT (สรุปผล)</h3>
+                   <ul className="text-xs font-bold text-slate-300 space-y-2 list-disc list-inside">
+                      <li>สรุปชั่วโมงทำงานและ OT</li>
+                      <li>Export CSV นำไปทำเงินเดือน</li>
+                   </ul>
+                </div>
+             </div>
+
+             <div className="mt-2 bg-white/5 p-5 rounded-2xl border border-white/10 overflow-x-auto custom-scrollbar pb-4 sm:pb-6">
+                <h3 className="font-black text-sky-400 mb-4 flex items-center gap-2"><ArrowLeftRight className="w-4 h-4"/> Manager Workflow (ลำดับการทำงานรายเดือน)</h3>
+                <div className="flex items-center gap-2 sm:gap-4 text-[10px] sm:text-xs font-black text-slate-300 w-max">
+                   <div className="bg-emerald-500/20 text-emerald-300 px-4 py-3 rounded-xl border border-emerald-500/30 flex items-center gap-2"><span className="bg-emerald-500 text-slate-900 w-5 h-5 rounded-full flex items-center justify-center">1</span> ADMIN<br/>อัปเดตข้อมูลคน</div>
+                   <span className="text-slate-600">→</span>
+                   <div className="bg-indigo-500/20 text-indigo-300 px-4 py-3 rounded-xl border border-indigo-500/30 flex items-center gap-2"><span className="bg-indigo-500 text-white w-5 h-5 rounded-full flex items-center justify-center">2</span> MANAGER<br/>กดจัดกะ Auto</div>
+                   <span className="text-slate-600">→</span>
+                   <div className="bg-indigo-500/20 text-indigo-300 px-4 py-3 rounded-xl border border-indigo-500/30 flex items-center gap-2"><span className="bg-indigo-500 text-white w-5 h-5 rounded-full flex items-center justify-center">3</span> MANAGER<br/>รีวิว / จัดการคำขอ</div>
+                   <span className="text-slate-600">→</span>
+                   <div className="bg-sky-500/20 text-sky-300 px-4 py-3 rounded-xl border border-sky-500/30 flex items-center gap-2"><span className="bg-sky-500 text-slate-900 w-5 h-5 rounded-full flex items-center justify-center">4</span> MANAGER<br/>ใช้แผนงานประจำวัน</div>
+                   <span className="text-slate-600">→</span>
+                   <div className="bg-orange-500/20 text-orange-300 px-4 py-3 rounded-xl border border-orange-500/30 flex items-center gap-2"><span className="bg-orange-500 text-slate-900 w-5 h-5 rounded-full flex items-center justify-center">5</span> REPORT<br/>โหลดสรุปส่งสิ้นเดือน</div>
+                </div>
+             </div>
+          </div>
+
           <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm flex flex-col gap-6">
              <div className="flex items-center gap-4 sm:gap-6 border-b border-slate-100 pb-6">
                 <div className="bg-indigo-100 p-4 rounded-[1.5rem]"><BookOpen className="w-8 h-8 text-indigo-600" /></div>
