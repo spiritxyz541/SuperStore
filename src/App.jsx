@@ -3594,7 +3594,11 @@ export default function App() {
                 <div className="flex items-center gap-2 sm:gap-5 w-full lg:w-auto overflow-x-auto custom-scrollbar pb-1 lg:pb-0 mt-4 lg:mt-0">
                    <div className="flex-shrink-0 flex items-center bg-slate-100 rounded-xl p-1 shadow-inner border border-slate-200">
                       <CalendarDaysIcon className="hidden sm:block w-4 h-4 sm:w-5 sm:h-5 text-slate-400 mx-2 sm:mx-3" />
-                      <select value={selectedMonth} onChange={(e) => setSelectedMonth(parseInt(e.target.value))} className="bg-transparent text-[10px] sm:text-xs font-black outline-none py-1.5 sm:py-2 px-2 sm:pr-3 text-slate-700">
+                      <select value={selectedMonth} onChange={(e) => {
+                          const m = parseInt(e.target.value);
+                          setSelectedMonth(m);
+                          setSelectedDateStr(`${selectedYear}-${String(m + 1).padStart(2, '0')}-01`);
+                      }} className="bg-transparent text-[10px] sm:text-xs font-black outline-none py-1.5 sm:py-2 px-2 sm:pr-3 text-slate-700">
                          {THAI_MONTHS.map((m, i) => <option key={i} value={i}>{m} 2026</option>)}
                       </select>
                    </div>
