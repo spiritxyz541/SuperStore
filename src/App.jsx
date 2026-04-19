@@ -3089,8 +3089,7 @@ export default function App() {
                          <li><strong className="text-indigo-600">จัดวันหยุดอัตโนมัติ:</strong> กดปุ่ม <span className="bg-indigo-600 text-white px-2 py-0.5 rounded text-[10px]"><Wand2 className="w-3 h-3 inline"/> จัดวันหยุด Auto</span> เพื่อให้ระบบสุ่มใส่วันหยุดประจำสัปดาห์ให้พนักงานที่ยังไม่ระบุวันหยุดให้ครบถ้วน (โดยอิงจากโควตาที่เหลือ)</li>
                       </ul>
                       <div className="border-2 border-slate-100 rounded-2xl overflow-hidden shadow-sm bg-slate-50 mt-2">
-                         {/* TODO: เปลี่ยน URL รูปภาพด้านล่างเป็นรูปตัวอย่างหน้าจัดการพนักงานของคุณ */}
-                         <img src="https://placehold.co/1200x600/f8fafc/475569?text=Screenshot:+Staff+%26+Day-off+Management" alt="Step 1" className="w-full h-auto object-cover" />
+                         <img src="https://images.unsplash.com/photo-1600880292203-757bb62b4baf?auto=format&fit=crop&w=1200&q=80" alt="Mockup: Staff Management" className="w-full h-48 sm:h-72 object-cover object-center opacity-90 hover:opacity-100 transition-all duration-500 hover:scale-105" />
                       </div>
                    </div>
                 </div>
@@ -3116,8 +3115,7 @@ export default function App() {
                          </ul>
                       </div>
                       <div className="border-2 border-slate-100 rounded-2xl overflow-hidden shadow-sm bg-slate-50 mt-2">
-                         {/* TODO: เปลี่ยน URL รูปภาพด้านล่างเป็นรูปตัวอย่างหน้าจัดกะรายเดือน */}
-                         <img src="https://placehold.co/1200x600/f8fafc/475569?text=Screenshot:+Monthly+Auto-Scheduling" alt="Step 2" className="w-full h-auto object-cover" />
+                         <img src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=1200&q=80" alt="Mockup: Auto Scheduling" className="w-full h-48 sm:h-72 object-cover object-center opacity-90 hover:opacity-100 transition-all duration-500 hover:scale-105" />
                       </div>
                    </div>
                 </div>
@@ -3135,8 +3133,7 @@ export default function App() {
                          <li><strong className="text-indigo-600">ปรับแก้ OT (Shortage):</strong> กรณีคนขาดหรือลากะทันหัน สามารถเพิ่มชั่วโมง OT แบบ Manual ให้กับพนักงานกะเช้าให้ลากยาวดูแลร้านต่อได้ โดยเปลี่ยนตัวเลขในช่อง <span className="border border-slate-200 px-1 py-0 text-[10px] rounded">OT</span> ในมุมมองรายวัน</li>
                       </ul>
                       <div className="border-2 border-slate-100 rounded-2xl overflow-hidden shadow-sm bg-slate-50 mt-2">
-                         {/* TODO: เปลี่ยน URL รูปภาพด้านล่างเป็นรูปตัวอย่างหน้าจัดการวันลา/OT */}
-                         <img src="https://placehold.co/1200x600/f8fafc/475569?text=Screenshot:+Review+%26+Leave+Management" alt="Step 3" className="w-full h-auto object-cover" />
+                         <img src="https://images.unsplash.com/photo-1554774853-719586f82d77?auto=format&fit=crop&w=1200&q=80" alt="Mockup: Leave Management" className="w-full h-48 sm:h-72 object-cover object-center opacity-90 hover:opacity-100 transition-all duration-500 hover:scale-105" />
                       </div>
                    </div>
                 </div>
@@ -3155,8 +3152,7 @@ export default function App() {
                          <li><strong className="text-indigo-600">วิเคราะห์ข้อมูล (Report):</strong> เข้าเมนู <strong>REPORT</strong> (ด้านบน) เพื่อดูสรุปชั่วโมงทำงานและ OT ประจำเดือน พร้อมปุ่ม <span className="bg-green-600 text-white px-2 py-0.5 rounded text-[10px]"><Download className="w-3 h-3 inline"/> Export (CSV)</span> เพื่อโหลดข้อมูลไปทำเงินเดือนต่อไป</li>
                       </ul>
                       <div className="border-2 border-slate-100 rounded-2xl overflow-hidden shadow-sm bg-slate-50 mt-2">
-                         {/* TODO: เปลี่ยน URL รูปภาพด้านล่างเป็นรูปตัวอย่างหน้าพิมพ์ตารางงาน (Roster Chart) */}
-                         <img src="https://placehold.co/1200x600/f8fafc/475569?text=Screenshot:+Duty+Roster+Chart" alt="Step 4" className="w-full h-auto object-cover" />
+                         <img src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80" alt="Mockup: Daily Plan & Export" className="w-full h-48 sm:h-72 object-cover object-center opacity-90 hover:opacity-100 transition-all duration-500 hover:scale-105" />
                       </div>
                    </div>
                 </div>
