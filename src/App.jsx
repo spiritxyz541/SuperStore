@@ -3368,9 +3368,7 @@ export default function App() {
   }
 
   let mainContent = null;
-  if (authRole === 'staff') {
-    mainContent = renderStaffPortal();
-  } else if (view === 'branches' && authRole === 'superadmin') {
+  if (view === 'branches' && authRole === 'superadmin') {
     mainContent = renderGlobalAdmin();
   } else if (view === 'admin') {
     mainContent = activeBranchId ? renderBranchAdmin() : renderEmptyBranchAdmin();
@@ -3428,7 +3426,7 @@ export default function App() {
                       <span className="font-black text-lg sm:text-xl tracking-tighter uppercase leading-none">Super Store</span>
                       <div className="flex items-center gap-1.5 mt-0.5">
                          <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-green-500 rounded-full animate-pulse"></span>
-                         <span className={`text-[8px] sm:text-[9px] font-black uppercase text-slate-400`}>{authRole === 'superadmin' ? 'BAR B Q PLAZA' : authRole === 'staff' ? 'STAFF PORTAL' : 'BRANCH MANAGEMENT'}</span>
+                         <span className={`text-[8px] sm:text-[9px] font-black uppercase text-slate-400`}>{authRole === 'superadmin' ? 'BAR B Q PLAZA' : 'BRANCH MANAGEMENT'}</span>
                       </div>
                    </div>
                    {authRole === 'superadmin' && (
@@ -3441,11 +3439,6 @@ export default function App() {
                    )}
                    </div>
                    <div className="lg:hidden flex items-center gap-2">
-                      {authRole !== 'staff' && (
-                          <button onClick={() => setShowRequestsModal(true)} className="relative bg-slate-100 p-2 rounded-lg text-slate-500">
-                             <Bell className="w-4 h-4" />{pendingRequests.filter(r => authRole === 'staff' ? (r.reqType === 'SWAP' && r.targetStaffId === staffFilterPos && r.status === 'PENDING_PEER') : (r.reqType !== 'SWAP' || r.status === 'PENDING_MANAGER')).length > 0 && <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full animate-ping"></span>}
-                          </button>
-                      )}
                       <button onClick={() => {setAuthRole('guest'); setView('manager');}} className="text-slate-400 p-2 bg-slate-100 rounded-lg"><LogIn className="w-4 h-4 rotate-180" /></button>
                    </div>
                 </div>
@@ -3464,9 +3457,6 @@ export default function App() {
                       {authRole === 'superadmin' && <button onClick={() => setView('branches')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'branches' ? 'bg-white text-emerald-600 shadow-sm border border-emerald-50' : 'text-slate-500'}`}>BRANCHES</button>}
                    </div>
                    <div className="hidden lg:flex flex-shrink-0 items-center gap-3 ml-2 pl-5 border-l border-slate-200">
-                      <button onClick={() => setShowRequestsModal(true)} className="relative bg-slate-100 hover:bg-slate-200 p-2.5 rounded-xl text-slate-500 transition cursor-pointer">
-                         <Bell className="w-5 h-5" />{pendingRequests.filter(r => r.reqType !== 'SWAP' || r.status === 'PENDING_MANAGER').length > 0 && <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse border border-white"></span>}
-                      </button>
                       <button onClick={handleGlobalSave} disabled={saveStatus === 'saving'} className="bg-indigo-600 text-white px-4 py-2.5 rounded-2xl font-black text-xs hover:bg-indigo-700 active:scale-95 transition flex items-center gap-2 w-32 justify-center">
                          {saveStatus === 'saving' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                          <span className="ml-1">{saveStatus === 'saving' ? 'กำลังบันทึก...' : 'บันทึกทั้งหมด'}</span>
@@ -3478,15 +3468,13 @@ export default function App() {
              </div>
           </nav>
 
-          {authRole !== 'staff' && (
               <button onClick={handleGlobalSave} disabled={saveStatus === 'saving'} className="lg:hidden fixed bottom-6 right-6 z-50 bg-indigo-600 text-white p-4 rounded-full shadow-2xl active:scale-90 transition-transform">
                  {saveStatus === 'saving' ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6" />}
               </button>
-          )}
           {saveStatus === 'error' && <div className="lg:hidden fixed bottom-20 right-6 z-50 bg-red-500 text-white px-4 py-2 rounded-xl shadow-2xl text-xs font-bold">บันทึกไม่สำเร็จ</div>}
 
           <main className="flex-1 flex flex-col p-4 sm:p-8 max-w-[1600px] mx-auto w-full print:p-0 print:m-0 relative">
-             {authRole !== 'staff' && (view === 'manager' || view === 'admin') && (
+             {(view === 'manager' || view === 'admin') && (
                <div className="flex-none flex flex-wrap items-center justify-between gap-4 mb-6 sm:mb-10 print:hidden w-full">
                   <div className="flex flex-wrap gap-2 sm:gap-4 bg-white p-2 sm:p-3 rounded-[1.5rem] sm:rounded-[2.5rem] border border-slate-200 w-full md:w-fit shadow-sm">
                      <button onClick={() => { setActiveDept('service'); setStaffFilterPos('ALL'); }} className={`flex-1 md:flex-none flex justify-center items-center gap-2 sm:gap-3 px-4 sm:px-10 py-3 sm:py-4 rounded-[1rem] sm:rounded-[2rem] font-black text-[10px] sm:text-xs transition-all ${activeDept === 'service' ? 'bg-indigo-600 text-white shadow-xl scale-[1.02]' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}><ConciergeBell className="w-4 h-4 sm:w-5 sm:h-5"/> ฝั่งงานบริการ</button>
