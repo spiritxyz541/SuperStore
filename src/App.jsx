@@ -3078,23 +3078,27 @@ export default function App() {
              <div className="space-y-8 mt-2">
                 <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-slate-900 text-white font-black text-lg sm:text-xl flex items-center justify-center flex-shrink-0 shadow-md">1</div>
-                   <div>
+                   <div className="flex-1 w-full min-w-0">
                       <h3 className="text-base sm:text-lg font-black text-slate-800 mb-2">การจัดการพนักงานและวันหยุด (Staff & Day-off Management)</h3>
-                      <p className="text-xs sm:text-sm font-bold text-slate-600 leading-relaxed">
+                      <p className="text-xs sm:text-sm font-bold text-slate-600 leading-relaxed mb-4">
                          หลังจากระบบตั้งค่าตรรกะกะงาน (Logic) มาให้แล้ว ผู้จัดการมีหน้าที่ <strong className="text-slate-800">เพิ่มหรือลดรายชื่อพนักงาน</strong> ให้อยู่ในโควตาจำนวนคนที่ Superstore Team กำหนดไว้ <br className="hidden sm:block"/>
                          และต้อง <strong className="text-slate-800">จัดการจัดสรรวันหยุดประจำสัปดาห์</strong> ของพนักงานแต่ละคนให้เป็นไปตามโควตาที่ Admin ส่วนกลางตั้งไว้ เพื่อให้มั่นใจว่าจะมีกำลังคนเพียงพอในแต่ละวัน
                       </p>
+                      <div className="border-2 border-slate-100 rounded-2xl overflow-hidden shadow-sm bg-slate-50 mt-2">
+                         {/* TODO: เปลี่ยน URL รูปภาพด้านล่างเป็นรูปตัวอย่างหน้าจัดการพนักงานของคุณ */}
+                         <img src="https://placehold.co/1200x600/f8fafc/475569?text=Screenshot:+Staff+%26+Day-off+Management" alt="Step 1" className="w-full h-auto object-cover" />
+                      </div>
                    </div>
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-indigo-600 text-white font-black text-lg sm:text-xl flex items-center justify-center flex-shrink-0 shadow-md">2</div>
-                   <div>
+                   <div className="flex-1 w-full min-w-0">
                       <h3 className="text-base sm:text-lg font-black text-slate-800 mb-2">การจัดกะอัตโนมัติประจำเดือน (Monthly Auto-Scheduling)</h3>
                       <p className="text-xs sm:text-sm font-bold text-slate-600 leading-relaxed mb-3">
                          เมื่อเข้าสู่หน้า <strong>MANAGER</strong> ให้เลือกแท็บ <strong>จัดกะแบบรายเดือน</strong> จากนั้นกดปุ่ม <span className="text-indigo-600 font-black">✨ จัดกะอัตโนมัติ</span>
                       </p>
-                      <div className="bg-slate-50 p-4 sm:p-5 rounded-2xl border border-slate-200">
+                      <div className="bg-slate-50 p-4 sm:p-5 rounded-2xl border border-slate-200 mb-4">
                          <span className="text-[10px] sm:text-xs font-black text-slate-500 uppercase tracking-widest block mb-2 sm:mb-3">⚙️ ตรรกะของระบบ AI ในการจัดกะ:</span>
                          <ul className="text-xs font-bold text-slate-600 space-y-2 list-disc list-inside ml-2">
                             <li><strong>ข้ามวันหยุด:</strong> ระบบจะไม่จัดกะในวันหยุดประจำสัปดาห์และวันลาของพนักงาน</li>
@@ -3103,28 +3107,40 @@ export default function App() {
                             <li><strong>การหมุนเวียน OT (Fair OT):</strong> หากช่องกะนั้นมีโควตา OT ระบบจะพยายามแจกจ่าย OT ให้กับพนักงานที่มีชั่วโมง OT สะสมน้อยที่สุดก่อน เพื่อให้ได้รายได้เท่าเทียมกัน (โดยระบบจะหลีกเลี่ยงการจัดพนักงานกลุ่ม HEAD ลงในช่องที่มี OT เสมอ)</li>
                          </ul>
                       </div>
+                      <div className="border-2 border-slate-100 rounded-2xl overflow-hidden shadow-sm bg-slate-50 mt-2">
+                         {/* TODO: เปลี่ยน URL รูปภาพด้านล่างเป็นรูปตัวอย่างหน้าจัดกะรายเดือน */}
+                         <img src="https://placehold.co/1200x600/f8fafc/475569?text=Screenshot:+Monthly+Auto-Scheduling" alt="Step 2" className="w-full h-auto object-cover" />
+                      </div>
                    </div>
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-emerald-500 text-white font-black text-lg sm:text-xl flex items-center justify-center flex-shrink-0 shadow-md">3</div>
-                   <div>
+                   <div className="flex-1 w-full min-w-0">
                       <h3 className="text-base sm:text-lg font-black text-slate-800 mb-2">การรีวิวตารางงานและการจัดการวันลา (Review & Leave Management)</h3>
-                      <p className="text-xs sm:text-sm font-bold text-slate-600 leading-relaxed">
+                      <p className="text-xs sm:text-sm font-bold text-slate-600 leading-relaxed mb-4">
                          ผู้จัดการต้องคอยรีวิวตรวจสอบความเรียบร้อย และดูแลการลง <strong>วันหยุดพักร้อน (AL)</strong> หรือ <strong>วันหยุดชดเชย (CO)</strong> <br/><br/>
-                         <strong className="text-slate-800">กรณีคนไม่พอ (Shortage):</strong> หากมีพนักงานหยุดพักร้อนหรือหยุดชดเชยจนทำให้กะงานมีคนไม่พอ ผู้จัดการสามารถบริหารจัดการได้โดย <strong className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">เพิ่มชั่วโมง OT ให้กับพนักงานกะเช้า</strong> เพื่อให้พนักงานลากยาวดูแลร้านทดแทนกำลังคนที่ขาดหายไป
+                         <strong className="text-slate-800">กรณีคนไม่พอ (Shortage):</strong> หากมีพนักงานหยุดพักร้อนหรือหยุดชดเชยจนทำให้กะงานมีคนไม่พอ ผู้จัดการสามารถบริหารจัดการได้โดย <strong className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">เพิ่มชั่วโมง OT ให้กับพนักงานกะเช้า</strong> เพื่อให้พนักงานลากยาวดูแลร้านทดแทนกำลังคนที่ขาดหายไป
                       </p>
+                      <div className="border-2 border-slate-100 rounded-2xl overflow-hidden shadow-sm bg-slate-50 mt-2">
+                         {/* TODO: เปลี่ยน URL รูปภาพด้านล่างเป็นรูปตัวอย่างหน้าจัดการวันลา/OT */}
+                         <img src="https://placehold.co/1200x600/f8fafc/475569?text=Screenshot:+Review+%26+Leave+Management" alt="Step 3" className="w-full h-auto object-cover" />
+                      </div>
                    </div>
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-orange-500 text-white font-black text-lg sm:text-xl flex items-center justify-center flex-shrink-0 shadow-md">4</div>
-                   <div>
+                   <div className="flex-1 w-full min-w-0">
                       <h3 className="text-base sm:text-lg font-black text-slate-800 mb-2">การใช้แผนงานประจำวัน (Duty Roster Chart)</h3>
-                      <p className="text-xs sm:text-sm font-bold text-slate-600 leading-relaxed">
+                      <p className="text-xs sm:text-sm font-bold text-slate-600 leading-relaxed mb-4">
                          เมื่อจัดกะและตรวจสอบเรียบร้อย ผู้จัดการสามารถใช้หน้า <strong>Duty Roster Chart</strong> เพื่อดูแผนงานประจำวัน (Daily Plan) ได้ <br/>
                          ซึ่งจะแสดงให้เห็นชัดเจนเลยว่า <strong>ใครทำหน้าที่อะไร (Job A / Job B) ประจำตำแหน่งไหน เข้ากะกี่โมงถึงกี่โมง และมีเวลาเบรคอย่างไรบ้าง</strong> เพื่อใช้บรีฟพนักงานตอนเริ่มงาน (Operation)
                       </p>
+                      <div className="border-2 border-slate-100 rounded-2xl overflow-hidden shadow-sm bg-slate-50 mt-2">
+                         {/* TODO: เปลี่ยน URL รูปภาพด้านล่างเป็นรูปตัวอย่างหน้าพิมพ์ตารางงาน (Roster Chart) */}
+                         <img src="https://placehold.co/1200x600/f8fafc/475569?text=Screenshot:+Duty+Roster+Chart" alt="Step 4" className="w-full h-auto object-cover" />
+                      </div>
                    </div>
                 </div>
              </div>
