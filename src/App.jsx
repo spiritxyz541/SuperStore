@@ -3510,7 +3510,7 @@ export default function App() {
                           <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-2xl text-white font-black text-lg sm:text-xl flex items-center justify-center flex-shrink-0 shadow-md ${step.color}`}>{step.stepNum}</div>
                           <div className="flex-1 w-full min-w-0">
                              <h3 className="text-base sm:text-lg font-black text-slate-800 mb-2">{step.title}</h3>
-                             <div className="text-xs sm:text-sm font-medium text-slate-600 leading-relaxed mb-4 whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: step.content }}></div>
+                             <div className="text-xs sm:text-sm font-medium text-slate-600 leading-relaxed mb-4 whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: step.content }} onClick={(e) => { if (e.target.tagName === 'IMG') setZoomedImage(e.target.src); }}></div>
                              {step.image && (
                                 <div className="border-2 border-slate-100 rounded-2xl overflow-hidden shadow-sm bg-slate-50 mt-2 cursor-zoom-in aspect-video relative group" onClick={() => setZoomedImage(step.image)}>
                                    <img src={step.image} alt={step.title} className="w-full h-full object-cover object-center opacity-90 group-hover:opacity-100 transition-all duration-500 group-hover:scale-105" />
