@@ -91,8 +91,8 @@ const DEFAULT_KITCHEN_DUTIES = [
 const DEFAULT_GUIDE_STEPS = [
   {
      id: 'G1',
-     title: "รายเดือน: ADMIN (อัปเดตข้อมูลพนักงาน)",
-     content: "เริ่มต้นการจัดกะรายเดือน ผู้จัดการมีหน้าที่อัปเดตข้อมูลรายชื่อและวันหยุดประจำสัปดาห์ให้เป็นปัจจุบันที่สุดในเมนู <b>ADMIN</b>:<br><br>• <b>เพิ่ม/ลดพนักงาน:</b> เลื่อนไปที่ตารางจัดการพนักงาน กรอกรหัส ชื่อ แผนก ตำแหน่ง และวันหยุดประจำสัปดาห์ (ถ้ามี) แล้วกด เพิ่มพนักงาน หรือลบออก<br>• <b>ดูโควตาวันหยุด:</b> ระบบจะแสดงโควตาวันหยุด (จันทร์-อาทิตย์) ที่แอดมินกำหนดไว้ หากวันไหนขึ้นเต็มจะไม่สามารถให้หยุดเพิ่มได้<br>• <b>จัดวันหยุดอัตโนมัติ:</b> กดปุ่ม จัดวันหยุด Auto เพื่อให้ระบบสุ่มใส่วันหยุดประจำสัปดาห์ให้พนักงาน",
+     title: "รายเดือน: ตั้งค่า (อัปเดตข้อมูลพนักงาน)",
+     content: "เริ่มต้นการจัดกะรายเดือน ผู้จัดการมีหน้าที่อัปเดตข้อมูลรายชื่อและวันหยุดประจำสัปดาห์ให้เป็นปัจจุบันที่สุดในเมนู <b>ตั้งค่า</b>:<br><br>• <b>เพิ่ม/ลดพนักงาน:</b> เลื่อนไปที่ตารางจัดการพนักงาน กรอกรหัส ชื่อ แผนก ตำแหน่ง และวันหยุดประจำสัปดาห์ (ถ้ามี) แล้วกด เพิ่มพนักงาน หรือลบออก<br>• <b>ดูโควตาวันหยุด:</b> ระบบจะแสดงโควตาวันหยุด (จันทร์-อาทิตย์) ที่แอดมินกำหนดไว้ หากวันไหนขึ้นเต็มจะไม่สามารถให้หยุดเพิ่มได้<br>• <b>จัดวันหยุดอัตโนมัติ:</b> กดปุ่ม จัดวันหยุด Auto เพื่อให้ระบบสุ่มใส่วันหยุดประจำสัปดาห์ให้พนักงาน",
      image: "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=1200&q=80",
      color: "bg-emerald-500",
      stepNum: "1"
@@ -115,8 +115,8 @@ const DEFAULT_GUIDE_STEPS = [
   },
   {
      id: 'G4',
-     title: "รายวัน: MANAGER (ใช้ บทบาทหน้าที่ประจำวัน)",
-     content: "สำหรับการดำเนินงานหน้าสาขารายวัน จะใช้ตารางรายวันเพื่อจัดการหน้าร้าน (Operation):<br><br>• <b>บทบาทหน้าที่ประจำวัน (Duty Roster Chart):</b> กดเปลี่ยนมุมมองเพื่อดูตารางสรุปหน้าที่ของวันนี้ ว่าพนักงานแต่ละคนต้องทำงานหลัก/งานรองอะไร เข้ากะเวลาไหน และมีรอบพักเบรคช่วงไหนบ้าง<br>• <b>พิมพ์ตาราง (Print):</b> กดสั่งพิมพ์ตารางนี้เพื่อนำไปแปะบอร์ดที่ร้านสำหรับบรีฟพนักงานก่อนเริ่มงานทุกวัน",
+     title: "รายวัน: HEAD TEAM (ใช้ บทบาทหน้าที่ประจำวัน)",
+     content: "สำหรับการดำเนินงานหน้าสาขารายวัน จะใช้ตารางรายวันเพื่อจัดการหน้าร้าน (Operation):<br><br>• <b>บทบาทหน้าที่ประจำวัน (Duty Roster Chart):</b> ไปที่หน้า <b>HEAD TEAM</b> เพื่อดูตารางสรุปหน้าที่ของวันนี้ ว่าพนักงานแต่ละคนต้องทำงานหลัก/งานรองอะไร เข้ากะเวลาไหน และมีรอบพักเบรคช่วงไหนบ้าง<br>• <b>พิมพ์ตาราง (Print):</b> กดสั่งพิมพ์ตารางนี้เพื่อนำไปแปะบอร์ดที่ร้านสำหรับบรีฟพนักงานก่อนเริ่มงานทุกวัน",
      image: "https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?auto=format&fit=crop&w=1200&q=80",
      color: "bg-sky-500",
      stepNum: "4"
@@ -124,20 +124,21 @@ const DEFAULT_GUIDE_STEPS = [
 ];
 
 const DEFAULT_SITE_MAP = [
-  { id: 'SM1', title: '1. ADMIN (จัดการพนักงาน)', color: 'text-emerald-400', items: ['เพิ่ม/ลบ/แก้ไขพนักงาน', 'กำหนดวันหยุดประจำสัปดาห์'] },
-  { id: 'SM2', title: '2. MANAGER (จัดแผนงาน)', color: 'text-indigo-400', items: ['จัดแผนงานประจำเดือน', 'จัดกะรายเดือนอัตโนมัติ (AI)', 'จัดกะรายวันอัตโนมัติ (AI)', 'จัดการวันลา', 'บทบาทหน้าที่ประจำวัน (Duty Roster Chart)', 'พิมพ์ตาราง (Print)'] },
-  { id: 'SM3', title: '3. REPORT (สรุปผล)', color: 'text-orange-400', items: ['สรุปชั่วโมงทำงานและ OT', 'Export CSV นำไปทำเงินเดือน'] }
+  { id: 'SM1', title: '1. ตั้งค่า (จัดการพนักงาน)', color: 'text-emerald-400', items: ['เพิ่ม/ลบ/แก้ไขพนักงาน', 'กำหนดวันหยุดประจำสัปดาห์'] },
+  { id: 'SM2', title: '2. MANAGER (จัดแผนงาน)', color: 'text-indigo-400', items: ['จัดแผนงานประจำเดือน', 'จัดกะรายเดือนอัตโนมัติ (AI)', 'จัดกะรายวันอัตโนมัติ (AI)', 'จัดการวันลา'] },
+  { id: 'SM3', title: '3. HEAD TEAM (ปฏิบัติการรายวัน)', color: 'text-sky-400', items: ['บทบาทหน้าที่ประจำวัน (Duty Roster Chart)', 'พิมพ์ตาราง (Print)'] },
+  { id: 'SM4', title: '4. REPORT (สรุปผล)', color: 'text-orange-400', items: ['สรุปชั่วโมงทำงานและ OT', 'Export CSV นำไปทำเงินเดือน'] }
 ];
 
 const DEFAULT_WORKFLOW = {
     monthly: [
-        { id: 'WM1', text: 'ADMIN\nอัปเดตข้อมูลคน', theme: 'emerald' },
+        { id: 'WM1', text: 'ตั้งค่า\nอัปเดตข้อมูลคน', theme: 'emerald' },
         { id: 'WM2', text: 'MANAGER\nใส่วันหยุดชดเชย / ลาพักร้อน', theme: 'indigo' },
         { id: 'WM3', text: 'MANAGER\nจัดกะประจำเดือน Auto', theme: 'indigo' },
         { id: 'WM4', text: 'EUNITE\nทำข้อมูลบนระบบ Eunite', theme: 'orange' }
     ],
     daily: [
-        { id: 'WD1', text: 'MANAGER\nใช้ บทบาทหน้าที่ประจำวัน\n(Duty Roster Chart)', theme: 'sky' }
+        { id: 'WD1', text: 'HEAD TEAM\nใช้ บทบาทหน้าที่ประจำวัน\n(Duty Roster Chart)', theme: 'sky' }
     ]
 };
 
@@ -3851,31 +3852,22 @@ export default function App() {
         .snap-x { scroll-snap-type: x mandatory; }
         .snap-center { scroll-snap-align: center; }
         @media print {
-          @page { size: A4 landscape; margin: 5mm; }
-          html, body { background: white !important; -webkit-print-color-adjust: exact; padding: 0 !important; margin: 0 !important; width: 100% !important; height: 100% !important; }
+          @page { size: A4 landscape; margin: 8mm; }
+          html, body { background: white !important; -webkit-print-color-adjust: exact; padding: 0 !important; margin: 0 !important; width: 100% !important; height: 100% !important; display: block !important; }
           .print\\:hidden { display: none !important; }
           nav, button, footer { display: none !important; }
-          #root { display: block !important; height: 100% !important; width: 100% !important; }
-          main { padding: 0 !important; margin: 0 !important; width: 100% !important; height: 100% !important; display: block !important; }
+          #root { display: block !important; height: 100% !important; }
+          main { padding: 0 !important; margin: 0 !important; width: 100% !important; height: 100% !important; display: flex !important; flex-direction: column !important; justify-content: center !important; align-items: center !important; }
               .print-roster-wrapper {
-                  position: fixed !important;
-                  top: 0 !important;
-                  left: 0 !important;
-                  right: 0 !important;
-                  bottom: 0 !important;
                   display: flex !important;
                   flex-direction: column !important;
                   justify-content: center !important;
                   align-items: center !important;
-                  width: 100vw !important;
-                  height: 100vh !important;
+              width: 100% !important;
                   page-break-inside: avoid !important;
-                  box-sizing: border-box !important;
-                  background: white !important;
-                  z-index: 9999 !important;
               }
           .print-roster-wrapper > div { width: 100% !important; }
-          table { width: 100% !important; border-collapse: collapse !important; border: 2px solid #000 !important; margin: 0 auto !important; height: auto !important; max-height: 90vh !important; }
+          table { width: 100% !important; border-collapse: collapse !important; border: 2px solid #000 !important; margin: 0 auto !important; }
           th, td { border: 1px solid #000 !important; padding: 4px !important; }
         }
       `}} />
@@ -3922,8 +3914,9 @@ export default function App() {
                    </div>
                    <div className="flex-shrink-0 flex gap-1 sm:gap-2 bg-slate-100 p-1 rounded-xl sm:rounded-2xl border border-slate-200 font-black text-[9px] sm:text-[10px]">
                       <button onClick={() => setView('manager')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'manager' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>MANAGER</button>
+                      <button onClick={() => setView('head_team')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'head_team' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>HEAD TEAM</button>
                       <button onClick={() => setView('report')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'report' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>REPORT</button>
-                      <button onClick={() => setView('admin')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'admin' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>ADMIN</button>
+                      <button onClick={() => setView('admin')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'admin' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>ตั้งค่า</button>
                       <button onClick={() => setView('guide')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'guide' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>GUIDE</button>
                       {authRole === 'superadmin' && <button onClick={() => setView('branches')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'branches' ? 'bg-white text-emerald-600 shadow-sm border border-emerald-50' : 'text-slate-500'}`}>BRANCHES</button>}
                    </div>
@@ -3945,7 +3938,7 @@ export default function App() {
           {saveStatus === 'error' && <div className="lg:hidden fixed bottom-20 right-6 z-50 bg-red-500 text-white px-4 py-2 rounded-xl shadow-2xl text-xs font-bold">บันทึกไม่สำเร็จ</div>}
 
           <main className="flex-1 flex flex-col p-4 sm:p-8 max-w-[1600px] mx-auto w-full print:p-0 print:m-0 relative">
-             {(view === 'manager' || view === 'admin') && (
+             {(view === 'manager' || view === 'admin' || view === 'head_team') && (
                <div className="flex-none flex flex-wrap items-center justify-between gap-4 mb-6 sm:mb-10 print:hidden w-full">
                   <div className="flex flex-wrap gap-2 sm:gap-4 bg-white p-2 sm:p-3 rounded-[1.5rem] sm:rounded-[2.5rem] border border-slate-200 w-full md:w-fit shadow-sm">
                      <button onClick={() => { setActiveDept('service'); setStaffFilterPos('ALL'); }} className={`flex-1 md:flex-none flex justify-center items-center gap-2 sm:gap-3 px-4 sm:px-10 py-3 sm:py-4 rounded-[1rem] sm:rounded-[2rem] font-black text-[10px] sm:text-xs transition-all ${activeDept === 'service' ? 'bg-indigo-600 text-white shadow-xl scale-[1.02]' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}><ConciergeBell className="w-4 h-4 sm:w-5 sm:h-5"/> ฝั่งงานบริการ</button>
@@ -3955,7 +3948,6 @@ export default function App() {
                     <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
                        <button onClick={() => setManagerViewMode('daily')} className={`px-3 py-2 rounded-xl text-[10px] sm:text-xs font-black transition-all ${managerViewMode === 'daily' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}><CalendarDaysIcon className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1 sm:mr-2"/><span className="hidden sm:inline">จัดกะแบบรายวัน</span><span className="sm:hidden">รายวัน</span></button>
                        <button onClick={() => setManagerViewMode('monthly')} className={`px-3 py-2 rounded-xl text-[10px] sm:text-xs font-black transition-all ${managerViewMode === 'monthly' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}><CalendarIcon className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1 sm:mr-2"/><span className="hidden sm:inline">จัดกะแบบรายเดือน</span><span className="sm:hidden">รายเดือน</span></button>
-                       <button onClick={() => setManagerViewMode('daily_table')} className={`px-3 py-2 rounded-xl text-[10px] sm:text-xs font-black transition-all ${managerViewMode === 'daily_table' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}><TableProperties className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1 sm:mr-2"/><span className="hidden sm:inline">Duty Roster Chart</span><span className="sm:hidden">Roster</span></button>
                     </div>
                   )}
                </div>
