@@ -2756,7 +2756,7 @@ export default function App() {
 
         {authRole === 'superadmin' && renderMatrixSettings()}
 
-        {renderRosterStyleSettings()}
+        {authRole === 'superadmin' && renderRosterStyleSettings()}
 
      </div>
     );
