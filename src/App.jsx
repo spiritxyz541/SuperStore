@@ -2334,17 +2334,17 @@ export default function App() {
                             <div className="bg-white p-3 rounded-xl border border-slate-200">
                                 <p className="text-[9px] font-black text-slate-400 uppercase mb-2">กลุ่ม 9.5 ชั่วโมง (OC, SH...)</p>
                                 <div className="flex items-center gap-2">
-                                    <input type="text" value={p.timings.long.startTime} onChange={(e) => handleUpdateShiftPreset(p.id, 'startTime', e.target.value, 'long')} onBlur={async () => { if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }} className="w-full text-center border rounded-lg p-1.5 text-xs font-bold"/>
+                                    <input type="text" value={p.timings?.long?.startTime || ''} onChange={(e) => handleUpdateShiftPreset(p.id, 'startTime', e.target.value, 'long')} onBlur={async () => { if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }} className="w-full text-center border rounded-lg p-1.5 text-xs font-bold"/>
                                     <span>-</span>
-                                    <input type="text" value={p.timings.long.endTime} onChange={(e) => handleUpdateShiftPreset(p.id, 'endTime', e.target.value, 'long')} onBlur={async () => { if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }} className="w-full text-center border rounded-lg p-1.5 text-xs font-bold"/>
+                                    <input type="text" value={p.timings?.long?.endTime || ''} onChange={(e) => handleUpdateShiftPreset(p.id, 'endTime', e.target.value, 'long')} onBlur={async () => { if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }} className="w-full text-center border rounded-lg p-1.5 text-xs font-bold"/>
                                 </div>
                             </div>
                             <div className="bg-white p-3 rounded-xl border border-slate-200">
                                 <p className="text-[9px] font-black text-slate-400 uppercase mb-2">กลุ่ม 9 ชั่วโมง (EDC, PT...)</p>
                                 <div className="flex items-center gap-2">
-                                    <input type="text" value={p.timings.short.startTime} onChange={(e) => handleUpdateShiftPreset(p.id, 'startTime', e.target.value, 'short')} onBlur={async () => { if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }} className="w-full text-center border rounded-lg p-1.5 text-xs font-bold"/>
+                                    <input type="text" value={p.timings?.short?.startTime || ''} onChange={(e) => handleUpdateShiftPreset(p.id, 'startTime', e.target.value, 'short')} onBlur={async () => { if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }} className="w-full text-center border rounded-lg p-1.5 text-xs font-bold"/>
                                     <span>-</span>
-                                    <input type="text" value={p.timings.short.endTime} onChange={(e) => handleUpdateShiftPreset(p.id, 'endTime', e.target.value, 'short')} onBlur={async () => { if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }} className="w-full text-center border rounded-lg p-1.5 text-xs font-bold"/>
+                                    <input type="text" value={p.timings?.short?.endTime || ''} onChange={(e) => handleUpdateShiftPreset(p.id, 'endTime', e.target.value, 'short')} onBlur={async () => { if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }} className="w-full text-center border rounded-lg p-1.5 text-xs font-bold"/>
                                 </div>
                             </div>
                         </div>
