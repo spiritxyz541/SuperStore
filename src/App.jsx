@@ -1528,8 +1528,11 @@ export default function App() {
                 if (!newSched[dateStr]) newSched[dateStr] = { duties: {}, leaves: [] };
                 const dayData = newSched[dateStr];
                 
-                // 1. Clear previous duty assignments for this day
-                dayData.duties = {};
+                // 1. Clear previous duty assignments for this day (เฉพาะแผนกที่เลือก)
+                if (!dayData.duties) dayData.duties = {};
+                CURRENT_DUTY_LIST.forEach(d => {
+                    delete dayData.duties[d.id];
+                });
 
                 // 2. Consolidate leaves, including regular days off
                 const [y, m, d] = dateStr.split('-').map(Number);
@@ -1701,7 +1704,13 @@ export default function App() {
       setSchedule(prevSched => {
           const newSched = JSON.parse(JSON.stringify(prevSched));
           const datesToProcess = mode === 'daily' ? [selectedDateStr] : CALENDAR_DAYS.map(d => d.dateStr);
-          datesToProcess.forEach(dateStr => { if (newSched[dateStr]) newSched[dateStr].duties = {}; });
+          datesToProcess.forEach(dateStr => { 
+              if (newSched[dateStr] && newSched[dateStr].duties) {
+                  CURRENT_DUTY_LIST.forEach(d => {
+                      delete newSched[dateStr].duties[d.id];
+                  });
+              } 
+          });
           if (activeBranchId) autoSaveSchedule(newSched);
           return newSched;
       });
