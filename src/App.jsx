@@ -1612,14 +1612,14 @@ export default function App() {
                             if (validCandidates.length > 0) {
                                 // Sort candidates
                                 validCandidates.sort((a, b) => {
-                                    const aDirect = reqArr.includes(a.pos) ? 1 : 0;
-                                    const bDirect = reqArr.includes(b.pos) ? 1 : 0;
-                                    if (aDirect !== bDirect) return bDirect - aDirect; // Priority 1: Direct matches
-                                    
                                     if (isOTSlot) {
                                         const otDiff = staffOTCount[a.id] - staffOTCount[b.id];
-                                        if (otDiff !== 0) return otDiff; // Priority 2: Least accumulated OT
+                                        if (otDiff !== 0) return otDiff; // Priority 1: Least accumulated OT (หมุนเวียน OT ให้เท่ากัน)
                                     }
+
+                                    const aDirect = reqArr.includes(a.pos) ? 1 : 0;
+                                    const bDirect = reqArr.includes(b.pos) ? 1 : 0;
+                                    if (aDirect !== bDirect) return bDirect - aDirect; // Priority 2: Direct matches
                                     
                                     // Priority 3: Rank
                                     const posList = POSITIONS[activeDept] || [];
