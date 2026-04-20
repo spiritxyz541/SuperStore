@@ -2616,22 +2616,28 @@ export default function App() {
                     )}
                     {editingDutyId === duty.id ? (
                        <div className="flex-1 flex flex-col gap-2">
-                          <div className="flex gap-2">
-                             <input type="text" value={editDutyData.jobA} onChange={e => setEditDutyData({...editDutyData, jobA: e.target.value})} className="border rounded px-2 py-1 text-[10px] sm:text-xs flex-1 font-bold outline-none focus:border-indigo-500 min-w-[100px]"/>
-                             <input type="text" value={editDutyData.jobB} onChange={e => setEditDutyData({...editDutyData, jobB: e.target.value})} className="border rounded px-2 py-1 text-[10px] sm:text-xs flex-1 font-bold outline-none focus:border-indigo-500 min-w-[100px]"/>
+                         <div className="flex flex-col sm:flex-row gap-2">
+                            <input type="text" value={editDutyData.jobA} onChange={e => setEditDutyData({...editDutyData, jobA: e.target.value})} className="border rounded px-3 py-2 text-[10px] sm:text-xs flex-1 font-bold outline-none focus:border-indigo-500"/>
+                            <input type="text" value={editDutyData.jobB} onChange={e => setEditDutyData({...editDutyData, jobB: e.target.value})} className="border rounded px-3 py-2 text-[10px] sm:text-xs flex-1 font-bold outline-none focus:border-indigo-500"/>
                           </div>
-                          <div className="flex gap-2 items-center">
-                             <input type="text" placeholder="XP-DNA SOP" value={editDutyData.xpDna || ''} onChange={e => setEditDutyData({...editDutyData, xpDna: e.target.value})} className="border rounded px-2 py-1 text-[10px] sm:text-xs flex-1 font-bold outline-none focus:border-indigo-500 min-w-[100px]"/>
-                             <select value={editDutyData.category} onChange={e => setEditDutyData({...editDutyData, category: e.target.value})} className="border rounded px-2 py-1 text-[10px] sm:text-xs font-bold outline-none focus:border-indigo-500">
+                         <div className="flex flex-col shadow-sm rounded-xl border border-slate-200 w-full mt-1">
+                            {renderRichTextToolbar(`edit-duty-xp-dna-${duty.id}`, editDutyData.xpDna || '', (val) => setEditDutyData({...editDutyData, xpDna: val}))}
+                            <div className="flex flex-col md:flex-row border-t border-slate-200 bg-white rounded-b-xl overflow-hidden min-h-[100px]">
+                                <textarea id={`edit-duty-xp-dna-${duty.id}`} placeholder="XP-DNA SOP... (รองรับ HTML)" value={editDutyData.xpDna || ''} onChange={e => setEditDutyData({...editDutyData, xpDna: e.target.value})} className="w-full md:w-1/2 p-3 text-[10px] sm:text-xs font-medium outline-none focus:border-indigo-500 resize-y border-b md:border-b-0 md:border-r border-slate-200 min-h-[100px]"></textarea>
+                                <div className="w-full md:w-1/2 p-3 bg-slate-50 text-[10px] sm:text-xs text-slate-600 overflow-y-auto whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: editDutyData.xpDna || '<span class="text-slate-400 italic font-bold">แสดงผลตัวอย่าง (Preview)...</span>' }}></div>
+                            </div>
+                         </div>
+                         <div className="flex gap-2 items-center flex-wrap mt-1">
+                            <select value={editDutyData.category} onChange={e => setEditDutyData({...editDutyData, category: e.target.value})} className="border rounded px-2 py-2 text-[10px] sm:text-xs font-bold outline-none focus:border-indigo-500 flex-1 min-w-[120px]">
                                 {DUTY_CATEGORIES[activeDept]?.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
                              </select>
-                             <label className="flex items-center gap-1.5 text-[10px] font-bold text-slate-600 bg-white border rounded px-2 py-1 cursor-pointer select-none whitespace-nowrap">
+                             <label className="flex items-center gap-1.5 text-[10px] font-bold text-slate-600 bg-white border rounded px-3 py-2 cursor-pointer select-none whitespace-nowrap justify-center flex-1 min-w-[100px]">
                                 <input type="checkbox" checked={editDutyData.isBackup || false} onChange={e => setEditDutyData({...editDutyData, isBackup: e.target.checked})} className="w-3 h-3 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500" />
                                 กะสำรอง
                              </label>
-                             <PositionSelector disabled={false} value={editDutyData.reqPos || ['ALL']} options={POSITIONS[activeDept]} onChange={(val) => setEditDutyData({...editDutyData, reqPos: val})} className="w-full sm:min-w-[80px]" />
-                             <button onClick={handleEditDutySave} className="bg-green-500 text-white p-1.5 rounded-lg"><Check className="w-3 h-3"/></button>
-                             <button onClick={() => setEditingDutyId(null)} className="bg-red-500 text-white p-1.5 rounded-lg"><X className="w-3 h-3"/></button>
+                             <PositionSelector disabled={false} value={editDutyData.reqPos || ['ALL']} options={POSITIONS[activeDept]} onChange={(val) => setEditDutyData({...editDutyData, reqPos: val})} className="w-full sm:w-auto min-w-[120px] flex-1" />
+                             <button onClick={handleEditDutySave} className="bg-green-500 text-white p-2 rounded-lg ml-auto shadow-sm"><Check className="w-4 h-4"/></button>
+                             <button onClick={() => setEditingDutyId(null)} className="bg-red-500 text-white p-2 rounded-lg shadow-sm"><X className="w-4 h-4"/></button>
                           </div>
                        </div>
                     ) : (
