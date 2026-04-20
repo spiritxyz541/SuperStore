@@ -3823,21 +3823,19 @@ export default function App() {
               table { width: 100% !important; border-collapse: collapse !important; border: 2px solid #000 !important; }
           th, td { border: 1px solid #000 !important; padding: 2px !important; }
               .print-roster-wrapper {
-                  position: absolute !important;
-                  top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
+                      position: fixed !important;
+                      top: 0 !important; left: 0 !important;
                   display: flex !important;
                   flex-direction: column !important;
                   justify-content: center !important;
                   align-items: center !important;
                   height: 100vh !important;
                   width: 100vw !important;
-                  max-height: 100vh !important;
-                  max-width: 100vw !important;
                   page-break-inside: avoid !important;
                   box-sizing: border-box !important;
                   overflow: hidden !important;
               }
-              .print-roster-wrapper table { height: 85% !important; max-height: 85% !important; width: 100% !important; margin: 0 auto !important; }
+                  .print-roster-wrapper table { height: auto !important; max-height: 85vh !important; width: 100% !important; margin: 0 auto !important; }
         }
       `}} />
 
