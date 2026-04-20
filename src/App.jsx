@@ -1172,16 +1172,6 @@ export default function App() {
               const url = window.prompt('ใส่ URL ที่ต้องการลิงก์ไป (เช่น https://google.com):');
               if (url) handleFormatContent(`<a href="${url}" target="_blank" class="text-blue-600 underline hover:text-blue-800">`, '</a>', editorId, textValue, setTextValue);
           }} className="p-1.5 text-slate-700 hover:bg-white hover:shadow-sm rounded transition" title="แทรกลิงก์"><LinkIcon className="w-4 h-4"/></button>
-          <button type="button" onClick={() => handleFormatContent('<div style="text-align: center;">\n', '\n</div>', editorId, textValue, setTextValue)} className="p-1.5 text-slate-700 hover:bg-white hover:shadow-sm rounded transition" title="จัดกึ่งกลาง"><AlignCenter className="w-4 h-4"/></button>
-          <div className="w-px h-5 bg-slate-300 mx-1"></div>
-          <button type="button" onClick={() => {
-              const url = window.prompt('ใส่ URL รูปภาพที่ต้องการแทรก:');
-              if (url) {
-                  const size = window.prompt('ระบุขนาดความกว้างของรูปภาพ (เช่น 100%, 300px, 500px) หรือเว้นว่างไว้เพื่อใช้ขนาดปกติ:', '100%');
-                  const styleStr = size ? `style="width: ${size}; max-width: 100%;"` : 'style="max-width: 100%;"';
-                  handleFormatContent(`<img src="${url}" ${styleStr} class="rounded-xl cursor-zoom-in my-2 shadow-sm border border-slate-200 inline-block" alt="Inserted Image" />`, '', editorId, textValue, setTextValue);
-              }
-          }} className="p-1.5 text-slate-700 hover:bg-white hover:shadow-sm rounded transition" title="แทรกรูปภาพ"><ImageIcon className="w-4 h-4"/></button>
           <div className="w-px h-5 bg-slate-300 mx-1"></div>
           <button type="button" onClick={() => handleFormatContent('<br>', '', editorId, textValue, setTextValue)} className="px-2 py-1 text-slate-700 hover:bg-white hover:shadow-sm rounded text-[10px] font-bold transition" title="ขึ้นบรรทัดใหม่">↵ ปัดบรรทัด</button>
       </div>
