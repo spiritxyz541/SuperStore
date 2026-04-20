@@ -3811,8 +3811,20 @@ export default function App() {
           .print\\:hidden { display: none !important; }
           nav, button, footer { display: none !important; }
           main { padding: 0 !important; margin: 0 !important; min-height: auto !important; }
-          table { width: 100% !important; border-collapse: collapse !important; border: 2px solid #000 !important; font-size: 7px !important; }
+              table { width: 100% !important; border-collapse: collapse !important; border: 2px solid #000 !important; }
           th, td { border: 1px solid #000 !important; padding: 2px !important; }
+              .print-roster-wrapper {
+                  position: absolute !important;
+                  top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
+                  display: flex !important;
+                  flex-direction: column !important;
+                  justify-content: center !important;
+                  align-items: center !important;
+                  height: 100vh !important;
+                  width: 100vw !important;
+                  page-break-inside: avoid !important;
+                  box-sizing: border-box !important;
+              }
         }
       `}} />
 
