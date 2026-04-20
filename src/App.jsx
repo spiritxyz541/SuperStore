@@ -665,7 +665,12 @@ export default function App() {
         if (!data.duties) data.duties = { service: DEFAULT_SERVICE_DUTIES, kitchen: DEFAULT_KITCHEN_DUTIES };
         if (!data.templates) data.templates = [];
         if (!data.rosterStyle) {
-            data.rosterStyle = { fontSize: 10, headerBg: '#f1f5f9', shiftHeaderBg: '#e0f2fe', colDuty: 8, colXpDna: 10, colJobA: 15, colJobB: 10, colCount: 4, colName: 15, colShift: 7, colBreak: 8 };
+            data.rosterStyle = { 
+                fontSize: 10, headerBg: '#f1f5f9', shiftHeaderBg: '#e0f2fe', 
+                colDuty: 8, colXpDna: 10, colJobA: 15, colJobB: 10, colCount: 4, colName: 15, colShift: 7, colBreak: 8,
+                headlineSize: 24, subHeadlineSize: 14, headerFontSize: 10,
+                fontDuty: 10, fontXpDna: 8, fontJobA: 10, fontJobB: 8, fontCount: 12, fontName: 10, fontShift: 10, fontBreak: 10
+            };
         }
         // Migration for dayOffLimits from old format to new { service: ..., kitchen: ... } format
         if (!data.dayOffLimits || !data.dayOffLimits.service || !data.dayOffLimits.kitchen) {
@@ -2901,8 +2906,10 @@ export default function App() {
     const categories = DUTY_CATEGORIES[activeDept] || [];
     let totalAssignedAll = 0;
     const rs = branchData.rosterStyle || {
-        fontSize: 10, headerBg: '#f1f5f9', shiftHeaderBg: '#e0f2fe',
-        colDuty: 8, colXpDna: 10, colJobA: 15, colJobB: 10, colCount: 4, colName: 15, colShift: 7, colBreak: 8
+        fontSize: 10, headerBg: '#f1f5f9', shiftHeaderBg: '#e0f2fe', 
+        colDuty: 8, colXpDna: 10, colJobA: 15, colJobB: 10, colCount: 4, colName: 15, colShift: 7, colBreak: 8,
+        headlineSize: 24, subHeadlineSize: 14, headerFontSize: 10,
+        fontDuty: 10, fontXpDna: 8, fontJobA: 10, fontJobB: 8, fontCount: 12, fontName: 10, fontShift: 10, fontBreak: 10
     };
 
     const tableBodyRows = categories.flatMap(cat => {
@@ -2949,28 +2956,28 @@ export default function App() {
              return (
                 <tr key={`${row.duty.id}-${originalIdx}`} className={`text-center h-10 sm:h-12 border border-slate-800 ${cat.color.split(' ')[0]} ${cat.color.split(' ')[1]}`}>
                    {rowLocalIdx === 0 && slotLocalIdx === 0 && (
-                      <td rowSpan={totalCatSlots} className="border border-slate-800 p-2 font-black uppercase text-[1em] leading-tight bg-black/10">{cat.label}</td>
+                      <td rowSpan={totalCatSlots} className="border border-slate-800 p-2 font-black uppercase leading-tight bg-black/10" style={{ fontSize: `${rs.fontDuty || rs.fontSize}px` }}>{cat.label}</td>
                    )}
                    {slotLocalIdx === 0 && (
                       <React.Fragment>
-                         <td rowSpan={row.activeSlots.length} className="border border-slate-800 p-2 text-left text-[0.8em] whitespace-pre-wrap leading-tight opacity-90">{row.duty.xpDna || '-'}</td>
-                         <td rowSpan={row.activeSlots.length} className="border border-slate-800 p-2 font-black text-left leading-tight">{row.duty.jobA}</td>
-                         <td rowSpan={row.activeSlots.length} className="border border-slate-800 p-2 text-left text-[0.8em] leading-tight opacity-80">{row.duty.jobB}</td>
-                         <td rowSpan={row.activeSlots.length} className="border border-slate-800 p-2 font-black text-[1.2em]"><u className="underline-offset-2">{row.activeSlots.length}</u></td>
+                         <td rowSpan={row.activeSlots.length} className="border border-slate-800 p-2 text-left whitespace-pre-wrap leading-tight opacity-90" style={{ fontSize: `${rs.fontXpDna || (rs.fontSize * 0.8)}px` }}>{row.duty.xpDna || '-'}</td>
+                         <td rowSpan={row.activeSlots.length} className="border border-slate-800 p-2 font-black text-left leading-tight" style={{ fontSize: `${rs.fontJobA || rs.fontSize}px` }}>{row.duty.jobA}</td>
+                         <td rowSpan={row.activeSlots.length} className="border border-slate-800 p-2 text-left leading-tight opacity-80" style={{ fontSize: `${rs.fontJobB || (rs.fontSize * 0.8)}px` }}>{row.duty.jobB}</td>
+                         <td rowSpan={row.activeSlots.length} className="border border-slate-800 p-2 font-black" style={{ fontSize: `${rs.fontCount || (rs.fontSize * 1.2)}px` }}><u className="underline-offset-2">{row.activeSlots.length}</u></td>
                       </React.Fragment>
                    )}
-                   <td className="border border-slate-800 p-2 text-left font-bold text-[1em]">
+                   <td className="border border-slate-800 p-2 text-left font-bold" style={{ fontSize: `${rs.fontName || rs.fontSize}px` }}>
                        <div className="flex justify-between items-center">
                            <span>{staffName}<span className="opacity-80 ml-1 font-black">{otBadge}</span></span>
-                           {staff && <span className={`px-1.5 py-0.5 rounded text-[0.8em] font-black uppercase bg-black/10 border border-current opacity-80`}>{staff.pos}</span>}
+                           {staff && <span className={`px-1.5 py-0.5 rounded font-black uppercase bg-black/10 border border-current opacity-80`} style={{ fontSize: `${(rs.fontName || rs.fontSize) * 0.8}px` }}>{staff.pos}</span>}
                        </div>
                    </td>
-                   {activeDayShiftVisibilities.hasMorning && <td className={`border border-slate-800 p-2 font-bold text-[1em] ${isMorning ? 'shadow-inner' : 'opacity-30'}`}>{isMorning ? timeText : ''}</td>}
-                   {activeDayShiftVisibilities.hasLateMorning && <td className={`border border-slate-800 p-2 font-bold text-[1em] ${isLateMorning ? 'shadow-inner' : 'opacity-30'}`}>{isLateMorning ? timeText : ''}</td>}
-                   {activeDayShiftVisibilities.hasAfternoon && <td className={`border border-slate-800 p-2 font-bold text-[1em] ${isAfternoon ? 'shadow-inner' : 'opacity-30'}`}>{isAfternoon ? timeText : ''}</td>}
-                   {activeDayShiftVisibilities.hasEvening && <td className={`border border-slate-800 p-2 font-bold text-[1em] ${isEvening ? 'shadow-inner' : 'opacity-30'}`}>{isEvening ? timeText : ''}</td>}
-                   {activeDayShiftVisibilities.hasNight && <td className={`border border-slate-800 p-2 font-bold text-[1em] ${isNight ? 'shadow-inner' : 'opacity-30'}`}>{isNight ? timeText : ''}</td>}
-                   <td className="border border-slate-800 p-2 bg-black/10"></td>
+                   {activeDayShiftVisibilities.hasMorning && <td className={`border border-slate-800 p-2 font-bold ${isMorning ? 'shadow-inner' : 'opacity-30'}`} style={{ fontSize: `${rs.fontShift || rs.fontSize}px` }}>{isMorning ? timeText : ''}</td>}
+                   {activeDayShiftVisibilities.hasLateMorning && <td className={`border border-slate-800 p-2 font-bold ${isLateMorning ? 'shadow-inner' : 'opacity-30'}`} style={{ fontSize: `${rs.fontShift || rs.fontSize}px` }}>{isLateMorning ? timeText : ''}</td>}
+                   {activeDayShiftVisibilities.hasAfternoon && <td className={`border border-slate-800 p-2 font-bold ${isAfternoon ? 'shadow-inner' : 'opacity-30'}`} style={{ fontSize: `${rs.fontShift || rs.fontSize}px` }}>{isAfternoon ? timeText : ''}</td>}
+                   {activeDayShiftVisibilities.hasEvening && <td className={`border border-slate-800 p-2 font-bold ${isEvening ? 'shadow-inner' : 'opacity-30'}`} style={{ fontSize: `${rs.fontShift || rs.fontSize}px` }}>{isEvening ? timeText : ''}</td>}
+                   {activeDayShiftVisibilities.hasNight && <td className={`border border-slate-800 p-2 font-bold ${isNight ? 'shadow-inner' : 'opacity-30'}`} style={{ fontSize: `${rs.fontShift || rs.fontSize}px` }}>{isNight ? timeText : ''}</td>}
+                   <td className="border border-slate-800 p-2 bg-black/10" style={{ fontSize: `${rs.fontBreak || rs.fontSize}px` }}></td>
                 </tr>
              );
           });
@@ -2989,12 +2996,12 @@ export default function App() {
              </div>
              <div className="p-4 sm:p-8 overflow-x-auto w-full">
                 <div className="text-center mb-6">
-                   <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tighter">แผนงานประจำวัน{activeDept === 'service' ? 'แผนกบริการ (FOH)' : 'แผนกครัว (BOH)'}</h1>
-                   <p className="text-sm sm:text-base font-bold text-slate-600 mt-2">วัน{activeDay.dayLabel} ที่ <span className="underline underline-offset-4">{activeDay.dayNum}</span> เดือน <span className="underline underline-offset-4">{THAI_MONTHS[selectedMonth]}</span> พ.ศ. <span className="underline underline-offset-4">{selectedYear + 543}</span></p>
+                   <h1 className="font-black uppercase tracking-tighter" style={{ fontSize: `${rs.headlineSize || 24}px` }}>แผนงานประจำวัน{activeDept === 'service' ? 'แผนกบริการ (FOH)' : 'แผนกครัว (BOH)'}</h1>
+                   <p className="font-bold text-slate-600 mt-2" style={{ fontSize: `${rs.subHeadlineSize || 14}px` }}>วัน{activeDay.dayLabel} ที่ <span className="underline underline-offset-4">{activeDay.dayNum}</span> เดือน <span className="underline underline-offset-4">{THAI_MONTHS[selectedMonth]}</span> พ.ศ. <span className="underline underline-offset-4">{selectedYear + 543}</span></p>
                 </div>
                 <table className="w-full border-collapse border-2 border-slate-800 min-w-[1100px] bg-white print:min-w-0" style={{ fontSize: `${rs.fontSize}px` }}>
                    <thead>
-                      <tr className="text-center font-black" style={{ backgroundColor: rs.headerBg, color: '#0f172a' }}>
+                      <tr className="text-center font-black" style={{ backgroundColor: rs.headerBg, color: '#0f172a', fontSize: `${rs.headerFontSize || 10}px` }}>
                          <th className="border border-slate-800 p-2" style={{ width: `${rs.colDuty}%` }}>กลุ่มงาน (DUTY)</th>
                          <th className="border border-slate-800 p-2" style={{ width: `${rs.colXpDna}%` }}>XP-DNA SOP</th>
                          <th className="border border-slate-800 p-2" style={{ width: `${rs.colJobA}%` }}>รายละเอียดงานหลัก (JOB A)</th>
@@ -3012,8 +3019,8 @@ export default function App() {
                    <tbody>
                       {tableBodyRows}
                       <tr className="text-center bg-slate-50 print:bg-slate-100 font-black h-10 sm:h-12">
-                         <td colSpan={4} className="border border-slate-800 p-2 text-right pr-6 uppercase tracking-widest text-slate-800">Total Staff (เฉพาะที่มีรายชื่อ)</td>
-                         <td className="border border-slate-800 p-2 text-[1.2em] text-indigo-600"><u className="underline-offset-2">{totalAssignedAll}</u></td>
+                         <td colSpan={4} className="border border-slate-800 p-2 text-right pr-6 uppercase tracking-widest text-slate-800" style={{ fontSize: `${rs.headerFontSize || 10}px` }}>Total Staff (เฉพาะที่มีรายชื่อ)</td>
+                         <td className="border border-slate-800 p-2 text-indigo-600" style={{ fontSize: `${rs.fontCount || 12}px` }}><u className="underline-offset-2">{totalAssignedAll}</u></td>
                          <td colSpan={activeDayShiftVisibilities.bottomColSpan + 1} className="border border-slate-800 p-2"></td>
                       </tr>
                    </tbody>
@@ -3298,17 +3305,10 @@ export default function App() {
 
   function renderRosterStyleSettings() {
       const rs = branchData.rosterStyle || {
-          fontSize: 10,
-          headerBg: '#f1f5f9',
-          shiftHeaderBg: '#e0f2fe',
-          colDuty: 8,
-          colXpDna: 10,
-          colJobA: 15,
-          colJobB: 10,
-          colCount: 4,
-          colName: 15,
-          colShift: 7,
-          colBreak: 8
+          fontSize: 10, headerBg: '#f1f5f9', shiftHeaderBg: '#e0f2fe',
+          colDuty: 8, colXpDna: 10, colJobA: 15, colJobB: 10, colCount: 4, colName: 15, colShift: 7, colBreak: 8,
+          headlineSize: 24, subHeadlineSize: 14, headerFontSize: 10,
+          fontDuty: 10, fontXpDna: 8, fontJobA: 10, fontJobB: 8, fontCount: 12, fontName: 10, fontShift: 10, fontBreak: 10
       };
       const handleChange = async (field, value) => {
           const nd = JSON.parse(JSON.stringify(branchData));
@@ -3326,29 +3326,43 @@ export default function App() {
                 <Printer className="w-6 h-6 sm:w-7 sm:h-7 text-indigo-500" /> ตั้งค่าหน้าตาตาราง Duty Roster (รายวัน)
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="space-y-4 bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
-                    <h3 className="font-black text-slate-700 text-sm uppercase tracking-widest border-b border-slate-200 pb-2">1. ขนาดและสี (Size & Colors)</h3>
-                    <div>
-                        <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">ขนาดฟอนต์ตาราง (px)</label>
-                        <input type="number" value={rs.fontSize} onChange={(e) => handleChange('fontSize', parseInt(e.target.value) || 10)} className="w-full border rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500" />
-                    </div>
-                    <div>
-                        <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">สีพื้นหลังหัวตารางหลัก</label>
-                        <div className="flex gap-2">
-                           <input type="color" value={rs.headerBg} onChange={(e) => handleChange('headerBg', e.target.value)} className="h-8 w-8 rounded cursor-pointer" />
-                           <input type="text" value={rs.headerBg} onChange={(e) => handleChange('headerBg', e.target.value)} className="flex-1 border rounded-xl px-3 py-1.5 text-xs font-bold outline-none focus:border-indigo-500" />
+                <div className="space-y-4 bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100 md:col-span-3">
+                    <h3 className="font-black text-slate-700 text-sm uppercase tracking-widest border-b border-slate-200 pb-2">1. สีและหัวข้อ (Colors & Headers)</h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <div>
+                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">ขนาดหัวข้อหลัก (px)</label>
+                            <input type="number" value={rs.headlineSize} onChange={(e) => handleChange('headlineSize', parseInt(e.target.value) || 24)} className="w-full border rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500" />
                         </div>
-                    </div>
-                    <div>
-                        <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">สีพื้นหลังกะทำงาน</label>
-                        <div className="flex gap-2">
-                           <input type="color" value={rs.shiftHeaderBg} onChange={(e) => handleChange('shiftHeaderBg', e.target.value)} className="h-8 w-8 rounded cursor-pointer" />
-                           <input type="text" value={rs.shiftHeaderBg} onChange={(e) => handleChange('shiftHeaderBg', e.target.value)} className="flex-1 border rounded-xl px-3 py-1.5 text-xs font-bold outline-none focus:border-indigo-500" />
+                        <div>
+                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">ขนาดวันที่ (px)</label>
+                            <input type="number" value={rs.subHeadlineSize} onChange={(e) => handleChange('subHeadlineSize', parseInt(e.target.value) || 14)} className="w-full border rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500" />
+                        </div>
+                        <div>
+                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">ขนาดฟอนต์ตารางเริ่มต้น</label>
+                            <input type="number" value={rs.fontSize} onChange={(e) => handleChange('fontSize', parseInt(e.target.value) || 10)} className="w-full border rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500" />
+                        </div>
+                        <div>
+                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">ขนาดฟอนต์หัวตาราง</label>
+                            <input type="number" value={rs.headerFontSize} onChange={(e) => handleChange('headerFontSize', parseInt(e.target.value) || 10)} className="w-full border rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500" />
+                        </div>
+                        <div>
+                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">สีพื้นหลังหัวตาราง</label>
+                            <div className="flex gap-2">
+                               <input type="color" value={rs.headerBg} onChange={(e) => handleChange('headerBg', e.target.value)} className="h-8 w-8 rounded cursor-pointer flex-shrink-0" />
+                               <input type="text" value={rs.headerBg} onChange={(e) => handleChange('headerBg', e.target.value)} className="flex-1 border rounded-xl px-2 py-1 text-xs font-bold outline-none min-w-0" />
+                            </div>
+                        </div>
+                        <div>
+                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">สีพื้นหลังกะทำงาน</label>
+                            <div className="flex gap-2">
+                               <input type="color" value={rs.shiftHeaderBg} onChange={(e) => handleChange('shiftHeaderBg', e.target.value)} className="h-8 w-8 rounded cursor-pointer flex-shrink-0" />
+                               <input type="text" value={rs.shiftHeaderBg} onChange={(e) => handleChange('shiftHeaderBg', e.target.value)} className="flex-1 border rounded-xl px-2 py-1 text-xs font-bold outline-none min-w-0" />
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <div className="md:col-span-2 space-y-4 bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                <div className="md:col-span-3 space-y-4 bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
                     <h3 className="font-black text-slate-700 text-sm uppercase tracking-widest border-b border-slate-200 pb-2">2. ความกว้างคอลัมน์ (%, รวมควรใกล้เคียง 100%)</h3>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                         <div>
@@ -3382,6 +3396,44 @@ export default function App() {
                         <div>
                             <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">รอบพัก</label>
                             <input type="number" value={rs.colBreak} onChange={(e) => handleChange('colBreak', parseInt(e.target.value) || 0)} className="w-full border rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500" />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="md:col-span-3 space-y-4 bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                    <h3 className="font-black text-slate-700 text-sm uppercase tracking-widest border-b border-slate-200 pb-2">3. ขนาดฟอนต์แต่ละคอลัมน์ (px)</h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <div>
+                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">กลุ่มงาน (DUTY)</label>
+                            <input type="number" value={rs.fontDuty} onChange={(e) => handleChange('fontDuty', parseInt(e.target.value) || 10)} className="w-full border rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500" />
+                        </div>
+                        <div>
+                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">XP-DNA SOP</label>
+                            <input type="number" value={rs.fontXpDna} onChange={(e) => handleChange('fontXpDna', parseInt(e.target.value) || 8)} className="w-full border rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500" />
+                        </div>
+                        <div>
+                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">งานหลัก (JOB A)</label>
+                            <input type="number" value={rs.fontJobA} onChange={(e) => handleChange('fontJobA', parseInt(e.target.value) || 10)} className="w-full border rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500" />
+                        </div>
+                        <div>
+                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">งานรอง (JOB B)</label>
+                            <input type="number" value={rs.fontJobB} onChange={(e) => handleChange('fontJobB', parseInt(e.target.value) || 8)} className="w-full border rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500" />
+                        </div>
+                        <div>
+                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">จำนวนคน</label>
+                            <input type="number" value={rs.fontCount} onChange={(e) => handleChange('fontCount', parseInt(e.target.value) || 12)} className="w-full border rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500" />
+                        </div>
+                        <div>
+                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">ชื่อพนักงาน</label>
+                            <input type="number" value={rs.fontName} onChange={(e) => handleChange('fontName', parseInt(e.target.value) || 10)} className="w-full border rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500" />
+                        </div>
+                        <div>
+                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">กะเวลา</label>
+                            <input type="number" value={rs.fontShift} onChange={(e) => handleChange('fontShift', parseInt(e.target.value) || 10)} className="w-full border rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500" />
+                        </div>
+                        <div>
+                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">รอบพัก</label>
+                            <input type="number" value={rs.fontBreak} onChange={(e) => handleChange('fontBreak', parseInt(e.target.value) || 10)} className="w-full border rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500" />
                         </div>
                     </div>
                 </div>
