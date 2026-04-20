@@ -3822,9 +3822,13 @@ export default function App() {
                   align-items: center !important;
                   height: 100vh !important;
                   width: 100vw !important;
+                  max-height: 100vh !important;
+                  max-width: 100vw !important;
                   page-break-inside: avoid !important;
                   box-sizing: border-box !important;
+                  overflow: hidden !important;
               }
+              .print-roster-wrapper table { height: 85% !important; max-height: 85% !important; width: 100% !important; margin: 0 auto !important; }
         }
       `}} />
 
