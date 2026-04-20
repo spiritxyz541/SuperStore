@@ -435,7 +435,6 @@ export default function App() {
   const [newDutyXpDna, setNewDutyXpDna] = useState(''); 
   const [newDutyReqPos, setNewDutyReqPos] = useState(['ALL']); 
   const [newDutyCategory, setNewDutyCategory] = useState('FOH_STAFF');
-  const [newDutyIsBackup, setNewDutyIsBackup] = useState(false);
   const [editingDutyId, setEditingDutyId] = useState(null);
   const [editDutyData, setEditDutyData] = useState({});
   const [editingShiftPresetId, setEditingShiftPresetId] = useState(null);
@@ -946,7 +945,7 @@ export default function App() {
   const handleAddDuty = () => {
     if (!newDutyJobA.trim()) return;
     const newId = (activeDept === 'service' ? 'D' : 'K') + Date.now();
-    const newDuty = { id: newId, category: newDutyCategory, jobA: newDutyJobA.trim(), jobB: newDutyJobB.trim() || '-', xpDna: newDutyXpDna.trim(), reqPos: newDutyReqPos, isBackup: newDutyIsBackup };
+    const newDuty = { id: newId, category: newDutyCategory, jobA: newDutyJobA.trim(), jobB: newDutyJobB.trim() || '-', xpDna: newDutyXpDna.trim(), reqPos: newDutyReqPos };
     setBranchData(prev => {
       const nd = JSON.parse(JSON.stringify(prev));
       if (!nd.duties) nd.duties = { service: DEFAULT_SERVICE_DUTIES, kitchen: DEFAULT_KITCHEN_DUTIES };
@@ -958,7 +957,7 @@ export default function App() {
       });
       return nd;
     });
-    setNewDutyJobA(''); setNewDutyJobB(''); setNewDutyXpDna(''); setNewDutyReqPos(['ALL']); setNewDutyIsBackup(false);
+    setNewDutyJobA(''); setNewDutyJobB(''); setNewDutyXpDna(''); setNewDutyReqPos(['ALL']);
   };
 
   const handleEditDutySave = () => {
@@ -1554,11 +1553,6 @@ export default function App() {
                 // 3. Sort duties by priority: HEAD > STAFF > SUPPORT, then by highest required position
                 const dutyPriority = { 'HEAD': 1, 'STAFF': 2, 'SUPPORT': 3 };
                 const sortedDuties = [...CURRENT_DUTY_LIST].sort((a, b) => {
-                    // Priority 0: Primary Duties first, Backup Duties last
-                    const aBackup = a.isBackup ? 1 : 0;
-                    const bBackup = b.isBackup ? 1 : 0;
-                    if (aBackup !== bBackup) return aBackup - bBackup;
-
                     const getCat = (catStr) => (catStr || '').split('_')[1] || 'OTHER';
                     const priorityA = dutyPriority[getCat(a.category)] || 99;
                     const priorityB = dutyPriority[getCat(b.category)] || 99;
@@ -2334,17 +2328,17 @@ export default function App() {
                             <div className="bg-white p-3 rounded-xl border border-slate-200">
                                 <p className="text-[9px] font-black text-slate-400 uppercase mb-2">กลุ่ม 9.5 ชั่วโมง (OC, SH...)</p>
                                 <div className="flex items-center gap-2">
-                                    <input type="text" value={p.timings?.long?.startTime || ''} onChange={(e) => handleUpdateShiftPreset(p.id, 'startTime', e.target.value, 'long')} onBlur={async () => { if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }} className="w-full text-center border rounded-lg p-1.5 text-xs font-bold"/>
+                                    <input type="text" value={p.timings.long.startTime} onChange={(e) => handleUpdateShiftPreset(p.id, 'startTime', e.target.value, 'long')} onBlur={async () => { if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }} className="w-full text-center border rounded-lg p-1.5 text-xs font-bold"/>
                                     <span>-</span>
-                                    <input type="text" value={p.timings?.long?.endTime || ''} onChange={(e) => handleUpdateShiftPreset(p.id, 'endTime', e.target.value, 'long')} onBlur={async () => { if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }} className="w-full text-center border rounded-lg p-1.5 text-xs font-bold"/>
+                                    <input type="text" value={p.timings.long.endTime} onChange={(e) => handleUpdateShiftPreset(p.id, 'endTime', e.target.value, 'long')} onBlur={async () => { if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }} className="w-full text-center border rounded-lg p-1.5 text-xs font-bold"/>
                                 </div>
                             </div>
                             <div className="bg-white p-3 rounded-xl border border-slate-200">
                                 <p className="text-[9px] font-black text-slate-400 uppercase mb-2">กลุ่ม 9 ชั่วโมง (EDC, PT...)</p>
                                 <div className="flex items-center gap-2">
-                                    <input type="text" value={p.timings?.short?.startTime || ''} onChange={(e) => handleUpdateShiftPreset(p.id, 'startTime', e.target.value, 'short')} onBlur={async () => { if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }} className="w-full text-center border rounded-lg p-1.5 text-xs font-bold"/>
+                                    <input type="text" value={p.timings.short.startTime} onChange={(e) => handleUpdateShiftPreset(p.id, 'startTime', e.target.value, 'short')} onBlur={async () => { if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }} className="w-full text-center border rounded-lg p-1.5 text-xs font-bold"/>
                                     <span>-</span>
-                                    <input type="text" value={p.timings?.short?.endTime || ''} onChange={(e) => handleUpdateShiftPreset(p.id, 'endTime', e.target.value, 'short')} onBlur={async () => { if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }} className="w-full text-center border rounded-lg p-1.5 text-xs font-bold"/>
+                                    <input type="text" value={p.timings.short.endTime} onChange={(e) => handleUpdateShiftPreset(p.id, 'endTime', e.target.value, 'short')} onBlur={async () => { if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }} className="w-full text-center border rounded-lg p-1.5 text-xs font-bold"/>
                                 </div>
                             </div>
                         </div>
@@ -2557,10 +2551,6 @@ export default function App() {
                       <select value={newDutyCategory} onChange={e => setNewDutyCategory(e.target.value)} className="border-2 border-slate-100 rounded-xl px-4 py-3 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none">
                          {DUTY_CATEGORIES[activeDept]?.map(cat => <option key={cat.id} value={cat.id}>{cat.label}</option>)}
                       </select>
-                      <label className="flex items-center gap-2 text-[10px] sm:text-xs font-bold text-slate-500 bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-3 cursor-pointer select-none whitespace-nowrap transition hover:border-indigo-200">
-                         <input type="checkbox" checked={newDutyIsBackup} onChange={e => setNewDutyIsBackup(e.target.checked)} className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500" />
-                         กะสำรอง
-                      </label>
                       <PositionSelector disabled={false} value={newDutyReqPos} options={POSITIONS[activeDept]} onChange={setNewDutyReqPos} className="w-full xl:min-w-[80px]" />
                       <button onClick={handleAddDuty} className="w-full xl:w-auto bg-slate-900 text-white px-6 py-3 rounded-xl font-black text-xs hover:bg-indigo-600 transition flex items-center justify-center"><Plus className="w-4 h-4 sm:w-5 sm:h-5"/></button>
                     </div>
@@ -2587,10 +2577,6 @@ export default function App() {
                              <select value={editDutyData.category} onChange={e => setEditDutyData({...editDutyData, category: e.target.value})} className="border rounded px-2 py-1 text-[10px] sm:text-xs font-bold outline-none focus:border-indigo-500">
                                 {DUTY_CATEGORIES[activeDept]?.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
                              </select>
-                             <label className="flex items-center gap-1.5 text-[10px] font-bold text-slate-600 bg-white border rounded px-2 py-1 cursor-pointer select-none whitespace-nowrap">
-                                <input type="checkbox" checked={editDutyData.isBackup || false} onChange={e => setEditDutyData({...editDutyData, isBackup: e.target.checked})} className="w-3 h-3 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500" />
-                                กะสำรอง
-                             </label>
                              <PositionSelector disabled={false} value={editDutyData.reqPos || ['ALL']} options={POSITIONS[activeDept]} onChange={(val) => setEditDutyData({...editDutyData, reqPos: val})} className="w-full sm:min-w-[80px]" />
                              <button onClick={handleEditDutySave} className="bg-green-500 text-white p-1.5 rounded-lg"><Check className="w-3 h-3"/></button>
                              <button onClick={() => setEditingDutyId(null)} className="bg-red-500 text-white p-1.5 rounded-lg"><X className="w-3 h-3"/></button>
@@ -2601,7 +2587,6 @@ export default function App() {
                          <div className="flex-1 min-w-0 pr-4">
                            <div className="flex items-center gap-2">
                               <div className="font-black text-xs sm:text-sm text-slate-800 truncate">{duty.jobA}</div>
-                              {duty.isBackup && <span className="text-[8px] font-black text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 whitespace-nowrap">กะสำรอง</span>}
                               <span className="text-[8px] font-black text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100 truncate max-w-[80px] sm:max-w-[120px]" title={(duty.reqPos || ['ALL']).join(', ')}>{(duty.reqPos || ['ALL']).join(', ')}</span>
                            </div>
                            <div className="text-[9px] sm:text-[10px] text-slate-400 font-bold truncate mt-0.5 flex items-center gap-2">
