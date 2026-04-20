@@ -3785,16 +3785,46 @@ export default function App() {
     );
   }
 
+  function renderHeadTeamView() {
+    return (
+       <div className="flex flex-col w-full gap-0 animate-in slide-in-from-bottom-6 duration-500">
+          <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 sm:gap-10 print:hidden w-full mb-6">
+             <div className="relative flex items-center gap-2 sm:gap-4 w-full xl:flex-1 min-w-0">
+                <button onClick={() => scrollDates('left')} className="hidden sm:flex flex-shrink-0 w-10 h-10 sm:w-14 sm:h-14 bg-white border-2 border-slate-100 rounded-full items-center justify-center shadow-lg text-indigo-600 active:scale-90 transition z-10"><ChevronLeft className="w-5 h-5 sm:w-8 sm:h-8" /></button>
+                <div ref={dateBarRef} className="flex-1 flex gap-3 sm:gap-5 overflow-x-auto pb-4 sm:pb-6 pt-2 sm:pt-3 custom-scrollbar px-2 sm:px-3 select-none touch-pan-x snap-x">
+                {CALENDAR_DAYS.map(d => {
+                   const isSelected = selectedDateStr === d.dateStr;
+                   const isHoliday = branchData.holidays?.includes?.(d.dateStr);
+                   return (
+                      <button key={d.dateStr} onClick={() => setSelectedDateStr(d.dateStr)} className={`flex-shrink-0 w-16 h-20 sm:w-24 sm:h-28 rounded-[1.5rem] sm:rounded-[2.2rem] flex flex-col items-center justify-center transition-all border-2 snap-center ${isSelected ? 'bg-indigo-600 text-white border-indigo-700 shadow-xl sm:shadow-2xl scale-105 z-20 ring-4 sm:ring-8 ring-indigo-50' : isHoliday ? 'bg-red-500 text-white border-red-600 shadow-sm sm:shadow-md' : d.type === 'weekend' ? 'bg-orange-500 text-white border-orange-600 shadow-sm sm:shadow-md' : d.type === 'friday' ? 'bg-sky-500 text-white border-sky-600 shadow-sm sm:shadow-md' : 'bg-white text-slate-800 border-slate-200 hover:border-indigo-400 shadow-sm'}`}>
+                      <span className={`text-[9px] sm:text-[11px] font-black uppercase tracking-widest ${isSelected ? 'text-indigo-100 opacity-80' : 'opacity-40'}`}>{d.dayLabel}</span>
+                      <span className="text-2xl sm:text-4xl font-black mt-1 sm:mt-2 leading-none">{d.dayNum}</span>
+                      </button>
+                   );
+                })}
+                </div>
+                <button onClick={() => scrollDates('right')} className="hidden sm:flex flex-shrink-0 w-10 h-10 sm:w-14 sm:h-14 bg-white border-2 border-slate-100 rounded-full items-center justify-center shadow-lg text-indigo-600 active:scale-90 transition z-10"><ChevronRight className="w-5 h-5 sm:w-8 sm:h-8" /></button>
+             </div>
+             <div className="flex flex-wrap gap-2 w-full xl:w-auto mt-4 xl:mt-0 justify-end">
+                <button onClick={handleShareToLine} className="flex-1 xl:flex-none bg-[#00B900] hover:bg-[#009900] text-white px-4 sm:px-6 py-4 sm:py-5 rounded-xl sm:rounded-[2rem] font-black flex justify-center items-center gap-2 shadow-lg active:scale-95 transition-all text-[10px] sm:text-sm"><MessageCircle className="w-4 h-4 sm:w-5 sm:h-5" /> <span className="hidden sm:inline">Copy to LINE</span><span className="sm:hidden">Share</span></button>
+             </div>
+          </div>
+          {renderManagerDailyTable()}
+       </div>
+    );
+  }
+
   let mainContent = null;
   if (view === 'branches' && authRole === 'superadmin') {
     mainContent = renderGlobalAdmin();
   } else if (view === 'admin') {
     mainContent = activeBranchId ? renderBranchAdmin() : renderEmptyBranchAdmin();
+  } else if (view === 'head_team') {
+    mainContent = activeBranchId ? renderHeadTeamView() : renderEmptyBranchAdmin();
   } else if (view === 'manager') {
     mainContent = (
        <div className="flex flex-col w-full gap-0">
           {managerViewMode === 'daily' && renderManagerDailyCards()}
-          {managerViewMode === 'daily_table' && renderManagerDailyTable()}
           {managerViewMode === 'monthly' && renderManagerMonthly()}
        </div>
     );
