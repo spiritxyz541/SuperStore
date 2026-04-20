@@ -2935,6 +2935,32 @@ export default function App() {
        if (catRows.length === 0) return [];
        const totalCatSlots = catRows.reduce((sum, r) => sum + r.activeSlots.length, 0);
 
+       const xpDnaRowSpans = {}; 
+       let currentXpDna = null;
+       let currentXpDnaStartRowIdx = -1;
+       let currentXpDnaSlotCount = 0;
+
+       catRows.forEach((row, rowLocalIdx) => {
+           const xpDnaText = (row.duty.xpDna || '-').trim();
+           if (rowLocalIdx === 0) {
+               currentXpDna = xpDnaText;
+               currentXpDnaStartRowIdx = 0;
+               currentXpDnaSlotCount = row.activeSlots.length;
+           } else {
+               if (xpDnaText === currentXpDna) {
+                   currentXpDnaSlotCount += row.activeSlots.length;
+               } else {
+                   xpDnaRowSpans[currentXpDnaStartRowIdx] = currentXpDnaSlotCount;
+                   currentXpDna = xpDnaText;
+                   currentXpDnaStartRowIdx = rowLocalIdx;
+                   currentXpDnaSlotCount = row.activeSlots.length;
+               }
+           }
+       });
+       if (currentXpDnaStartRowIdx !== -1) {
+           xpDnaRowSpans[currentXpDnaStartRowIdx] = currentXpDnaSlotCount;
+       }
+
        return catRows.flatMap((row, rowLocalIdx) => {
           return row.activeSlots.map((item, slotLocalIdx) => {
              const { slot, assignedData, originalIdx } = item;
@@ -2958,9 +2984,11 @@ export default function App() {
                    {rowLocalIdx === 0 && slotLocalIdx === 0 && (
                       <td rowSpan={totalCatSlots} className="border border-slate-800 p-2 font-black uppercase leading-tight bg-black/10" style={{ fontSize: `${rs.fontDuty || rs.fontSize}px` }}>{cat.label}</td>
                    )}
+                   {slotLocalIdx === 0 && xpDnaRowSpans[rowLocalIdx] !== undefined && (
+                      <td rowSpan={xpDnaRowSpans[rowLocalIdx]} className="border border-slate-800 p-2 text-left whitespace-pre-wrap leading-tight opacity-90" style={{ fontSize: `${rs.fontXpDna || (rs.fontSize * 0.8)}px` }}>{row.duty.xpDna || '-'}</td>
+                   )}
                    {slotLocalIdx === 0 && (
                       <React.Fragment>
-                         <td rowSpan={row.activeSlots.length} className="border border-slate-800 p-2 text-left whitespace-pre-wrap leading-tight opacity-90" style={{ fontSize: `${rs.fontXpDna || (rs.fontSize * 0.8)}px` }}>{row.duty.xpDna || '-'}</td>
                          <td rowSpan={row.activeSlots.length} className="border border-slate-800 p-2 font-black text-left leading-tight" style={{ fontSize: `${rs.fontJobA || rs.fontSize}px` }}>{row.duty.jobA}</td>
                          <td rowSpan={row.activeSlots.length} className="border border-slate-800 p-2 text-left leading-tight opacity-80" style={{ fontSize: `${rs.fontJobB || (rs.fontSize * 0.8)}px` }}>{row.duty.jobB}</td>
                          <td rowSpan={row.activeSlots.length} className="border border-slate-800 p-2 font-black" style={{ fontSize: `${rs.fontCount || (rs.fontSize * 1.2)}px` }}><u className="underline-offset-2">{row.activeSlots.length}</u></td>
