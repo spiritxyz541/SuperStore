@@ -1492,22 +1492,27 @@ export default function App() {
             const datesToProcess = mode === 'daily' ? [selectedDateStr] : CALENDAR_DAYS.map(d => d.dateStr);
 
             const staffOTCount = {};
-            branchData.staff?.forEach(s => staffOTCount[s.id] = 0);
+            const staffDutyCounts = {};
+            branchData.staff?.forEach(s => { staffOTCount[s.id] = 0; staffDutyCounts[s.id] = {}; });
             
-            if (mode === 'daily') {
-                Object.keys(newSched).forEach(d => {
-                    if (d !== selectedDateStr) {
-                        const dayData = newSched[d];
-                        if (dayData.duties) {
-                            Object.values(dayData.duties).forEach(slots => {
-                                slots.forEach(s => {
-                                    if (s.staffId) staffOTCount[s.staffId] += (s.otHours || 0);
-                                });
-                            });
-                        }
-                    }
-                });
-            }
+            Object.keys(newSched).forEach(d => {
+                if (datesToProcess.includes(d)) return;
+                const dayData = newSched[d];
+                if (dayData.duties) {
+                    Object.entries(dayData.duties).forEach(([dutyId, slots]) => {
+                        // หา Category ของหน้าที่นี้ เพื่อใช้นับรอบการหมุนเวียนในระดับเดียวกัน
+                        const dObj = CURRENT_DUTY_LIST.find(x => x.id === dutyId);
+                        const dCat = dObj ? dObj.category : 'OTHER';
+                        slots.forEach(s => {
+                            if (s.staffId) {
+                                staffOTCount[s.staffId] += (s.otHours || 0);
+                                if (!staffDutyCounts[s.staffId]) staffDutyCounts[s.staffId] = {};
+                                staffDutyCounts[s.staffId][dCat] = (staffDutyCounts[s.staffId][dCat] || 0) + 1;
+                            }
+                        });
+                    });
+                }
+            });
 
             datesToProcess.forEach(dateStr => {
                 const dayConfig = CALENDAR_DAYS.find(c => c.dateStr === dateStr);
@@ -1619,9 +1624,26 @@ export default function App() {
 
                                     const aDirect = reqArr.includes(a.pos) ? 1 : 0;
                                     const bDirect = reqArr.includes(b.pos) ? 1 : 0;
-                                    if (aDirect !== bDirect) return bDirect - aDirect; // Priority 2: Direct matches
                                     
-                                    // Priority 3: Rank
+                                    const aIsFixed = ["OC", "AOC"].includes(a.pos);
+                                    const bIsFixed = ["OC", "AOC"].includes(b.pos);
+
+                                    // Priority 2: Fix Logic (Direct Match) for OC/AOC
+                                    if (aIsFixed || bIsFixed) {
+                                        if (aDirect !== bDirect) return bDirect - aDirect;
+                                    } else {
+                                        // Priority 2: Duty Category Rotation for others (Least assigned to THIS CATEGORY)
+                                        const countA = staffDutyCounts[a.id]?.[duty.category] || 0;
+                                        const countB = staffDutyCounts[b.id]?.[duty.category] || 0;
+                                        if (countA !== countB) return countA - countB;
+                                    }
+
+                                    // Priority 3: Fallback to Direct Match for non-fixed if rotation is tied
+                                    if (!aIsFixed && !bIsFixed) {
+                                        if (aDirect !== bDirect) return bDirect - aDirect;
+                                    }
+                                    
+                                    // Priority 4: Rank
                                     const posList = POSITIONS[activeDept] || [];
                                     const rankA = posList.indexOf(a.pos);
                                     const rankB = posList.indexOf(b.pos);
@@ -1647,6 +1669,9 @@ export default function App() {
                             if (assignedOT > 0) {
                                 staffOTCount[candidate.id] += assignedOT;
                             }
+
+                            if (!staffDutyCounts[candidate.id]) staffDutyCounts[candidate.id] = {};
+                            staffDutyCounts[candidate.id][duty.category] = (staffDutyCounts[candidate.id][duty.category] || 0) + 1;
                         }
                     });
                 });
