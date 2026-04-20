@@ -1647,8 +1647,14 @@ export default function App() {
                                     const posList = POSITIONS[activeDept] || [];
                                     const rankA = posList.indexOf(a.pos);
                                     const rankB = posList.indexOf(b.pos);
-                                    if (aDirect && bDirect) return rankA - rankB; // Highest rank first
-                                    return rankB - rankA; // Lowest rank first
+                                    if (aDirect && bDirect) {
+                                        if (rankA !== rankB) return rankA - rankB; // Highest rank first
+                                    } else {
+                                        if (rankA !== rankB) return rankB - rankA; // Lowest rank first
+                                    }
+                                    
+                                    // Priority 5: Random Rotation (สุ่มคนลงเมื่อเงื่อนไขทั้งหมดเท่ากัน)
+                                    return Math.random() - 0.5;
                                 });
 
                                 candidate = validCandidates[0];
