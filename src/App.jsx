@@ -2912,11 +2912,13 @@ export default function App() {
         fontDuty: 10, fontXpDna: 8, fontJobA: 10, fontJobB: 8, fontCount: 12, fontName: 10, fontShift: 10, fontBreak: 10
     };
 
-    const tableBodyRows = categories.flatMap(cat => {
+    const allTrs = [];
+    categories.forEach(cat => {
        const catDuties = CURRENT_DUTY_LIST.filter(d => d.category === cat.id);
+       let catSlotCount = 0;
        const catRows = [];
 
-       catDuties.forEach((duty, dIdx) => {
+       catDuties.forEach((duty) => {
           const slots = branchData.matrix?.[activeDay.type]?.duties?.[duty.id] || [];
           const assigned = schedule[selectedDateStr]?.duties?.[duty.id] || [];
 
@@ -2927,89 +2929,99 @@ export default function App() {
           })).filter(item => item.assignedData.staffId !== "");
 
           if (activeSlots.length > 0) {
-             catRows.push({ duty, dIdx, activeSlots });
+             catRows.push({ duty, activeSlots });
+             catSlotCount += activeSlots.length;
              totalAssignedAll += activeSlots.length;
           }
        });
 
-       if (catRows.length === 0) return [];
-       const totalCatSlots = catRows.reduce((sum, r) => sum + r.activeSlots.length, 0);
-
-       const xpDnaRowSpans = {}; 
-       let currentXpDna = null;
-       let currentXpDnaStartRowIdx = -1;
-       let currentXpDnaSlotCount = 0;
-
-       catRows.forEach((row, rowLocalIdx) => {
-           const xpDnaText = (row.duty.xpDna || '-').trim();
-           if (rowLocalIdx === 0) {
-               currentXpDna = xpDnaText;
-               currentXpDnaStartRowIdx = 0;
-               currentXpDnaSlotCount = row.activeSlots.length;
-           } else {
-               if (xpDnaText === currentXpDna) {
-                   currentXpDnaSlotCount += row.activeSlots.length;
-               } else {
-                   xpDnaRowSpans[currentXpDnaStartRowIdx] = currentXpDnaSlotCount;
-                   currentXpDna = xpDnaText;
-                   currentXpDnaStartRowIdx = rowLocalIdx;
-                   currentXpDnaSlotCount = row.activeSlots.length;
-               }
-           }
-       });
-       if (currentXpDnaStartRowIdx !== -1) {
-           xpDnaRowSpans[currentXpDnaStartRowIdx] = currentXpDnaSlotCount;
+       if (catSlotCount > 0) {
+           catRows.forEach((row, rowLocalIdx) => {
+               row.activeSlots.forEach((slotItem, slotLocalIdx) => {
+                   allTrs.push({
+                       cat,
+                       duty: row.duty,
+                       slotItem,
+                       isFirstOfCat: rowLocalIdx === 0 && slotLocalIdx === 0,
+                       catSlotCount,
+                       isFirstOfDuty: slotLocalIdx === 0,
+                       dutySlotCount: row.activeSlots.length,
+                       originalIdx: slotItem.originalIdx
+                   });
+               });
+           });
        }
+    });
 
-       return catRows.flatMap((row, rowLocalIdx) => {
-          return row.activeSlots.map((item, slotLocalIdx) => {
-             const { slot, assignedData, originalIdx } = item;
-             const staff = branchData.staff?.find(s => s.id === assignedData.staffId);
-             const staffName = staff ? staff.name : '-';
-             const shiftPreset = branchData.shiftPresets?.find(p => p.id === slot.shiftPresetId);
-             const { startTime, endTime } = getShiftTimesForStaff(staff?.pos, shiftPreset);
+    const xpDnaRowSpans = {}; 
+    let currentXpDna = null;
+    let currentXpDnaStartIdx = -1;
 
-             const stHour = parseInt(startTime.split(':')[0]) || 0;
+    allTrs.forEach((tr, idx) => {
+        const xpDnaText = (tr.duty.xpDna || '-').trim();
+        if (xpDnaText !== currentXpDna) {
+            if (currentXpDnaStartIdx !== -1) {
+                xpDnaRowSpans[currentXpDnaStartIdx] = idx - currentXpDnaStartIdx;
+            }
+            currentXpDna = xpDnaText;
+            currentXpDnaStartIdx = idx;
+            tr.isFirstOfXpDna = true;
+        } else {
+            tr.isFirstOfXpDna = false;
+        }
+    });
+    if (currentXpDnaStartIdx !== -1) {
+        xpDnaRowSpans[currentXpDnaStartIdx] = allTrs.length - currentXpDnaStartIdx;
+    }
 
-             const isMorning = stHour < 11;
-             const isLateMorning = stHour === 11;
-             const isAfternoon = stHour >= 12 && stHour < 16;
-             const isEvening = stHour >= 16 && stHour < 19;
-             const isNight = stHour >= 19;
-             const timeText = `${formatTimeAbbreviation(startTime)}-${formatTimeAbbreviation(endTime)}`;
-             const otBadge = assignedData.otHours > 0 ? ` (O${assignedData.otHours})` : '';
+    const tableBodyRows = allTrs.map((tr, idx) => {
+         const { cat, duty, slotItem, isFirstOfCat, catSlotCount, isFirstOfDuty, dutySlotCount, originalIdx, isFirstOfXpDna } = tr;
+         const { slot, assignedData } = slotItem;
+         
+         const staff = branchData.staff?.find(s => s.id === assignedData.staffId);
+         const staffName = staff ? staff.name : '-';
+         const shiftPreset = branchData.shiftPresets?.find(p => p.id === slot.shiftPresetId);
+         const { startTime, endTime } = getShiftTimesForStaff(staff?.pos, shiftPreset);
 
-             return (
-                <tr key={`${row.duty.id}-${originalIdx}`} className={`text-center h-10 sm:h-12 border border-slate-800 ${cat.color.split(' ')[0]} ${cat.color.split(' ')[1]}`}>
-                   {rowLocalIdx === 0 && slotLocalIdx === 0 && (
-                      <td rowSpan={totalCatSlots} className="border border-slate-800 p-2 font-black uppercase leading-tight bg-black/10" style={{ fontSize: `${rs.fontDuty || rs.fontSize}px` }}>{cat.label}</td>
-                   )}
-                   {slotLocalIdx === 0 && xpDnaRowSpans[rowLocalIdx] !== undefined && (
-                      <td rowSpan={xpDnaRowSpans[rowLocalIdx]} className="border border-slate-800 p-2 text-left whitespace-pre-wrap leading-tight opacity-90" style={{ fontSize: `${rs.fontXpDna || (rs.fontSize * 0.8)}px` }}>{row.duty.xpDna || '-'}</td>
-                   )}
-                   {slotLocalIdx === 0 && (
-                      <React.Fragment>
-                         <td rowSpan={row.activeSlots.length} className="border border-slate-800 p-2 font-black text-left leading-tight" style={{ fontSize: `${rs.fontJobA || rs.fontSize}px` }}>{row.duty.jobA}</td>
-                         <td rowSpan={row.activeSlots.length} className="border border-slate-800 p-2 text-left leading-tight opacity-80" style={{ fontSize: `${rs.fontJobB || (rs.fontSize * 0.8)}px` }}>{row.duty.jobB}</td>
-                         <td rowSpan={row.activeSlots.length} className="border border-slate-800 p-2 font-black" style={{ fontSize: `${rs.fontCount || (rs.fontSize * 1.2)}px` }}><u className="underline-offset-2">{row.activeSlots.length}</u></td>
-                      </React.Fragment>
-                   )}
-                   <td className="border border-slate-800 p-2 text-left font-bold" style={{ fontSize: `${rs.fontName || rs.fontSize}px` }}>
-                       <div className="flex justify-between items-center">
-                           <span>{staffName}<span className="opacity-80 ml-1 font-black">{otBadge}</span></span>
-                           {staff && <span className={`px-1.5 py-0.5 rounded font-black uppercase bg-black/10 border border-current opacity-80`} style={{ fontSize: `${(rs.fontName || rs.fontSize) * 0.8}px` }}>{staff.pos}</span>}
-                       </div>
-                   </td>
-                   {activeDayShiftVisibilities.hasMorning && <td className={`border border-slate-800 p-2 font-bold ${isMorning ? 'shadow-inner' : 'opacity-30'}`} style={{ fontSize: `${rs.fontShift || rs.fontSize}px` }}>{isMorning ? timeText : ''}</td>}
-                   {activeDayShiftVisibilities.hasLateMorning && <td className={`border border-slate-800 p-2 font-bold ${isLateMorning ? 'shadow-inner' : 'opacity-30'}`} style={{ fontSize: `${rs.fontShift || rs.fontSize}px` }}>{isLateMorning ? timeText : ''}</td>}
-                   {activeDayShiftVisibilities.hasAfternoon && <td className={`border border-slate-800 p-2 font-bold ${isAfternoon ? 'shadow-inner' : 'opacity-30'}`} style={{ fontSize: `${rs.fontShift || rs.fontSize}px` }}>{isAfternoon ? timeText : ''}</td>}
-                   {activeDayShiftVisibilities.hasEvening && <td className={`border border-slate-800 p-2 font-bold ${isEvening ? 'shadow-inner' : 'opacity-30'}`} style={{ fontSize: `${rs.fontShift || rs.fontSize}px` }}>{isEvening ? timeText : ''}</td>}
-                   {activeDayShiftVisibilities.hasNight && <td className={`border border-slate-800 p-2 font-bold ${isNight ? 'shadow-inner' : 'opacity-30'}`} style={{ fontSize: `${rs.fontShift || rs.fontSize}px` }}>{isNight ? timeText : ''}</td>}
-                   <td className="border border-slate-800 p-2 bg-black/10" style={{ fontSize: `${rs.fontBreak || rs.fontSize}px` }}></td>
-                </tr>
-             );
-          });
-       });
+         const stHour = parseInt(startTime.split(':')[0]) || 0;
+
+         const isMorning = stHour < 11;
+         const isLateMorning = stHour === 11;
+         const isAfternoon = stHour >= 12 && stHour < 16;
+         const isEvening = stHour >= 16 && stHour < 19;
+         const isNight = stHour >= 19;
+         const timeText = `${formatTimeAbbreviation(startTime)}-${formatTimeAbbreviation(endTime)}`;
+         const otBadge = assignedData.otHours > 0 ? ` (O${assignedData.otHours})` : '';
+
+         return (
+            <tr key={`${duty.id}-${originalIdx}`} className={`text-center h-10 sm:h-12 border border-slate-800 ${cat.color.split(' ')[0]} ${cat.color.split(' ')[1]}`}>
+               {isFirstOfCat && (
+                  <td rowSpan={catSlotCount} className="border border-slate-800 p-2 font-black uppercase leading-tight bg-black/10" style={{ fontSize: `${rs.fontDuty || rs.fontSize}px` }}>{cat.label}</td>
+               )}
+               {isFirstOfXpDna && (
+                  <td rowSpan={xpDnaRowSpans[idx]} className="border border-slate-800 p-2 text-left whitespace-pre-wrap leading-tight opacity-90" style={{ fontSize: `${rs.fontXpDna || (rs.fontSize * 0.8)}px` }}>{duty.xpDna || '-'}</td>
+               )}
+               {isFirstOfDuty && (
+                  <React.Fragment>
+                     <td rowSpan={dutySlotCount} className="border border-slate-800 p-2 font-black text-left leading-tight" style={{ fontSize: `${rs.fontJobA || rs.fontSize}px` }}>{duty.jobA}</td>
+                     <td rowSpan={dutySlotCount} className="border border-slate-800 p-2 text-left leading-tight opacity-80" style={{ fontSize: `${rs.fontJobB || (rs.fontSize * 0.8)}px` }}>{duty.jobB}</td>
+                     <td rowSpan={dutySlotCount} className="border border-slate-800 p-2 font-black" style={{ fontSize: `${rs.fontCount || (rs.fontSize * 1.2)}px` }}><u className="underline-offset-2">{dutySlotCount}</u></td>
+                  </React.Fragment>
+               )}
+               <td className="border border-slate-800 p-2 text-left font-bold" style={{ fontSize: `${rs.fontName || rs.fontSize}px` }}>
+                   <div className="flex justify-between items-center">
+                       <span>{staffName}<span className="opacity-80 ml-1 font-black">{otBadge}</span></span>
+                       {staff && <span className={`px-1.5 py-0.5 rounded font-black uppercase bg-black/10 border border-current opacity-80`} style={{ fontSize: `${(rs.fontName || rs.fontSize) * 0.8}px` }}>{staff.pos}</span>}
+                   </div>
+               </td>
+               {activeDayShiftVisibilities.hasMorning && <td className={`border border-slate-800 p-2 font-bold ${isMorning ? 'shadow-inner' : 'opacity-30'}`} style={{ fontSize: `${rs.fontShift || rs.fontSize}px` }}>{isMorning ? timeText : ''}</td>}
+               {activeDayShiftVisibilities.hasLateMorning && <td className={`border border-slate-800 p-2 font-bold ${isLateMorning ? 'shadow-inner' : 'opacity-30'}`} style={{ fontSize: `${rs.fontShift || rs.fontSize}px` }}>{isLateMorning ? timeText : ''}</td>}
+               {activeDayShiftVisibilities.hasAfternoon && <td className={`border border-slate-800 p-2 font-bold ${isAfternoon ? 'shadow-inner' : 'opacity-30'}`} style={{ fontSize: `${rs.fontShift || rs.fontSize}px` }}>{isAfternoon ? timeText : ''}</td>}
+               {activeDayShiftVisibilities.hasEvening && <td className={`border border-slate-800 p-2 font-bold ${isEvening ? 'shadow-inner' : 'opacity-30'}`} style={{ fontSize: `${rs.fontShift || rs.fontSize}px` }}>{isEvening ? timeText : ''}</td>}
+               {activeDayShiftVisibilities.hasNight && <td className={`border border-slate-800 p-2 font-bold ${isNight ? 'shadow-inner' : 'opacity-30'}`} style={{ fontSize: `${rs.fontShift || rs.fontSize}px` }}>{isNight ? timeText : ''}</td>}
+               <td className="border border-slate-800 p-2 bg-black/10" style={{ fontSize: `${rs.fontBreak || rs.fontSize}px` }}></td>
+            </tr>
+         );
     });
 
     return (
