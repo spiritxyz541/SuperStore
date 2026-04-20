@@ -3008,7 +3008,7 @@ export default function App() {
                   <td rowSpan={catSlotCount} className="border border-slate-800 p-2 font-black uppercase leading-tight bg-black/10" style={{ fontSize: `${rs.fontDuty || rs.fontSize}px` }}>{cat.label}</td>
                )}
                {isFirstOfXpDna && (
-                  <td rowSpan={xpDnaRowSpans[idx]} className="border border-slate-800 p-2 text-left whitespace-pre-wrap leading-tight opacity-90" style={{ fontSize: `${rs.fontXpDna || (rs.fontSize * 0.8)}px` }}>{duty.xpDna || '-'}</td>
+                  <td rowSpan={xpDnaRowSpans[idx]} className="border border-slate-800 p-2 text-left whitespace-pre-wrap leading-tight opacity-90" style={{ fontSize: `${rs.fontXpDna || (rs.fontSize * 0.8)}px` }} dangerouslySetInnerHTML={{ __html: duty.xpDna || '-' }}></td>
                )}
                {isFirstOfDuty && (
                   <React.Fragment>
