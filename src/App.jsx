@@ -3626,7 +3626,19 @@ export default function App() {
                     <div key={col.id} className="bg-white/5 p-5 rounded-2xl border border-white/10">
                        {isEditingGuide ? (
                            <div className="space-y-3">
-                               <input type="text" value={col.title} onChange={e => { const n = [...editSiteMap]; n[cIdx].title = e.target.value; setEditSiteMap(n); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg p-2 text-sm font-black outline-none focus:border-emerald-500 text-white" placeholder="ชื่อหมวดหมู่..." />
+                               <div className="flex gap-2">
+                                  <input type="text" value={col.title} onChange={e => { const n = [...editSiteMap]; n[cIdx].title = e.target.value; setEditSiteMap(n); }} className="flex-1 w-full bg-slate-800 border border-slate-600 rounded-lg p-2 text-sm font-black outline-none focus:border-emerald-500 text-white" placeholder="ชื่อหมวดหมู่..." />
+                                  <select value={col.color || 'text-white'} onChange={e => { const n = [...editSiteMap]; n[cIdx].color = e.target.value; setEditSiteMap(n); }} className="bg-slate-700 text-xs outline-none rounded p-1 text-white border border-slate-600">
+                                      <option value="text-white">ขาว</option>
+                                      <option value="text-emerald-400">เขียว</option>
+                                      <option value="text-indigo-400">ม่วง</option>
+                                      <option value="text-sky-400">ฟ้า</option>
+                                      <option value="text-orange-400">ส้ม</option>
+                                      <option value="text-rose-400">แดง</option>
+                                      <option value="text-amber-400">เหลือง</option>
+                                  </select>
+                                  <button onClick={() => { const n = [...editSiteMap]; n.splice(cIdx, 1); setEditSiteMap(n); }} className="bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white px-3 rounded-lg transition flex-shrink-0 flex items-center justify-center"><Trash2 className="w-4 h-4"/></button>
+                               </div>
                                <textarea value={(col.items || []).join('\n')} onChange={e => { const n = [...editSiteMap]; n[cIdx].items = e.target.value.split('\n'); setEditSiteMap(n); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg p-2 text-xs font-bold outline-none focus:border-emerald-500 text-white resize-y" rows={6} placeholder="รายละเอียด (ขึ้นบรรทัดใหม่ = 1 รายการ)"></textarea>
                            </div>
                        ) : (
@@ -3639,10 +3651,23 @@ export default function App() {
                        )}
                     </div>
                 ))}
+                {isEditingGuide && (
+                    <button onClick={() => { setEditSiteMap([...editSiteMap, { id: 'SM'+Date.now(), title: 'หมวดหมู่ใหม่', color: 'text-emerald-400', items: ['รายการที่ 1'] }]); }} className="bg-white/5 border-2 border-dashed border-white/20 text-white/50 hover:text-white hover:border-white/50 hover:bg-white/10 rounded-2xl flex flex-col items-center justify-center p-6 gap-2 transition min-h-[150px]">
+                        <Plus className="w-6 h-6"/>
+                        <span className="text-xs font-black uppercase tracking-widest">เพิ่มหมวดหมู่ (Add Box)</span>
+                    </button>
+                )}
              </div>
 
              <div className="mt-2 bg-white/5 p-5 rounded-2xl border border-white/10 overflow-x-auto custom-scrollbar pb-4 sm:pb-6">
-                <h3 className="font-black text-sky-400 mb-4 flex items-center gap-2"><ArrowLeftRight className="w-4 h-4"/> Manager Workflow (รายเดือน)</h3>
+                {isEditingGuide ? (
+                   <div className="flex items-center gap-2 mb-4">
+                      <ArrowLeftRight className="w-4 h-4 text-sky-400"/>
+                      <input type="text" value={workflowData.title1 || 'Manager Workflow (รายเดือน)'} onChange={e => setEditWorkflow({...editWorkflow, title1: e.target.value})} className="bg-slate-800 text-white font-black border border-slate-600 rounded-lg px-3 py-1.5 outline-none focus:border-emerald-500 min-w-[250px]" placeholder="หัวข้อ Workflow (รายเดือน)..." />
+                   </div>
+                ) : (
+                   <h3 className="font-black text-sky-400 mb-4 flex items-center gap-2"><ArrowLeftRight className="w-4 h-4"/> {workflowData.title1 || 'Manager Workflow (รายเดือน)'}</h3>
+                )}
                 <div className="flex items-center gap-2 sm:gap-4 text-[10px] sm:text-xs font-black text-slate-300 w-max mb-6">
                    {workflowData.monthly.map((step, sIdx) => {
                        const theme = getWorkflowTheme(step.theme);
