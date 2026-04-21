@@ -3669,7 +3669,14 @@ export default function App() {
                    )}
                 </div>
                 <div className="h-px w-full bg-white/10 mb-6"></div>
-                <h3 className="font-black text-amber-400 mb-4 flex items-center gap-2"><CalendarDaysIcon className="w-4 h-4"/> Manager Workflow (รายวัน)</h3>
+                {isEditingGuide ? (
+                   <div className="flex items-center gap-2 mb-4">
+                      <CalendarDaysIcon className="w-4 h-4 text-amber-400"/>
+                      <input type="text" value={workflowData.title2 || 'Manager Workflow (รายวัน)'} onChange={e => setEditWorkflow({...editWorkflow, title2: e.target.value})} className="bg-slate-800 text-white font-black border border-slate-600 rounded-lg px-3 py-1.5 outline-none focus:border-emerald-500 min-w-[250px]" placeholder="หัวข้อ Workflow (รายวัน)..." />
+                   </div>
+                ) : (
+                   <h3 className="font-black text-amber-400 mb-4 flex items-center gap-2"><CalendarDaysIcon className="w-4 h-4"/> {workflowData.title2 || 'Manager Workflow (รายวัน)'}</h3>
+                )}
                 <div className="flex items-center gap-2 sm:gap-4 text-[10px] sm:text-xs font-black text-slate-300 w-max">
                    {workflowData.daily.map((step, sIdx) => {
                        const theme = getWorkflowTheme(step.theme);
