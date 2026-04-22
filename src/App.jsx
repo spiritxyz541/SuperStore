@@ -313,7 +313,7 @@ const StaffMultiSelector = ({ value, options, onChange, disabled, placeholder })
 //   - Leave short label e.g. "ย", "พร", "ป่วย"           → staff is on leave
 //   - "-"                                                  → no data
 
-const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranchId, THAI_MONTHS, selectedMonth, getStaffDayInfo, setView, activeDept, CURRENT_DUTY_LIST }) => {
+const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranchId, THAI_MONTHS, selectedMonth, getStaffDayInfo, setView, activeDept, CURRENT_DUTY_LIST, handleToggleLeave, LEAVE_TYPES }) => {
   const filteredStaff = branchData.staff?.filter(s => s.dept === activeDept) || [];
   const sortedStaff = [...filteredStaff].sort((a, b) => {
       const rankA = POSITIONS[activeDept].indexOf(a.pos);
@@ -367,16 +367,30 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
                           </td>
                           {CALENDAR_DAYS.map(day => {
                              const info = getStaffDayInfo(s.id, day.dateStr, CURRENT_DUTY_LIST);
+                             const currentLeave = info?.type === 'leave' ? (info.info?.id || '') : '';
                              return (
-                               <td key={day.dateStr} className={`border-r border-b border-slate-200 p-0.5 sm:p-1 text-center print:border-black ${!info ? 'bg-slate-50/40 print:bg-transparent' : ''}`}>
-                                 {info?.type === 'work' ? (
-                                   <div className="flex flex-col items-center justify-center leading-tight w-full h-full">
-                                     <span className="font-black text-slate-800 text-[8px] sm:text-[10px] leading-none tracking-tighter print:text-black">{formatTimeAbbreviation(info.slot.startTime)}</span>
-                                     {info.actual?.otHours > 0 && <div className="text-[6px] sm:text-[7px] font-black text-rose-600 truncate w-full px-0.5 uppercase tracking-tighter mt-0.5 print:text-black">O{info.actual.otHours}</div>}
-                                   </div>
-                                 ) : info?.type === 'leave' ? (
-                                   <div className={`w-full h-full flex items-center justify-center font-black ${info.info.color} rounded-md sm:rounded-xl border sm:border-2 border-white shadow-inner text-[8px] sm:text-[10px] print:bg-transparent print:text-black print:border-none`}><span className="text-center leading-none uppercase p-0.5 sm:p-1">{info.info.shortLabel}</span></div>
-                                 ) : <span className="text-[5px] sm:text-[7px] font-black opacity-10 uppercase tracking-widest print:text-transparent">OFF</span>}
+                               <td key={day.dateStr} className={`border-r border-b border-slate-200 p-0 relative group print:border-black h-10 sm:h-14 ${!info ? 'bg-slate-50/40 print:bg-transparent' : ''}`}>
+                                 <div className="w-full h-full flex flex-col items-center justify-center p-0.5 sm:p-1 pointer-events-none group-hover:opacity-40 transition-opacity print:group-hover:opacity-100">
+                                   {info?.type === 'work' ? (
+                                     <div className="flex flex-col items-center justify-center leading-tight w-full h-full">
+                                       <span className="font-black text-slate-800 text-[8px] sm:text-[10px] leading-none tracking-tighter print:text-black">{formatTimeAbbreviation(info.slot?.startTime)}</span>
+                                       {info.actual?.otHours > 0 && <div className="text-[6px] sm:text-[7px] font-black text-rose-600 truncate w-full px-0.5 uppercase tracking-tighter mt-0.5 print:text-black">O{info.actual.otHours}</div>}
+                                     </div>
+                                   ) : info?.type === 'leave' ? (
+                                     <div className={`w-full h-full flex items-center justify-center font-black ${info.info?.color || 'bg-slate-100 text-slate-800'} rounded-md sm:rounded-xl border sm:border-2 border-white shadow-inner text-[8px] sm:text-[10px] print:bg-transparent print:text-black print:border-none`}><span className="text-center leading-none uppercase p-0.5 sm:p-1">{info.info?.shortLabel || 'ย'}</span></div>
+                                   ) : <span className="text-[5px] sm:text-[7px] font-black opacity-10 uppercase tracking-widest print:text-transparent">OFF</span>}
+                                 </div>
+                                 <select
+                                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer print:hidden z-10"
+                                     value={currentLeave}
+                                     onChange={(e) => handleToggleLeave && handleToggleLeave(s.id, day.dateStr, e.target.value)}
+                                     title="คลิกเพื่อปรับวันหยุด (พนักงานที่ลางานจะไม่ถูกดึงไปจัดกะออโต้)"
+                                 >
+                                     <option value="">[ ว่าง / ลบวันหยุด ]</option>
+                                     {(LEAVE_TYPES || []).map(lt => (
+                                         <option key={lt.id} value={lt.id}>{lt.label}</option>
+                                     ))}
+                                 </select>
                                </td>
                              );
                           })}
@@ -951,38 +965,22 @@ export default function App() {
         let updatedLeaves = (newSched[dateStr].leaves || []).filter(l => l.type !== leaveType);
         selectedStaffIds.forEach(staffId => { updatedLeaves.push({ staffId, type: leaveType }); });
         newSched[dateStr].leaves = updatedLeaves;
+
+        // หากมีการบันทึกวันลา/วันหยุดแบบกลุ่ม ให้ถอดชื่อพนักงานเหล่านั้นออกจากกะงานวันนั้นโดยอัตโนมัติ
+        if (newSched[dateStr].duties) {
+            Object.values(newSched[dateStr].duties).forEach(slots => {
+                slots.forEach(slot => {
+                    if (selectedStaffIds.includes(slot.staffId)) {
+                        slot.staffId = "";
+                        slot.otHours = 0;
+                    }
+                });
+            });
+        }
+
         if (activeBranchId) autoSaveSchedule(newSched);
         return newSched;
     });
-  }, [activeBranchId, autoSaveSchedule]);
-
-  const handleToggleLeave = useCallback((staffId, dateStr, leaveTypeId) => {
-      setSchedule(prev => {
-          const newSched = JSON.parse(JSON.stringify(prev));
-          if (!newSched[dateStr]) newSched[dateStr] = { duties: {}, leaves: [], autoLeavesAssigned: true };
-          if (!newSched[dateStr].leaves) newSched[dateStr].leaves = [];
-
-          // Remove existing leave
-          newSched[dateStr].leaves = newSched[dateStr].leaves.filter(l => l.staffId !== staffId);
-
-          if (leaveTypeId) {
-              newSched[dateStr].leaves.push({ staffId, type: leaveTypeId });
-              
-              // Auto-remove from duties if setting a leave
-              if (newSched[dateStr].duties) {
-                  Object.values(newSched[dateStr].duties).forEach(slots => {
-                      slots.forEach(slot => {
-                          if (slot.staffId === staffId) {
-                              slot.staffId = "";
-                              slot.otHours = 0;
-                          }
-                      });
-                  });
-              }
-          }
-          if (activeBranchId) autoSaveSchedule(newSched);
-          return newSched;
-      });
   }, [activeBranchId, autoSaveSchedule]);
 
   const handleAddDuty = () => {
