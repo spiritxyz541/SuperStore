@@ -572,12 +572,14 @@ export default function App() {
               const shiftPreset = branchData.shiftPresets?.find(p => p.id === mSlot?.shiftPresetId);
               const staffPos = staffMap[slot.staffId].pos;
               const { startTime, endTime } = getShiftTimesForStaff(staffPos, shiftPreset);
-              const [sh, sm] = startTime.split(':').map(Number);
-              const [eh, em] = endTime.split(':').map(Number);
-              staffMap[slot.staffId].workHours += (eh + em/60) - (sh + sm/60);
+              if (startTime && startTime !== '??:??' && endTime && endTime !== '??:??') {
+                  const [sh, sm] = startTime.split(':').map(Number);
+                  const [eh, em] = endTime.split(':').map(Number);
+                  staffMap[slot.staffId].workHours += (eh + em/60) - (sh + sm/60);
+              }
               staffMap[slot.staffId].shifts += 1;
               staffMap[slot.staffId].actualOT += Number(slot.otHours || 0);
-              staffMap[slot.staffId].plannedOT += Number(mSlot.maxOtHours || 0);
+              staffMap[slot.staffId].plannedOT += Number(mSlot?.maxOtHours || 0);
             }
           });
         });
