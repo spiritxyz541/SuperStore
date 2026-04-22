@@ -3646,7 +3646,7 @@ export default function App() {
                                           onBlur={async () => { if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }}
                                           className="w-full border rounded-xl p-1.5 sm:p-2 text-[10px] sm:text-xs font-black disabled:bg-slate-50 disabled:text-slate-300 outline-none focus:border-indigo-500">
                                           <option value="" disabled>-- เลือกกะ --</option>
-                                          {(branchData.shiftPresets || []).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                          {(branchData.shiftPresets || []).filter(p => p.isActive !== false || matrixSlot.shiftPresetId === p.id).map(p => <option key={p.id} value={p.id}>{p.name} {p.isActive === false ? '(ปิดใช้งาน)' : ''}</option>)}
                                       </select>
 
                                       <span className="text-[8px] sm:text-[9px] font-black text-indigo-500 uppercase">MAX OT</span>
