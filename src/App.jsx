@@ -3148,12 +3148,21 @@ export default function App() {
                    <tr>
                       <th className="p-4 sm:p-6 border-b border-r border-slate-200 min-w-[150px] sticky left-0 bg-white z-30 font-black text-[10px] text-slate-500 uppercase tracking-widest">กลุ่มงาน (DUTY)</th>
                       <th className="p-4 sm:p-6 border-b border-r border-slate-200 min-w-[250px] sticky left-[150px] bg-white z-30 font-black text-[10px] text-slate-500 uppercase tracking-widest">รายละเอียดงาน</th>
-                      {CALENDAR_DAYS.map(day => (
+                      {CALENDAR_DAYS.map(day => {
+                         const dayUsedStaffIds = new Set();
+                         (schedule[day.dateStr]?.leaves || []).forEach(l => l.staffId && dayUsedStaffIds.add(l.staffId));
+                         Object.values(schedule[day.dateStr]?.duties || {}).forEach(sls => sls.forEach(s => s.staffId && dayUsedStaffIds.add(s.staffId)));
+                         const unassignedCount = (branchData.staff?.filter(s => s.dept === activeDept && !dayUsedStaffIds.has(s.id)) || []).length;
+                         return (
                          <th key={day.dateStr} className="p-3 border-b border-r border-slate-100 text-center min-w-[120px]">
                              <div className="text-lg font-black text-slate-800">{day.dayNum}</div>
-                             <div className="text-[9px] font-bold text-slate-400 uppercase">{day.dayLabel}</div>
+                             <div className="text-[9px] font-bold text-slate-400 uppercase mb-1">{day.dayLabel}</div>
+                             <div className={`text-[9px] font-black px-2 py-0.5 rounded-md inline-block border ${unassignedCount > 0 ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200'}`} title={`มีพนักงาน ${unassignedCount} คนที่ยังไม่ได้ถูกจัดกะหรือวันหยุดในวันนี้`}>
+                                {unassignedCount > 0 ? `ว่าง ${unassignedCount} คน` : '✓ จัดครบแล้ว'}
+                             </div>
                          </th>
-                      ))}
+                         );
+                      })}
                    </tr>
                    </thead>
                    <tbody className="divide-y divide-slate-100">
