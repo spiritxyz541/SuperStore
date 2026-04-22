@@ -3116,7 +3116,7 @@ export default function App() {
                    <h1 className="font-black uppercase tracking-tighter" style={{ fontSize: `${rs.headlineSize || 24}px` }}>แผนงานประจำวัน{activeDept === 'service' ? 'แผนกบริการ (FOH)' : 'แผนกครัว (BOH)'}</h1>
                    <p className="font-bold text-slate-600 mt-2" style={{ fontSize: `${rs.subHeadlineSize || 14}px` }}>วัน{activeDay.dayLabel} ที่ <span className="underline underline-offset-4">{activeDay.dayNum}</span> เดือน <span className="underline underline-offset-4">{THAI_MONTHS[selectedMonth]}</span> พ.ศ. <span className="underline underline-offset-4">{selectedYear + 543}</span></p>
                 </div>
-                <table className="w-full border-collapse border-2 border-slate-800 min-w-[1100px] bg-white print:min-w-0" style={{ fontSize: `${rs.fontSize}px` }}>
+                <table className="w-full table-fixed border-collapse border-2 border-slate-800 min-w-[1100px] bg-white print:min-w-0" style={{ fontSize: `${rs.fontSize}px` }}>
                    <thead>
                       <tr className="text-center font-black" style={{ backgroundColor: rs.headerBg, color: '#0f172a', fontSize: `${rs.headerFontSize || 10}px` }}>
                          <th className="border border-slate-800 p-2" style={{ width: `${rs.colDuty}%` }}>กลุ่มงาน (DUTY)</th>
