@@ -983,6 +983,35 @@ export default function App() {
     });
   }, [activeBranchId, autoSaveSchedule]);
 
+  const handleToggleLeave = useCallback((staffId, dateStr, leaveTypeId) => {
+      setSchedule(prev => {
+          const newSched = JSON.parse(JSON.stringify(prev));
+          if (!newSched[dateStr]) newSched[dateStr] = { duties: {}, leaves: [], autoLeavesAssigned: true };
+          if (!newSched[dateStr].leaves) newSched[dateStr].leaves = [];
+
+          // ลบสถานะวันหยุดเดิมของพนักงานคนนี้ในวันนั้นๆ ออกก่อน
+          newSched[dateStr].leaves = newSched[dateStr].leaves.filter(l => l.staffId !== staffId);
+
+          if (leaveTypeId) {
+              newSched[dateStr].leaves.push({ staffId, type: leaveTypeId });
+              
+              // หากพนักงานถูกจัดงานอยู่แล้ว ให้ถอดชื่อเขาออกจากกะงานวันนั้นโดยอัตโนมัติ
+              if (newSched[dateStr].duties) {
+                  Object.values(newSched[dateStr].duties).forEach(slots => {
+                      slots.forEach(slot => {
+                          if (slot.staffId === staffId) {
+                              slot.staffId = "";
+                              slot.otHours = 0;
+                          }
+                      });
+                  });
+              }
+          }
+          if (activeBranchId) autoSaveSchedule(newSched);
+          return newSched;
+      });
+  }, [activeBranchId, autoSaveSchedule]);
+
   const handleAddDuty = () => {
     if (!newDutyJobA.trim()) return;
     const newId = (activeDept === 'service' ? 'D' : 'K') + Date.now();
