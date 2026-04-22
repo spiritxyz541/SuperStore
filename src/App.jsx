@@ -1188,6 +1188,7 @@ export default function App() {
   );
 
   const handleSaveGuide = async () => {
+      if (authRole !== 'superadmin') return;
       const nc = { ...globalConfig, guideSteps: editGuideSteps, siteMap: editSiteMap, workflow: editWorkflow, guideHeader: editGuideHeader };
       setGlobalConfig(nc);
       setSaveStatus('saving');
@@ -3584,6 +3585,7 @@ export default function App() {
     const headerData = isEditingGuide ? editGuideHeader : (globalConfig.guideHeader || DEFAULT_GUIDE_HEADER);
 
     const toggleGuideEdit = () => {
+        if (authRole !== 'superadmin') return;
         if (isEditingGuide) { 
             handleSaveGuide(); 
         } else { 
@@ -3621,40 +3623,42 @@ export default function App() {
                 )}
              </div>
 
-             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+             <div className="flex flex-nowrap overflow-x-auto custom-scrollbar gap-3 sm:gap-4 pb-4">
                 {siteMapData.map((col, cIdx) => (
-                    <div key={col.id} className="bg-white/5 p-5 rounded-2xl border border-white/10">
+                    <div key={col.id} className="flex-1 min-w-[200px] bg-white/5 p-4 sm:p-5 rounded-2xl border border-white/10 flex flex-col">
                        {isEditingGuide ? (
-                           <div className="space-y-3">
-                               <div className="flex gap-2">
-                                  <input type="text" value={col.title} onChange={e => { const n = [...editSiteMap]; n[cIdx].title = e.target.value; setEditSiteMap(n); }} className="flex-1 w-full bg-slate-800 border border-slate-600 rounded-lg p-2 text-sm font-black outline-none focus:border-emerald-500 text-white" placeholder="ชื่อหมวดหมู่..." />
-                                  <select value={col.color || 'text-white'} onChange={e => { const n = [...editSiteMap]; n[cIdx].color = e.target.value; setEditSiteMap(n); }} className="bg-slate-700 text-xs outline-none rounded p-1 text-white border border-slate-600">
-                                      <option value="text-white">ขาว</option>
-                                      <option value="text-emerald-400">เขียว</option>
-                                      <option value="text-indigo-400">ม่วง</option>
-                                      <option value="text-sky-400">ฟ้า</option>
-                                      <option value="text-orange-400">ส้ม</option>
-                                      <option value="text-rose-400">แดง</option>
-                                      <option value="text-amber-400">เหลือง</option>
-                                  </select>
-                                  <button onClick={() => { const n = [...editSiteMap]; n.splice(cIdx, 1); setEditSiteMap(n); }} className="bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white px-3 rounded-lg transition flex-shrink-0 flex items-center justify-center"><Trash2 className="w-4 h-4"/></button>
+                           <div className="space-y-3 flex flex-col h-full">
+                               <div className="flex gap-2 flex-wrap 2xl:flex-nowrap">
+                                  <input type="text" value={col.title} onChange={e => { const n = [...editSiteMap]; n[cIdx].title = e.target.value; setEditSiteMap(n); }} className="flex-1 w-full min-w-[100px] bg-slate-800 border border-slate-600 rounded-lg p-2 text-sm font-black outline-none focus:border-emerald-500 text-white" placeholder="ชื่อหมวดหมู่..." />
+                                  <div className="flex gap-2 w-full 2xl:w-auto">
+                                      <select value={col.color || 'text-white'} onChange={e => { const n = [...editSiteMap]; n[cIdx].color = e.target.value; setEditSiteMap(n); }} className="flex-1 2xl:flex-none bg-slate-700 text-[10px] sm:text-xs outline-none rounded p-1 text-white border border-slate-600">
+                                          <option value="text-white">ขาว</option>
+                                          <option value="text-emerald-400">เขียว</option>
+                                          <option value="text-indigo-400">ม่วง</option>
+                                          <option value="text-sky-400">ฟ้า</option>
+                                          <option value="text-orange-400">ส้ม</option>
+                                          <option value="text-rose-400">แดง</option>
+                                          <option value="text-amber-400">เหลือง</option>
+                                      </select>
+                                      <button onClick={() => { const n = [...editSiteMap]; n.splice(cIdx, 1); setEditSiteMap(n); }} className="bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white px-3 rounded-lg transition flex-shrink-0 flex items-center justify-center"><Trash2 className="w-4 h-4"/></button>
+                                  </div>
                                </div>
-                               <textarea value={(col.items || []).join('\n')} onChange={e => { const n = [...editSiteMap]; n[cIdx].items = e.target.value.split('\n'); setEditSiteMap(n); }} className="w-full bg-slate-800 border border-slate-600 rounded-lg p-2 text-xs font-bold outline-none focus:border-emerald-500 text-white resize-y" rows={6} placeholder="รายละเอียด (ขึ้นบรรทัดใหม่ = 1 รายการ)"></textarea>
+                               <textarea value={(col.items || []).join('\n')} onChange={e => { const n = [...editSiteMap]; n[cIdx].items = e.target.value.split('\n'); setEditSiteMap(n); }} className="w-full flex-1 bg-slate-800 border border-slate-600 rounded-lg p-2 text-[10px] sm:text-xs font-bold outline-none focus:border-emerald-500 text-white resize-y" rows={6} placeholder="รายละเอียด (ขึ้นบรรทัดใหม่ = 1 รายการ)"></textarea>
                            </div>
                        ) : (
                            <React.Fragment>
-                               <h3 className={`font-black ${col.color || 'text-white'} mb-3 flex items-center gap-2`}><LayoutDashboard className="w-4 h-4"/> {col.title}</h3>
-                               <ul className="text-xs font-bold text-slate-300 space-y-2 list-disc list-inside whitespace-pre-wrap">
-                                  {(col.items || []).map((item, i) => item.trim() ? <li key={i}>{item}</li> : null)}
+                               <h3 className={`font-black text-sm sm:text-base ${col.color || 'text-white'} mb-3 flex items-center gap-2`}><LayoutDashboard className="w-4 h-4 flex-shrink-0"/> <span className="truncate" title={col.title}>{col.title}</span></h3>
+                               <ul className="text-[10px] sm:text-xs font-bold text-slate-300 space-y-2 list-disc list-inside whitespace-pre-wrap">
+                                  {(col.items || []).map((item, i) => item.trim() ? <li key={i} className="break-words">{item}</li> : null)}
                                </ul>
                            </React.Fragment>
                        )}
                     </div>
                 ))}
                 {isEditingGuide && (
-                    <button onClick={() => { setEditSiteMap([...editSiteMap, { id: 'SM'+Date.now(), title: 'หมวดหมู่ใหม่', color: 'text-emerald-400', items: ['รายการที่ 1'] }]); }} className="bg-white/5 border-2 border-dashed border-white/20 text-white/50 hover:text-white hover:border-white/50 hover:bg-white/10 rounded-2xl flex flex-col items-center justify-center p-6 gap-2 transition min-h-[150px]">
+                    <button onClick={() => { setEditSiteMap([...editSiteMap, { id: 'SM'+Date.now(), title: 'หมวดหมู่ใหม่', color: 'text-emerald-400', items: ['รายการที่ 1'] }]); }} className="flex-1 min-w-[150px] sm:min-w-[200px] bg-white/5 border-2 border-dashed border-white/20 text-white/50 hover:text-white hover:border-white/50 hover:bg-white/10 rounded-2xl flex flex-col items-center justify-center p-4 gap-2 transition min-h-[150px]">
                         <Plus className="w-6 h-6"/>
-                        <span className="text-xs font-black uppercase tracking-widest">เพิ่มหมวดหมู่ (Add Box)</span>
+                        <span className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-center">เพิ่มหมวดหมู่<br/>(Add Box)</span>
                     </button>
                 )}
              </div>
