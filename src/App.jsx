@@ -2511,7 +2511,7 @@ export default function App() {
   function renderBranchAdmin() {
     const dayOffCounts = { service: {}, kitchen: {} };
     (branchData.staff || []).forEach(s => {
-       if (s.regularDayOff !== null && s.regularDayOff !== undefined) {
+       if (s.isActive !== false && s.regularDayOff !== null && s.regularDayOff !== undefined) {
            const dept = s.dept || 'service';
            if (!dayOffCounts[dept]) dayOffCounts[dept] = {};
            dayOffCounts[dept][s.regularDayOff] = (dayOffCounts[dept][s.regularDayOff] || 0) + 1;
@@ -2527,12 +2527,12 @@ export default function App() {
              
              <div className="flex flex-col gap-4 mb-6 sm:mb-8 bg-slate-50 p-4 rounded-2xl border border-slate-100">
                  <div className="text-[10px] sm:text-xs font-black text-slate-500 uppercase tracking-widest flex justify-between items-center">
-                    <span>สรุปพนักงาน ({branchData.staff?.filter(s => s.dept === activeDept).length || 0} คน)</span>
+                <span>สรุปพนักงาน ({branchData.staff?.filter(s => s.dept === activeDept && s.isActive !== false).length || 0} คน)</span>
                     <button onClick={() => setStaffFilterPos('ALL')} className={`px-3 py-1 rounded-lg transition-all shadow-sm ${staffFilterPos === 'ALL' ? 'bg-slate-800 text-white' : 'bg-slate-200 text-slate-700'}`}>ดูทั้งหมด</button>
                  </div>
                  {DUTY_CATEGORIES[activeDept].map(cat => {
                     const layerPositions = POSITIONS[activeDept].filter(p => getStaffLayer(activeDept, p).id === cat.id);
-                    const catStaffCount = (branchData.staff || []).filter(s => getStaffLayer(s.dept, s.pos).id === cat.id).length;
+                const catStaffCount = (branchData.staff || []).filter(s => s.isActive !== false && getStaffLayer(s.dept, s.pos).id === cat.id).length;
                     const catLimit = branchData.staffLimits?.[cat.id];
                     const isFull = catLimit !== undefined && catLimit !== null && catStaffCount >= catLimit;
 
@@ -2553,7 +2553,7 @@ export default function App() {
                           </div>
                           <div className="flex flex-wrap gap-2">
                              {layerPositions.map(p => {
-                                 const count = (branchData.staff || []).filter(s => s.dept === activeDept && s.pos === p).length;
+                             const count = (branchData.staff || []).filter(s => s.dept === activeDept && s.pos === p && s.isActive !== false).length;
                                  const isSelected = staffFilterPos === p;
                                  return (
                                     <button key={p} onClick={() => setStaffFilterPos(isSelected ? 'ALL' : p)} className={`text-[10px] font-black border px-3 py-1.5 rounded-lg transition-all shadow-sm ${isSelected ? 'ring-2 ring-offset-2 ring-indigo-500 scale-105' : 'hover:opacity-80'} ${cat.color.split(' ')[0]} ${cat.color.split(' ')[1]} ${count === 0 ? 'opacity-40' : ''}`}>
@@ -2615,7 +2615,7 @@ export default function App() {
                       if(newStaffName.trim()){ 
                           const layer = getStaffLayer(newStaffDept, newStaffPos);
                           const limit = branchData.staffLimits?.[layer.id];
-                          const currentCount = (branchData.staff || []).filter(s => getStaffLayer(s.dept, s.pos).id === layer.id).length;
+                          const currentCount = (branchData.staff || []).filter(s => s.isActive !== false && getStaffLayer(s.dept, s.pos).id === layer.id).length;
                           if (limit !== undefined && limit !== null && currentCount >= limit) {
                               setConfirmModal({ message: `เพิ่มพนักงานไม่ได้ เนื่องจากกลุ่ม ${layer.label} เต็มแล้ว (รับได้สูงสุด ${limit} คน)` });
                               return;
@@ -2640,6 +2640,18 @@ export default function App() {
                           <select value={editStaffData.pos} onChange={e => setEditStaffData({...editStaffData, pos: e.target.value})} className="border rounded px-2 py-1 text-[10px]">
                               {POSITIONS[s.dept].map(p => <option key={p} value={p}>{p}</option>)}
                           </select>
+                      <div className="flex gap-1 items-center">
+                          <select value={editStaffData.resignDate || editStaffData.isActive === false ? 'false' : 'true'} onChange={e => {
+                              const isResigned = e.target.value === 'false';
+                              setEditStaffData({...editStaffData, isActive: !isResigned, resignDate: isResigned ? (editStaffData.resignDate || new Date().toISOString().slice(0,10)) : null});
+                          }} className="border rounded px-2 py-1 text-[10px]">
+                              <option value="true">ทำงานปกติ</option>
+                              <option value="false">ลาออก / ปิดใช้งาน</option>
+                          </select>
+                          {(editStaffData.resignDate || editStaffData.isActive === false) && (
+                              <input type="date" value={editStaffData.resignDate || ''} onChange={e => setEditStaffData({...editStaffData, resignDate: e.target.value})} className="border rounded px-2 py-1 text-[10px] w-24 sm:w-auto" />
+                          )}
+                      </div>
                           <select value={editStaffData.regularDayOff ?? ''} onChange={e => setEditStaffData({...editStaffData, regularDayOff: e.target.value === '' ? null : parseInt(e.target.value)})} className="border rounded px-2 py-1 text-[10px]">
                                     <option value="">- วันหยุด -</option>
                                     {DAYS_OF_WEEK.map(d => {
@@ -2656,7 +2668,7 @@ export default function App() {
                               if (editStaffData.pos !== s.pos || editStaffData.dept !== s.dept) {
                                   const layer = getStaffLayer(editStaffData.dept, editStaffData.pos);
                                   const limit = branchData.staffLimits?.[layer.id];
-                                  const currentCount = (branchData.staff || []).filter(x => x.id !== editingStaffId && getStaffLayer(x.dept, x.pos).id === layer.id).length;
+                                  const currentCount = (branchData.staff || []).filter(x => x.id !== editingStaffId && x.isActive !== false && !x.resignDate && getStaffLayer(x.dept, x.pos).id === layer.id).length;
                                   if (limit !== undefined && limit !== null && currentCount >= limit) {
                                       setConfirmModal({ message: `เปลี่ยนตำแหน่งไม่ได้ เนื่องจากกลุ่ม ${layer.label} เต็มแล้ว (รับได้สูงสุด ${limit} คน)` });
                                       return;
@@ -2674,6 +2686,10 @@ export default function App() {
                             </span>
                             <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-1 items-center">
                                <span className={`text-[7px] sm:text-[8px] font-black px-1.5 sm:px-2 py-0.5 rounded border uppercase ${layer.color.split(' ')[0]} ${layer.color.split(' ')[1]}`}>{s.pos}</span>
+                               {(() => {
+                                   const isResigned = s.resignDate || s.isActive === false;
+                                   return <span className={`text-[7px] sm:text-[8px] font-black px-1.5 sm:px-2 py-0.5 rounded border uppercase ${isResigned ? 'bg-rose-50 text-rose-500 border-rose-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200'}`}>{isResigned ? (s.resignDate ? `ลาออก (${s.resignDate})` : 'ลาออก/ไม่รับงาน') : 'ทำงานปกติ'}</span>;
+                               })()}
                                <span className="text-[7px] sm:text-[8px] font-black px-1.5 sm:px-2 py-0.5 rounded border border-slate-200 bg-white text-slate-400 uppercase truncate">หยุด: {s.regularDayOff !== undefined && s.regularDayOff !== null ? DAYS_OF_WEEK.find(d => d.id === s.regularDayOff)?.label : '-'}</span>
                                <button onClick={() => startEditStaff(s)} className="text-slate-300 hover:text-indigo-500"><Edit2 className="w-3 h-3"/></button>
                             </div>
@@ -2910,7 +2926,7 @@ export default function App() {
              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 sm:gap-6">
                 {LEAVE_TYPES.map(lt => {
                 const selectedStaffIds = (schedule[selectedDateStr]?.leaves || []).filter(l => l.type === lt.id).map(l => l.staffId);
-                const staffOptions = branchData.staff?.filter(s => { if (s.dept !== activeDept || s.isActive === false) return false; return !(usedStaffIds.includes(s.id) && !selectedStaffIds.includes(s.id)); }) || [];
+                const staffOptions = branchData.staff?.filter(s => { if (s.dept !== activeDept) return false; return !(usedStaffIds.includes(s.id) && !selectedStaffIds.includes(s.id)); }) || [];
                 const isHoliday = branchData.holidays?.includes?.(selectedDateStr);
                 const isBlocked = isHoliday && lt.id === 'OFF';
                 return (
@@ -2995,7 +3011,7 @@ export default function App() {
                                               <div className="flex flex-col sm:flex-row gap-2">
                                               <select value={data.staffId} onChange={(e) => handleScheduleUpdate(selectedDateStr, duty.id, idx, 'staffId', e.target.value, slot.maxOtHours)} className="w-full sm:flex-[3] bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-black outline-none shadow-sm text-slate-900 focus:border-indigo-500">
                                                  <option value="">-- เลือกพนักงาน --</option>
-                                             {branchData.staff?.filter(s => s.dept === activeDept && (s.isActive !== false || data.staffId === s.id)).map(s => {
+                                                 {branchData.staff?.filter(s => s.dept === activeDept).map(s => {
                                                     const isUsed = usedStaffIds.includes(s.id) && data.staffId !== s.id;
                                                     const wrongPos = !checkPositionEligibility(s.pos, reqArr, activeDept) && data.staffId !== s.id;
                                                     return (isUsed || wrongPos) ? null : <option key={s.id} value={s.id}>{s.name} ({s.pos})</option>
@@ -3225,7 +3241,7 @@ export default function App() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                    {LEAVE_TYPES.map(lt => {
                       const selectedStaffIds = (schedule[selectedDateStr]?.leaves || []).filter(l => l.type === lt.id).map(l => l.staffId);
-                  const staffOptions = branchData.staff?.filter(s => { if (s.dept !== activeDept || s.isActive === false) return false; return !(usedStaffIds.includes(s.id) && !selectedStaffIds.includes(s.id)); }) || [];
+                      const staffOptions = branchData.staff?.filter(s => { if (s.dept !== activeDept) return false; return !(usedStaffIds.includes(s.id) && !selectedStaffIds.includes(s.id)); }) || [];
                       const isHoliday = branchData.holidays?.includes?.(selectedDateStr);
                       const isBlocked = isHoliday && lt.id === 'OFF';
                       return (
@@ -3251,7 +3267,7 @@ export default function App() {
                          const dayUsedStaffIds = new Set();
                          (schedule[day.dateStr]?.leaves || []).forEach(l => l.staffId && dayUsedStaffIds.add(l.staffId));
                          Object.values(schedule[day.dateStr]?.duties || {}).forEach(sls => sls.forEach(s => s.staffId && dayUsedStaffIds.add(s.staffId)));
-                     const unassignedCount = (branchData.staff?.filter(s => s.dept === activeDept && s.isActive !== false && !dayUsedStaffIds.has(s.id)) || []).length;
+                         const unassignedCount = (branchData.staff?.filter(s => s.dept === activeDept && !dayUsedStaffIds.has(s.id)) || []).length;
                          return (
                          <th key={day.dateStr} className="p-3 border-b border-r border-slate-100 text-center min-w-[120px]">
                              <div className="text-lg font-black text-slate-800">{day.dayNum}</div>
@@ -3304,7 +3320,7 @@ export default function App() {
                                                              </div>
                                                              <select value={data.staffId} onChange={(e) => handleScheduleUpdate(day.dateStr, duty.id, idx, 'staffId', e.target.value, matrixSlot.maxOtHours)} className="w-full text-[10px] font-bold bg-transparent outline-none text-slate-800 truncate">
                                                                 <option value="">-- ว่าง --</option>
-                                                            {branchData.staff?.filter(s => s.dept === activeDept && (s.isActive !== false || data.staffId === s.id)).map(s => {
+                                                                {branchData.staff?.filter(s => s.dept === activeDept).map(s => {
                                                                    const isUsed = dayUsedStaffIds.has(s.id) && data.staffId !== s.id;
                                                                    const wrongPos = !checkPositionEligibility(s.pos, reqArr, activeDept) && data.staffId !== s.id;
                                                                    return (isUsed || wrongPos) ? null : <option key={s.id} value={s.id}>{s.name}</option>
