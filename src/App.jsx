@@ -415,9 +415,15 @@ export default function App() {
   const [loadError, setLoadError] = useState(null);
   const [isTimeout, setIsTimeout] = useState(false);
   
-  const [authRole, setAuthRole] = useState('guest'); 
-  const [activeBranchId, setActiveBranchId] = useState(null);
-  const [view, setView] = useState('manager'); 
+  const [authRole, setAuthRole] = useState(() => {
+      try { const saved = localStorage.getItem('superstore_session'); if (saved) return JSON.parse(saved).authRole || 'guest'; } catch(e){} return 'guest';
+  }); 
+  const [activeBranchId, setActiveBranchId] = useState(() => {
+      try { const saved = localStorage.getItem('superstore_session'); if (saved) return JSON.parse(saved).activeBranchId || null; } catch(e){} return null;
+  });
+  const [view, setView] = useState(() => {
+      try { const saved = localStorage.getItem('superstore_session'); if (saved) return JSON.parse(saved).view || 'manager'; } catch(e){} return 'manager';
+  }); 
   const [activeDept, setActiveDept] = useState('service'); 
   const [managerViewMode, setManagerViewMode] = useState('daily'); 
 
@@ -643,6 +649,15 @@ export default function App() {
   }, [schedule, CALENDAR_DAYS, branchData.matrix, branchData.staff, branchData.shiftPresets]);
 
   // === EFFECTS ===
+  // Persist Auth Session to LocalStorage
+  useEffect(() => {
+      if (authRole === 'guest') {
+          localStorage.removeItem('superstore_session');
+      } else {
+          localStorage.setItem('superstore_session', JSON.stringify({ authRole, activeBranchId, view }));
+      }
+  }, [authRole, activeBranchId, view]);
+
   useEffect(() => {
     const timer = setTimeout(() => { if (loading) setIsTimeout(true); }, 8000);
     const initAuth = async () => {
