@@ -2910,7 +2910,7 @@ export default function App() {
              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 sm:gap-6">
                 {LEAVE_TYPES.map(lt => {
                 const selectedStaffIds = (schedule[selectedDateStr]?.leaves || []).filter(l => l.type === lt.id).map(l => l.staffId);
-                const staffOptions = branchData.staff?.filter(s => { if (s.dept !== activeDept) return false; return !(usedStaffIds.includes(s.id) && !selectedStaffIds.includes(s.id)); }) || [];
+                const staffOptions = branchData.staff?.filter(s => { if (s.dept !== activeDept || s.isActive === false) return false; return !(usedStaffIds.includes(s.id) && !selectedStaffIds.includes(s.id)); }) || [];
                 const isHoliday = branchData.holidays?.includes?.(selectedDateStr);
                 const isBlocked = isHoliday && lt.id === 'OFF';
                 return (
@@ -2995,7 +2995,7 @@ export default function App() {
                                               <div className="flex flex-col sm:flex-row gap-2">
                                               <select value={data.staffId} onChange={(e) => handleScheduleUpdate(selectedDateStr, duty.id, idx, 'staffId', e.target.value, slot.maxOtHours)} className="w-full sm:flex-[3] bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-black outline-none shadow-sm text-slate-900 focus:border-indigo-500">
                                                  <option value="">-- เลือกพนักงาน --</option>
-                                                 {branchData.staff?.filter(s => s.dept === activeDept).map(s => {
+                                             {branchData.staff?.filter(s => s.dept === activeDept && (s.isActive !== false || data.staffId === s.id)).map(s => {
                                                     const isUsed = usedStaffIds.includes(s.id) && data.staffId !== s.id;
                                                     const wrongPos = !checkPositionEligibility(s.pos, reqArr, activeDept) && data.staffId !== s.id;
                                                     return (isUsed || wrongPos) ? null : <option key={s.id} value={s.id}>{s.name} ({s.pos})</option>
@@ -3225,7 +3225,7 @@ export default function App() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                    {LEAVE_TYPES.map(lt => {
                       const selectedStaffIds = (schedule[selectedDateStr]?.leaves || []).filter(l => l.type === lt.id).map(l => l.staffId);
-                      const staffOptions = branchData.staff?.filter(s => { if (s.dept !== activeDept) return false; return !(usedStaffIds.includes(s.id) && !selectedStaffIds.includes(s.id)); }) || [];
+                  const staffOptions = branchData.staff?.filter(s => { if (s.dept !== activeDept || s.isActive === false) return false; return !(usedStaffIds.includes(s.id) && !selectedStaffIds.includes(s.id)); }) || [];
                       const isHoliday = branchData.holidays?.includes?.(selectedDateStr);
                       const isBlocked = isHoliday && lt.id === 'OFF';
                       return (
@@ -3251,7 +3251,7 @@ export default function App() {
                          const dayUsedStaffIds = new Set();
                          (schedule[day.dateStr]?.leaves || []).forEach(l => l.staffId && dayUsedStaffIds.add(l.staffId));
                          Object.values(schedule[day.dateStr]?.duties || {}).forEach(sls => sls.forEach(s => s.staffId && dayUsedStaffIds.add(s.staffId)));
-                         const unassignedCount = (branchData.staff?.filter(s => s.dept === activeDept && !dayUsedStaffIds.has(s.id)) || []).length;
+                     const unassignedCount = (branchData.staff?.filter(s => s.dept === activeDept && s.isActive !== false && !dayUsedStaffIds.has(s.id)) || []).length;
                          return (
                          <th key={day.dateStr} className="p-3 border-b border-r border-slate-100 text-center min-w-[120px]">
                              <div className="text-lg font-black text-slate-800">{day.dayNum}</div>
@@ -3304,7 +3304,7 @@ export default function App() {
                                                              </div>
                                                              <select value={data.staffId} onChange={(e) => handleScheduleUpdate(day.dateStr, duty.id, idx, 'staffId', e.target.value, matrixSlot.maxOtHours)} className="w-full text-[10px] font-bold bg-transparent outline-none text-slate-800 truncate">
                                                                 <option value="">-- ว่าง --</option>
-                                                                {branchData.staff?.filter(s => s.dept === activeDept).map(s => {
+                                                            {branchData.staff?.filter(s => s.dept === activeDept && (s.isActive !== false || data.staffId === s.id)).map(s => {
                                                                    const isUsed = dayUsedStaffIds.has(s.id) && data.staffId !== s.id;
                                                                    const wrongPos = !checkPositionEligibility(s.pos, reqArr, activeDept) && data.staffId !== s.id;
                                                                    return (isUsed || wrongPos) ? null : <option key={s.id} value={s.id}>{s.name}</option>
