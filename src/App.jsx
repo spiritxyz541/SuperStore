@@ -158,6 +158,10 @@ function checkPositionEligibility(staffPos, reqPosArr, dept) {
   const staffRank = deptPositions.indexOf(staffPos);
   if (staffRank === -1) return false; 
   return reqPosArr.some(reqPos => {
+    // บังคับให้ตำแหน่งที่มีคำว่า PT (เช่น PT, PT+, PT ครัว) ทำได้เฉพาะผู้ที่มีตำแหน่งนั้นเป๊ะๆ เท่านั้น
+    if (reqPos.includes('PT')) {
+      return staffPos === reqPos;
+    }
     const reqRank = deptPositions.indexOf(reqPos);
     return reqRank !== -1 && staffRank <= reqRank;
   });
