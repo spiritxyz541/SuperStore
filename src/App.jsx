@@ -3883,7 +3883,7 @@ export default function App() {
   } else if (view === 'guide') {
     mainContent = renderGuideView();
   } else if (view === 'print') {
-    mainContent = <PrintMonthlyView CALENDAR_DAYS={CALENDAR_DAYS} branchData={branchData} globalConfig={globalConfig} activeBranchId={activeBranchId} THAI_MONTHS={THAI_MONTHS} selectedMonth={selectedMonth} getStaffDayInfo={getStaffDayInfo} setView={setView} activeDept={activeDept} CURRENT_DUTY_LIST={CURRENT_DUTY_LIST} schedule={schedule} />;
+    mainContent = <PrintMonthlyView CALENDAR_DAYS={CALENDAR_DAYS} branchData={branchData} globalConfig={globalConfig} activeBranchId={activeBranchId} THAI_MONTHS={THAI_MONTHS} selectedMonth={selectedMonth} getStaffDayInfo={getStaffDayInfo} setView={setView} activeDept={activeDept} CURRENT_DUTY_LIST={CURRENT_DUTY_LIST} schedule={schedule} handleToggleLeave={handleToggleLeave} LEAVE_TYPES={LEAVE_TYPES} />;
   }
 
   return (
