@@ -48,6 +48,8 @@ const DEFAULT_SHIFT_PRESETS = [
   { id: 'S3', name: 'กะครัวเช้า', timings: { long: { startTime: '09:00', endTime: '18:30' }, short: { startTime: '09:00', endTime: '18:00' } } },
 ];
 
+const INACTIVITY_TIMEOUT_MS = 15 * 60 * 1000; // ตั้งเวลา Auto-logout เมื่อไม่มีการใช้งาน (ค่าเริ่มต้น 15 นาที)
+
 const DUTY_CATEGORIES = {
   service: [
     { id: 'FOH_HEAD', label: 'Customer Service Head Team', color: 'bg-[#4B7A47] text-white border-white/20' },
@@ -194,6 +196,7 @@ function getDaysInMonth(year, month, holidays = []) {
 
 function formatTimeAbbreviation(timeStr) {
     if (!timeStr) return '';
+    if (timeStr === '??:??') return '??.??';
     const [h, m] = timeStr.split(':');
     return `${parseInt(h, 10)}.${m ? m.charAt(0) : '0'}`;
 }
@@ -414,6 +417,8 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
   const [isTimeout, setIsTimeout] = useState(false);
+
+  const lastActivityRef = useRef(Date.now());
   
   const [authRole, setAuthRole] = useState(() => {
       try { const saved = localStorage.getItem('superstore_session'); if (saved) return JSON.parse(saved).authRole || 'guest'; } catch(e){} return 'guest';
@@ -649,6 +654,27 @@ export default function App() {
   }, [schedule, CALENDAR_DAYS, branchData.matrix, branchData.staff, branchData.shiftPresets]);
 
   // === EFFECTS ===
+  // ระบบ Auto Logout เมื่อไม่มีการใช้งานเกินเวลาที่กำหนด
+  useEffect(() => {
+    if (authRole === 'guest') return;
+
+    const updateActivity = () => { lastActivityRef.current = Date.now(); };
+    // ตรวจจับการขยับเมาส์, เลื่อนจอ, พิมพ์คีย์บอร์ด, หรือแตะหน้าจอ (มือถือ)
+    const events = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart'];
+    
+    events.forEach(e => window.addEventListener(e, updateActivity));
+
+    const intervalId = setInterval(() => {
+      if (Date.now() - lastActivityRef.current > INACTIVITY_TIMEOUT_MS) {
+        setAuthRole('guest');
+        setView('manager');
+        setConfirmModal({ message: 'ระบบได้ทำการออกจากระบบอัตโนมัติ เนื่องจากไม่มีการใช้งานเกิน 15 นาที เพื่อความปลอดภัย' });
+      }
+    }, 60000); // เช็คทุกๆ 1 นาที
+
+    return () => { events.forEach(e => window.removeEventListener(e, updateActivity)); clearInterval(intervalId); };
+  }, [authRole]);
+
   // Persist Auth Session to LocalStorage
   useEffect(() => {
       if (authRole === 'guest') {
@@ -3637,6 +3663,28 @@ export default function App() {
                                           nd.matrix[key].duties[duty.id].splice(idx, 1);
                                           setBranchData(nd);
                                           if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd);
+
+                                              // เคลียร์พนักงานออกจากตารางกะงานอัตโนมัติเมื่อลบ Slot ออก
+                                              setSchedule(prevSched => {
+                                                  let hasSchedChanges = false;
+                                                  const newSched = JSON.parse(JSON.stringify(prevSched));
+                                                  Object.keys(newSched).forEach(dateStr => {
+                                                      const dateObj = new Date(parseInt(dateStr.split('-')[0]), parseInt(dateStr.split('-')[1]) - 1, parseInt(dateStr.split('-')[2]));
+                                                      const dayOfWeek = dateObj.getDay();
+                                                      let dayType = 'weekday';
+                                                      if (nd.holidays?.includes?.(dateStr) || dayOfWeek === 0 || dayOfWeek === 6) dayType = 'weekend';
+                                                      else if (dayOfWeek === 5) dayType = 'friday';
+
+                                                      if (dayType === key && newSched[dateStr].duties?.[duty.id]) {
+                                                          if (newSched[dateStr].duties[duty.id].length > idx) {
+                                                              newSched[dateStr].duties[duty.id].splice(idx, 1);
+                                                              hasSchedChanges = true;
+                                                          }
+                                                      }
+                                                  });
+                                                  if (hasSchedChanges && activeBranchId) autoSaveSchedule(newSched);
+                                                  return newSched;
+                                              });
                                       }
                                   }} className="absolute -top-2 -right-2 bg-red-100 text-red-500 hover:bg-red-500 hover:text-white rounded-full p-1.5 transition"><X className="w-3 h-3"/></button>}
                               </div>
