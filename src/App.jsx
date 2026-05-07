@@ -3354,14 +3354,8 @@ export default function App() {
          const { cat, duty, slotItem, isFirstOfCat, catSlotCount, isFirstOfDuty, dutySlotCount, originalIdx, isFirstOfXpDna } = tr;
          const { slot, assignedData } = slotItem;
          
-         let staff = branchData.staff?.find(s => s.id === assignedData.staffId);
-         let staffName = staff ? staff.name : '-';
-         if (assignedData.staffId && assignedData.staffId.startsWith('COVER_BY_')) {
-             const coverId = assignedData.staffId.replace('COVER_BY_', '');
-             staff = branchData.staff?.find(s => s.id === coverId);
-             staffName = staff ? `[OT แทน] ${staff.name}` : '[OT แทน]';
-         }
-         
+         const staff = branchData.staff?.find(s => s.id === assignedData.staffId);
+         const staffName = staff ? staff.name : '-';
          const shiftPreset = branchData.shiftPresets?.find(p => p.id === slot.shiftPresetId);
          const { startTime, endTime } = getShiftTimesForStaff(staff?.pos, shiftPreset);
 
@@ -3597,13 +3591,17 @@ export default function App() {
                                                       const shiftPreset = branchData.shiftPresets?.find(p => p.id === matrixSlot.shiftPresetId);
                                                       const shiftName = shiftPreset ? shiftPreset.name : 'N/A';
                                                       return (
-                                                          <div key={idx} className={`p-2 rounded-lg border ${!data.staffId ? 'border-dashed border-rose-300 bg-rose-50 animate-pulse shadow-sm' : 'border-indigo-200 bg-indigo-50/30'}`}>
-                                                             <div className="flex justify-between items-center mb-1">
-                                                                <span className={`text-[8px] font-bold ${!data.staffId ? 'text-rose-400' : 'text-slate-400'}`}>{shiftName}</span>
-                                                                {data.otHours > 0 && <span className="text-[8px] font-black text-indigo-600 bg-indigo-50 px-1 rounded">OT:{data.otHours}</span>}
+                                                          <div key={idx} className={`p-2 rounded-lg border ${!data.staffId ? 'border-dashed border-rose-300 bg-rose-50 animate-pulse shadow-sm' : data.staffId.startsWith('COVER_BY_') ? 'border-dashed border-amber-300 bg-amber-50 shadow-sm' : 'border-indigo-200 bg-indigo-50/30'}`}>
+                                                             <div className="flex justify-between items-center mb-1 gap-1">
+                                                                <span className={`text-[8px] font-bold truncate ${!data.staffId ? 'text-rose-400' : data.staffId.startsWith('COVER_BY_') ? 'text-amber-500' : 'text-slate-400'}`}>{shiftName}</span>
+                                                                <div className="flex items-center gap-0.5 flex-shrink-0">
+                                                                   <span className="text-[7px] font-black text-slate-400">OT:</span>
+                                                                   <input type="number" step="0.5" value={data.otHours} onChange={(e) => handleScheduleUpdate(day.dateStr, duty.id, idx, 'otHours', parseFloat(e.target.value) || 0)} onBlur={() => autoSaveSchedule()} disabled={!data.staffId} className={`w-8 h-4 text-[8px] font-black text-center rounded outline-none transition-colors border ${data.otHours > 0 ? 'bg-indigo-100 border-indigo-200 text-indigo-700' : 'bg-white border-slate-200 text-slate-600 focus:border-indigo-400'} disabled:opacity-50`} />
+                                                                </div>
                                                              </div>
-                                                             <select value={data.staffId} onChange={(e) => handleScheduleUpdate(day.dateStr, duty.id, idx, 'staffId', e.target.value, matrixSlot.maxOtHours)} className={`w-full text-[10px] font-bold bg-transparent outline-none truncate ${!data.staffId ? 'text-rose-600' : 'text-slate-800'}`}>
+                                                             <select value={data.staffId} onChange={(e) => handleScheduleUpdate(day.dateStr, duty.id, idx, 'staffId', e.target.value, matrixSlot.maxOtHours)} className={`w-full text-[10px] font-bold bg-transparent outline-none truncate ${!data.staffId ? 'text-rose-600' : data.staffId.startsWith('COVER_BY_') ? 'text-amber-700' : 'text-slate-800'}`}>
                                                                 <option value="">-- ว่าง --</option>
+                                                                {data.staffId && data.staffId.startsWith('COVER_BY_') && <option value={data.staffId}>✅ Cover: {branchData.staff?.find(s=>s.id === data.staffId.replace('COVER_BY_',''))?.name}</option>}
                                                                 {branchData.staff?.filter(s => s.dept === activeDept).map(s => {
                                                                    const isUsed = dayUsedStaffIds.has(s.id) && data.staffId !== s.id;
                                                                    const wrongPos = !checkPositionEligibility(s.pos, reqArr, activeDept) && data.staffId !== s.id;
