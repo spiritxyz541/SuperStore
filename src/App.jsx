@@ -3066,10 +3066,10 @@ export default function App() {
 
           if (activeSlots.length > 0) {
              // --- Auto Calculate Break Time (สลับเบรคใน Job เดียวกัน) ---
-             const morningBreaksLong = ['13.00-14.30', '14.00-15.30', '15.00-16.30', '12.00-13.30'];
-             const afternoonBreaksLong = ['16.00-17.30', '17.00-18.30', '15.00-16.30', '18.00-19.30'];
-             const morningBreaksShort = ['13.00-14.00', '14.00-15.00', '15.00-16.00', '12.00-13.00'];
-             const afternoonBreaksShort = ['16.00-17.00', '17.00-18.00', '15.00-16.00', '18.00-19.00'];
+             const morningBreaksLong = ['13.00-14.30', '14.00-15.30', '12.00-13.30', '13.30-15.00'];
+             const afternoonBreaksLong = ['15.00-16.30', '15.30-17.00', '16.00-17.30', '14.30-16.00'];
+             const morningBreaksShort = ['13.00-14.00', '14.00-15.00', '12.00-13.00', '13.30-14.30'];
+             const afternoonBreaksShort = ['15.00-16.00', '15.30-16.30', '16.00-17.00', '16.30-17.30'];
              let mIdx = 0, aIdx = 0;
              
              activeSlots.forEach(item => {
