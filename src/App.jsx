@@ -1723,17 +1723,23 @@ export default function App() {
                             const isOTSlot = (slot.maxOtHours || 0) > 0;
                             let validCandidates = potentialCandidates;
                             
-                            // Exclude HEAD team from OT slots entirely
+                            // Exclude HEAD team and PT from OT slots entirely
                             if (isOTSlot) {
                                 validCandidates = potentialCandidates.filter(p => {
                                     const layer = getStaffLayer(activeDept, p.pos);
-                                    return !layer.id.includes('HEAD');
+                                    const isPT = p.pos.includes('PT');
+                                    return !layer.id.includes('HEAD') && !isPT;
                                 });
                             }
                             
                             if (validCandidates.length > 0) {
                                 // Sort candidates
                                 validCandidates.sort((a, b) => {
+                                    // Priority 0.5: PT is least prioritized
+                                    const aIsPT = a.pos.includes('PT') ? 1 : 0;
+                                    const bIsPT = b.pos.includes('PT') ? 1 : 0;
+                                    if (aIsPT !== bIsPT) return aIsPT - bIsPT;
+
                                     if (isOTSlot) {
                                         const otDiff = staffOTCount[a.id] - staffOTCount[b.id];
                                         if (otDiff !== 0) return otDiff; // Priority 1: Least accumulated OT (หมุนเวียน OT ให้เท่ากัน)
