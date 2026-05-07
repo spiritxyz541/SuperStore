@@ -3448,33 +3448,13 @@ export default function App() {
   }
 
   function renderManagerMonthly() {
-    let totalEmptySlots = 0;
-    CALENDAR_DAYS.forEach(day => {
-        CURRENT_DUTY_LIST.forEach(duty => {
-            const slots = branchData.matrix?.[day.type]?.duties?.[duty.id] || [];
-            const assigned = schedule[day.dateStr]?.duties?.[duty.id] || [];
-            slots.forEach((_, idx) => {
-                if (!assigned[idx] || !assigned[idx].staffId) {
-                    totalEmptySlots++;
-                }
-            });
-        });
-    });
-
     return (
        <div className="w-full animate-in fade-in duration-500">
           <div className="bg-white rounded-[2rem] sm:rounded-[3rem] border border-slate-200 shadow-sm overflow-hidden w-full">
              <div className="p-6 sm:p-8 bg-slate-50 border-b border-slate-100 flex justify-between items-center flex-wrap gap-4">
                 <div className="flex flex-col">
                    <h2 className="text-xl sm:text-2xl font-black text-slate-900 uppercase tracking-tighter">Monthly Schedule: {THAI_MONTHS[selectedMonth]}</h2>
-                   <div className="flex items-center gap-2 mt-1">
-                      <span className="text-xs font-bold text-indigo-600 uppercase tracking-widest">{activeDept.toUpperCase()} DEPT</span>
-                      {totalEmptySlots > 0 ? (
-                          <span className="bg-rose-100 text-rose-600 px-2 py-0.5 rounded text-[10px] font-black border border-rose-200 shadow-sm">กะว่าง {totalEmptySlots} ตำแหน่ง</span>
-                      ) : (
-                          <span className="bg-emerald-100 text-emerald-600 px-2 py-0.5 rounded text-[10px] font-black border border-emerald-200 shadow-sm">✓ จัดกะครบ 100%</span>
-                      )}
-                   </div>
+                   <div className="text-xs font-bold text-indigo-600 uppercase tracking-widest mt-1">{activeDept.toUpperCase()} DEPT</div>
                 </div>
                 <div className="flex gap-2 w-full sm:w-auto">
                    <button onClick={() => handleAutoAssign('monthly')} disabled={aiLoading} className="flex-1 sm:flex-none bg-slate-900 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-black flex justify-center items-center gap-2 hover:bg-black shadow-lg active:scale-95 transition-all text-[10px] sm:text-xs uppercase tracking-widest">
