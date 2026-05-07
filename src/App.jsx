@@ -3071,7 +3071,6 @@ export default function App() {
              const afternoonBreaksLong = ['15.00-16.30', '16.00-17.30', '14.30-16.00', '13.30-15.00'];
              const morningBreaksShort = ['13.30-14.30', '14.30-15.30', '15.30-16.30', '14.00-15.00'];
              const afternoonBreaksShort = ['14.30-15.30', '15.30-16.30', '16.30-17.30', '14.00-15.00'];
-             let mIdx = 0, aIdx = 0;
              
              activeSlots.forEach(item => {
                  const staff = branchData.staff?.find(s => s.id === item.assignedData.staffId);
@@ -3080,13 +3079,31 @@ export default function App() {
                  const stHour = parseInt(startTime?.split(':')[0]) || 0;
                  const isLongHour = LONG_HOUR_POSITIONS.includes(staff?.pos);
                  
+                 const jobA = (duty.jobA || '-').trim();
+                 const jobB = (duty.jobB || '-').trim();
+                 
+                 if (!breakTracker[jobA]) breakTracker[jobA] = { mIdx: 0, aIdx: 0 };
+                 if (jobB !== '-' && !breakTracker[jobB]) breakTracker[jobB] = { mIdx: 0, aIdx: 0 };
+                 
+                 let bestMIdx = breakTracker[jobA].mIdx;
+                 let bestAIdx = breakTracker[jobA].aIdx;
+                 
+                 if (jobB !== '-') {
+                     bestMIdx = Math.max(bestMIdx, breakTracker[jobB].mIdx);
+                     bestAIdx = Math.max(bestAIdx, breakTracker[jobB].aIdx);
+                 }
+
                  // เช็คกะเข้างาน: ก่อน 12:00 = กะเช้า | หลัง 12:00 = กะบ่าย
                  if (stHour < 12) {
-                     item.breakTime = isLongHour ? morningBreaksLong[mIdx % morningBreaksLong.length] : morningBreaksShort[mIdx % morningBreaksShort.length];
-                     mIdx++;
+                     item.breakTime = isLongHour ? morningBreaksLong[bestMIdx % morningBreaksLong.length] : morningBreaksShort[bestMIdx % morningBreaksShort.length];
+                     bestMIdx++;
+                     breakTracker[jobA].mIdx = bestMIdx;
+                     if (jobB !== '-') breakTracker[jobB].mIdx = bestMIdx;
                  } else {
-                     item.breakTime = isLongHour ? afternoonBreaksLong[aIdx % afternoonBreaksLong.length] : afternoonBreaksShort[aIdx % afternoonBreaksShort.length];
-                     aIdx++;
+                     item.breakTime = isLongHour ? afternoonBreaksLong[bestAIdx % afternoonBreaksLong.length] : afternoonBreaksShort[bestAIdx % afternoonBreaksShort.length];
+                     bestAIdx++;
+                     breakTracker[jobA].aIdx = bestAIdx;
+                     if (jobB !== '-') breakTracker[jobB].aIdx = bestAIdx;
                  }
              });
              // ---------------------------------------------------------
@@ -3157,7 +3174,7 @@ export default function App() {
             const { cat, duty, slotItem } = tr;
             
             if (!jobCounts[duty.id]) {
-                jobCounts[duty.id] = { label: duty.jobA, color: cat.color, counts: intervals.map(() => 0) };
+                jobCounts[duty.id] = { label: duty.jobA, jobB: duty.jobB, color: cat.color, counts: intervals.map(() => 0) };
                 activeDutyIds.push(duty.id);
             }
 
@@ -3201,7 +3218,7 @@ export default function App() {
                 <table className="w-full text-xs text-center border-collapse min-w-[1000px] print:min-w-0">
                     <thead>
                         <tr className="bg-slate-100 print:bg-slate-200">
-                            <th className="p-3 border border-slate-800 text-left sticky left-0 bg-slate-100 z-10 font-black uppercase text-slate-700 print:bg-transparent" style={{ fontSize: `${rs.headerFontSize || 10}px` }}>หน้าที่หลัก (JOB A)</th>
+                            <th className="p-3 border border-slate-800 text-left sticky left-0 bg-slate-100 z-10 font-black uppercase text-slate-700 print:bg-transparent" style={{ fontSize: `${rs.headerFontSize || 10}px` }}>หน้าที่งาน (JOB A / B)</th>
                             {intervals.map((inv, i) => (
                                 <th key={i} className="p-2 border border-slate-800 font-bold text-slate-800 min-w-[30px]" style={{ fontSize: `${rs.headerFontSize || 10}px` }}>
                                     {inv.label.split(':')[0]}<span className="text-[8px] opacity-70">:{inv.label.split(':')[1]}</span>
@@ -3214,8 +3231,9 @@ export default function App() {
                             const data = jobCounts[dutyId];
                             return (
                                 <tr key={dutyId} className="transition-colors border border-slate-800 h-10 sm:h-12">
-                                    <td className={`p-3 text-left sticky left-0 z-10 font-black border border-slate-800 print:bg-transparent ${data.color.split(' ')[0]} ${data.color.split(' ')[1]} truncate max-w-[150px]`} title={data.label} style={{ fontSize: `${rs.fontDuty || rs.fontSize}px` }}>
-                                        {data.label}
+                                    <td className={`p-3 text-left sticky left-0 z-10 border border-slate-800 print:bg-transparent ${data.color.split(' ')[0]} ${data.color.split(' ')[1]}`} style={{ fontSize: `${rs.fontDuty || rs.fontSize}px` }}>
+                                        <div className="font-black truncate max-w-[150px] sm:max-w-[200px]" title={data.label}>{data.label}</div>
+                                        {data.jobB && data.jobB !== '-' && <div className="text-[8px] sm:text-[9px] font-bold opacity-80 truncate max-w-[150px] sm:max-w-[200px] italic mt-0.5" title={data.jobB}>{data.jobB}</div>}
                                     </td>
                                     {data.counts.map((count, i) => (
                                         <td key={i} className={`p-2 font-black border border-slate-800 print:bg-transparent ${count === 0 ? 'text-slate-300' : count < 2 ? 'text-amber-500 bg-amber-50 print:text-black' : 'text-emerald-600 bg-emerald-50 print:text-black'}`} style={{ fontSize: `${rs.fontCount || rs.fontSize}px` }}>
