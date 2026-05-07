@@ -3050,6 +3050,7 @@ export default function App() {
     };
 
     const allTrs = [];
+    const breakTracker = {};
     categories.forEach(cat => {
        const catDuties = CURRENT_DUTY_LIST.filter(d => d.category === cat.id);
        let catSlotCount = 0;
