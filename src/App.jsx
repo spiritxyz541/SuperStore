@@ -3354,8 +3354,14 @@ export default function App() {
          const { cat, duty, slotItem, isFirstOfCat, catSlotCount, isFirstOfDuty, dutySlotCount, originalIdx, isFirstOfXpDna } = tr;
          const { slot, assignedData } = slotItem;
          
-         const staff = branchData.staff?.find(s => s.id === assignedData.staffId);
-         const staffName = staff ? staff.name : '-';
+         let staff = branchData.staff?.find(s => s.id === assignedData.staffId);
+         let staffName = staff ? staff.name : '-';
+         if (assignedData.staffId && assignedData.staffId.startsWith('COVER_BY_')) {
+             const coverId = assignedData.staffId.replace('COVER_BY_', '');
+             staff = branchData.staff?.find(s => s.id === coverId);
+             staffName = staff ? `[OT แทน] ${staff.name}` : '[OT แทน]';
+         }
+         
          const shiftPreset = branchData.shiftPresets?.find(p => p.id === slot.shiftPresetId);
          const { startTime, endTime } = getShiftTimesForStaff(staff?.pos, shiftPreset);
 
