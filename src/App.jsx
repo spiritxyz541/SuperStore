@@ -2938,6 +2938,19 @@ export default function App() {
   }
 
   function renderManagerDailyCards() {
+    let activeDayEmptySlots = 0;
+    if (activeDay && branchData.matrix) {
+        CURRENT_DUTY_LIST.forEach(duty => {
+            const slots = branchData.matrix[activeDay.type]?.duties?.[duty.id] || [];
+            const assigned = schedule[selectedDateStr]?.duties?.[duty.id] || [];
+            slots.forEach((_, idx) => {
+                if (!assigned[idx] || !assigned[idx].staffId) {
+                    activeDayEmptySlots++;
+                }
+            });
+        });
+    }
+
     return (
        <div className="w-full animate-in slide-in-from-bottom-6 duration-500">
           <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 sm:gap-10 print:hidden w-full mb-6">
@@ -2997,20 +3010,31 @@ export default function App() {
              </div>
           </div>
   
-          <div className="bg-amber-50 rounded-[2rem] sm:rounded-[3.5rem] border border-amber-200 p-6 sm:p-10 shadow-sm print:hidden w-full mb-6">
-             <h3 className="text-lg sm:text-xl font-black text-amber-700 flex items-center gap-2 sm:gap-4 mb-4 uppercase tracking-tighter"><AlertCircle className="w-5 h-5 sm:w-6 sm:h-6" /> พนักงานที่รอจัดกะ / ว่างงาน ({unassignedStaffDaily.length} คน)</h3>
-             <div className="flex flex-wrap gap-2 sm:gap-3">
-                {unassignedStaffDaily.length === 0 ? (
-                   <span className="text-xs sm:text-sm font-bold text-amber-500/70">จัดกะและวันหยุดครบทุกคนแล้ว 🎉</span>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 print:hidden w-full mb-6">
+             <div className="bg-amber-50 rounded-[2rem] sm:rounded-[3.5rem] border border-amber-200 p-6 sm:p-8 shadow-sm flex flex-col">
+                <h3 className="text-lg sm:text-xl font-black text-amber-700 flex items-center gap-2 sm:gap-4 mb-4 uppercase tracking-tighter"><UserCircle className="w-5 h-5 sm:w-6 sm:h-6" /> พนักงานที่รอจัดกะ / ว่างงาน ({unassignedStaffDaily.length} คน)</h3>
+                <div className="flex flex-wrap gap-2 sm:gap-3">
+                   {unassignedStaffDaily.length === 0 ? (
+                      <span className="text-xs sm:text-sm font-bold text-amber-500/70">จัดกะและวันหยุดครบทุกคนแล้ว 🎉</span>
+                   ) : (
+                      unassignedStaffDaily.map(s => {
+                         const layer = getStaffLayer(s.dept, s.pos);
+                         return (
+                         <span key={s.id} className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[10px] sm:text-xs font-black shadow-sm flex items-center gap-2 ${layer.color.split(' ')[0]} ${layer.color.split(' ')[1]}`}>
+                            <span className="w-1.5 h-1.5 rounded-full bg-white opacity-50"></span>{s.name} ({s.pos})
+                         </span>
+                         );
+                      })
+                   )}
+                </div>
+             </div>
+             
+             <div className={`rounded-[2rem] sm:rounded-[3.5rem] border p-6 sm:p-8 shadow-sm flex flex-col ${activeDayEmptySlots > 0 ? 'bg-rose-50 border-rose-200' : 'bg-emerald-50 border-emerald-200'}`}>
+                <h3 className={`text-lg sm:text-xl font-black flex items-center gap-2 sm:gap-4 mb-4 uppercase tracking-tighter ${activeDayEmptySlots > 0 ? 'text-rose-700' : 'text-emerald-700'}`}><AlertCircle className="w-5 h-5 sm:w-6 sm:h-6" /> กะงานที่ยังว่างวันนี้ ({activeDayEmptySlots} ตำแหน่ง)</h3>
+                {activeDayEmptySlots === 0 ? (
+                   <span className="text-xs sm:text-sm font-bold text-emerald-600/80">จัดพนักงานลงกะครบทุกตำแหน่งแล้ว 🎉</span>
                 ) : (
-                   unassignedStaffDaily.map(s => {
-                      const layer = getStaffLayer(s.dept, s.pos);
-                      return (
-                      <span key={s.id} className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[10px] sm:text-xs font-black shadow-sm flex items-center gap-2 ${layer.color.split(' ')[0]} ${layer.color.split(' ')[1]}`}>
-                         <span className="w-1.5 h-1.5 rounded-full bg-white opacity-50"></span>{s.name} ({s.pos})
-                      </span>
-                      );
-                   })
+                   <span className="text-xs sm:text-sm font-bold text-rose-500">ยังมีกะว่าง กรุณาจัดพนักงานลงกะให้ครบถ้วน</span>
                 )}
              </div>
           </div>
@@ -3424,13 +3448,33 @@ export default function App() {
   }
 
   function renderManagerMonthly() {
+    let totalEmptySlots = 0;
+    CALENDAR_DAYS.forEach(day => {
+        CURRENT_DUTY_LIST.forEach(duty => {
+            const slots = branchData.matrix?.[day.type]?.duties?.[duty.id] || [];
+            const assigned = schedule[day.dateStr]?.duties?.[duty.id] || [];
+            slots.forEach((_, idx) => {
+                if (!assigned[idx] || !assigned[idx].staffId) {
+                    totalEmptySlots++;
+                }
+            });
+        });
+    });
+
     return (
        <div className="w-full animate-in fade-in duration-500">
           <div className="bg-white rounded-[2rem] sm:rounded-[3rem] border border-slate-200 shadow-sm overflow-hidden w-full">
              <div className="p-6 sm:p-8 bg-slate-50 border-b border-slate-100 flex justify-between items-center flex-wrap gap-4">
                 <div className="flex flex-col">
                    <h2 className="text-xl sm:text-2xl font-black text-slate-900 uppercase tracking-tighter">Monthly Schedule: {THAI_MONTHS[selectedMonth]}</h2>
-                   <div className="text-xs font-bold text-indigo-600 uppercase tracking-widest mt-1">{activeDept.toUpperCase()} DEPT</div>
+                   <div className="flex items-center gap-2 mt-1">
+                      <span className="text-xs font-bold text-indigo-600 uppercase tracking-widest">{activeDept.toUpperCase()} DEPT</span>
+                      {totalEmptySlots > 0 ? (
+                          <span className="bg-rose-100 text-rose-600 px-2 py-0.5 rounded text-[10px] font-black border border-rose-200 shadow-sm">กะว่าง {totalEmptySlots} ตำแหน่ง</span>
+                      ) : (
+                          <span className="bg-emerald-100 text-emerald-600 px-2 py-0.5 rounded text-[10px] font-black border border-emerald-200 shadow-sm">✓ จัดกะครบ 100%</span>
+                      )}
+                   </div>
                 </div>
                 <div className="flex gap-2 w-full sm:w-auto">
                    <button onClick={() => handleAutoAssign('monthly')} disabled={aiLoading} className="flex-1 sm:flex-none bg-slate-900 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-black flex justify-center items-center gap-2 hover:bg-black shadow-lg active:scale-95 transition-all text-[10px] sm:text-xs uppercase tracking-widest">
