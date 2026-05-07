@@ -3508,12 +3508,29 @@ export default function App() {
                          (schedule[day.dateStr]?.leaves || []).forEach(l => l.staffId && dayUsedStaffIds.add(l.staffId));
                          Object.values(schedule[day.dateStr]?.duties || {}).forEach(sls => sls.forEach(s => s.staffId && dayUsedStaffIds.add(s.staffId)));
                          const unassignedCount = (branchData.staff?.filter(s => s.dept === activeDept && !dayUsedStaffIds.has(s.id)) || []).length;
+                         
+                         let emptySlotCount = 0;
+                         CURRENT_DUTY_LIST.forEach(duty => {
+                             const slots = branchData.matrix?.[day.type]?.duties?.[duty.id] || [];
+                             const assigned = schedule[day.dateStr]?.duties?.[duty.id] || [];
+                             slots.forEach((_, idx) => {
+                                 if (!assigned[idx] || !assigned[idx].staffId) {
+                                     emptySlotCount++;
+                                 }
+                             });
+                         });
+
                          return (
                          <th key={day.dateStr} className="p-3 border-b border-r border-slate-100 text-center min-w-[120px]">
                              <div className="text-lg font-black text-slate-800">{day.dayNum}</div>
                              <div className="text-[9px] font-bold text-slate-400 uppercase mb-1">{day.dayLabel}</div>
-                             <div className={`text-[9px] font-black px-2 py-0.5 rounded-md inline-block border ${unassignedCount > 0 ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200'}`} title={`มีพนักงาน ${unassignedCount} คนที่ยังไม่ได้ถูกจัดกะหรือวันหยุดในวันนี้`}>
-                                {unassignedCount > 0 ? `ว่าง ${unassignedCount} คน` : '✓ จัดครบแล้ว'}
+                             <div className="flex flex-col gap-1 items-center w-full">
+                                 <div className={`text-[9px] font-black px-2 py-0.5 rounded-md w-full border ${unassignedCount > 0 ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200'}`} title={`มีพนักงาน ${unassignedCount} คนที่ยังไม่ได้ถูกจัดกะหรือวันหยุดในวันนี้`}>
+                                    {unassignedCount > 0 ? `คนว่าง ${unassignedCount}` : '✓ คนครบ'}
+                                 </div>
+                                 <div className={`text-[9px] font-black px-2 py-0.5 rounded-md w-full border ${emptySlotCount > 0 ? 'bg-rose-50 text-rose-600 border-rose-200 animate-pulse shadow-sm' : 'bg-indigo-50 text-indigo-600 border-indigo-200'}`} title={`มีกะที่ยังว่าง ${emptySlotCount} ตำแหน่งในวันนี้`}>
+                                    {emptySlotCount > 0 ? `กะว่าง ${emptySlotCount}` : '✓ กะเต็ม'}
+                                 </div>
                              </div>
                          </th>
                          );
