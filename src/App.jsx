@@ -3065,6 +3065,31 @@ export default function App() {
           })).filter(item => item.assignedData.staffId !== "");
 
           if (activeSlots.length > 0) {
+             // --- Auto Calculate Break Time (สลับเบรคใน Job เดียวกัน) ---
+             const morningBreaksLong = ['13.00-14.30', '14.00-15.30', '15.00-16.30', '12.00-13.30'];
+             const afternoonBreaksLong = ['16.00-17.30', '17.00-18.30', '15.00-16.30', '18.00-19.30'];
+             const morningBreaksShort = ['13.00-14.00', '14.00-15.00', '15.00-16.00', '12.00-13.00'];
+             const afternoonBreaksShort = ['16.00-17.00', '17.00-18.00', '15.00-16.00', '18.00-19.00'];
+             let mIdx = 0, aIdx = 0;
+             
+             activeSlots.forEach(item => {
+                 const staff = branchData.staff?.find(s => s.id === item.assignedData.staffId);
+                 const shiftPreset = branchData.shiftPresets?.find(p => p.id === item.slot.shiftPresetId);
+                 const { startTime } = getShiftTimesForStaff(staff?.pos, shiftPreset);
+                 const stHour = parseInt(startTime?.split(':')[0]) || 0;
+                 const isLongHour = LONG_HOUR_POSITIONS.includes(staff?.pos);
+                 
+                 // เช็คกะเข้างาน: ก่อน 12:00 = กะเช้า | หลัง 12:00 = กะบ่าย
+                 if (stHour < 12) {
+                     item.breakTime = isLongHour ? morningBreaksLong[mIdx % morningBreaksLong.length] : morningBreaksShort[mIdx % morningBreaksShort.length];
+                     mIdx++;
+                 } else {
+                     item.breakTime = isLongHour ? afternoonBreaksLong[aIdx % afternoonBreaksLong.length] : afternoonBreaksShort[aIdx % afternoonBreaksShort.length];
+                     aIdx++;
+                 }
+             });
+             // ---------------------------------------------------------
+
              catRows.push({ duty, activeSlots });
              catSlotCount += activeSlots.length;
              totalAssignedAll += activeSlots.length;
@@ -3156,6 +3181,7 @@ export default function App() {
                {activeDayShiftVisibilities.hasEvening && <td className={`border border-slate-800 p-2 font-bold ${isEvening ? 'shadow-inner' : 'opacity-30'}`} style={{ fontSize: `${rs.fontShift || rs.fontSize}px` }}>{isEvening ? timeText : ''}</td>}
                {activeDayShiftVisibilities.hasNight && <td className={`border border-slate-800 p-2 font-bold ${isNight ? 'shadow-inner' : 'opacity-30'}`} style={{ fontSize: `${rs.fontShift || rs.fontSize}px` }}>{isNight ? timeText : ''}</td>}
                <td className="border border-slate-800 p-2 bg-black/10" style={{ fontSize: `${rs.fontBreak || rs.fontSize}px` }}></td>
+               <td className="border border-slate-800 p-2 bg-black/5 font-black text-indigo-700 tracking-tighter whitespace-nowrap" style={{ fontSize: `${rs.fontBreak || rs.fontSize}px` }}>{slotItem.breakTime}</td>
             </tr>
          );
     });
