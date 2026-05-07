@@ -3529,6 +3529,7 @@ export default function App() {
                          
                          let emptySlotCount = 0;
                          CURRENT_DUTY_LIST.forEach(duty => {
+                             if (duty.isBackup) return; // ไม่นำกะสำรองมานับรวมในกะที่ยังว่าง
                              const slots = branchData.matrix?.[day.type]?.duties?.[duty.id] || [];
                              const assigned = schedule[day.dateStr]?.duties?.[duty.id] || [];
                              slots.forEach((_, idx) => {
@@ -3560,7 +3561,16 @@ export default function App() {
                    </thead>
                    <tbody className="divide-y divide-slate-100">
                    {DUTY_CATEGORIES[activeDept].map(cat => {
-                       const catDuties = CURRENT_DUTY_LIST.filter(d => d.category === cat.id);
+                       const catDuties = CURRENT_DUTY_LIST.filter(d => {
+                           if (d.category !== cat.id) return false;
+                           if (d.isBackup) {
+                               return CALENDAR_DAYS.some(day => {
+                                   const assigned = schedule[day.dateStr]?.duties?.[d.id] || [];
+                                   return assigned.some(a => a && a.staffId);
+                               }); // ซ่อนแถวกะสำรอง หากทั้งเดือนนั้นไม่มีใครถูกจับลงกะนี้เลย
+                           }
+                           return true;
+                       });
                        if (catDuties.length === 0) return null;
                        return catDuties.map((duty, dIdx) => {
                            const reqArr = Array.isArray(duty.reqPos) ? duty.reqPos : [duty.reqPos || 'ALL'];
@@ -3588,6 +3598,7 @@ export default function App() {
                                                <div className="space-y-2">
                                                   {slots.map((matrixSlot, idx) => {
                                                       const data = assigned[idx] || { staffId: "", otHours: 0 };
+                                                     if (duty.isBackup && !data.staffId) return null; // ซ่อนกล่องว่าง หากเป็นกะสำรอง
                                                       const shiftPreset = branchData.shiftPresets?.find(p => p.id === matrixSlot.shiftPresetId);
                                                       const shiftName = shiftPreset ? shiftPreset.name : 'N/A';
                                                       return (
