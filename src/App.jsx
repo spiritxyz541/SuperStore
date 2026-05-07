@@ -217,7 +217,7 @@ function getStaffLayer(dept, pos) {
     return DUTY_CATEGORIES.service[2];
   } else {
     if (["OC", "AOC", "KH", "SKD"].includes(pos)) return DUTY_CATEGORIES.kitchen[0];
-    if (["KD+", "EDC ครัว+", "DVT ครัว+"].includes(pos)) return DUTY_CATEGORIES.kitchen[1];
+    if (["KD+", "EDC ครัว+", "DVT ครัว+", "PT ครัว+"].includes(pos)) return DUTY_CATEGORIES.kitchen[1];
     return DUTY_CATEGORIES.kitchen[2];
   }
 }
@@ -2531,14 +2531,18 @@ export default function App() {
                 <span>สรุปพนักงาน ({branchData.staff?.filter(s => s.dept === activeDept && s.isActive !== false).length || 0} คน)</span>
                     <button onClick={() => setStaffFilterPos('ALL')} className={`px-3 py-1 rounded-lg transition-all shadow-sm ${staffFilterPos === 'ALL' ? 'bg-slate-800 text-white' : 'bg-slate-200 text-slate-700'}`}>ดูทั้งหมด</button>
                  </div>
+                 
+                 <div className="text-[10px] sm:text-xs font-black text-indigo-700 uppercase mt-2 border-b border-slate-200 pb-2">พนักงานประจำ (Full-Time)</div>
                  {DUTY_CATEGORIES[activeDept].map(cat => {
-                    const layerPositions = POSITIONS[activeDept].filter(p => getStaffLayer(activeDept, p).id === cat.id);
-                const catStaffCount = (branchData.staff || []).filter(s => s.isActive !== false && getStaffLayer(s.dept, s.pos).id === cat.id).length;
-                    const catLimit = branchData.staffLimits?.[cat.id];
+                    const layerPositions = POSITIONS[activeDept].filter(p => !p.includes('PT') && getStaffLayer(activeDept, p).id === cat.id);
+                    if (layerPositions.length === 0) return null;
+                    const catStaffCount = (branchData.staff || []).filter(s => s.isActive !== false && s.dept === activeDept && layerPositions.includes(s.pos)).length;
+                    const limitId = cat.id;
+                    const catLimit = branchData.staffLimits?.[limitId];
                     const isFull = catLimit !== undefined && catLimit !== null && catStaffCount >= catLimit;
 
                     return (
-                       <div key={cat.id} className="flex flex-col gap-2 p-3 rounded-xl bg-white border border-slate-200 shadow-sm">
+                       <div key={limitId} className="flex flex-col gap-2 p-3 rounded-xl bg-white border border-slate-200 shadow-sm">
                           <div className="flex justify-between items-center">
                              <div className={`text-[10px] font-black px-3 py-1.5 rounded uppercase w-fit ${cat.color.split(' ')[0]} ${cat.color.split(' ')[1]}`}>{cat.label}</div>
                              <div className="flex items-center gap-2">
@@ -2546,7 +2550,7 @@ export default function App() {
                                 <input 
                                    type="number" min="0" disabled={authRole !== 'superadmin'}
                                    value={catLimit === undefined || catLimit === null ? '' : catLimit}
-                                   onChange={(e) => handleUpdateStaffLimit(cat.id, e.target.value)}
+                                   onChange={(e) => handleUpdateStaffLimit(limitId, e.target.value)}
                                    className="w-12 text-center border rounded p-1 text-[10px] font-bold outline-none focus:border-indigo-500 disabled:bg-slate-50 disabled:text-slate-400"
                                    placeholder="∞" title="ตั้งค่าจำนวนสูงสุด"
                                 />
@@ -2558,6 +2562,45 @@ export default function App() {
                                  const isSelected = staffFilterPos === p;
                                  return (
                                     <button key={p} onClick={() => setStaffFilterPos(isSelected ? 'ALL' : p)} className={`text-[10px] font-black border px-3 py-1.5 rounded-lg transition-all shadow-sm ${isSelected ? 'ring-2 ring-offset-2 ring-indigo-500 scale-105' : 'hover:opacity-80'} ${cat.color.split(' ')[0]} ${cat.color.split(' ')[1]} ${count === 0 ? 'opacity-40' : ''}`}>
+                                       {p}: {count}
+                                    </button>
+                                 )
+                             })}
+                          </div>
+                       </div>
+                    )
+                 })}
+
+                 <div className="text-[10px] sm:text-xs font-black text-orange-600 uppercase mt-4 border-b border-slate-200 pb-2">พนักงานพาร์ทไทม์ (Part-Time)</div>
+                 {DUTY_CATEGORIES[activeDept].map(cat => {
+                    const layerPositions = POSITIONS[activeDept].filter(p => p.includes('PT') && getStaffLayer(activeDept, p).id === cat.id);
+                    if (layerPositions.length === 0) return null;
+                    const catStaffCount = (branchData.staff || []).filter(s => s.isActive !== false && s.dept === activeDept && layerPositions.includes(s.pos)).length;
+                    const limitId = cat.id + '_PT';
+                    const catLimit = branchData.staffLimits?.[limitId];
+                    const isFull = catLimit !== undefined && catLimit !== null && catStaffCount >= catLimit;
+
+                    return (
+                       <div key={limitId} className="flex flex-col gap-2 p-3 rounded-xl bg-white border border-slate-200 shadow-sm">
+                          <div className="flex justify-between items-center">
+                             <div className={`text-[10px] font-black px-3 py-1.5 rounded uppercase w-fit ${cat.color.split(' ')[0]} ${cat.color.split(' ')[1]}`}>Part-Time {cat.id.includes('STAFF') ? 'Staff Team' : 'Support Team'}</div>
+                             <div className="flex items-center gap-2">
+                                <span className={`text-[10px] font-bold ${isFull ? 'text-red-500' : 'text-slate-500'}`}>จำนวน {catStaffCount}/{catLimit !== undefined && catLimit !== null ? catLimit : '∞'}</span>
+                                <input 
+                                   type="number" min="0" disabled={authRole !== 'superadmin'}
+                                   value={catLimit === undefined || catLimit === null ? '' : catLimit}
+                                   onChange={(e) => handleUpdateStaffLimit(limitId, e.target.value)}
+                                   className="w-12 text-center border rounded p-1 text-[10px] font-bold outline-none focus:border-indigo-500 disabled:bg-slate-50 disabled:text-slate-400"
+                                   placeholder="∞" title="ตั้งค่าจำนวนสูงสุด"
+                                />
+                             </div>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                             {layerPositions.map(p => {
+                             const count = (branchData.staff || []).filter(s => s.dept === activeDept && s.pos === p && s.isActive !== false).length;
+                                 const isSelected = staffFilterPos === p;
+                                 return (
+                                    <button key={p} onClick={() => setStaffFilterPos(isSelected ? 'ALL' : p)} className={`text-[10px] font-black border px-3 py-1.5 rounded-lg transition-all shadow-sm ${isSelected ? 'ring-2 ring-offset-2 ring-orange-500 scale-105' : 'hover:opacity-80'} ${cat.color.split(' ')[0]} ${cat.color.split(' ')[1]} ${count === 0 ? 'opacity-40' : ''}`}>
                                        {p}: {count}
                                     </button>
                                  )
@@ -2615,10 +2658,12 @@ export default function App() {
                   <button onClick={() => { 
                       if(newStaffName.trim()){ 
                           const layer = getStaffLayer(newStaffDept, newStaffPos);
-                          const limit = branchData.staffLimits?.[layer.id];
-                          const currentCount = (branchData.staff || []).filter(s => s.isActive !== false && getStaffLayer(s.dept, s.pos).id === layer.id).length;
+                          const isPT = newStaffPos.includes('PT');
+                          const limitId = isPT ? layer.id + '_PT' : layer.id;
+                          const limit = branchData.staffLimits?.[limitId];
+                          const currentCount = (branchData.staff || []).filter(s => s.isActive !== false && s.dept === newStaffDept && getStaffLayer(s.dept, s.pos).id === layer.id && (isPT ? s.pos.includes('PT') : !s.pos.includes('PT'))).length;
                           if (limit !== undefined && limit !== null && currentCount >= limit) {
-                              setConfirmModal({ message: `เพิ่มพนักงานไม่ได้ เนื่องจากกลุ่ม ${layer.label} เต็มแล้ว (รับได้สูงสุด ${limit} คน)` });
+                              setConfirmModal({ message: `เพิ่มพนักงานไม่ได้ เนื่องจากกลุ่ม ${isPT ? 'Part-Time' : layer.label} เต็มแล้ว (รับได้สูงสุด ${limit} คน)` });
                               return;
                           }
                           setBranchData(p => ({...p, staff: [...(p.staff || []), {id: 's' + Date.now(), empId: newStaffEmpId.trim(), name: newStaffName.trim(), dept: newStaffDept, pos: newStaffPos, regularDayOff: newStaffDayOff === '' ? null : parseInt(newStaffDayOff)}]})); 
@@ -2668,10 +2713,12 @@ export default function App() {
                               const s = branchData.staff.find(x => x.id === editingStaffId);
                               if (editStaffData.pos !== s.pos || editStaffData.dept !== s.dept) {
                                   const layer = getStaffLayer(editStaffData.dept, editStaffData.pos);
-                                  const limit = branchData.staffLimits?.[layer.id];
-                                  const currentCount = (branchData.staff || []).filter(x => x.id !== editingStaffId && x.isActive !== false && !x.resignDate && getStaffLayer(x.dept, x.pos).id === layer.id).length;
+                                  const isPT = editStaffData.pos.includes('PT');
+                                  const limitId = isPT ? layer.id + '_PT' : layer.id;
+                                  const limit = branchData.staffLimits?.[limitId];
+                                  const currentCount = (branchData.staff || []).filter(x => x.id !== editingStaffId && x.isActive !== false && !x.resignDate && x.dept === editStaffData.dept && getStaffLayer(x.dept, x.pos).id === layer.id && (isPT ? x.pos.includes('PT') : !x.pos.includes('PT'))).length;
                                   if (limit !== undefined && limit !== null && currentCount >= limit) {
-                                      setConfirmModal({ message: `เปลี่ยนตำแหน่งไม่ได้ เนื่องจากกลุ่ม ${layer.label} เต็มแล้ว (รับได้สูงสุด ${limit} คน)` });
+                                      setConfirmModal({ message: `เปลี่ยนตำแหน่งไม่ได้ เนื่องจากกลุ่ม ${isPT ? 'Part-Time' : layer.label} เต็มแล้ว (รับได้สูงสุด ${limit} คน)` });
                                       return;
                                   }
                               }
