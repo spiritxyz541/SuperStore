@@ -3076,18 +3076,18 @@ export default function App() {
                                         const currentShiftPreset = branchData.shiftPresets?.find(p => p.id === slot?.shiftPresetId);
                                         const currentShiftName = currentShiftPreset ? currentShiftPreset.name : 'N/A';
                                         return (
-                                           <div key={idx} className={`p-4 sm:p-5 rounded-[1.2rem] sm:rounded-[1.5rem] border-2 transition-all flex flex-col gap-3 ${!data.staffId ? 'border-dashed border-slate-200 bg-white' : 'border-indigo-100 bg-white shadow-sm'}`}>
+                                           <div key={idx} className={`p-4 sm:p-5 rounded-[1.2rem] sm:rounded-[1.5rem] border-2 transition-all flex flex-col gap-3 ${!data.staffId ? 'border-dashed border-rose-300 bg-rose-50 animate-pulse shadow-sm' : 'border-indigo-100 bg-white shadow-sm'}`}>
                                               <div className="flex justify-between items-center">                                                
-                                                <span className="text-[10px] sm:text-[11px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
-                                                    <Clock className="w-3 h-3 sm:w-4 sm:h-4 text-indigo-400" /> 
+                                                <span className={`text-[10px] sm:text-[11px] font-black uppercase tracking-widest flex items-center gap-1.5 ${!data.staffId ? 'text-rose-500' : 'text-slate-500'}`}>
+                                                    <Clock className={`w-3 h-3 sm:w-4 sm:h-4 ${!data.staffId ? 'text-rose-400' : 'text-indigo-400'}`} /> 
                                                     {currentShiftName}
                                                 </span>
                                               <div className="flex gap-1.5">
-                                                 <span className={`text-[8px] sm:text-[9px] font-black px-2 py-1 rounded-full uppercase ${data.otHours >= slot.maxOtHours ? 'bg-indigo-600 text-white' : 'bg-indigo-50 text-indigo-500'}`}>Q: {slot.maxOtHours}H</span>
+                                                 <span className={`text-[8px] sm:text-[9px] font-black px-2 py-1 rounded-full uppercase ${!data.staffId ? 'bg-rose-200/50 text-rose-600' : data.otHours >= slot.maxOtHours ? 'bg-indigo-600 text-white' : 'bg-indigo-50 text-indigo-500'}`}>Q: {slot.maxOtHours}H</span>
                                               </div>
                                               </div>
                                               <div className="flex flex-col sm:flex-row gap-2">
-                                              <select value={data.staffId} onChange={(e) => handleScheduleUpdate(selectedDateStr, duty.id, idx, 'staffId', e.target.value, slot.maxOtHours)} className="w-full sm:flex-[3] bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-black outline-none shadow-sm text-slate-900 focus:border-indigo-500">
+                                              <select value={data.staffId} onChange={(e) => handleScheduleUpdate(selectedDateStr, duty.id, idx, 'staffId', e.target.value, slot.maxOtHours)} className={`w-full sm:flex-[3] border rounded-xl px-3 py-2 text-xs font-black outline-none shadow-sm focus:border-indigo-500 transition-colors ${!data.staffId ? 'bg-rose-100/50 border-rose-200 text-rose-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}>
                                                  <option value="">-- เลือกพนักงาน --</option>
                                                  {branchData.staff?.filter(s => s.dept === activeDept).map(s => {
                                                     const isUsed = usedStaffIds.includes(s.id) && data.staffId !== s.id;
@@ -3553,12 +3553,12 @@ export default function App() {
                                                       const shiftPreset = branchData.shiftPresets?.find(p => p.id === matrixSlot.shiftPresetId);
                                                       const shiftName = shiftPreset ? shiftPreset.name : 'N/A';
                                                       return (
-                                                          <div key={idx} className={`p-2 rounded-lg border ${!data.staffId ? 'border-dashed border-slate-200 bg-slate-50/50' : 'border-indigo-200 bg-indigo-50/30'}`}>
+                                                          <div key={idx} className={`p-2 rounded-lg border ${!data.staffId ? 'border-dashed border-rose-300 bg-rose-50 animate-pulse shadow-sm' : 'border-indigo-200 bg-indigo-50/30'}`}>
                                                              <div className="flex justify-between items-center mb-1">
-                                                                <span className="text-[8px] font-bold text-slate-400">{shiftName}</span>
+                                                                <span className={`text-[8px] font-bold ${!data.staffId ? 'text-rose-400' : 'text-slate-400'}`}>{shiftName}</span>
                                                                 {data.otHours > 0 && <span className="text-[8px] font-black text-indigo-600 bg-indigo-50 px-1 rounded">OT:{data.otHours}</span>}
                                                              </div>
-                                                             <select value={data.staffId} onChange={(e) => handleScheduleUpdate(day.dateStr, duty.id, idx, 'staffId', e.target.value, matrixSlot.maxOtHours)} className="w-full text-[10px] font-bold bg-transparent outline-none text-slate-800 truncate">
+                                                             <select value={data.staffId} onChange={(e) => handleScheduleUpdate(day.dateStr, duty.id, idx, 'staffId', e.target.value, matrixSlot.maxOtHours)} className={`w-full text-[10px] font-bold bg-transparent outline-none truncate ${!data.staffId ? 'text-rose-600' : 'text-slate-800'}`}>
                                                                 <option value="">-- ว่าง --</option>
                                                                 {branchData.staff?.filter(s => s.dept === activeDept).map(s => {
                                                                    const isUsed = dayUsedStaffIds.has(s.id) && data.staffId !== s.id;
