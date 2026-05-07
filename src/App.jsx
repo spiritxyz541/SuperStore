@@ -2949,6 +2949,7 @@ export default function App() {
     let activeDayEmptySlots = 0;
     if (activeDay && branchData.matrix) {
         CURRENT_DUTY_LIST.forEach(duty => {
+            if (duty.isBackup) return; // ไม่นำกะสำรองมานับรวมในกะที่ยังว่าง
             const slots = branchData.matrix[activeDay.type]?.duties?.[duty.id] || [];
             const assigned = schedule[selectedDateStr]?.duties?.[duty.id] || [];
             slots.forEach((_, idx) => {
@@ -3053,8 +3054,16 @@ export default function App() {
   
           <div className="space-y-10 w-full print:hidden">
              {DUTY_CATEGORIES[activeDept].map(cat => {
-                const catDuties = CURRENT_DUTY_LIST.filter(d => d.category === cat.id);
-                if (catDuties.length === 0) return null; // This might be wrong, should be CURRENT_DUTY_LIST
+                const catDuties = CURRENT_DUTY_LIST.filter(d => {
+                    if (d.category !== cat.id) return false;
+                    if (d.isBackup) {
+                        const assigned = schedule[selectedDateStr]?.duties?.[d.id] || [];
+                        const hasAssigned = assigned.some(a => a && a.staffId);
+                        if (!hasAssigned) return false; // ซ่อนกะสำรอง หากไม่มีคนถูกจัดลงในกะเลย
+                    }
+                    return true;
+                });
+                if (catDuties.length === 0) return null;
 
                 return (
                    <div key={cat.id} className="bg-white rounded-[2rem] sm:rounded-[3.5rem] shadow-sm border border-slate-200 overflow-hidden flex flex-col w-full">
@@ -3085,6 +3094,7 @@ export default function App() {
                                   <div className="p-4 sm:p-6 space-y-4 bg-slate-50/30">
                                      {slots.map((slot, idx) => {
                                         const data = assigned[idx] || { staffId: "", otHours: 0 };
+                                        if (duty.isBackup && !data.staffId) return null; // ซ่อนกล่องว่าง หากเป็นกะสำรอง
                                         const currentShiftPreset = branchData.shiftPresets?.find(p => p.id === slot?.shiftPresetId);
                                         const currentShiftName = currentShiftPreset ? currentShiftPreset.name : 'N/A';
                                         return (
