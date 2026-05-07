@@ -3071,7 +3071,6 @@ export default function App() {
              const afternoonBreaksLong = ['15.00-16.30', '16.00-17.30', '14.30-16.00', '13.30-15.00'];
              const morningBreaksShort = ['13.30-14.30', '14.30-15.30', '15.30-16.30', '14.00-15.00'];
              const afternoonBreaksShort = ['14.30-15.30', '15.30-16.30', '16.30-17.30', '14.00-15.00'];
-             let mIdx = 0, aIdx = 0;
              
              activeSlots.forEach(item => {
                  const staff = branchData.staff?.find(s => s.id === item.assignedData.staffId);
@@ -3080,13 +3079,31 @@ export default function App() {
                  const stHour = parseInt(startTime?.split(':')[0]) || 0;
                  const isLongHour = LONG_HOUR_POSITIONS.includes(staff?.pos);
                  
+                 const jobA = (duty.jobA || '-').trim();
+                 const jobB = (duty.jobB || '-').trim();
+                 
+                 if (!breakTracker[jobA]) breakTracker[jobA] = { mIdx: 0, aIdx: 0 };
+                 if (jobB !== '-' && !breakTracker[jobB]) breakTracker[jobB] = { mIdx: 0, aIdx: 0 };
+                 
+                 let bestMIdx = breakTracker[jobA].mIdx;
+                 let bestAIdx = breakTracker[jobA].aIdx;
+                 
+                 if (jobB !== '-') {
+                     bestMIdx = Math.max(bestMIdx, breakTracker[jobB].mIdx);
+                     bestAIdx = Math.max(bestAIdx, breakTracker[jobB].aIdx);
+                 }
+
                  // เช็คกะเข้างาน: ก่อน 12:00 = กะเช้า | หลัง 12:00 = กะบ่าย
                  if (stHour < 12) {
-                     item.breakTime = isLongHour ? morningBreaksLong[mIdx % morningBreaksLong.length] : morningBreaksShort[mIdx % morningBreaksShort.length];
-                     mIdx++;
+                     item.breakTime = isLongHour ? morningBreaksLong[bestMIdx % morningBreaksLong.length] : morningBreaksShort[bestMIdx % morningBreaksShort.length];
+                     bestMIdx++;
+                     breakTracker[jobA].mIdx = bestMIdx;
+                     if (jobB !== '-') breakTracker[jobB].mIdx = bestMIdx;
                  } else {
-                     item.breakTime = isLongHour ? afternoonBreaksLong[aIdx % afternoonBreaksLong.length] : afternoonBreaksShort[aIdx % afternoonBreaksShort.length];
-                     aIdx++;
+                     item.breakTime = isLongHour ? afternoonBreaksLong[bestAIdx % afternoonBreaksLong.length] : afternoonBreaksShort[bestAIdx % afternoonBreaksShort.length];
+                     bestAIdx++;
+                     breakTracker[jobA].aIdx = bestAIdx;
+                     if (jobB !== '-') breakTracker[jobB].aIdx = bestAIdx;
                  }
              });
              // ---------------------------------------------------------
