@@ -67,8 +67,16 @@ const LEAVE_TYPES = [
   { id: 'OFF', label: 'หยุดประจำสัปดาห์', shortLabel: 'ย', color: 'bg-slate-100 text-slate-800' },
   { id: 'CO', label: 'หยุดชดเชย', shortLabel: 'ชช', color: 'bg-blue-100 text-blue-800' },
   { id: 'AL', label: 'หยุดพักร้อน', shortLabel: 'พร', color: 'bg-emerald-100 text-emerald-800' },
-  { id: 'SL', label: 'ลาป่วย', shortLabel: 'ป่วย', color: 'bg-red-100 text-red-800' },
-  { id: 'PL', label: 'ลากิจ', shortLabel: 'กิจ', color: 'bg-orange-100 text-orange-800' },
+  { id: 'SWAP_OFF', label: 'เปลี่ยนวันหยุด', shortLabel: 'ปย', color: 'bg-indigo-100 text-indigo-800' },
+  { id: 'SL', label: 'ลาป่วย', shortLabel: 'ป', color: 'bg-red-100 text-red-800' },
+  { id: 'SL_UNPAID', label: 'ลาป่วยไม่รับเงิน', shortLabel: 'ปง', color: 'bg-red-50 text-red-600' },
+  { id: 'PL', label: 'ลากิจ', shortLabel: 'ก', color: 'bg-orange-100 text-orange-800' },
+  { id: 'PL_UNPAID', label: 'ลากิจไม่รับเงิน', shortLabel: 'กง', color: 'bg-orange-50 text-orange-600' },
+  { id: 'MATERNITY', label: 'ลาคลอด', shortLabel: 'ลค', color: 'bg-pink-100 text-pink-800' },
+  { id: 'MARRIAGE', label: 'ลาแต่งงาน', shortLabel: 'ลต', color: 'bg-rose-100 text-rose-800' },
+  { id: 'TRAINING', label: 'อบรม', shortLabel: 'อร', color: 'bg-cyan-100 text-cyan-800' },
+  { id: 'MY_DAY', label: 'Myday', shortLabel: 'MD', color: 'bg-purple-100 text-purple-800' },
+  { id: 'FAMILY_DAY', label: 'Family Day', shortLabel: 'FD', color: 'bg-fuchsia-100 text-fuchsia-800' },
 ];
 
 const THAI_MONTHS = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
