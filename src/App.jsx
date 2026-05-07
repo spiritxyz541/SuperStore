@@ -398,7 +398,7 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
                                      title="คลิกเพื่อปรับวันหยุด (พนักงานที่ลางานจะไม่ถูกดึงไปจัดกะออโต้)"
                                  >
                                      <option value="">[ ว่าง / ลบวันหยุด ]</option>
-                                     {(LEAVE_TYPES || []).map(lt => (
+                                     {(LEAVE_TYPES || []).filter(lt => !(s.pos.includes('PT') && !['OFF', 'SWAP_OFF', 'SL_UNPAID', 'PL_UNPAID'].includes(lt.id))).map(lt => (
                                          <option key={lt.id} value={lt.id}>{lt.label}</option>
                                      ))}
                                  </select>
@@ -3001,7 +3001,11 @@ export default function App() {
              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 sm:gap-6">
                 {LEAVE_TYPES.map(lt => {
                 const selectedStaffIds = (schedule[selectedDateStr]?.leaves || []).filter(l => l.type === lt.id).map(l => l.staffId);
-                const staffOptions = branchData.staff?.filter(s => { if (s.dept !== activeDept) return false; return !(usedStaffIds.includes(s.id) && !selectedStaffIds.includes(s.id)); }) || [];
+                const staffOptions = branchData.staff?.filter(s => { 
+                    if (s.dept !== activeDept) return false; 
+                    if (s.pos.includes('PT') && !['OFF', 'SWAP_OFF', 'SL_UNPAID', 'PL_UNPAID'].includes(lt.id)) return false;
+                    return !(usedStaffIds.includes(s.id) && !selectedStaffIds.includes(s.id)); 
+                }) || [];
                 const isHoliday = branchData.holidays?.includes?.(selectedDateStr);
                 const isBlocked = isHoliday && lt.id === 'OFF';
                 return (
@@ -3489,7 +3493,11 @@ export default function App() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                    {LEAVE_TYPES.map(lt => {
                       const selectedStaffIds = (schedule[selectedDateStr]?.leaves || []).filter(l => l.type === lt.id).map(l => l.staffId);
-                      const staffOptions = branchData.staff?.filter(s => { if (s.dept !== activeDept) return false; return !(usedStaffIds.includes(s.id) && !selectedStaffIds.includes(s.id)); }) || [];
+                      const staffOptions = branchData.staff?.filter(s => { 
+                          if (s.dept !== activeDept) return false; 
+                          if (s.pos.includes('PT') && !['OFF', 'SWAP_OFF', 'SL_UNPAID', 'PL_UNPAID'].includes(lt.id)) return false;
+                          return !(usedStaffIds.includes(s.id) && !selectedStaffIds.includes(s.id)); 
+                      }) || [];
                       const isHoliday = branchData.holidays?.includes?.(selectedDateStr);
                       const isBlocked = isHoliday && lt.id === 'OFF';
                       return (
@@ -3515,7 +3523,9 @@ export default function App() {
                          const dayUsedStaffIds = new Set();
                          (schedule[day.dateStr]?.leaves || []).forEach(l => l.staffId && dayUsedStaffIds.add(l.staffId));
                          Object.values(schedule[day.dateStr]?.duties || {}).forEach(sls => sls.forEach(s => s.staffId && dayUsedStaffIds.add(s.staffId)));
-                         const unassignedCount = (branchData.staff?.filter(s => s.dept === activeDept && !dayUsedStaffIds.has(s.id)) || []).length;
+                         const unassignedStaff = branchData.staff?.filter(s => s.dept === activeDept && !dayUsedStaffIds.has(s.id)) || [];
+                         const unassignedFTCount = unassignedStaff.filter(s => !s.pos.includes('PT')).length;
+                         const unassignedPTCount = unassignedStaff.filter(s => s.pos.includes('PT')).length;
                          
                          let emptySlotCount = 0;
                          CURRENT_DUTY_LIST.forEach(duty => {
@@ -3533,8 +3543,11 @@ export default function App() {
                              <div className="text-lg font-black text-slate-800">{day.dayNum}</div>
                              <div className="text-[9px] font-bold text-slate-400 uppercase mb-1">{day.dayLabel}</div>
                              <div className="flex flex-col gap-1 items-center w-full">
-                                 <div className={`text-[9px] font-black px-2 py-0.5 rounded-md w-full border ${unassignedCount > 0 ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200'}`} title={`มีพนักงาน ${unassignedCount} คนที่ยังไม่ได้ถูกจัดกะหรือวันหยุดในวันนี้`}>
-                                    {unassignedCount > 0 ? `คนว่าง ${unassignedCount}` : '✓ คนครบ'}
+                                 <div className={`text-[9px] font-black px-2 py-0.5 rounded-md w-full border ${unassignedFTCount > 0 ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200'}`} title={`มีพนักงานประจำ ${unassignedFTCount} คนที่ยังไม่ได้ถูกจัดกะในวันนี้`}>
+                                    {unassignedFTCount > 0 ? `ประจำว่าง ${unassignedFTCount}` : '✓ ประจำครบ'}
+                                 </div>
+                                 <div className={`text-[9px] font-black px-2 py-0.5 rounded-md w-full border ${unassignedPTCount > 0 ? 'bg-orange-50 text-orange-600 border-orange-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200'}`} title={`มีพนักงาน PT ${unassignedPTCount} คนที่ยังไม่ได้ถูกจัดกะในวันนี้`}>
+                                    {unassignedPTCount > 0 ? `PTว่าง ${unassignedPTCount}` : '✓ PTครบ'}
                                  </div>
                                  <div className={`text-[9px] font-black px-2 py-0.5 rounded-md w-full border ${emptySlotCount > 0 ? 'bg-rose-50 text-rose-600 border-rose-200 animate-pulse shadow-sm' : 'bg-indigo-50 text-indigo-600 border-indigo-200'}`} title={`มีกะที่ยังว่าง ${emptySlotCount} ตำแหน่งในวันนี้`}>
                                     {emptySlotCount > 0 ? `กะว่าง ${emptySlotCount}` : '✓ กะเต็ม'}
