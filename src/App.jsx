@@ -3150,13 +3150,17 @@ export default function App() {
             if (h !== endH) intervals.push({ label: `${String(h).padStart(2, '0')}:30`, min: h * 60 + 30 });
         }
 
-        const catCounts = {};
-        DUTY_CATEGORIES[activeDept].forEach(cat => {
-            catCounts[cat.id] = { label: cat.label, color: cat.color, counts: intervals.map(() => 0) };
-        });
+        const jobCounts = {};
+        const activeDutyIds = [];
 
         allTrs.forEach(tr => {
-            const { cat, slotItem } = tr;
+            const { cat, duty, slotItem } = tr;
+            
+            if (!jobCounts[duty.id]) {
+                jobCounts[duty.id] = { label: duty.jobA, color: cat.color, counts: intervals.map(() => 0) };
+                activeDutyIds.push(duty.id);
+            }
+
             const { slot, assignedData, breakTime } = slotItem;
             
             const staff = branchData.staff?.find(s => s.id === assignedData.staffId);
@@ -3164,7 +3168,13 @@ export default function App() {
             const { startTime, endTime } = getShiftTimesForStaff(staff?.pos, shiftPreset);
 
             const startMin = timeToMinutes(startTime);
-            const endMin = timeToMinutes(endTime);
+            let endMin = timeToMinutes(endTime);
+            
+            // นำชั่วโมง OT มาบวกต่อจากเวลาเลิกงานปกติ เพื่อแสดงจำนวนคนช่วงดึก
+            if (endMin !== -1 && assignedData.otHours > 0) {
+                endMin += assignedData.otHours * 60;
+            }
+
             const [bStartStr, bEndStr] = (breakTime || '').split('-');
             const bStartMin = timeToMinutes(bStartStr);
             const bEndMin = timeToMinutes(bEndStr);
@@ -3176,7 +3186,7 @@ export default function App() {
                         if (bStartMin !== -1 && bEndMin !== -1) {
                             if (interval.min >= bStartMin && interval.min < bEndMin) onBreak = true;
                         }
-                        if (!onBreak) catCounts[cat.id].counts[i]++;
+                        if (!onBreak) jobCounts[duty.id].counts[i]++;
                     }
                 }
             });
@@ -3191,7 +3201,7 @@ export default function App() {
                 <table className="w-full text-xs text-center border-collapse min-w-[1000px] print:min-w-0">
                     <thead>
                         <tr className="bg-slate-100 print:bg-slate-200">
-                            <th className="p-3 border border-slate-800 text-left sticky left-0 bg-slate-100 z-10 font-black uppercase text-slate-700 print:bg-transparent" style={{ fontSize: `${rs.headerFontSize || 10}px` }}>กลุ่มงาน</th>
+                            <th className="p-3 border border-slate-800 text-left sticky left-0 bg-slate-100 z-10 font-black uppercase text-slate-700 print:bg-transparent" style={{ fontSize: `${rs.headerFontSize || 10}px` }}>หน้าที่หลัก (JOB A)</th>
                             {intervals.map((inv, i) => (
                                 <th key={i} className="p-2 border border-slate-800 font-bold text-slate-800 min-w-[30px]" style={{ fontSize: `${rs.headerFontSize || 10}px` }}>
                                     {inv.label.split(':')[0]}<span className="text-[8px] opacity-70">:{inv.label.split(':')[1]}</span>
@@ -3200,12 +3210,12 @@ export default function App() {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                        {DUTY_CATEGORIES[activeDept].map(cat => {
-                            const data = catCounts[cat.id];
+                        {activeDutyIds.map(dutyId => {
+                            const data = jobCounts[dutyId];
                             return (
-                                <tr key={cat.id} className="transition-colors border border-slate-800 h-10 sm:h-12">
-                                    <td className={`p-3 text-left sticky left-0 z-10 font-black border border-slate-800 print:bg-transparent ${data.color.split(' ')[0]} ${data.color.split(' ')[1]}`} style={{ fontSize: `${rs.fontDuty || rs.fontSize}px` }}>
-                                        {data.label.replace('Customer Service ', '').replace('Kitchen ', '')}
+                                <tr key={dutyId} className="transition-colors border border-slate-800 h-10 sm:h-12">
+                                    <td className={`p-3 text-left sticky left-0 z-10 font-black border border-slate-800 print:bg-transparent ${data.color.split(' ')[0]} ${data.color.split(' ')[1]} truncate max-w-[150px]`} title={data.label} style={{ fontSize: `${rs.fontDuty || rs.fontSize}px` }}>
+                                        {data.label}
                                     </td>
                                     {data.counts.map((count, i) => (
                                         <td key={i} className={`p-2 font-black border border-slate-800 print:bg-transparent ${count === 0 ? 'text-slate-300' : count < 2 ? 'text-amber-500 bg-amber-50 print:text-black' : 'text-emerald-600 bg-emerald-50 print:text-black'}`} style={{ fontSize: `${rs.fontCount || rs.fontSize}px` }}>
@@ -3218,7 +3228,7 @@ export default function App() {
                         <tr className="bg-slate-100 print:bg-slate-100 border border-slate-800 h-10 sm:h-12">
                             <td className="p-3 text-right sticky left-0 bg-slate-100 z-10 font-black text-slate-800 uppercase print:bg-transparent pr-6" style={{ fontSize: `${rs.headerFontSize || 10}px` }}>รวม (Total)</td>
                             {intervals.map((inv, i) => {
-                                const total = DUTY_CATEGORIES[activeDept].reduce((sum, cat) => sum + catCounts[cat.id].counts[i], 0);
+                                const total = activeDutyIds.reduce((sum, dutyId) => sum + jobCounts[dutyId].counts[i], 0);
                                 return (
                                     <td key={i} className={`p-2 font-black border border-slate-800 print:bg-transparent ${total === 0 ? 'text-slate-300' : 'text-indigo-700 bg-indigo-50/50 print:text-black'}`} style={{ fontSize: `${rs.fontCount || rs.fontSize}px` }}>
                                         {total > 0 ? total : ''}
