@@ -3180,7 +3180,7 @@ export default function App() {
                {activeDayShiftVisibilities.hasAfternoon && <td className={`border border-slate-800 p-2 font-bold ${isAfternoon ? 'shadow-inner' : 'opacity-30'}`} style={{ fontSize: `${rs.fontShift || rs.fontSize}px` }}>{isAfternoon ? timeText : ''}</td>}
                {activeDayShiftVisibilities.hasEvening && <td className={`border border-slate-800 p-2 font-bold ${isEvening ? 'shadow-inner' : 'opacity-30'}`} style={{ fontSize: `${rs.fontShift || rs.fontSize}px` }}>{isEvening ? timeText : ''}</td>}
                {activeDayShiftVisibilities.hasNight && <td className={`border border-slate-800 p-2 font-bold ${isNight ? 'shadow-inner' : 'opacity-30'}`} style={{ fontSize: `${rs.fontShift || rs.fontSize}px` }}>{isNight ? timeText : ''}</td>}
-               <td className="border border-slate-800 p-2 bg-black/5 font-black text-indigo-700 tracking-tighter whitespace-nowrap" style={{ fontSize: `${rs.fontBreak || rs.fontSize}px` }}>{slotItem.breakTime}</td>
+               <td className="border border-slate-800 p-2 bg-white font-black text-indigo-700 tracking-tighter whitespace-nowrap" style={{ fontSize: `${rs.fontBreak || rs.fontSize}px` }}>{slotItem.breakTime}</td>
             </tr>
          );
     });
