@@ -429,6 +429,7 @@ export default function App() {
   const [view, setView] = useState(() => {
       try { const saved = localStorage.getItem('superstore_session'); if (saved) return JSON.parse(saved).view || 'manager'; } catch(e){} return 'manager';
   }); 
+  const [dailyViewMode, setDailyViewMode] = useState('roster'); 
   const [activeDept, setActiveDept] = useState('service'); 
   const [managerViewMode, setManagerViewMode] = useState('daily'); 
 
@@ -3135,6 +3136,102 @@ export default function App() {
         xpDnaRowSpans[currentXpDnaStartIdx] = allTrs.length - currentXpDnaStartIdx;
     }
 
+    const renderHeadcountChart = () => {
+        const timeToMinutes = (tStr) => {
+            if (!tStr || tStr === '??:??' || tStr === '??.??') return -1;
+            const [h, m] = tStr.replace('.', ':').split(':').map(Number);
+            return h * 60 + (m || 0);
+        };
+        const startH = activeDept === 'kitchen' ? 8 : 9;
+        const endH = 22;
+        const intervals = [];
+        for (let h = startH; h <= endH; h++) {
+            intervals.push({ label: `${String(h).padStart(2, '0')}:00`, min: h * 60 });
+            if (h !== endH) intervals.push({ label: `${String(h).padStart(2, '0')}:30`, min: h * 60 + 30 });
+        }
+
+        const catCounts = {};
+        DUTY_CATEGORIES[activeDept].forEach(cat => {
+            catCounts[cat.id] = { label: cat.label, color: cat.color, counts: intervals.map(() => 0) };
+        });
+
+        allTrs.forEach(tr => {
+            const { cat, slotItem } = tr;
+            const { slot, assignedData, breakTime } = slotItem;
+            
+            const staff = branchData.staff?.find(s => s.id === assignedData.staffId);
+            const shiftPreset = branchData.shiftPresets?.find(p => p.id === slot.shiftPresetId);
+            const { startTime, endTime } = getShiftTimesForStaff(staff?.pos, shiftPreset);
+
+            const startMin = timeToMinutes(startTime);
+            const endMin = timeToMinutes(endTime);
+            const [bStartStr, bEndStr] = (breakTime || '').split('-');
+            const bStartMin = timeToMinutes(bStartStr);
+            const bEndMin = timeToMinutes(bEndStr);
+
+            intervals.forEach((interval, i) => {
+                if (startMin !== -1 && endMin !== -1) {
+                    if (interval.min >= startMin && interval.min < endMin) {
+                        let onBreak = false;
+                        if (bStartMin !== -1 && bEndMin !== -1) {
+                            if (interval.min >= bStartMin && interval.min < bEndMin) onBreak = true;
+                        }
+                        if (!onBreak) catCounts[cat.id].counts[i]++;
+                    }
+                }
+            });
+        });
+
+        return (
+            <div className="overflow-x-auto border-2 border-slate-800 bg-white print:border-none w-full">
+                <div className="text-center mb-6 mt-6 print:block hidden">
+                   <h1 className="font-black uppercase tracking-tighter" style={{ fontSize: `${rs.headlineSize || 24}px` }}>สรุปกำลังคนรายครึ่งชั่วโมง (Headcount Summary)</h1>
+                   <p className="font-bold text-slate-600 mt-2" style={{ fontSize: `${rs.subHeadlineSize || 14}px` }}>วัน{activeDay.dayLabel} ที่ <span className="underline underline-offset-4">{activeDay.dayNum}</span> เดือน <span className="underline underline-offset-4">{THAI_MONTHS[selectedMonth]}</span> พ.ศ. <span className="underline underline-offset-4">{selectedYear + 543}</span></p>
+                </div>
+                <table className="w-full text-xs text-center border-collapse min-w-[1000px] print:min-w-0">
+                    <thead>
+                        <tr className="bg-slate-100 print:bg-slate-200">
+                            <th className="p-3 border border-slate-800 text-left sticky left-0 bg-slate-100 z-10 font-black uppercase text-slate-700 print:bg-transparent" style={{ fontSize: `${rs.headerFontSize || 10}px` }}>กลุ่มงาน</th>
+                            {intervals.map((inv, i) => (
+                                <th key={i} className="p-2 border border-slate-800 font-bold text-slate-800 min-w-[30px]" style={{ fontSize: `${rs.headerFontSize || 10}px` }}>
+                                    {inv.label.split(':')[0]}<span className="text-[8px] opacity-70">:{inv.label.split(':')[1]}</span>
+                                </th>
+                            ))}
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                        {DUTY_CATEGORIES[activeDept].map(cat => {
+                            const data = catCounts[cat.id];
+                            return (
+                                <tr key={cat.id} className="transition-colors border border-slate-800 h-10 sm:h-12">
+                                    <td className={`p-3 text-left sticky left-0 z-10 font-black border border-slate-800 print:bg-transparent ${data.color.split(' ')[0]} ${data.color.split(' ')[1]}`} style={{ fontSize: `${rs.fontDuty || rs.fontSize}px` }}>
+                                        {data.label.replace('Customer Service ', '').replace('Kitchen ', '')}
+                                    </td>
+                                    {data.counts.map((count, i) => (
+                                        <td key={i} className={`p-2 font-black border border-slate-800 print:bg-transparent ${count === 0 ? 'text-slate-300' : count < 2 ? 'text-amber-500 bg-amber-50 print:text-black' : 'text-emerald-600 bg-emerald-50 print:text-black'}`} style={{ fontSize: `${rs.fontCount || rs.fontSize}px` }}>
+                                            {count > 0 ? count : ''}
+                                        </td>
+                                    ))}
+                                </tr>
+                            );
+                        })}
+                        <tr className="bg-slate-100 print:bg-slate-100 border border-slate-800 h-10 sm:h-12">
+                            <td className="p-3 text-right sticky left-0 bg-slate-100 z-10 font-black text-slate-800 uppercase print:bg-transparent pr-6" style={{ fontSize: `${rs.headerFontSize || 10}px` }}>รวม (Total)</td>
+                            {intervals.map((inv, i) => {
+                                const total = DUTY_CATEGORIES[activeDept].reduce((sum, cat) => sum + catCounts[cat.id].counts[i], 0);
+                                return (
+                                    <td key={i} className={`p-2 font-black border border-slate-800 print:bg-transparent ${total === 0 ? 'text-slate-300' : 'text-indigo-700 bg-indigo-50/50 print:text-black'}`} style={{ fontSize: `${rs.fontCount || rs.fontSize}px` }}>
+                                        {total > 0 ? total : ''}
+                                    </td>
+                                );
+                            })}
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        );
+    };
+
     const tableBodyRows = allTrs.map((tr, idx) => {
          const { cat, duty, slotItem, isFirstOfCat, catSlotCount, isFirstOfDuty, dutySlotCount, originalIdx, isFirstOfXpDna } = tr;
          const { slot, assignedData } = slotItem;
@@ -3188,14 +3285,22 @@ export default function App() {
     return (
        <div className="w-full animate-in fade-in duration-500">
           <div className="bg-white rounded-[2rem] sm:rounded-[3rem] border border-slate-200 shadow-sm overflow-hidden w-full print:border-none print:shadow-none">
-             <div className="p-6 sm:p-8 bg-slate-50 border-b border-slate-100 flex justify-between items-center print:hidden">
+             <div className="p-6 sm:p-8 bg-slate-50 border-b border-slate-100 flex justify-between items-center print:hidden flex-wrap gap-4">
                 <div className="flex flex-col">
                    <h2 className="text-xl sm:text-2xl font-black text-slate-900 uppercase tracking-tighter">Duty Roster Chart: {new Date(selectedDateStr).toLocaleDateString('th-TH', { day: 'numeric', month: 'long' })}</h2>
                    <div className="text-xs font-bold text-indigo-600 uppercase tracking-widest mt-1">{activeDept.toUpperCase()} DEPT</div>
                 </div>
-                <button onClick={() => window.print()} className="bg-slate-900 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-black flex items-center gap-2 hover:bg-black shadow-lg active:scale-95 transition-all text-[10px] sm:text-xs uppercase tracking-widest"><Printer className="w-4 h-4" /> พิมพ์ตารางนี้</button>
+                <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+                   <div className="bg-slate-200 p-1.5 rounded-xl flex gap-1 w-full sm:w-auto">
+                      <button onClick={() => setDailyViewMode('roster')} className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-[10px] sm:text-xs font-black transition-all ${dailyViewMode === 'roster' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>ตารางกะงาน</button>
+                      <button onClick={() => setDailyViewMode('headcount')} className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-[10px] sm:text-xs font-black transition-all ${dailyViewMode === 'headcount' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>สรุปกำลังคน</button>
+                   </div>
+                   <button onClick={() => window.print()} className="flex-1 sm:flex-none justify-center bg-slate-900 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-black flex items-center gap-2 hover:bg-black shadow-lg active:scale-95 transition-all text-[10px] sm:text-xs uppercase tracking-widest"><Printer className="w-4 h-4" /> พิมพ์ตารางนี้</button>
+                </div>
              </div>
              <div className="p-4 sm:p-8 overflow-x-auto w-full">
+                {dailyViewMode === 'roster' ? (
+                  <React.Fragment>
                 <div className="text-center mb-6">
                    <h1 className="font-black uppercase tracking-tighter" style={{ fontSize: `${rs.headlineSize || 24}px` }}>แผนงานประจำวัน{activeDept === 'service' ? 'แผนกบริการ (FOH)' : 'แผนกครัว (BOH)'}</h1>
                    <p className="font-bold text-slate-600 mt-2" style={{ fontSize: `${rs.subHeadlineSize || 14}px` }}>วัน{activeDay.dayLabel} ที่ <span className="underline underline-offset-4">{activeDay.dayNum}</span> เดือน <span className="underline underline-offset-4">{THAI_MONTHS[selectedMonth]}</span> พ.ศ. <span className="underline underline-offset-4">{selectedYear + 543}</span></p>
@@ -3226,6 +3331,10 @@ export default function App() {
                       </tr>
                    </tbody>
                 </table>
+                  </React.Fragment>
+                ) : (
+                  renderHeadcountChart()
+                )}
              </div>
           </div>
        </div>
