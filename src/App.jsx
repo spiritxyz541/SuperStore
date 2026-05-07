@@ -3029,7 +3029,7 @@ export default function App() {
                 </div>
              </div>
              
-             <div className={`rounded-[2rem] sm:rounded-[3.5rem] border p-6 sm:p-8 shadow-sm flex flex-col ${activeDayEmptySlots > 0 ? 'bg-rose-50 border-rose-200' : 'bg-emerald-50 border-emerald-200'}`}>
+             <div className={`rounded-[2rem] sm:rounded-[3.5rem] border p-6 sm:p-8 shadow-sm flex flex-col ${activeDayEmptySlots > 0 ? 'bg-rose-50 border-rose-200 animate-pulse' : 'bg-emerald-50 border-emerald-200'}`}>
                 <h3 className={`text-lg sm:text-xl font-black flex items-center gap-2 sm:gap-4 mb-4 uppercase tracking-tighter ${activeDayEmptySlots > 0 ? 'text-rose-700' : 'text-emerald-700'}`}><AlertCircle className="w-5 h-5 sm:w-6 sm:h-6" /> กะงานที่ยังว่างวันนี้ ({activeDayEmptySlots} ตำแหน่ง)</h3>
                 {activeDayEmptySlots === 0 ? (
                    <span className="text-xs sm:text-sm font-bold text-emerald-600/80">จัดพนักงานลงกะครบทุกตำแหน่งแล้ว 🎉</span>
