@@ -2936,11 +2936,11 @@ export default function App() {
                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
                      <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">งบประมาณ PT รายเดือน (บาท)</label>
-                     <input type="number" disabled={authRole !== 'superadmin'} value={branchData.ptConfig?.monthlyBudget || ''} onChange={(e) => handleUpdatePtConfig('monthlyBudget', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-indigo-700 disabled:opacity-70 disabled:bg-white" placeholder="เช่น 20000" />
+                     <input type="number" disabled={authRole !== 'superadmin'} value={branchData.ptConfig?.monthlyBudget ?? ''} onChange={(e) => handleUpdatePtConfig('monthlyBudget', e.target.value)} onBlur={(e) => handleSavePtConfig('monthlyBudget', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-indigo-700 disabled:opacity-70 disabled:bg-white" placeholder="เช่น 20000" />
                   </div>
                   <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
                      <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">อัตราค่าจ้าง PT ต่อชั่วโมง (บาท)</label>
-                     <input type="number" disabled={authRole !== 'superadmin'} value={branchData.ptConfig?.hourlyRate || ''} onChange={(e) => handleUpdatePtConfig('hourlyRate', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-emerald-600 disabled:opacity-70 disabled:bg-white" placeholder="เช่น 50" />
+                     <input type="number" disabled={authRole !== 'superadmin'} value={branchData.ptConfig?.hourlyRate ?? ''} onChange={(e) => handleUpdatePtConfig('hourlyRate', e.target.value)} onBlur={(e) => handleSavePtConfig('hourlyRate', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-emerald-600 disabled:opacity-70 disabled:bg-white" placeholder="เช่น 50" />
                   </div>
                </div>
                <p className="text-[10px] text-slate-400 font-bold mt-4">* ระบบจะนำยอดเงินมาหารเป็นชั่วโมงโควตาตั้งต้น สำหรับบริหารจัดการ Part-Time ในกระเป๋าชั่วโมง (PT Ledger)</p>
