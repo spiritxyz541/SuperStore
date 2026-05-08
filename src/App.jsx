@@ -4304,6 +4304,29 @@ export default function App() {
     );
   }
 
+  function renderPtLedgerWidget() {
+      if (!branchData.ptConfig?.monthlyBudget) return null;
+      let progressColor = 'bg-emerald-500';
+      if (ptLedger.usagePercent >= 100) progressColor = 'bg-red-500';
+      else if (ptLedger.usagePercent >= 80) progressColor = 'bg-amber-500';
+      return (
+          <div className="bg-white p-5 sm:p-6 rounded-[2rem] border border-slate-200 shadow-sm mb-6 print:hidden w-full flex flex-col gap-3 animate-in fade-in duration-500">
+              <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+                  <div>
+                      <h3 className="text-base sm:text-lg font-black text-slate-800 uppercase tracking-tighter flex items-center gap-2"><TrendingUp className="w-5 h-5 text-emerald-500" /> PT Hours Ledger (กระเป๋าชั่วโมง PT)</h3>
+                      <p className="text-[10px] sm:text-xs font-bold text-slate-500 mt-1">งบตั้งต้น: <span className="text-emerald-600">{ptLedger.baseAllowance.toFixed(1)} ชม.</span> | คืนทุนคนลา: <span className="text-indigo-500">+{ptLedger.leaveRefunds.toFixed(1)} ชม.</span></p>
+                  </div>
+                  <div className="text-left sm:text-right bg-slate-50 px-4 py-2 rounded-xl border border-slate-100">
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">การใช้งานเดือนนี้</span>
+                      <span className="text-xl sm:text-2xl font-black text-slate-800 tracking-tighter">{ptLedger.usedHours.toFixed(1)}</span><span className="text-xs font-bold text-slate-400"> / {ptLedger.totalAllowance.toFixed(1)} ชม.</span>
+                  </div>
+              </div>
+              <div className="h-3 sm:h-4 w-full bg-slate-100 rounded-full overflow-hidden mt-1"><div className={`h-full ${progressColor} transition-all duration-500 rounded-full`} style={{ width: `${Math.min(ptLedger.usagePercent, 100)}%` }}></div></div>
+              {ptLedger.usagePercent >= 100 && <p className="text-[10px] font-black text-red-500 mt-1 text-right uppercase animate-pulse">⚠️ โควตาชั่วโมง Part-Time เกินกำหนด กรุณาตรวจสอบ</p>}
+          </div>
+      );
+  }
+
   let mainContent = null;
   if (view === 'branches' && authRole === 'superadmin') {
     mainContent = renderGlobalAdmin();
@@ -4314,6 +4337,7 @@ export default function App() {
   } else if (view === 'manager') {
     mainContent = (
        <div className="flex flex-col w-full gap-0">
+          {renderPtLedgerWidget()}
           {managerViewMode === 'daily' && renderManagerDailyCards()}
           {managerViewMode === 'monthly' && renderManagerMonthly()}
        </div>
