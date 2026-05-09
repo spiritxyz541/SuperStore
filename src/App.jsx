@@ -625,7 +625,7 @@ export default function App() {
                   const staff = staffMap[l.staffId];
                   if (staff && !staff.pos.includes('PT')) {
                       if (['AL', 'SL', 'SL_UNPAID', 'PL', 'PL_UNPAID', 'MATERNITY', 'MARRIAGE', 'TRAINING', 'MY_DAY', 'FAMILY_DAY', 'CO'].includes(l.type)) {
-                          leaveRefunds += 9;
+                          leaveRefunds += 8;
                       }
                   }
               });
@@ -4409,23 +4409,47 @@ export default function App() {
 
   function renderPtLedgerWidget() {
       if (!branchData.ptConfig?.monthlyBudget) return null;
-      let progressColor = 'bg-emerald-500';
-      if (ptLedger.usagePercent >= 100) progressColor = 'bg-red-500';
-      else if (ptLedger.usagePercent >= 80) progressColor = 'bg-amber-500';
+
+      const usedBase = Math.min(ptLedger.usedHours, ptLedger.baseAllowance);
+      const usedLeave = Math.max(0, ptLedger.usedHours - ptLedger.baseAllowance);
+      
+      const baseUsagePercent = ptLedger.baseAllowance > 0 ? (usedBase / ptLedger.baseAllowance) * 100 : 0;
+      const leaveUsagePercent = ptLedger.leaveRefunds > 0 ? (usedLeave / ptLedger.leaveRefunds) * 100 : (usedLeave > 0 ? 100 : 0);
+
+      let baseColor = 'bg-emerald-500';
+      if (baseUsagePercent >= 100) baseColor = 'bg-red-500';
+      else if (baseUsagePercent >= 80) baseColor = 'bg-amber-500';
+
+      let leaveColor = 'bg-indigo-500';
+      if (usedLeave > ptLedger.leaveRefunds) leaveColor = 'bg-red-500';
+      else if (leaveUsagePercent >= 80) leaveColor = 'bg-amber-500';
+
       return (
-          <div className="bg-white p-5 sm:p-6 rounded-[2rem] border border-slate-200 shadow-sm mb-6 print:hidden w-full flex flex-col gap-3 animate-in fade-in duration-500">
+          <div className="bg-white p-5 sm:p-6 rounded-[2rem] border border-slate-200 shadow-sm mb-6 print:hidden w-full flex flex-col gap-4 animate-in fade-in duration-500">
               <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
                   <div>
                       <h3 className="text-base sm:text-lg font-black text-slate-800 uppercase tracking-tighter flex items-center gap-2"><TrendingUp className="w-5 h-5 text-emerald-500" /> PT Hours Ledger (กระเป๋าชั่วโมง PT)</h3>
-                      <p className="text-[10px] sm:text-xs font-bold text-slate-500 mt-1">งบตั้งต้น: <span className="text-emerald-600">{ptLedger.baseAllowance.toFixed(1)} ชม.</span> | คืนทุนคนลา: <span className="text-indigo-500">+{ptLedger.leaveRefunds.toFixed(1)} ชม.</span></p>
-                  </div>
-                  <div className="text-left sm:text-right bg-slate-50 px-4 py-2 rounded-xl border border-slate-100">
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">การใช้งานเดือนนี้</span>
-                      <span className="text-xl sm:text-2xl font-black text-slate-800 tracking-tighter">{ptLedger.usedHours.toFixed(1)}</span><span className="text-xs font-bold text-slate-400"> / {ptLedger.totalAllowance.toFixed(1)} ชม.</span>
+                      <p className="text-[10px] sm:text-xs font-bold text-slate-500 mt-1">ยอดรวมชั่วโมงที่ใช้ไป: <span className="text-slate-800">{ptLedger.usedHours.toFixed(1)} / {ptLedger.totalAllowance.toFixed(1)} ชม.</span></p>
                   </div>
               </div>
-              <div className="h-3 sm:h-4 w-full bg-slate-100 rounded-full overflow-hidden mt-1"><div className={`h-full ${progressColor} transition-all duration-500 rounded-full`} style={{ width: `${Math.min(ptLedger.usagePercent, 100)}%` }}></div></div>
-              {ptLedger.usagePercent >= 100 && <p className="text-[10px] font-black text-red-500 mt-1 text-right uppercase animate-pulse">⚠️ โควตาชั่วโมง Part-Time เกินกำหนด กรุณาตรวจสอบ</p>}
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                  <div className="bg-slate-50 p-3 sm:p-4 rounded-xl border border-slate-100 flex flex-col gap-2">
+                      <div className="flex justify-between items-end">
+                          <span className="text-[10px] sm:text-xs font-black text-slate-500 uppercase">งบตั้งต้น (Base Budget)</span>
+                          <span className="text-sm font-black text-slate-800">{usedBase.toFixed(1)} <span className="text-[10px] text-slate-400">/ {ptLedger.baseAllowance.toFixed(1)} ชม.</span></span>
+                      </div>
+                      <div className="h-2.5 sm:h-3 w-full bg-slate-200 rounded-full overflow-hidden"><div className={`h-full ${baseColor} transition-all duration-500 rounded-full`} style={{ width: `${Math.min(baseUsagePercent, 100)}%` }}></div></div>
+                  </div>
+                  <div className="bg-slate-50 p-3 sm:p-4 rounded-xl border border-slate-100 flex flex-col gap-2">
+                      <div className="flex justify-between items-end">
+                          <span className="text-[10px] sm:text-xs font-black text-slate-500 uppercase">คืนทุนคนลา (Leave Refunds)</span>
+                          <span className="text-sm font-black text-slate-800">{usedLeave.toFixed(1)} <span className="text-[10px] text-slate-400">/ {ptLedger.leaveRefunds.toFixed(1)} ชม.</span></span>
+                      </div>
+                      <div className="h-2.5 sm:h-3 w-full bg-slate-200 rounded-full overflow-hidden"><div className={`h-full ${leaveColor} transition-all duration-500 rounded-full`} style={{ width: `${Math.min(leaveUsagePercent, 100)}%` }}></div></div>
+                  </div>
+              </div>
+              {ptLedger.usedHours > ptLedger.totalAllowance && <p className="text-[10px] font-black text-red-500 mt-1 text-right uppercase animate-pulse">⚠️ โควตาชั่วโมง Part-Time เกินกำหนด กรุณาตรวจสอบ</p>}
           </div>
       );
   }
