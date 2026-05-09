@@ -4751,25 +4751,17 @@ export default function App() {
   function renderPtLedgerWidget() {
       if (!branchData.ptConfig?.monthlyBudget) return null;
 
-      const usedBase = Math.min(ptLedger.usedHours, ptLedger.baseAllowance);
-      let remainingAfterBase = Math.max(0, ptLedger.usedHours - ptLedger.baseAllowance);
+      const usedBaseAll = ptLedger.usedBaseHours;
+      const baseTotalAllowance = ptLedger.baseTotalAllowance;
+      const usedEvent = ptLedger.usedEventHours;
+      const eventExtras = ptLedger.eventExtras;
       
-      const usedLeave = Math.min(remainingAfterBase, ptLedger.leaveRefunds);
-      let remainingAfterLeave = Math.max(0, remainingAfterBase - ptLedger.leaveRefunds);
-
-      const usedEvent = Math.min(remainingAfterLeave, ptLedger.eventExtras);
-      
-      const baseUsagePercent = ptLedger.baseAllowance > 0 ? (usedBase / ptLedger.baseAllowance) * 100 : 0;
-      const leaveUsagePercent = ptLedger.leaveRefunds > 0 ? (usedLeave / ptLedger.leaveRefunds) * 100 : (usedLeave > 0 ? 100 : 0);
-      const eventUsagePercent = ptLedger.eventExtras > 0 ? (usedEvent / ptLedger.eventExtras) * 100 : (usedEvent > 0 ? 100 : 0);
+      const baseUsagePercent = baseTotalAllowance > 0 ? (usedBaseAll / baseTotalAllowance) * 100 : 0;
+      const eventUsagePercent = eventExtras > 0 ? (usedEvent / eventExtras) * 100 : (usedEvent > 0 ? 100 : 0);
 
       let baseColor = 'bg-emerald-500';
       if (baseUsagePercent >= 100) baseColor = 'bg-red-500';
       else if (baseUsagePercent >= 80) baseColor = 'bg-amber-500';
-
-      let leaveColor = 'bg-indigo-500';
-      if (leaveUsagePercent >= 100) leaveColor = 'bg-red-500';
-      else if (leaveUsagePercent >= 80) leaveColor = 'bg-amber-500';
 
       let eventColor = 'bg-yellow-500';
       if (eventUsagePercent >= 100) eventColor = 'bg-red-500';
