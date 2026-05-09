@@ -2482,10 +2482,17 @@ export default function App() {
                                           <h4 className="font-black text-slate-800">{staff?.name || (req.reqType === 'EXTRA_PT' ? 'ผู้จัดการสาขา (Manager)' : 'Unknown Staff')} {staff && <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded border ml-2">{staff.pos}</span>}</h4>
                                           {detailHtml}
                                       </div>
-                                      <div className="flex gap-2 w-full sm:w-auto">
-                                          <button onClick={() => handleManagerApproveRequest(req)} className="flex-1 sm:flex-none bg-emerald-50 text-emerald-600 px-4 py-2 rounded-xl text-xs font-black hover:bg-emerald-500 hover:text-white transition shadow-sm border border-emerald-200">อนุมัติ</button>
-                                          <button onClick={() => handleRejectRequest(req.id)} className="flex-1 sm:flex-none bg-slate-50 text-slate-500 px-4 py-2 rounded-xl text-xs font-black hover:bg-red-500 hover:text-white transition border border-slate-200">ปฏิเสธ</button>
-                                      </div>
+                                      {req.reqType === 'EXTRA_PT' && authRole === 'branch' ? (
+                                          <div className="flex gap-2 w-full sm:w-auto">
+                                              <span className="flex-1 sm:flex-none text-xs font-bold text-amber-600 bg-amber-50 px-4 py-2 rounded-xl border border-amber-200 flex items-center justify-center whitespace-nowrap">รอผู้จัดการเขต (AM) อนุมัติ</span>
+                                              <button onClick={() => handleRejectRequest(req.id)} className="flex-1 sm:flex-none bg-red-50 text-red-500 px-4 py-2 rounded-xl text-xs font-black hover:bg-red-500 hover:text-white transition border border-red-200">ยกเลิก</button>
+                                          </div>
+                                      ) : (
+                                          <div className="flex gap-2 w-full sm:w-auto">
+                                              <button onClick={() => handleManagerApproveRequest(req)} className="flex-1 sm:flex-none bg-emerald-50 text-emerald-600 px-4 py-2 rounded-xl text-xs font-black hover:bg-emerald-500 hover:text-white transition shadow-sm border border-emerald-200">อนุมัติ</button>
+                                              <button onClick={() => handleRejectRequest(req.id)} className="flex-1 sm:flex-none bg-slate-50 text-slate-500 px-4 py-2 rounded-xl text-xs font-black hover:bg-red-500 hover:text-white transition border border-slate-200">ปฏิเสธ</button>
+                                          </div>
+                                      )}
                                   </div>
                               );
                           })}
@@ -2519,6 +2526,7 @@ export default function App() {
                 </div>
                 {(() => {
                     const pendingExtraPtReq = pendingRequests.find(r => r.reqType === 'EXTRA_PT' && r.dateStr === activeDay.dateStr && r.status === 'PENDING_MANAGER');
+                    const alreadyApprovedHours = schedule[activeDay.dateStr]?.eventExtraHours || 0;
                     
                     if (pendingExtraPtReq) {
                         return (
@@ -2531,6 +2539,21 @@ export default function App() {
                                    </div>
                                </div>
                                <button onClick={() => { handleRejectRequest(pendingExtraPtReq.id); setShowForecastModal(false); }} className="w-full bg-red-50 text-red-500 py-3.5 rounded-xl font-black text-xs sm:text-sm hover:bg-red-500 hover:text-white transition border border-red-200 shadow-sm mt-2 uppercase tracking-widest">ยกเลิกคำขอเดิม</button>
+                           </div>
+                        );
+                    }
+
+                    if (alreadyApprovedHours > 0) {
+                        return (
+                           <div className="space-y-4">
+                               <div className="bg-emerald-50 border border-emerald-200 p-6 rounded-xl text-center flex flex-col items-center gap-3">
+                                   <CheckCircle2 className="w-10 h-10 text-emerald-500" />
+                                   <div>
+                                      <p className="text-sm font-black text-emerald-700">คำขอของวันนี้ได้รับการอนุมัติแล้ว</p>
+                                      <p className="text-xs font-bold text-emerald-600 mt-1">ได้รับโควตาพิเศษเพิ่ม +{alreadyApprovedHours.toFixed(1)} ชั่วโมง<br/>(บันทึกเป็นประวัติใบงานเรียบร้อยแล้ว ไม่สามารถขอซ้ำได้)</p>
+                                   </div>
+                               </div>
+                               <button onClick={() => setShowForecastModal(false)} className="w-full bg-slate-100 text-slate-600 py-3.5 rounded-xl font-black text-xs sm:text-sm hover:bg-slate-200 transition border shadow-sm mt-2 uppercase tracking-widest">รับทราบ / ปิดหน้าต่าง</button>
                            </div>
                         );
                     }
