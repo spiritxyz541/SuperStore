@@ -4839,19 +4839,30 @@ export default function App() {
                       <span className="font-black text-lg sm:text-xl tracking-tighter uppercase leading-none">Super Store</span>
                       <div className="flex items-center gap-1.5 mt-0.5">
                          <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-green-500 rounded-full animate-pulse"></span>
-                         <span className={`text-[8px] sm:text-[9px] font-black uppercase text-slate-400`}>{authRole === 'superadmin' ? 'BAR B Q PLAZA' : 'BRANCH MANAGEMENT'}</span>
+                         <span className={`text-[8px] sm:text-[9px] font-black uppercase text-slate-400`}>{authRole === 'superadmin' ? 'BAR B Q PLAZA' : authRole === 'areamanager' ? 'AREA MANAGER' : 'BRANCH MANAGEMENT'}</span>
                       </div>
                    </div>
-                   {authRole === 'superadmin' && (
-                      <div className="hidden sm:flex items-center bg-slate-100 rounded-xl p-1 ml-2 sm:ml-6 border border-slate-200 shadow-inner">
+                   {['superadmin', 'areamanager'].includes(authRole) && (
+                      <div className="hidden sm:flex items-center bg-slate-100 rounded-xl p-1 ml-2 sm:ml-4 border border-slate-200 shadow-inner">
                          <ArrowLeftRight className="w-3 h-3 sm:w-4 sm:h-4 text-slate-400 mx-2 sm:mx-3" />
                          <select value={activeBranchId || ''} onChange={(e) => setActiveBranchId(e.target.value)} className="bg-transparent text-[9px] sm:text-[11px] font-black outline-none py-1 sm:py-2 pr-2 sm:pr-4 text-indigo-600 cursor-pointer uppercase max-w-[120px] sm:max-w-none">
-                              <option value="">-- SELECT BRANCH --</option>{globalConfig.branches?.map(b => <option key={b.id} value={b.id}>{b.name.substring(0,40).toUpperCase()}</option>)}
+                              <option value="">-- SELECT BRANCH --</option>
+                              {globalConfig.branches?.filter(b => authRole === 'superadmin' || (globalConfig.areaManagers?.find(a => a.user === authUser)?.branches || []).includes(b.id)).map(b => <option key={b.id} value={b.id}>{b.name.substring(0,40).toUpperCase()}</option>)}
                          </select>
                       </div>
                    )}
+                   <div className="hidden sm:flex items-center ml-2">
+                       <button onClick={() => setShowRequestsModal(true)} className="relative p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition shadow-sm">
+                           <Bell className="w-5 h-5 text-slate-600" />
+                           {pendingRequests.filter(r => r.reqType !== 'SWAP' || r.status === 'PENDING_MANAGER').length > 0 && <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>}
+                       </button>
+                   </div>
                    </div>
                    <div className="lg:hidden flex items-center gap-2">
+                      <button onClick={() => setShowRequestsModal(true)} className="relative p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition shadow-sm">
+                          <Bell className="w-5 h-5 text-slate-600" />
+                          {pendingRequests.filter(r => r.reqType !== 'SWAP' || r.status === 'PENDING_MANAGER').length > 0 && <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>}
+                      </button>
                       <button onClick={() => {setAuthRole('guest'); setView('manager');}} className="text-slate-400 p-2 bg-slate-100 rounded-lg"><LogIn className="w-4 h-4 rotate-180" /></button>
                    </div>
                 </div>
