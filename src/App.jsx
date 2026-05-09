@@ -3465,12 +3465,45 @@ export default function App() {
                             const reqArr = Array.isArray(duty.reqPos) ? duty.reqPos : [duty.reqPos || 'ALL'];
                             const displayPos = (reqArr.includes('ALL') || reqArr.length === 0) ? 'ALL POS' : reqArr.join(', ');
 
-                            if (slots.length === 0) return null; // Should not happen with current logic
+                            const totalSlotsCount = Math.max(slots.length, assigned.length);
+                            if (totalSlotsCount === 0) return null;
+                            const renderSlots = Array.from({ length: totalSlotsCount });
+                            const dailyEventQuota = schedule[selectedDateStr]?.eventExtraHours || 0;
+                            let dailyEventUsed = 0;
+                            Object.values(schedule[selectedDateStr]?.duties || {}).forEach(dutySlots => {
+                                dutySlots.forEach(s => {
+                                    if (s.isEventExtra && s.staffId) {
+                                        const staff = branchData.staff?.find(x => x.id === s.staffId);
+                                        if (staff && staff.pos.includes('PT')) {
+                                            const shiftPreset = branchData.shiftPresets?.find(p => p.id === (s.shiftPresetId || branchData.shiftPresets[0].id));
+                                            const times = getShiftTimesForStaff(staff.pos, shiftPreset);
+                                            let shiftHrs = 0;
+                                            if (times.startTime && times.startTime !== '??:??' && times.endTime !== '??:??') {
+                                                const [sh, sm] = times.startTime.split(':').map(Number);
+                                                let [eh, em] = times.endTime.split(':').map(Number);
+                                                if (eh < sh) eh += 24; 
+                                                shiftHrs = (eh + em/60) - (sh + sm/60);
+                                            }
+                                            dailyEventUsed += shiftHrs + Number(s.otHours || 0);
+                                        }
+                                    }
+                                });
+                            });
 
                             return (
                                <div key={duty.id} className="bg-white rounded-2xl sm:rounded-3xl shadow-sm border border-slate-200 overflow-hidden flex flex-col transition hover:shadow-xl w-full">
-                                  <div className="p-5 sm:p-6 bg-white border-b border-slate-100 flex justify-between items-start flex-col gap-2">
-                                     <h3 className="font-black text-slate-900 text-sm sm:text-base uppercase tracking-tighter leading-tight break-words">{duty.jobA}</h3>
+                                  <div className="p-5 sm:p-6 bg-white border-b border-slate-100 flex flex-col gap-2">
+                                     <div className="flex justify-between items-start w-full gap-2">
+                                        <h3 className="font-black text-slate-900 text-sm sm:text-base uppercase tracking-tighter leading-tight break-words">{duty.jobA}</h3>
+                                        {authRole === 'branch' && (
+                                           <div className="flex flex-col gap-1 items-end">
+                                              <button onClick={() => handleAddExtraSlot(selectedDateStr, duty.id, slots, false)} className="bg-slate-100 text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 px-3 py-1.5 rounded-lg text-[9px] font-black transition-colors flex items-center gap-1 shadow-sm whitespace-nowrap">+ Extra (Base)</button>
+                                              {dailyEventQuota > 0 && (
+                                                <button onClick={() => handleAddExtraSlot(selectedDateStr, duty.id, slots, true)} className="bg-amber-100 text-amber-700 hover:bg-amber-500 hover:text-white px-3 py-1.5 rounded-lg text-[9px] font-black transition-colors flex items-center gap-1 shadow-sm whitespace-nowrap">+ Extra (Event) {dailyEventUsed.toFixed(1)}/{dailyEventQuota.toFixed(1)}H</button>
+                                              )}
+                                           </div>
+                                        )}
+                                     </div>
                                      <div className="flex items-center gap-2 opacity-90 w-full justify-between">
                                         <span className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase italic leading-tight">{duty.jobB}</span>
                                         <div className="flex items-center gap-2">
@@ -3480,20 +3513,37 @@ export default function App() {
                                      </div>
                                   </div>
                                   <div className="p-4 sm:p-6 space-y-4 bg-slate-50/30">
-                                     {slots.map((slot, idx) => {
+                                     {renderSlots.map((_, idx) => {
+                                        const isExtra = idx >= slots.length;
+                                        const slot = slots[idx] || { shiftPresetId: assigned[idx]?.shiftPresetId || branchData.shiftPresets?.[0]?.id, maxOtHours: 0 };
                                         const data = assigned[idx] || { staffId: "", otHours: 0 };
                                         if (duty.isBackup && !data.staffId) return null; // ซ่อนกล่องว่าง หากเป็นกะสำรอง
-                                        const currentShiftPreset = branchData.shiftPresets?.find(p => p.id === slot?.shiftPresetId);
+                                        const currentShiftPreset = branchData.shiftPresets?.find(p => p.id === (data.shiftPresetId || slot?.shiftPresetId));
                                         const currentShiftName = currentShiftPreset ? currentShiftPreset.name : 'N/A';
+                                        
+                                        const extraBadge = isExtra ? (data.isEventExtra ? 'EVENT EXTRA' : 'BASE EXTRA') : null;
+                                        const extraColor = isExtra ? (data.isEventExtra ? 'border-amber-300 bg-amber-50/50' : 'border-indigo-300 bg-indigo-50/50') : (!data.staffId ? 'border-dashed border-rose-300 bg-rose-50 animate-pulse' : 'border-indigo-100 bg-white');
+                                        const extraIconColor = isExtra ? (data.isEventExtra ? 'text-amber-500' : 'text-indigo-500') : (!data.staffId ? 'text-rose-400' : 'text-slate-400');
+                                        const extraTextColor = isExtra ? (data.isEventExtra ? 'text-amber-700' : 'text-indigo-700') : (!data.staffId ? 'text-rose-500' : 'text-slate-500');
+
                                         return (
-                                           <div key={idx} className={`p-4 sm:p-5 rounded-[1.2rem] sm:rounded-[1.5rem] border-2 transition-all flex flex-col gap-3 ${!data.staffId ? 'border-dashed border-rose-300 bg-rose-50 animate-pulse shadow-sm' : 'border-indigo-100 bg-white shadow-sm'}`}>
+                                           <div key={idx} className={`p-4 sm:p-5 rounded-[1.2rem] sm:rounded-[1.5rem] border-2 transition-all flex flex-col gap-3 shadow-sm ${extraColor}`}>
                                               <div className="flex justify-between items-center">                                                
-                                                <span className={`text-[10px] sm:text-[11px] font-black uppercase tracking-widest flex items-center gap-1.5 ${!data.staffId ? 'text-rose-500' : 'text-slate-500'}`}>
-                                                    <Clock className={`w-3 h-3 sm:w-4 sm:h-4 ${!data.staffId ? 'text-rose-400' : 'text-indigo-400'}`} /> 
-                                                    {currentShiftName}
+                                                <span className={`text-[10px] sm:text-[11px] font-black uppercase tracking-widest flex items-center gap-1.5 ${extraTextColor}`}>
+                                                    <Clock className={`w-3 h-3 sm:w-4 sm:h-4 ${extraIconColor}`} /> 
+                                                    {isExtra ? extraBadge : currentShiftName}
                                                 </span>
-                                              <div className="flex gap-1.5">
-                                                 <span className={`text-[8px] sm:text-[9px] font-black px-2 py-1 rounded-full uppercase ${!data.staffId ? 'bg-rose-200/50 text-rose-600' : data.otHours >= slot.maxOtHours ? 'bg-indigo-600 text-white' : 'bg-indigo-50 text-indigo-500'}`}>Q: {slot.maxOtHours}H</span>
+                                              <div className="flex gap-1.5 items-center">
+                                                 {isExtra && authRole === 'branch' ? (
+                                                    <select value={data.shiftPresetId || slot.shiftPresetId} onChange={(e) => handleScheduleUpdate(selectedDateStr, duty.id, idx, 'shiftPresetId', e.target.value)} className={`bg-white border rounded px-1.5 py-0.5 text-[8px] sm:text-[9px] font-black outline-none shadow-sm mr-1 ${data.isEventExtra ? 'border-amber-200 text-amber-700' : 'border-indigo-200 text-indigo-700'}`}>
+                                                        {branchData.shiftPresets?.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                                    </select>
+                                                 ) : null}
+                                                 {isExtra && authRole === 'branch' ? (
+                                                    <button onClick={() => handleRemoveExtraSlot(selectedDateStr, duty.id, idx)} className="bg-red-100 text-red-500 hover:bg-red-500 hover:text-white px-2 py-1 rounded text-[8px] sm:text-[9px] font-black transition shadow-sm"><X className="w-3 h-3"/></button>
+                                                 ) : (
+                                                    <span className={`text-[8px] sm:text-[9px] font-black px-2 py-1 rounded-full uppercase ${!data.staffId ? 'bg-rose-200/50 text-rose-600' : data.otHours >= slot.maxOtHours && slot.maxOtHours > 0 ? 'bg-indigo-600 text-white' : 'bg-indigo-50 text-indigo-500'}`}>Q: {slot.maxOtHours}H</span>
+                                                 )}
                                               </div>
                                               </div>
                                               <div className="flex flex-col sm:flex-row gap-2">
