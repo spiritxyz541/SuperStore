@@ -1064,6 +1064,28 @@ export default function App() {
       });
   }, [activeBranchId, autoSaveSchedule]);
 
+  const handleUpdatePtConfig = (field, value) => {
+      setBranchData(prev => {
+          return {
+              ...prev,
+              ptConfig: {
+                  ...(prev.ptConfig || { monthlyBudget: '', hourlyRate: '' }),
+                  [field]: value
+              }
+          };
+      });
+  };
+
+  const handleSavePtConfig = async (field, value) => {
+      if (!activeBranchId) return;
+      const parsedValue = parseFloat(value) || 0;
+      setBranchData(prev => {
+          const nd = { ...prev, ptConfig: { ...(prev.ptConfig || { monthlyBudget: 0, hourlyRate: 50 }), [field]: parsedValue } };
+          setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd).catch(console.error);
+          return nd;
+      });
+  };
+
   const handleAddDuty = () => {
     if (!newDutyJobA.trim()) return;
     const newId = (activeDept === 'service' ? 'D' : 'K') + Date.now();
@@ -2931,20 +2953,20 @@ export default function App() {
              </div>
            </div>
 
-           <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm w-full mt-6 sm:mt-10 print:hidden">
-               <h2 className="text-lg sm:text-xl font-black text-slate-800 mb-6 sm:mb-8 flex items-center gap-2 sm:gap-4 uppercase tracking-tighter"><TrendingUp className="w-6 h-6 sm:w-7 sm:h-7 text-emerald-500" /> ตั้งค่างบประมาณ Part-Time (PT Budget)</h2>
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
-                     <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">งบประมาณ PT รายเดือน (บาท)</label>
-                     <input type="text" inputMode="numeric" disabled={authRole !== 'superadmin'} value={branchData.ptConfig?.monthlyBudget === 0 ? '' : (branchData.ptConfig?.monthlyBudget ?? '')} onChange={(e) => handleUpdatePtConfig('monthlyBudget', e.target.value.replace(/[^0-9.]/g, ''))} onBlur={(e) => handleSavePtConfig('monthlyBudget', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-indigo-700 disabled:opacity-70 disabled:bg-white" placeholder="เช่น 20000" />
-                  </div>
-                  <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
-                     <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">อัตราค่าจ้าง PT ต่อชั่วโมง (บาท)</label>
-                     <input type="text" inputMode="numeric" disabled={authRole !== 'superadmin'} value={branchData.ptConfig?.hourlyRate === 0 ? '' : (branchData.ptConfig?.hourlyRate ?? '')} onChange={(e) => handleUpdatePtConfig('hourlyRate', e.target.value.replace(/[^0-9.]/g, ''))} onBlur={(e) => handleSavePtConfig('hourlyRate', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-emerald-600 disabled:opacity-70 disabled:bg-white" placeholder="เช่น 50" />
-                  </div>
-               </div>
-               <p className="text-[10px] text-slate-400 font-bold mt-4">* ระบบจะนำยอดเงินมาหารเป็นชั่วโมงโควตาตั้งต้น สำหรับบริหารจัดการ Part-Time ในกระเป๋าชั่วโมง (PT Ledger)</p>
+       <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm w-full mt-6 sm:mt-10 print:hidden">
+           <h2 className="text-lg sm:text-xl font-black text-slate-800 mb-6 sm:mb-8 flex items-center gap-2 sm:gap-4 uppercase tracking-tighter"><TrendingUp className="w-6 h-6 sm:w-7 sm:h-7 text-emerald-500" /> ตั้งค่างบประมาณ Part-Time (PT Budget)</h2>
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">งบประมาณ PT รายเดือน (บาท)</label>
+                 <input type="text" inputMode="numeric" disabled={authRole !== 'superadmin'} value={branchData.ptConfig?.monthlyBudget === 0 ? '' : (branchData.ptConfig?.monthlyBudget ?? '')} onChange={(e) => handleUpdatePtConfig('monthlyBudget', e.target.value.replace(/[^0-9.]/g, ''))} onBlur={(e) => handleSavePtConfig('monthlyBudget', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-indigo-700 disabled:opacity-70 disabled:bg-white" placeholder="เช่น 20000" />
+              </div>
+              <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">อัตราค่าจ้าง PT ต่อชั่วโมง (บาท)</label>
+                 <input type="text" inputMode="numeric" disabled={authRole !== 'superadmin'} value={branchData.ptConfig?.hourlyRate === 0 ? '' : (branchData.ptConfig?.hourlyRate ?? '')} onChange={(e) => handleUpdatePtConfig('hourlyRate', e.target.value.replace(/[^0-9.]/g, ''))} onBlur={(e) => handleSavePtConfig('hourlyRate', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-emerald-600 disabled:opacity-70 disabled:bg-white" placeholder="เช่น 50" />
+              </div>
            </div>
+           <p className="text-[10px] text-slate-400 font-bold mt-4">* ระบบจะนำยอดเงินมาหารเป็นชั่วโมงโควตาตั้งต้น สำหรับบริหารจัดการ Part-Time ในกระเป๋าชั่วโมง (PT Ledger)</p>
+       </div>
 
            {renderTemplatesCard()}
         </div>
