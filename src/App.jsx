@@ -3032,6 +3032,22 @@ export default function App() {
               </div>
            </div>
            <p className="text-[10px] text-slate-400 font-bold mt-4">* ระบบจะนำยอดเงินมาหารเป็นชั่วโมงโควตาตั้งต้น สำหรับบริหารจัดการ Part-Time ในกระเป๋าชั่วโมง (PT Ledger)</p>
+           
+           <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-8 mb-4 border-b border-slate-100 pb-2">ตั้งค่าฐานยอดขาย (Base TC) สำหรับระบบ Forecast (อัตราส่วน Man-Hour)</h3>
+           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">Base TC (วันธรรมดา จ.-พฤ.)</label>
+                 <input type="text" inputMode="numeric" disabled={authRole !== 'superadmin'} value={branchData.ptConfig?.baseTcWeekday === 0 ? '' : (branchData.ptConfig?.baseTcWeekday ?? '')} onChange={(e) => handleUpdatePtConfig('baseTcWeekday', e.target.value.replace(/[^0-9.]/g, ''))} onBlur={(e) => handleSavePtConfig('baseTcWeekday', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 disabled:bg-white" placeholder="เช่น 100" />
+              </div>
+              <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">Base TC (วันศุกร์)</label>
+                 <input type="text" inputMode="numeric" disabled={authRole !== 'superadmin'} value={branchData.ptConfig?.baseTcFriday === 0 ? '' : (branchData.ptConfig?.baseTcFriday ?? '')} onChange={(e) => handleUpdatePtConfig('baseTcFriday', e.target.value.replace(/[^0-9.]/g, ''))} onBlur={(e) => handleSavePtConfig('baseTcFriday', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 disabled:bg-white" placeholder="เช่น 120" />
+              </div>
+              <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">Base TC (วันหยุด/นักขัตฤกษ์)</label>
+                 <input type="text" inputMode="numeric" disabled={authRole !== 'superadmin'} value={branchData.ptConfig?.baseTcWeekend === 0 ? '' : (branchData.ptConfig?.baseTcWeekend ?? '')} onChange={(e) => handleUpdatePtConfig('baseTcWeekend', e.target.value.replace(/[^0-9.]/g, ''))} onBlur={(e) => handleSavePtConfig('baseTcWeekend', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 disabled:bg-white" placeholder="เช่น 150" />
+              </div>
+           </div>
        </div>
 
            {renderTemplatesCard()}
@@ -3084,6 +3100,7 @@ export default function App() {
              </div>
              <div className="flex flex-wrap gap-2 w-full xl:w-auto">
                 <button onClick={handleShareToLine} className="flex-1 xl:flex-none bg-[#00B900] hover:bg-[#009900] text-white px-4 sm:px-6 py-4 sm:py-5 rounded-xl sm:rounded-[2rem] font-black flex justify-center items-center gap-2 shadow-lg active:scale-95 transition-all text-[10px] sm:text-sm"><MessageCircle className="w-4 h-4 sm:w-5 sm:h-5" /> <span className="hidden sm:inline">Copy to LINE</span><span className="sm:hidden">Share</span></button>
+                <button onClick={() => { setForecastTc(''); setForecastReason(''); setShowForecastModal(true); }} className="flex-1 xl:flex-none bg-indigo-50 text-indigo-600 border border-indigo-200 hover:bg-indigo-100 px-4 sm:px-6 py-4 sm:py-5 rounded-xl sm:rounded-[2rem] font-black flex justify-center items-center gap-2 shadow-sm active:scale-95 transition-all text-[10px] sm:text-sm"><TrendingUp className="w-4 h-4 sm:w-5 sm:h-5" /> <span className="hidden sm:inline">ขอเพิ่มคน (Forecast)</span><span className="sm:hidden">เพิ่มคน</span></button>
                 <button onClick={() => handleAutoAssign('daily')} disabled={aiLoading} className="flex-1 xl:flex-none bg-slate-900 text-white px-4 sm:px-6 py-4 sm:py-5 rounded-xl sm:rounded-[2rem] font-black flex justify-center items-center gap-2 sm:gap-3 hover:bg-black shadow-xl active:scale-95 transition-all text-[10px] sm:text-sm">{aiLoading ? <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin text-indigo-400" /> : <Wand2 className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-400" />} จัดกะอัตโนมัติ</button>
                 <button onClick={() => setConfirmModal({ message: 'ยืนยันการล้างข้อมูลกะงานของ "วันนี้" ใช่หรือไม่?', action: () => handleClearSchedule('daily') })} className="bg-white border-2 border-red-100 text-red-500 hover:bg-red-500 hover:text-white hover:border-red-500 px-4 sm:px-6 py-4 sm:py-5 rounded-xl sm:rounded-[2rem] font-black flex justify-center items-center shadow-sm active:scale-95 transition-all"><Eraser className="w-5 h-5" /></button>
              </div>
