@@ -751,7 +751,7 @@ export default function App() {
         const dayConfig = CALENDAR_DAYS.find(c => c.dateStr === dateStr);
         const dayType = dayConfig ? dayConfig.type : 'weekday';
         const matrixSlots = branchData.matrix?.[dayType]?.duties?.[d.id] || [];
-        const matrixSlot = matrixSlots[sIdx];
+        const matrixSlot = matrixSlots[sIdx] || { shiftPresetId: slots[sIdx]?.shiftPresetId || branchData.shiftPresets?.[0]?.id };
 
         if (!matrixSlot || !matrixSlot.shiftPresetId) {
             return { type: 'work', duty: d, slot: {startTime:'??:??', endTime:'??:??'}, actual: slots[sIdx] };
