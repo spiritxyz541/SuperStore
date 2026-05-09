@@ -3547,11 +3547,17 @@ export default function App() {
           const slots = branchData.matrix?.[activeDay.type]?.duties?.[duty.id] || [];
           const assigned = schedule[selectedDateStr]?.duties?.[duty.id] || [];
 
-          const activeSlots = slots.map((slot, sIdx) => ({
-             slot,
-             assignedData: assigned[sIdx] || { staffId: "", otHours: 0 },
-             originalIdx: sIdx
-          })).filter(item => item.assignedData.staffId !== "");
+          const totalSlotsCount = Math.max(slots.length, assigned.length);
+          const renderSlots = Array.from({ length: totalSlotsCount });
+
+          const activeSlots = renderSlots.map((_, sIdx) => {
+              const slot = slots[sIdx] || { shiftPresetId: assigned[sIdx]?.shiftPresetId || branchData.shiftPresets?.[0]?.id, maxOtHours: 0 };
+              return {
+                 slot,
+                 assignedData: assigned[sIdx] || { staffId: "", otHours: 0 },
+                 originalIdx: sIdx
+              };
+          }).filter(item => item.assignedData.staffId !== "");
 
           if (activeSlots.length > 0) {
              // --- Auto Calculate Break Time (สลับเบรคใน Job เดียวกัน) ---
