@@ -2518,6 +2518,23 @@ export default function App() {
                    <button onClick={() => setShowForecastModal(false)} className="text-slate-400 hover:bg-slate-100 p-2 rounded-full transition"><X className="w-5 h-5"/></button>
                 </div>
                 {(() => {
+                    const pendingExtraPtReq = pendingRequests.find(r => r.reqType === 'EXTRA_PT' && r.dateStr === activeDay.dateStr && r.status === 'PENDING_MANAGER');
+                    
+                    if (pendingExtraPtReq) {
+                        return (
+                           <div className="space-y-4">
+                               <div className="bg-amber-50 border border-amber-200 p-6 rounded-xl text-center flex flex-col items-center gap-3">
+                                   <Clock className="w-10 h-10 text-amber-500" />
+                                   <div>
+                                      <p className="text-sm font-black text-amber-700">มีคำขอรอผู้จัดการเขต (AM) อนุมัติ</p>
+                                      <p className="text-xs font-bold text-amber-600 mt-1">คุณได้ส่งคำขอของวันที่ {activeDay.dateStr} ไปแล้ว ไม่สามารถขอซ้ำได้<br/>กรุณารอ AM อนุมัติ หรือยกเลิกคำขอเดิมเพื่อสร้างใหม่</p>
+                                   </div>
+                               </div>
+                               <button onClick={() => { handleRejectRequest(pendingExtraPtReq.id); setShowForecastModal(false); }} className="w-full bg-red-50 text-red-500 py-3.5 rounded-xl font-black text-xs sm:text-sm hover:bg-red-500 hover:text-white transition border border-red-200 shadow-sm mt-2 uppercase tracking-widest">ยกเลิกคำขอเดิม</button>
+                           </div>
+                        );
+                    }
+
                     const dayTypeMap = { 'weekday': 'baseTcWeekday', 'friday': 'baseTcFriday', 'weekend': 'baseTcWeekend' };
                     const configKey = dayTypeMap[activeDay.type];
                     const baseTc = branchData.ptConfig?.[configKey] || 0;
