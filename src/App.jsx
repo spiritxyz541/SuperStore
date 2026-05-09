@@ -604,6 +604,72 @@ export default function App() {
   const totalPlannedOT = reportData.reduce((acc, curr) => acc + curr.plannedOT, 0);
   const deltaOT = totalActualOT - totalPlannedOT;
 
+  const ptLedger = useMemo(() => {
+      let baseAllowance = 0;
+      if (branchData.ptConfig?.monthlyBudget && branchData.ptConfig?.hourlyRate) {
+          baseAllowance = branchData.ptConfig.monthlyBudget / branchData.ptConfig.hourlyRate;
+      }
+
+      let leaveRefunds = 0;
+      let usedHours = 0;
+      const staffMap = {};
+      (branchData.staff || []).forEach(s => staffMap[s.id] = s);
+
+      Object.keys(schedule).forEach(dateStr => {
+          const [yStr, mStr] = dateStr.split('-');
+          if (parseInt(mStr, 10) - 1 !== selectedMonth || parseInt(yStr, 10) !== selectedYear) return;
+          const dayData = schedule[dateStr];
+          
+          if (dayData.leaves) {
+              dayData.leaves.forEach(l => {
+                  const staff = staffMap[l.staffId];
+                  if (staff && !staff.pos.includes('PT')) {
+                      if (['AL', 'SL', 'SL_UNPAID', 'PL', 'PL_UNPAID', 'MATERNITY', 'MARRIAGE', 'TRAINING', 'MY_DAY', 'FAMILY_DAY', 'CO'].includes(l.type)) {
+                          leaveRefunds += 9;
+                      }
+                  }
+              });
+          }
+
+          const dateObj = new Date(parseInt(dateStr.split('-')[0]), parseInt(dateStr.split('-')[1]) - 1, parseInt(dateStr.split('-')[2]));
+          const dOW = dateObj.getDay();
+          let dayType = 'weekday';
+          if (branchData.holidays?.includes?.(dateStr) || dOW === 0 || dOW === 6) dayType = 'weekend';
+          else if (dOW === 5) dayType = 'friday';
+
+          if (dayData.duties) {
+              Object.keys(dayData.duties).forEach(dutyId => {
+                  const slots = dayData.duties[dutyId] || [];
+                  const matrixSlots = branchData.matrix?.[dayType]?.duties?.[dutyId] || [];
+                  slots.forEach((slot, idx) => {
+                      if (slot.staffId) {
+                          const isOTCover = slot.staffId.startsWith('COVER_BY_');
+                          const actualStaffId = isOTCover ? slot.staffId.replace('COVER_BY_', '') : slot.staffId;
+                          const staff = staffMap[actualStaffId];
+                          
+                          if (staff && staff.pos.includes('PT')) {
+                              const mSlot = matrixSlots[idx];
+                              const shiftPreset = branchData.shiftPresets?.find(p => p.id === mSlot?.shiftPresetId);
+                              const times = getShiftTimesForStaff(staff.pos, shiftPreset);
+                              let shiftHrs = 0;
+                              if (times.startTime && times.startTime !== '??:??' && times.endTime && times.endTime !== '??:??') {
+                                  const [sh, sm] = times.startTime.split(':').map(Number);
+                                  let [eh, em] = times.endTime.split(':').map(Number);
+                                  if (eh < sh) eh += 24; 
+                                  shiftHrs = (eh + em/60) - (sh + sm/60);
+                              }
+                              usedHours += shiftHrs + Number(slot.otHours || 0);
+                          }
+                      }
+                  });
+              });
+          }
+      });
+      const totalAllowance = baseAllowance + leaveRefunds;
+      const usagePercent = totalAllowance > 0 ? (usedHours / totalAllowance) * 100 : 0;
+      return { baseAllowance, leaveRefunds, totalAllowance, usedHours, usagePercent };
+  }, [schedule, branchData, selectedMonth, selectedYear]);
+
   const activeDayShiftVisibilities = useMemo(() => {
       let hasMorning = false, hasLateMorning = false, hasAfternoon = false, hasEvening = false, hasNight = false;
       if (branchData.matrix && activeDay) {
