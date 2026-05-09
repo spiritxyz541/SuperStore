@@ -453,6 +453,11 @@ export default function App() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [confirmModal, setConfirmModal] = useState(null);
   const [showRequestsModal, setShowRequestsModal] = useState(false);
+
+  const [showForecastModal, setShowForecastModal] = useState(false);
+  const [forecastTc, setForecastTc] = useState('');
+  const [forecastReason, setForecastReason] = useState('');
+  const [forecastEvidence, setForecastEvidence] = useState('');
   
   const [userInput, setUserInput] = useState('');
   const [passInput, setPassInput] = useState('');
@@ -611,6 +616,7 @@ export default function App() {
       }
 
       let leaveRefunds = 0;
+      let eventExtras = 0;
       let usedHours = 0;
       const staffMap = {};
       (branchData.staff || []).forEach(s => staffMap[s.id] = s);
@@ -620,6 +626,10 @@ export default function App() {
           if (parseInt(mStr, 10) - 1 !== selectedMonth || parseInt(yStr, 10) !== selectedYear) return;
           const dayData = schedule[dateStr];
           
+          if (dayData.eventExtraHours) {
+              eventExtras += dayData.eventExtraHours;
+          }
+
           if (dayData.leaves) {
               dayData.leaves.forEach(l => {
                   const staff = staffMap[l.staffId];
@@ -665,9 +675,9 @@ export default function App() {
               });
           }
       });
-      const totalAllowance = baseAllowance + leaveRefunds;
+      const totalAllowance = baseAllowance + leaveRefunds + eventExtras;
       const usagePercent = totalAllowance > 0 ? (usedHours / totalAllowance) * 100 : 0;
-      return { baseAllowance, leaveRefunds, totalAllowance, usedHours, usagePercent };
+      return { baseAllowance, leaveRefunds, eventExtras, totalAllowance, usedHours, usagePercent };
   }, [schedule, branchData, selectedMonth, selectedYear]);
 
   const activeDayShiftVisibilities = useMemo(() => {
@@ -692,6 +702,30 @@ export default function App() {
       const shiftColCount = (hasMorning ? 1 : 0) + (hasLateMorning ? 1 : 0) + (hasAfternoon ? 1 : 0) + (hasEvening ? 1 : 0) + (hasNight ? 1 : 0);
       return { hasMorning, hasLateMorning, hasAfternoon, hasEvening, hasNight, bottomColSpan: 1 + shiftColCount + 1 };
   }, [branchData.matrix, activeDay, CURRENT_DUTY_LIST, branchData.shiftPresets]);
+
+  const getBaseManHours = useCallback((dayType) => {
+      let total = 0;
+      ['service', 'kitchen'].forEach(dept => {
+          const list = branchData.duties?.[dept] || [];
+          list.forEach(duty => {
+              const slots = branchData.matrix?.[dayType]?.duties?.[duty.id] || [];
+              slots.forEach(slot => {
+                  const preset = branchData.shiftPresets?.find(p => p.id === slot.shiftPresetId);
+                  if (preset) {
+                      const { startTime, endTime } = preset.timings.long;
+                      if (startTime && startTime !== '??:??' && endTime && endTime !== '??:??') {
+                          const [sh, sm] = startTime.split(':').map(Number);
+                          let [eh, em] = endTime.split(':').map(Number);
+                          if (eh < sh) eh += 24;
+                          total += (eh + em/60) - (sh + sm/60);
+                      }
+                  }
+                  total += Number(slot.maxOtHours || 0);
+              });
+          });
+      });
+      return total;
+  }, [branchData]);
 
   const getStaffDayInfo = useCallback((staffId, dateStr, currentDutyList) => {
     const dayData = schedule[dateStr];
@@ -1544,6 +1578,31 @@ export default function App() {
      } catch (e) { setConfirmModal({ message: 'เกิดข้อผิดพลาดในการส่งคำขอ' }); }
   };
 
+  const handleSubmitForecastRequest = async (dateStr, fTc, diffMh) => {
+      const newReq = { 
+          id: 'R'+Date.now(), 
+          reqType: 'EXTRA_PT', 
+          staffId: 'MANAGER', 
+          dateStr: dateStr, 
+          forecastTc: fTc, 
+          requestedHours: diffMh, 
+          reason: forecastReason.trim(),
+          evidence: forecastEvidence.trim(),
+          status: 'PENDING_MANAGER', 
+          timestamp: Date.now() 
+      };
+      const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'requests', activeBranchId);
+      try {
+          const snap = await getDoc(docRef);
+          const currentList = snap.exists() ? (snap.data().list || []) : [];
+          await setDoc(docRef, { list: [...currentList, newReq] });
+          setShowForecastModal(false);
+          setConfirmModal({ message: 'ส่งคำขออนุมัติชั่วโมงพิเศษ (Event) เรียบร้อยแล้ว รอการตรวจสอบจาก Admin ส่วนกลาง' });
+      } catch (e) { 
+          setConfirmModal({ message: 'เกิดข้อผิดพลาดในการส่งคำขอ' }); 
+      }
+  };
+
   const handlePeerAcceptSwap = async (reqId) => {
       const newList = pendingRequests.map(r => r.id === reqId ? { ...r, status: 'PENDING_MANAGER' } : r);
       await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'requests', activeBranchId), { list: newList });
@@ -1602,6 +1661,10 @@ export default function App() {
                   swapStaffInDay(d1, id1, id2);
                   swapStaffInDay(d2, id2, id1);
               }
+          }
+          else if (req.reqType === 'EXTRA_PT') {
+              if (!newSched[req.dateStr]) newSched[req.dateStr] = { duties: {}, leaves: [] };
+              newSched[req.dateStr].eventExtraHours = (newSched[req.dateStr].eventExtraHours || 0) + req.requestedHours;
           }
           return newSched;
       });
@@ -2357,6 +2420,16 @@ export default function App() {
                                      วันที่ <span className="text-indigo-700">{req.dateMy}</span> <ArrowRightLeft className="w-3 h-3 inline mx-1"/> วันที่ <span className="text-indigo-700">{req.datePeer}</span>
                                    </div>
                                  );
+                              } else if (req.reqType === 'EXTRA_PT') {
+                                 detailHtml = (
+                                   <div className="mt-2 text-xs font-bold text-slate-600 bg-emerald-50 p-3 rounded-lg border border-emerald-100">
+                                     ขอโควตาพิเศษ (Event): <span className="text-emerald-700 font-black">+{req.requestedHours.toFixed(1)} ชม.</span> <br/>
+                                     ประจำวันที่: <span className="text-emerald-700">{req.dateStr}</span> <br/>
+                                     เหตุผล: <span className="text-emerald-700">{req.reason}</span> <br/>
+                                     หลักฐาน: <span className="text-emerald-700">{req.evidence || '-'}</span> <br/>
+                                     <span className="text-[10px] text-slate-400 font-normal">(อ้างอิง Forecast: {req.forecastTc} บิล)</span>
+                                   </div>
+                                 );
                               } else {
                                  const lType = LEAVE_TYPES.find(t => t.id === req.type);
                                  const dateObj = new Date(req.dateStr);
@@ -2370,7 +2443,7 @@ export default function App() {
                               return (
                                   <div key={req.id} className="bg-white border border-slate-200 p-4 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-sm">
                                       <div>
-                                          <h4 className="font-black text-slate-800">{staff?.name || 'Unknown Staff'} <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded border ml-2">{staff?.pos}</span></h4>
+                                          <h4 className="font-black text-slate-800">{staff?.name || (req.reqType === 'EXTRA_PT' ? 'ผู้จัดการสาขา (Manager)' : 'Unknown Staff')} {staff && <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded border ml-2">{staff.pos}</span>}</h4>
                                           {detailHtml}
                                       </div>
                                       <div className="flex gap-2 w-full sm:w-auto">
@@ -2398,6 +2471,62 @@ export default function App() {
                   {typeof aiMessage.content === 'string' ? aiMessage.content : JSON.stringify(aiMessage.content)}
                </div>
                <button onClick={() => setAiMessage(null)} className="w-full bg-slate-900 text-white py-4 sm:py-5 rounded-2xl sm:rounded-3xl font-black text-xs sm:text-sm uppercase tracking-widest hover:bg-black transition">ปิดหน้าต่าง</button>
+             </div>
+          </div>
+        )}
+        {showForecastModal && (
+          <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300 font-sans">
+             <div className="bg-white rounded-[2rem] p-6 sm:p-8 max-w-md w-full shadow-2xl relative flex flex-col gap-4 animate-in zoom-in-95">
+                <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                   <h3 className="text-xl font-black text-slate-800 uppercase tracking-tighter flex items-center gap-2"><TrendingUp className="w-6 h-6 text-indigo-500"/> ขอจัดกะพิเศษ (Event)</h3>
+                   <button onClick={() => setShowForecastModal(false)} className="text-slate-400 hover:bg-slate-100 p-2 rounded-full transition"><X className="w-5 h-5"/></button>
+                </div>
+                {(() => {
+                    const dayTypeMap = { 'weekday': 'baseTcWeekday', 'friday': 'baseTcFriday', 'weekend': 'baseTcWeekend' };
+                    const configKey = dayTypeMap[activeDay.type];
+                    const baseTc = branchData.ptConfig?.[configKey] || 0;
+                    const baseMh = getBaseManHours(activeDay.type);
+                    const ratio = baseTc > 0 ? (baseMh / baseTc) : 0;
+                    
+                    const fTc = parseFloat(forecastTc) || 0;
+                    const neededMh = fTc * ratio;
+                    const diffMh = Math.max(0, neededMh - baseMh);
+                    
+                    return (
+                        <div className="space-y-4">
+                           <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 grid grid-cols-2 gap-2 text-[10px] sm:text-xs">
+                               <div className="text-slate-500 font-bold">ประเภทวัน: <span className="text-slate-800 uppercase">{activeDay.type}</span></div>
+                               <div className="text-slate-500 font-bold">TC ปกติ (Base): <span className="text-slate-800">{baseTc} บิล</span></div>
+                               <div className="text-slate-500 font-bold">ชั่วโมงคนปกติ: <span className="text-slate-800">{baseMh.toFixed(1)} ชม.</span></div>
+                               <div className="text-slate-500 font-bold">Ratio: <span className="text-indigo-600">{ratio.toFixed(2)} ชม./บิล</span></div>
+                           </div>
+                           
+                           {baseTc === 0 ? (
+                               <div className="bg-red-50 text-red-500 p-3 rounded-lg text-xs font-bold text-center">กรุณาให้แอดมินตั้งค่า Base TC ของสาขาในเมนูตั้งค่าก่อนใช้งาน</div>
+                           ) : (
+                               <React.Fragment>
+                                   <div>
+                                       <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">คาดการณ์ยอดขาย (Forecast TC) บิล</label>
+                                       <input type="text" inputMode="numeric" value={forecastTc} onChange={(e) => setForecastTc(e.target.value.replace(/[^0-9.]/g, ''))} placeholder={`เช่น ${baseTc + 50}`} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 bg-white shadow-sm" />
+                                   </div>
+                                   <div>
+                                       <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">เหตุผลการขอ (เช่น มีคอนเสิร์ตใหญ่)</label>
+                                       <input type="text" value={forecastReason} onChange={(e) => setForecastReason(e.target.value)} placeholder="ระบุเหตุผล..." className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 bg-white shadow-sm" />
+                                   </div>
+                                   <div>
+                                       <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">หลักฐาน (เช่น ลิงก์ตารางงานห้าง)</label>
+                                       <input type="text" value={forecastEvidence} onChange={(e) => setForecastEvidence(e.target.value)} placeholder="ระบุหลักฐานอ้างอิง..." className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 bg-white shadow-sm" />
+                                   </div>
+                                   <div className={`p-4 rounded-xl border flex flex-col items-center justify-center gap-1 ${diffMh > 0 ? 'bg-indigo-50 border-indigo-200 shadow-inner' : 'bg-slate-50 border-slate-200'}`}>
+                                       <span className="text-[10px] font-bold text-slate-500 uppercase">ระบบแนะนำให้เพิ่มชั่วโมงพนักงาน</span>
+                                       <span className={`text-3xl font-black ${diffMh > 0 ? 'text-indigo-600' : 'text-slate-400'}`}>+{diffMh.toFixed(1)} <span className="text-sm">ชม.</span></span>
+                                   </div>
+                                   <button onClick={() => handleSubmitForecastRequest(activeDay.dateStr, fTc, diffMh)} disabled={diffMh <= 0 || !forecastReason.trim() || !forecastEvidence.trim()} className="w-full bg-indigo-600 text-white py-3.5 rounded-xl font-black text-xs sm:text-sm hover:bg-indigo-700 transition disabled:opacity-50 shadow-lg mt-2 uppercase tracking-widest">ส่งคำขออนุมัติโควตา</button>
+                               </React.Fragment>
+                           )}
+                        </div>
+                    );
+                })()}
              </div>
           </div>
         )}
@@ -3100,7 +3229,7 @@ export default function App() {
              </div>
              <div className="flex flex-wrap gap-2 w-full xl:w-auto">
                 <button onClick={handleShareToLine} className="flex-1 xl:flex-none bg-[#00B900] hover:bg-[#009900] text-white px-4 sm:px-6 py-4 sm:py-5 rounded-xl sm:rounded-[2rem] font-black flex justify-center items-center gap-2 shadow-lg active:scale-95 transition-all text-[10px] sm:text-sm"><MessageCircle className="w-4 h-4 sm:w-5 sm:h-5" /> <span className="hidden sm:inline">Copy to LINE</span><span className="sm:hidden">Share</span></button>
-                <button onClick={() => { setForecastTc(''); setForecastReason(''); setShowForecastModal(true); }} className="flex-1 xl:flex-none bg-indigo-50 text-indigo-600 border border-indigo-200 hover:bg-indigo-100 px-4 sm:px-6 py-4 sm:py-5 rounded-xl sm:rounded-[2rem] font-black flex justify-center items-center gap-2 shadow-sm active:scale-95 transition-all text-[10px] sm:text-sm"><TrendingUp className="w-4 h-4 sm:w-5 sm:h-5" /> <span className="hidden sm:inline">ขอเพิ่มคน (Forecast)</span><span className="sm:hidden">เพิ่มคน</span></button>
+                <button onClick={() => { setForecastTc(''); setForecastReason(''); setForecastEvidence(''); setShowForecastModal(true); }} className="flex-1 xl:flex-none bg-indigo-50 text-indigo-600 border border-indigo-200 hover:bg-indigo-100 px-4 sm:px-6 py-4 sm:py-5 rounded-xl sm:rounded-[2rem] font-black flex justify-center items-center gap-2 shadow-sm active:scale-95 transition-all text-[10px] sm:text-sm"><TrendingUp className="w-4 h-4 sm:w-5 sm:h-5" /> <span className="hidden sm:inline">ขอจัดกะพิเศษกรณีมีอีเว้นพิเศษ</span><span className="sm:hidden">กะพิเศษ</span></button>
                 <button onClick={() => handleAutoAssign('daily')} disabled={aiLoading} className="flex-1 xl:flex-none bg-slate-900 text-white px-4 sm:px-6 py-4 sm:py-5 rounded-xl sm:rounded-[2rem] font-black flex justify-center items-center gap-2 sm:gap-3 hover:bg-black shadow-xl active:scale-95 transition-all text-[10px] sm:text-sm">{aiLoading ? <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin text-indigo-400" /> : <Wand2 className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-400" />} จัดกะอัตโนมัติ</button>
                 <button onClick={() => setConfirmModal({ message: 'ยืนยันการล้างข้อมูลกะงานของ "วันนี้" ใช่หรือไม่?', action: () => handleClearSchedule('daily') })} className="bg-white border-2 border-red-100 text-red-500 hover:bg-red-500 hover:text-white hover:border-red-500 px-4 sm:px-6 py-4 sm:py-5 rounded-xl sm:rounded-[2rem] font-black flex justify-center items-center shadow-sm active:scale-95 transition-all"><Eraser className="w-5 h-5" /></button>
              </div>
