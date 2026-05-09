@@ -4751,10 +4751,10 @@ export default function App() {
   function renderPtLedgerWidget() {
       if (!branchData.ptConfig?.monthlyBudget) return null;
 
-      const usedBaseAll = ptLedger.usedBaseHours;
-      const baseTotalAllowance = ptLedger.baseTotalAllowance;
-      const usedEvent = ptLedger.usedEventHours;
-      const eventExtras = ptLedger.eventExtras;
+      const usedBaseAll = ptLedger.usedBaseHours || 0;
+      const baseTotalAllowance = ptLedger.baseTotalAllowance || 0;
+      const usedEvent = ptLedger.usedEventHours || 0;
+      const eventExtras = ptLedger.eventExtras || 0;
       
       const baseUsagePercent = baseTotalAllowance > 0 ? (usedBaseAll / baseTotalAllowance) * 100 : 0;
       const eventUsagePercent = eventExtras > 0 ? (usedEvent / eventExtras) * 100 : (usedEvent > 0 ? 100 : 0);
@@ -4771,36 +4771,32 @@ export default function App() {
               <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
                   <div>
                       <h3 className="text-base sm:text-lg font-black text-slate-800 uppercase tracking-tighter flex items-center gap-2"><TrendingUp className="w-5 h-5 text-emerald-500" /> PT Hours Ledger (กระเป๋าชั่วโมง PT)</h3>
-                      <p className="text-[10px] sm:text-xs font-bold text-slate-500 mt-1">ยอดรวมชั่วโมงที่ใช้ไป: <span className="text-slate-800">{ptLedger.usedHours.toFixed(1)} / {ptLedger.totalAllowance.toFixed(1)} ชม.</span></p>
+                      <p className="text-[10px] sm:text-xs font-bold text-slate-500 mt-1">ยอดรวมชั่วโมงที่ใช้ไป: <span className="text-slate-800">{(ptLedger.usedHours || 0).toFixed(1)} / {(ptLedger.totalAllowance || 0).toFixed(1)} ชม.</span></p>
                   </div>
               </div>
               
-              <div className={`grid grid-cols-1 md:grid-cols-2 ${ptLedger.eventExtras > 0 ? 'lg:grid-cols-3' : ''} gap-4 mt-2`}>
+              <div className={`grid grid-cols-1 ${eventExtras > 0 ? 'md:grid-cols-2' : ''} gap-4 mt-2`}>
                   <div className="bg-slate-50 p-3 sm:p-4 rounded-xl border border-slate-100 flex flex-col gap-2">
                       <div className="flex justify-between items-end">
-                          <span className="text-[10px] sm:text-xs font-black text-slate-500 uppercase">งบตั้งต้น (Base Budget)</span>
-                          <span className="text-sm font-black text-slate-800">{usedBase.toFixed(1)} <span className="text-[10px] text-slate-400">/ {ptLedger.baseAllowance.toFixed(1)} ชม.</span></span>
+                          <div className="flex flex-col">
+                              <span className="text-[10px] sm:text-xs font-black text-slate-500 uppercase">งบปกติ + ทุนคนลา (Base + Leave)</span>
+                              <span className="text-[9px] font-bold text-slate-400">Budget: {(ptLedger.baseAllowance || 0).toFixed(1)} ชม. | Leave: {(ptLedger.leaveRefunds || 0).toFixed(1)} ชม.</span>
+                          </div>
+                          <span className="text-sm font-black text-slate-800">{usedBaseAll.toFixed(1)} <span className="text-[10px] text-slate-400">/ {baseTotalAllowance.toFixed(1)} ชม.</span></span>
                       </div>
                       <div className="h-2.5 sm:h-3 w-full bg-slate-200 rounded-full overflow-hidden"><div className={`h-full ${baseColor} transition-all duration-500 rounded-full`} style={{ width: `${Math.min(baseUsagePercent, 100)}%` }}></div></div>
                   </div>
-                  <div className="bg-slate-50 p-3 sm:p-4 rounded-xl border border-slate-100 flex flex-col gap-2">
-                      <div className="flex justify-between items-end">
-                          <span className="text-[10px] sm:text-xs font-black text-slate-500 uppercase">คืนทุนคนลา (Leave Refunds)</span>
-                          <span className="text-sm font-black text-slate-800">{usedLeave.toFixed(1)} <span className="text-[10px] text-slate-400">/ {ptLedger.leaveRefunds.toFixed(1)} ชม.</span></span>
-                      </div>
-                      <div className="h-2.5 sm:h-3 w-full bg-slate-200 rounded-full overflow-hidden"><div className={`h-full ${leaveColor} transition-all duration-500 rounded-full`} style={{ width: `${Math.min(leaveUsagePercent, 100)}%` }}></div></div>
-                  </div>
-                  {ptLedger.eventExtras > 0 && (
+                  {eventExtras > 0 && (
                   <div className="bg-slate-50 p-3 sm:p-4 rounded-xl border border-amber-100 flex flex-col gap-2">
                       <div className="flex justify-between items-end">
-                          <span className="text-[10px] sm:text-xs font-black text-amber-600 uppercase flex items-center gap-1"><Sparkles className="w-3 h-3"/> โควตาพิเศษ (Event)</span>
+                          <span className="text-[10px] sm:text-xs font-black text-amber-600 uppercase flex items-center gap-1"><Sparkles className="w-3 h-3"/> โควตาพิเศษเฉพาะวัน (Event)</span>
                           <span className="text-sm font-black text-slate-800">{usedEvent.toFixed(1)} <span className="text-[10px] text-slate-400">/ {ptLedger.eventExtras.toFixed(1)} ชม.</span></span>
                       </div>
                       <div className="h-2.5 sm:h-3 w-full bg-slate-200 rounded-full overflow-hidden"><div className={`h-full ${eventColor} transition-all duration-500 rounded-full`} style={{ width: `${Math.min(eventUsagePercent, 100)}%` }}></div></div>
                   </div>
                   )}
               </div>
-              {ptLedger.usedHours > ptLedger.totalAllowance && <p className="text-[10px] font-black text-red-500 mt-1 text-right uppercase animate-pulse">⚠️ โควตาชั่วโมง Part-Time เกินกำหนด กรุณาตรวจสอบ</p>}
+              {(ptLedger.usedHours || 0) > (ptLedger.totalAllowance || 0) && <p className="text-[10px] font-black text-red-500 mt-1 text-right uppercase animate-pulse">⚠️ โควตาชั่วโมง Part-Time เกินกำหนด กรุณาตรวจสอบ</p>}
           </div>
       );
   }
