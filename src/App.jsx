@@ -4411,18 +4411,27 @@ export default function App() {
       if (!branchData.ptConfig?.monthlyBudget) return null;
 
       const usedBase = Math.min(ptLedger.usedHours, ptLedger.baseAllowance);
-      const usedLeave = Math.max(0, ptLedger.usedHours - ptLedger.baseAllowance);
+      let remainingAfterBase = Math.max(0, ptLedger.usedHours - ptLedger.baseAllowance);
+      
+      const usedLeave = Math.min(remainingAfterBase, ptLedger.leaveRefunds);
+      let remainingAfterLeave = Math.max(0, remainingAfterBase - ptLedger.leaveRefunds);
+
+      const usedEvent = Math.min(remainingAfterLeave, ptLedger.eventExtras);
       
       const baseUsagePercent = ptLedger.baseAllowance > 0 ? (usedBase / ptLedger.baseAllowance) * 100 : 0;
       const leaveUsagePercent = ptLedger.leaveRefunds > 0 ? (usedLeave / ptLedger.leaveRefunds) * 100 : (usedLeave > 0 ? 100 : 0);
+      const eventUsagePercent = ptLedger.eventExtras > 0 ? (usedEvent / ptLedger.eventExtras) * 100 : (usedEvent > 0 ? 100 : 0);
 
       let baseColor = 'bg-emerald-500';
       if (baseUsagePercent >= 100) baseColor = 'bg-red-500';
       else if (baseUsagePercent >= 80) baseColor = 'bg-amber-500';
 
       let leaveColor = 'bg-indigo-500';
-      if (usedLeave > ptLedger.leaveRefunds) leaveColor = 'bg-red-500';
+      if (leaveUsagePercent >= 100) leaveColor = 'bg-red-500';
       else if (leaveUsagePercent >= 80) leaveColor = 'bg-amber-500';
+
+      let eventColor = 'bg-yellow-500';
+      if (eventUsagePercent >= 100) eventColor = 'bg-red-500';
 
       return (
           <div className="bg-white p-5 sm:p-6 rounded-[2rem] border border-slate-200 shadow-sm mb-6 print:hidden w-full flex flex-col gap-4 animate-in fade-in duration-500">
@@ -4433,7 +4442,7 @@ export default function App() {
                   </div>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+              <div className={`grid grid-cols-1 md:grid-cols-2 ${ptLedger.eventExtras > 0 ? 'lg:grid-cols-3' : ''} gap-4 mt-2`}>
                   <div className="bg-slate-50 p-3 sm:p-4 rounded-xl border border-slate-100 flex flex-col gap-2">
                       <div className="flex justify-between items-end">
                           <span className="text-[10px] sm:text-xs font-black text-slate-500 uppercase">งบตั้งต้น (Base Budget)</span>
@@ -4448,6 +4457,15 @@ export default function App() {
                       </div>
                       <div className="h-2.5 sm:h-3 w-full bg-slate-200 rounded-full overflow-hidden"><div className={`h-full ${leaveColor} transition-all duration-500 rounded-full`} style={{ width: `${Math.min(leaveUsagePercent, 100)}%` }}></div></div>
                   </div>
+                  {ptLedger.eventExtras > 0 && (
+                  <div className="bg-slate-50 p-3 sm:p-4 rounded-xl border border-amber-100 flex flex-col gap-2">
+                      <div className="flex justify-between items-end">
+                          <span className="text-[10px] sm:text-xs font-black text-amber-600 uppercase flex items-center gap-1"><Sparkles className="w-3 h-3"/> โควตาพิเศษ (Event)</span>
+                          <span className="text-sm font-black text-slate-800">{usedEvent.toFixed(1)} <span className="text-[10px] text-slate-400">/ {ptLedger.eventExtras.toFixed(1)} ชม.</span></span>
+                      </div>
+                      <div className="h-2.5 sm:h-3 w-full bg-slate-200 rounded-full overflow-hidden"><div className={`h-full ${eventColor} transition-all duration-500 rounded-full`} style={{ width: `${Math.min(eventUsagePercent, 100)}%` }}></div></div>
+                  </div>
+                  )}
               </div>
               {ptLedger.usedHours > ptLedger.totalAllowance && <p className="text-[10px] font-black text-red-500 mt-1 text-right uppercase animate-pulse">⚠️ โควตาชั่วโมง Part-Time เกินกำหนด กรุณาตรวจสอบ</p>}
           </div>
