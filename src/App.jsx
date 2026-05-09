@@ -2553,7 +2553,23 @@ export default function App() {
                                       <p className="text-xs font-bold text-emerald-600 mt-1">ได้รับโควตาพิเศษเพิ่ม +{alreadyApprovedHours.toFixed(1)} ชั่วโมง<br/>(บันทึกเป็นประวัติใบงานเรียบร้อยแล้ว ไม่สามารถขอซ้ำได้)</p>
                                    </div>
                                </div>
-                               <button onClick={() => setShowForecastModal(false)} className="w-full bg-slate-100 text-slate-600 py-3.5 rounded-xl font-black text-xs sm:text-sm hover:bg-slate-200 transition border shadow-sm mt-2 uppercase tracking-widest">รับทราบ / ปิดหน้าต่าง</button>
+                               <div className="flex gap-2 w-full mt-2">
+                                   <button onClick={() => {
+                                       setConfirmModal({
+                                           message: `ยืนยันการยกเลิกใบงานพิเศษของวันที่ ${activeDay.dateStr} และคืนโควตา ${alreadyApprovedHours.toFixed(1)} ชม. กลับคืนระบบหรือไม่?`,
+                                           action: () => {
+                                               setSchedule(prev => {
+                                                   const newSched = JSON.parse(JSON.stringify(prev));
+                                                   if (newSched[activeDay.dateStr]) newSched[activeDay.dateStr].eventExtraHours = 0;
+                                                   if (activeBranchId) autoSaveSchedule(newSched);
+                                                   return newSched;
+                                               });
+                                               setShowForecastModal(false);
+                                           }
+                                       });
+                                   }} className="flex-1 bg-red-50 text-red-500 py-3.5 rounded-xl font-black text-[10px] sm:text-xs hover:bg-red-500 hover:text-white transition border border-red-200 shadow-sm uppercase tracking-widest">ยกเลิกใบงาน</button>
+                                   <button onClick={() => setShowForecastModal(false)} className="flex-1 bg-slate-100 text-slate-600 py-3.5 rounded-xl font-black text-xs sm:text-sm hover:bg-slate-200 transition border shadow-sm uppercase tracking-widest">ปิดหน้าต่าง</button>
+                               </div>
                            </div>
                         );
                     }
