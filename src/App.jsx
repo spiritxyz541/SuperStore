@@ -431,6 +431,9 @@ export default function App() {
   const [authRole, setAuthRole] = useState(() => {
       try { const saved = localStorage.getItem('superstore_session'); if (saved) return JSON.parse(saved).authRole || 'guest'; } catch(e){} return 'guest';
   }); 
+  const [authUser, setAuthUser] = useState(() => {
+      try { const saved = localStorage.getItem('superstore_session'); if (saved) return JSON.parse(saved).authUser || null; } catch(e){} return null;
+  });
   const [activeBranchId, setActiveBranchId] = useState(() => {
       try { const saved = localStorage.getItem('superstore_session'); if (saved) return JSON.parse(saved).activeBranchId || null; } catch(e){} return null;
   });
@@ -459,6 +462,12 @@ export default function App() {
   const [forecastReason, setForecastReason] = useState('');
   const [forecastEvidence, setForecastEvidence] = useState('');
   
+  const [newAmName, setNewAmName] = useState('');
+  const [newAmUser, setNewAmUser] = useState('');
+  const [newAmPass, setNewAmPass] = useState('');
+  const [newAmBranches, setNewAmBranches] = useState([]);
+  const [amData, setAmData] = useState({});
+
   const [userInput, setUserInput] = useState('');
   const [passInput, setPassInput] = useState('');
   const [loginError, setLoginError] = useState('');
@@ -791,9 +800,9 @@ export default function App() {
       if (authRole === 'guest') {
           localStorage.removeItem('superstore_session');
       } else {
-          localStorage.setItem('superstore_session', JSON.stringify({ authRole, activeBranchId, view }));
+          localStorage.setItem('superstore_session', JSON.stringify({ authRole, activeBranchId, view, authUser }));
       }
-  }, [authRole, activeBranchId, view]);
+  }, [authRole, activeBranchId, view, authUser]);
 
   useEffect(() => {
     const timer = setTimeout(() => { if (loading) setIsTimeout(true); }, 8000);
@@ -996,6 +1005,29 @@ export default function App() {
   }, [selectedDateStr, selectedMonth]);
 
   useEffect(() => {
+      if (view === 'area_dashboard' && authRole === 'areamanager') {
+          const fetchData = async () => {
+             const data = {};
+             const am = globalConfig.areaManagers?.find(a => a.user === authUser);
+             if (am && am.branches) {
+                 for (const bId of am.branches) {
+                     try {
+                         const bSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', bId));
+                         const sSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'schedules', bId));
+                         data[bId] = {
+                             branch: bSnap.exists() ? bSnap.data() : null,
+                             schedule: sSnap.exists() ? sSnap.data().records : {}
+                         };
+                     } catch(e) {}
+                 }
+             }
+             setAmData(data);
+          };
+          fetchData();
+      }
+  }, [view, authRole, authUser, globalConfig.areaManagers]);
+
+  useEffect(() => {
       setNewDutyCategory(activeDept === 'service' ? 'FOH_STAFF' : 'BOH_STAFF');
   }, [activeDept]);
 
@@ -1004,9 +1036,13 @@ export default function App() {
     e.preventDefault();
     setLoginError('');
     const admin = globalConfig.admins?.find(a => a.user === userInput && a.pass === passInput);
-    if (admin) { setAuthRole('superadmin'); if (globalConfig.branches?.length > 0) setActiveBranchId(globalConfig.branches[0].id); setView('manager'); setHasSeenLanding(false); return; }
+    if (admin) { setAuthRole('superadmin'); setAuthUser(userInput); if (globalConfig.branches?.length > 0) setActiveBranchId(globalConfig.branches[0].id); setView('manager'); setHasSeenLanding(false); return; }
+    
+    const am = globalConfig.areaManagers?.find(a => a.user === userInput && a.pass === passInput);
+    if (am) { setAuthRole('areamanager'); setAuthUser(userInput); setActiveBranchId(am.branches[0] || null); setView('area_dashboard'); setHasSeenLanding(false); return; }
+
     const branch = globalConfig.branches?.find(b => b.user === userInput && b.pass === passInput);
-    if (branch) { setAuthRole('branch'); setActiveBranchId(branch.id); setView('manager'); setHasSeenLanding(false); return; }
+    if (branch) { setAuthRole('branch'); setAuthUser(userInput); setActiveBranchId(branch.id); setView('manager'); setHasSeenLanding(false); return; }
     setLoginError('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
   };
 
@@ -2677,6 +2713,53 @@ export default function App() {
                      <button onClick={() => setGlobalConfig(prev => ({...prev, branches: prev.branches.filter(x => x.id !== b.id)}))} className="text-slate-300 hover:text-red-500 transition p-2"><Trash2 className="w-5 h-5 sm:w-6 sm:h-6"/></button>
                   </div>
                 ))}
+             </div>
+          </div>
+       </div>
+
+       <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm mt-6 sm:mt-10">
+          <h2 className="text-lg sm:text-xl font-black text-slate-800 mb-6 sm:mb-8 flex items-center gap-2 sm:gap-4 uppercase tracking-tighter"><UserCircle className="w-6 h-6 sm:w-7 sm:h-7 text-indigo-500" /> จัดการผู้จัดการเขต (Area Managers)</h2>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-10">
+             <div className="lg:col-span-1 bg-slate-50 p-6 rounded-3xl border border-slate-100">
+                 <h3 className="text-sm font-black text-slate-800 mb-4 uppercase tracking-widest">เพิ่มผู้จัดการเขต</h3>
+                 <div className="space-y-4">
+                     <input type="text" placeholder="ชื่อ-นามสกุล" value={newAmName} onChange={e => setNewAmName(e.target.value)} className="w-full border rounded-xl px-4 py-3 text-xs font-bold outline-none focus:border-indigo-500" />
+                     <input type="text" placeholder="Username สำหรับ Login" value={newAmUser} onChange={e => setNewAmUser(e.target.value)} className="w-full border rounded-xl px-4 py-3 text-xs font-bold outline-none focus:border-indigo-500" />
+                     <input type="text" placeholder="Password" value={newAmPass} onChange={e => setNewAmPass(e.target.value)} className="w-full border rounded-xl px-4 py-3 text-xs font-bold outline-none focus:border-indigo-500" />
+                     <div className="bg-white border border-slate-200 rounded-xl p-4 max-h-48 overflow-y-auto custom-scrollbar">
+                         <div className="text-[10px] font-black text-slate-400 mb-3 uppercase tracking-widest">เลือกสาขาที่ดูแล:</div>
+                         {globalConfig.branches?.map(b => (
+                             <label key={b.id} className="flex items-center gap-3 mb-3 cursor-pointer hover:bg-slate-50 p-1 rounded transition">
+                                 <input type="checkbox" checked={newAmBranches.includes(b.id)} onChange={e => {
+                                     if (e.target.checked) setNewAmBranches([...newAmBranches, b.id]);
+                                     else setNewAmBranches(newAmBranches.filter(id => id !== b.id));
+                                 }} className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300" />
+                                 <span className="text-xs font-bold text-slate-700 truncate">{b.name}</span>
+                             </label>
+                         ))}
+                     </div>
+                     <button onClick={() => {
+                         if (newAmName && newAmUser && newAmPass) {
+                             setGlobalConfig(prev => ({ ...prev, areaManagers: [...(prev.areaManagers || []), { id: 'AM'+Date.now(), name: newAmName, user: newAmUser, pass: newAmPass, branches: newAmBranches }] }));
+                             setNewAmName(''); setNewAmUser(''); setNewAmPass(''); setNewAmBranches([]);
+                         }
+                     }} className="w-full bg-indigo-600 text-white py-3.5 rounded-xl font-black text-xs hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-colors uppercase tracking-widest mt-2">บันทึกผู้จัดการเขต</button>
+                 </div>
+             </div>
+             <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 h-fit">
+                 {(globalConfig.areaManagers || []).map(am => (
+                     <div key={am.id} className="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm flex flex-col justify-between hover:border-indigo-200 transition-colors">
+                         <div>
+                             <h4 className="font-black text-slate-800 text-lg flex items-center gap-2"><UserCircle className="w-5 h-5 text-indigo-500"/> {am.name}</h4>
+                             <p className="text-[10px] font-bold text-slate-500 uppercase mt-2 bg-slate-50 px-2 py-1 rounded inline-block border border-slate-100">USER: {am.user} | PWD: {am.pass}</p>
+                             <div className="mt-4 bg-slate-50 p-3 rounded-xl border border-slate-100 text-[10px] text-slate-600 font-bold max-h-24 overflow-y-auto custom-scrollbar leading-relaxed">
+                                 <span className="text-indigo-500 block mb-1">สาขาที่ดูแล ({am.branches?.length || 0}):</span>
+                                 {am.branches?.map(bId => globalConfig.branches?.find(x => x.id === bId)?.name).filter(Boolean).join(', ') || 'ไม่มีสาขา'}
+                             </div>
+                         </div>
+                         <button onClick={() => setGlobalConfig(prev => ({ ...prev, areaManagers: prev.areaManagers.filter(x => x.id !== am.id) }))} className="mt-4 w-full bg-red-50 text-red-500 py-2.5 rounded-xl font-black text-xs hover:bg-red-500 hover:text-white transition-colors">ลบผู้จัดการเขต</button>
+                     </div>
+                 ))}
              </div>
           </div>
        </div>
@@ -4618,8 +4701,75 @@ export default function App() {
       );
   }
 
+  function renderAreaDashboard() {
+      const am = globalConfig.areaManagers?.find(a => a.user === authUser);
+      if (!am) return <div className="p-10 text-center text-slate-500 font-bold">ไม่พบข้อมูลผู้จัดการเขต</div>;
+      
+      return (
+         <div className="flex-1 space-y-6 sm:space-y-10 animate-in fade-in duration-500 pb-24 w-full">
+            <div className="bg-slate-900 rounded-[2rem] p-8 sm:p-10 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-6 text-white">
+                <div className="flex items-center gap-6">
+                   <div className="bg-indigo-500 p-4 rounded-2xl shadow-inner"><UserCircle className="w-10 h-10 text-white" /></div>
+                   <div>
+                       <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-tighter">Area Manager Dashboard</h2>
+                       <p className="text-indigo-200 font-bold text-sm mt-1">ยินดีต้อนรับ, {am?.name || authUser} | ดูแลทั้งหมด {am?.branches?.length || 0} สาขา</p>
+                   </div>
+                </div>
+            </div>
+            
+            <div className="grid grid-cols-1 gap-6">
+                {am?.branches?.length === 0 ? (
+                    <div className="text-center p-10 text-slate-400 font-bold bg-white rounded-[2rem] border border-dashed border-slate-200">ยังไม่มีสาขาที่อยู่ในการดูแล</div>
+                ) : am.branches.map(bId => {
+                    const branchName = globalConfig.branches?.find(b => b.id === bId)?.name || bId;
+                    const bData = amData[bId]?.branch;
+                    const sData = amData[bId]?.schedule || {};
+                    
+                    if (!amData[bId]) {
+                        return <div key={bId} className="bg-white p-8 rounded-[2rem] border border-slate-200 text-center text-slate-400 font-bold shadow-sm"><Loader2 className="w-6 h-6 animate-spin mx-auto mb-3"/> กำลังโหลดข้อมูล {branchName}...</div>;
+                    }
+
+                    const staffCount = bData?.staff?.length || 0;
+                    const ptCount = bData?.staff?.filter(s => s.pos.includes('PT')).length || 0;
+                    
+                    let totalOT = 0;
+                    let totalLeaves = 0;
+                    
+                    Object.keys(sData).forEach(d => {
+                        const day = sData[d];
+                        if (day.duties) {
+                            Object.values(day.duties).forEach(slots => { slots.forEach(s => { if (s.otHours) totalOT += s.otHours; }); });
+                        }
+                        if (day.leaves) totalLeaves += day.leaves.length;
+                    });
+                    
+                    return (
+                        <div key={bId} className="bg-white p-6 sm:p-8 rounded-[2rem] border border-slate-200 shadow-sm flex flex-col xl:flex-row items-start xl:items-center justify-between gap-6 transition hover:border-indigo-300">
+                            <div className="flex-1 w-full">
+                                <h3 className="text-xl font-black text-slate-800 uppercase flex items-center gap-3"><Store className="w-6 h-6 text-indigo-500"/> {branchName}</h3>
+                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-5 w-full">
+                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col justify-center"><div className="text-[10px] font-bold text-slate-400 uppercase">พนักงานรวม</div><div className="text-xl sm:text-2xl font-black text-slate-800 mt-1">{staffCount} <span className="text-[10px] font-bold text-slate-500">คน</span></div></div>
+                                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col justify-center"><div className="text-[10px] font-bold text-slate-400 uppercase">พนักงานพาร์ทไทม์ (PT)</div><div className="text-xl sm:text-2xl font-black text-emerald-600 mt-1">{ptCount} <span className="text-[10px] font-bold text-emerald-600/50">คน</span></div></div>
+                                    <div className="bg-rose-50 p-4 rounded-xl border border-rose-100 flex flex-col justify-center"><div className="text-[10px] font-bold text-rose-500 uppercase">ใช้งาน OT (เดือนนี้)</div><div className="text-xl sm:text-2xl font-black text-rose-700 mt-1">{totalOT.toFixed(1)} <span className="text-[10px] font-bold text-rose-500/50">ชม.</span></div></div>
+                                    <div className="bg-amber-50 p-4 rounded-xl border border-amber-100 flex flex-col justify-center"><div className="text-[10px] font-bold text-amber-500 uppercase">วันลา/หยุด (เดือนนี้)</div><div className="text-xl sm:text-2xl font-black text-amber-700 mt-1">{totalLeaves} <span className="text-[10px] font-bold text-amber-500/50">รายการ</span></div></div>
+                                </div>
+                            </div>
+                            <div className="w-full xl:w-auto flex flex-col sm:flex-row xl:flex-col gap-3">
+                                <button onClick={() => { setActiveBranchId(bId); setView('report'); }} className="flex-1 bg-indigo-50 text-indigo-600 px-8 py-4 rounded-xl font-black text-xs hover:bg-indigo-100 transition shadow-sm whitespace-nowrap text-center uppercase tracking-widest border border-indigo-100">ดูรายงานฉบับเต็ม</button>
+                                <button onClick={() => { setActiveBranchId(bId); setView('manager'); }} className="flex-1 bg-slate-900 text-white px-8 py-4 rounded-xl font-black text-xs hover:bg-black transition shadow-lg whitespace-nowrap text-center uppercase tracking-widest">จัดการตารางกะสาขานี้</button>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+         </div>
+      );
+  }
+
   let mainContent = null;
-  if (view === 'branches' && authRole === 'superadmin') {
+  if (view === 'area_dashboard') {
+    mainContent = renderAreaDashboard();
+  } else if (view === 'branches' && authRole === 'superadmin') {
     mainContent = renderGlobalAdmin();
   } else if (view === 'admin') {
     mainContent = activeBranchId ? renderBranchAdmin() : renderEmptyBranchAdmin();
@@ -4717,6 +4867,7 @@ export default function App() {
                       </select>
                    </div>
                    <div className="flex-shrink-0 flex gap-1 sm:gap-2 bg-slate-100 p-1 rounded-xl sm:rounded-2xl border border-slate-200 font-black text-[9px] sm:text-[10px]">
+                      {authRole === 'areamanager' && <button onClick={() => setView('area_dashboard')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'area_dashboard' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>ภาพรวมเขต (Dashboard)</button>}
                       <button onClick={() => setView('manager')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'manager' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>จัดตารางงาน</button>
                       <button onClick={() => setView('head_team')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'head_team' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>จัดบทบาทประจำวัน</button>
                       <button onClick={() => setView('report')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'report' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>รายงาน</button>
