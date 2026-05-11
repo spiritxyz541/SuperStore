@@ -457,6 +457,10 @@ export default function App() {
   const [confirmModal, setConfirmModal] = useState(null);
   const [showRequestsModal, setShowRequestsModal] = useState(false);
 
+  const [reqFilterStaff, setReqFilterStaff] = useState('ALL');
+  const [reqFilterType, setReqFilterType] = useState('ALL');
+  const [reqFilterStatus, setReqFilterStatus] = useState('ALL');
+
   const [showExtraOtModal, setShowExtraOtModal] = useState(null);
   const [extraOtReason, setExtraOtReason] = useState('');
 
