@@ -457,6 +457,9 @@ export default function App() {
   const [confirmModal, setConfirmModal] = useState(null);
   const [showRequestsModal, setShowRequestsModal] = useState(false);
 
+  const [showExtraOtModal, setShowExtraOtModal] = useState(null);
+  const [extraOtReason, setExtraOtReason] = useState('');
+
   const [showForecastModal, setShowForecastModal] = useState(false);
   const [forecastTc, setForecastTc] = useState('');
   const [forecastReason, setForecastReason] = useState('');
@@ -1692,6 +1695,43 @@ export default function App() {
       }
   };
 
+  const handleSubmitExtraOtRequest = async (dateStr, dutyId, slotIdx, staffId, baseOt, requestedOt, reason) => {
+      const newReq = { 
+          id: 'R'+Date.now(), 
+          reqType: 'EXTRA_OT', 
+          staffId: staffId, 
+          dateStr: dateStr, 
+          dutyId: dutyId,
+          slotIdx: slotIdx,
+          baseOt: baseOt,
+          requestedOt: requestedOt,
+          reason: reason,
+          status: 'PENDING_MANAGER', 
+          timestamp: Date.now() 
+      };
+      const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'requests', activeBranchId);
+      try {
+          const snap = await getDoc(docRef);
+          const currentList = snap.exists() ? (snap.data().list || []) : [];
+          await setDoc(docRef, { list: [...currentList, newReq] });
+          setConfirmModal({ message: 'ส่งคำขออนุมัติ OT ส่วนเกิน เรียบร้อยแล้ว รอการตรวจสอบจาก AM' });
+      } catch (e) { 
+          setConfirmModal({ message: 'เกิดข้อผิดพลาดในการส่งคำขอ' }); 
+      }
+  };
+
+  const handleOtBlur = (dateStr, dutyId, idx, val, maxOtHours, staffId) => {
+      const parsed = parseFloat(val) || 0;
+      if (parsed > maxOtHours && authRole === 'branch' && staffId) {
+          handleScheduleUpdate(dateStr, dutyId, idx, 'otHours', maxOtHours);
+          autoSaveSchedule();
+          setShowExtraOtModal({ dateStr, dutyId, slotIdx: idx, staffId, baseOt: maxOtHours, requestedOt: parsed });
+      } else {
+          handleScheduleUpdate(dateStr, dutyId, idx, 'otHours', parsed);
+          autoSaveSchedule();
+      }
+  };
+
   const handlePeerAcceptSwap = async (reqId) => {
       const newList = pendingRequests.map(r => r.id === reqId ? { ...r, status: 'PENDING_MANAGER' } : r);
       await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'requests', activeBranchId), { list: newList });
@@ -1754,6 +1794,17 @@ export default function App() {
           else if (req.reqType === 'EXTRA_PT') {
               if (!newSched[req.dateStr]) newSched[req.dateStr] = { duties: {}, leaves: [] };
               newSched[req.dateStr].eventExtraHours = (newSched[req.dateStr].eventExtraHours || 0) + req.requestedHours;
+          }
+          else if (req.reqType === 'EXTRA_OT') {
+              if (!newSched[req.dateStr]) newSched[req.dateStr] = { duties: {}, leaves: [] };
+              if (!newSched[req.dateStr].duties) newSched[req.dateStr].duties = {};
+              if (!newSched[req.dateStr].duties[req.dutyId]) newSched[req.dateStr].duties[req.dutyId] = [];
+              if (!newSched[req.dateStr].duties[req.dutyId][req.slotIdx]) {
+                  newSched[req.dateStr].duties[req.dutyId][req.slotIdx] = { staffId: req.staffId, otHours: req.requestedOt, otUpdated: true };
+              } else {
+                  newSched[req.dateStr].duties[req.dutyId][req.slotIdx].otHours = req.requestedOt;
+                  newSched[req.dateStr].duties[req.dutyId][req.slotIdx].otUpdated = true;
+              }
           }
           return newSched;
       });
@@ -2509,6 +2560,14 @@ export default function App() {
                                      วันที่ <span className="text-indigo-700">{req.dateMy}</span> <ArrowRightLeft className="w-3 h-3 inline mx-1"/> วันที่ <span className="text-indigo-700">{req.datePeer}</span>
                                    </div>
                                  );
+                              } else if (req.reqType === 'EXTRA_OT') {
+                                 detailHtml = (
+                                   <div className="mt-2 text-xs font-bold text-slate-600 bg-rose-50 p-3 rounded-lg border border-rose-100">
+                                     ขออนุมัติ OT เกินโควตา: <span className="text-rose-700 font-black">{req.requestedOt} ชม.</span> (จากเดิม {req.baseOt} ชม.) <br/>
+                                     ประจำวันที่: <span className="text-rose-700">{req.dateStr}</span> <br/>
+                                     เหตุผล: <span className="text-rose-700">{req.reason || '-'}</span>
+                                   </div>
+                                 );
                               } else if (req.reqType === 'EXTRA_PT') {
                                  detailHtml = (
                                    <div className="mt-2 text-xs font-bold text-slate-600 bg-emerald-50 p-3 rounded-lg border border-emerald-100">
@@ -2532,10 +2591,10 @@ export default function App() {
                               return (
                                   <div key={req.id} className="bg-white border border-slate-200 p-4 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-sm">
                                       <div>
-                                          <h4 className="font-black text-slate-800">{staff?.name || (req.reqType === 'EXTRA_PT' ? 'ผู้จัดการสาขา (Manager)' : 'Unknown Staff')} {staff && <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded border ml-2">{staff.pos}</span>}</h4>
+                                          <h4 className="font-black text-slate-800">{staff?.name || (['EXTRA_PT', 'EXTRA_OT'].includes(req.reqType) && !staff ? 'ผู้จัดการสาขา (Manager)' : 'Unknown Staff')} {staff && <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded border ml-2">{staff.pos}</span>}</h4>
                                           {detailHtml}
                                       </div>
-                                      {req.reqType === 'EXTRA_PT' && authRole === 'branch' ? (
+                                      {['EXTRA_PT', 'EXTRA_OT'].includes(req.reqType) && authRole === 'branch' ? (
                                           <div className="flex gap-2 w-full sm:w-auto">
                                               <span className="flex-1 sm:flex-none text-xs font-bold text-amber-600 bg-amber-50 px-4 py-2 rounded-xl border border-amber-200 flex items-center justify-center whitespace-nowrap">รอผู้จัดการเขต (AM) อนุมัติ</span>
                                               <button onClick={() => handleRejectRequest(req.id)} className="flex-1 sm:flex-none bg-red-50 text-red-500 px-4 py-2 rounded-xl text-xs font-black hover:bg-red-500 hover:text-white transition border border-red-200">ยกเลิก</button>
@@ -2567,6 +2626,43 @@ export default function App() {
                   {typeof aiMessage.content === 'string' ? aiMessage.content : JSON.stringify(aiMessage.content)}
                </div>
                <button onClick={() => setAiMessage(null)} className="w-full bg-slate-900 text-white py-4 sm:py-5 rounded-2xl sm:rounded-3xl font-black text-xs sm:text-sm uppercase tracking-widest hover:bg-black transition">ปิดหน้าต่าง</button>
+             </div>
+          </div>
+        )}
+        {showExtraOtModal && (
+          <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300 font-sans">
+             <div className="bg-white rounded-[2rem] p-6 sm:p-8 max-w-md w-full shadow-2xl relative flex flex-col gap-4 animate-in zoom-in-95">
+                <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                   <h3 className="text-xl font-black text-slate-800 uppercase tracking-tighter flex items-center gap-2"><Clock className="w-6 h-6 text-rose-500"/> ขออนุมัติ OT เกินโควตา</h3>
+                   <button onClick={() => { setShowExtraOtModal(null); setExtraOtReason(''); }} className="text-slate-400 hover:bg-slate-100 p-2 rounded-full transition"><X className="w-5 h-5"/></button>
+                </div>
+                <div className="space-y-4">
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-xs sm:text-sm text-slate-600 font-bold space-y-2">
+                        <p>พนักงาน: <span className="text-indigo-700">{branchData.staff?.find(s => s.id === showExtraOtModal.staffId)?.name || 'N/A'}</span></p>
+                        <p>วันที่: <span className="text-indigo-700">{showExtraOtModal.dateStr}</span></p>
+                        <p>OT ขออนุมัติ: <span className="text-rose-600 font-black">{showExtraOtModal.requestedOt} ชม.</span> (จากโควตาเดิม {showExtraOtModal.baseOt} ชม.)</p>
+                    </div>
+                    <div>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">เหตุผลการขอ OT (จำเป็นต้องกรอก)</label>
+                        <textarea
+                            value={extraOtReason}
+                            onChange={(e) => setExtraOtReason(e.target.value)}
+                            placeholder="เช่น ลูกค้าเยอะช่วงท้ายกะ, ต้องอยู่ช่วยปิดร้าน"
+                            className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 bg-white shadow-sm min-h-[100px] resize-y"
+                        />
+                    </div>
+                    <button
+                        onClick={() => {
+                            handleSubmitExtraOtRequest( showExtraOtModal.dateStr, showExtraOtModal.dutyId, showExtraOtModal.slotIdx, showExtraOtModal.staffId, showExtraOtModal.baseOt, showExtraOtModal.requestedOt, extraOtReason );
+                            setShowExtraOtModal(null);
+                            setExtraOtReason('');
+                        }}
+                        disabled={!extraOtReason.trim()}
+                        className="w-full bg-indigo-600 text-white py-3.5 rounded-xl font-black text-xs sm:text-sm hover:bg-indigo-700 transition disabled:opacity-50 shadow-lg mt-2 uppercase tracking-widest"
+                    >
+                        ส่งคำขออนุมัติ
+                    </button>
+                </div>
              </div>
           </div>
         )}
@@ -3612,7 +3708,7 @@ export default function App() {
                                               </select>
                                               <div className={`w-full sm:flex-1 flex flex-row sm:flex-col justify-between sm:justify-center items-center border rounded-xl bg-white transition-all px-3 py-1 ${data.otHours >= slot.maxOtHours ? 'border-indigo-500 bg-indigo-50/20' : 'border-slate-200'}`}>
                                                  <span className="text-[8px] font-black text-slate-300 uppercase sm:mb-0.5">OT</span>
-                                                 <input type="number" step="0.5" value={data.otHours} onChange={(e) => handleScheduleUpdate(selectedDateStr, duty.id, idx, 'otHours', e.target.value)} onBlur={(e) => { handleScheduleUpdate(selectedDateStr, duty.id, idx, 'otHours', parseFloat(e.target.value) || 0); autoSaveSchedule(); }} className="w-12 sm:w-full text-right sm:text-center font-black text-sm outline-none bg-transparent focus:text-indigo-600" />
+                                                 <input type="number" step="0.5" value={data.otHours} onChange={(e) => handleScheduleUpdate(selectedDateStr, duty.id, idx, 'otHours', e.target.value)} onBlur={(e) => handleOtBlur(selectedDateStr, duty.id, idx, e.target.value, slot.maxOtHours, data.staffId)} className="w-12 sm:w-full text-right sm:text-center font-black text-sm outline-none bg-transparent focus:text-indigo-600" />
                                               </div>
                                               </div>
                                            </div>
