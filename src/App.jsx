@@ -5043,6 +5043,8 @@ export default function App() {
     );
   } else if (view === 'report') {
     mainContent = renderReportView();
+  } else if (view === 'requests') {
+    mainContent = activeBranchId ? renderRequestsView() : renderEmptyBranchAdmin();
   } else if (view === 'guide') {
     mainContent = renderGuideView();
   } else if (view === 'print') {
