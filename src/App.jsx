@@ -4791,26 +4791,22 @@ export default function App() {
                   </div>
               </div>
               
-              <div className={`grid grid-cols-1 md:grid-cols-2 ${ptLedger.eventExtras > 0 ? 'lg:grid-cols-3' : ''} gap-4 mt-2`}>
+              <div className={`grid grid-cols-1 ${dailyEventQuota > 0 ? 'md:grid-cols-2' : ''} gap-4 mt-2`}>
                   <div className="bg-slate-50 p-3 sm:p-4 rounded-xl border border-slate-100 flex flex-col gap-2">
                       <div className="flex justify-between items-end">
-                          <span className="text-[10px] sm:text-xs font-black text-slate-500 uppercase">งบตั้งต้น (Base Budget)</span>
-                          <span className="text-sm font-black text-slate-800">{usedBase.toFixed(1)} <span className="text-[10px] text-slate-400">/ {ptLedger.baseAllowance.toFixed(1)} ชม.</span></span>
-                      </div>
-                      <div className="h-2.5 sm:h-3 w-full bg-slate-200 rounded-full overflow-hidden"><div className={`h-full ${baseColor} transition-all duration-500 rounded-full`} style={{ width: `${Math.min(baseUsagePercent, 100)}%` }}></div></div>
-                  </div>
-                  <div className="bg-slate-50 p-3 sm:p-4 rounded-xl border border-slate-100 flex flex-col gap-2">
-                      <div className="flex justify-between items-end">
-                          <span className="text-[10px] sm:text-xs font-black text-slate-500 uppercase">คืนทุนคนลา (Leave Refunds)</span>
-                          <span className="text-sm font-black text-slate-800">{usedLeave.toFixed(1)} <span className="text-[10px] text-slate-400">/ {ptLedger.leaveRefunds.toFixed(1)} ชม.</span></span>
+                          <div className="flex flex-col">
+                              <span className="text-[10px] sm:text-xs font-black text-slate-500 uppercase">งบปกติ + ทุนคนลา (Base + Leave)</span>
+                              <span className="text-[9px] font-bold text-slate-400">Budget: {(ptLedger.baseAllowance || 0).toFixed(1)} ชม. | Leave: {(ptLedger.leaveRefunds || 0).toFixed(1)} ชม.</span>
+                          </div>
+                          <span className="text-sm font-black text-slate-800">{usedBaseAll.toFixed(1)} <span className="text-[10px] text-slate-400">/ {baseTotalAllowance.toFixed(1)} ชม.</span></span>
                       </div>
                       <div className="h-2.5 sm:h-3 w-full bg-slate-200 rounded-full overflow-hidden"><div className={`h-full ${leaveColor} transition-all duration-500 rounded-full`} style={{ width: `${Math.min(leaveUsagePercent, 100)}%` }}></div></div>
                   </div>
-                  {ptLedger.eventExtras > 0 && (
+                  {dailyEventQuota > 0 && (
                   <div className="bg-slate-50 p-3 sm:p-4 rounded-xl border border-amber-100 flex flex-col gap-2">
                       <div className="flex justify-between items-end">
                           <span className="text-[10px] sm:text-xs font-black text-amber-600 uppercase flex items-center gap-1"><Sparkles className="w-3 h-3"/> โควตาพิเศษ (Event)</span>
-                          <span className="text-sm font-black text-slate-800">{usedEvent.toFixed(1)} <span className="text-[10px] text-slate-400">/ {ptLedger.eventExtras.toFixed(1)} ชม.</span></span>
+                          <span className="text-sm font-black text-slate-800">{dailyEventUsed.toFixed(1)} <span className="text-[10px] text-slate-400">/ {dailyEventQuota.toFixed(1)} ชม.</span></span>
                       </div>
                       <div className="h-2.5 sm:h-3 w-full bg-slate-200 rounded-full overflow-hidden"><div className={`h-full ${eventColor} transition-all duration-500 rounded-full`} style={{ width: `${Math.min(eventUsagePercent, 100)}%` }}></div></div>
                   </div>
