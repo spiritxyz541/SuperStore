@@ -5112,14 +5112,14 @@ export default function App() {
                       </div>
                    )}
                    <div className="hidden sm:flex items-center ml-2">
-                       <button onClick={() => setShowRequestsModal(true)} className="relative p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition shadow-sm">
+                       <button onClick={() => { setView('requests'); setReqFilterStatus('PENDING'); setShowRequestsModal(false); }} className="relative p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition shadow-sm">
                            <Bell className="w-5 h-5 text-slate-600" />
                            {pendingRequests.filter(r => r.status === 'PENDING_MANAGER').length > 0 && <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>}
                        </button>
                    </div>
                    </div>
                    <div className="lg:hidden flex items-center gap-2">
-                      <button onClick={() => setShowRequestsModal(true)} className="relative p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition shadow-sm">
+                      <button onClick={() => { setView('requests'); setReqFilterStatus('PENDING'); setShowRequestsModal(false); }} className="relative p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition shadow-sm">
                           <Bell className="w-5 h-5 text-slate-600" />
                           {pendingRequests.filter(r => r.status === 'PENDING_MANAGER').length > 0 && <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>}
                       </button>
@@ -5141,6 +5141,7 @@ export default function App() {
                       {authRole === 'areamanager' && <button onClick={() => setView('area_dashboard')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'area_dashboard' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>ภาพรวมเขต (Dashboard)</button>}
                       <button onClick={() => setView('manager')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'manager' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>จัดตารางงาน</button>
                       <button onClick={() => setView('head_team')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'head_team' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>จัดบทบาทประจำวัน</button>
+                      <button onClick={() => setView('requests')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'requests' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>ประวัติใบงาน</button>
                       <button onClick={() => setView('report')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'report' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>รายงาน</button>
                       <button onClick={() => setView('admin')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'admin' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>ตั้งค่า</button>
                       <button onClick={() => setView('guide')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'guide' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>คู่มือ</button>
