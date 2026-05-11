@@ -4771,6 +4771,8 @@ export default function App() {
       const baseTotalAllowance = ptLedger.baseTotalAllowance;
       const usedEvent = ptLedger.usedEventHours;
       const eventExtras = ptLedger.eventExtras;
+      const dailyEventQuota = ptLedger.dailyEventQuota;
+      const dailyEventUsed = ptLedger.dailyEventUsed;
       
       const baseUsagePercent = baseTotalAllowance > 0 ? (usedBaseAll / baseTotalAllowance) * 100 : 0;
       const eventUsagePercent = eventExtras > 0 ? (usedEvent / eventExtras) * 100 : (usedEvent > 0 ? 100 : 0);
@@ -4800,7 +4802,7 @@ export default function App() {
                           </div>
                           <span className="text-sm font-black text-slate-800">{usedBaseAll.toFixed(1)} <span className="text-[10px] text-slate-400">/ {baseTotalAllowance.toFixed(1)} ชม.</span></span>
                       </div>
-                      <div className="h-2.5 sm:h-3 w-full bg-slate-200 rounded-full overflow-hidden"><div className={`h-full ${leaveColor} transition-all duration-500 rounded-full`} style={{ width: `${Math.min(leaveUsagePercent, 100)}%` }}></div></div>
+                      <div className="h-2.5 sm:h-3 w-full bg-slate-200 rounded-full overflow-hidden"><div className={`h-full ${baseColor} transition-all duration-500 rounded-full`} style={{ width: `${Math.min(baseUsagePercent, 100)}%` }}></div></div>
                   </div>
                   {dailyEventQuota > 0 && (
                   <div className="bg-slate-50 p-3 sm:p-4 rounded-xl border border-amber-100 flex flex-col gap-2">
