@@ -457,10 +457,6 @@ export default function App() {
   const [confirmModal, setConfirmModal] = useState(null);
   const [showRequestsModal, setShowRequestsModal] = useState(false);
 
-  const [reqFilterStaff, setReqFilterStaff] = useState('ALL');
-  const [reqFilterType, setReqFilterType] = useState('ALL');
-  const [reqFilterStatus, setReqFilterStatus] = useState('ALL');
-
   const [showExtraOtModal, setShowExtraOtModal] = useState(null);
   const [extraOtReason, setExtraOtReason] = useState('');
 
@@ -4219,7 +4215,7 @@ export default function App() {
                                                                 <div className="flex items-center gap-0.5 flex-shrink-0">
                                                                    <span className="text-[7px] font-black text-slate-400">OT:</span>
                                                                    {pendingExtraOt ? (
-                                                                       <span className="text-[7px] font-bold text-amber-600 bg-amber-50 px-1 rounded border border-amber-200 leading-tight">รออนุมัติ {pendingExtraOt.requestedOt}</span>
+                                                                       <span className="text-[7px] font-bold text-amber-600 bg-amber-50 px-1 rounded border border-amber-200 leading-tight text-center">รออนุมัติ<br/>{pendingExtraOt.requestedOt}</span>
                                                                    ) : (
                                                                        <input type="number" step="0.5" value={data.otHours} onChange={(e) => handleScheduleUpdate(day.dateStr, duty.id, idx, 'otHours', e.target.value)} onBlur={(e) => handleOtBlur(day.dateStr, duty.id, idx, e.target.value, matrixSlot.maxOtHours, data.staffId)} disabled={!data.staffId} className={`w-10 h-4 text-[8px] font-black text-center rounded outline-none transition-colors border ${data.otHours > 0 ? 'bg-indigo-100 border-indigo-200 text-indigo-700' : 'bg-white border-slate-200 text-slate-600 focus:border-indigo-400'} disabled:opacity-50`} />
                                                                    )}
@@ -4394,158 +4390,6 @@ export default function App() {
           </div>
        </div>
     );
-  }
-
-  function renderRequestsView() {
-      const filteredRequests = pendingRequests.filter(req => {
-          if (reqFilterStatus === 'PENDING') {
-              if (!['PENDING_MANAGER', 'PENDING_PEER'].includes(req.status)) return false;
-          } else if (reqFilterStatus === 'RESOLVED') {
-              if (['PENDING_MANAGER', 'PENDING_PEER'].includes(req.status)) return false;
-          } else if (reqFilterStatus !== 'ALL') {
-              if (req.status !== reqFilterStatus) return false;
-          }
-
-          if (reqFilterType !== 'ALL' && req.reqType !== reqFilterType) return false;
-          
-          if (reqFilterStaff !== 'ALL') {
-             if (req.reqType === 'SWAP') {
-                 if (req.staffId !== reqFilterStaff && req.targetStaffId !== reqFilterStaff) return false;
-             } else if (['EXTRA_PT', 'EXTRA_OT'].includes(req.reqType) && req.staffId === 'MANAGER') {
-                 if (reqFilterStaff !== 'MANAGER') return false;
-             } else {
-                 if (req.staffId !== reqFilterStaff) return false;
-             }
-          }
-          return true;
-      }).sort((a,b) => (b.resolvedAt || b.timestamp) - (a.resolvedAt || a.timestamp));
-
-      return (
-         <div className="flex-1 space-y-6 sm:space-y-10 animate-in fade-in duration-500 pb-24 w-full">
-            <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div className="flex items-center gap-4 sm:gap-6">
-                    <div className="bg-orange-100 p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem]"><Bell className="w-8 h-8 sm:w-10 sm:h-10 text-orange-500" /></div>
-                    <div>
-                        <h2 className="text-2xl sm:text-4xl font-black text-slate-800 tracking-tighter uppercase">ประวัติใบงาน (Requests)</h2>
-                        <p className="text-slate-400 text-xs sm:text-sm font-bold uppercase tracking-widest mt-1">รายการคำขออนุมัติทั้งหมด</p>
-                    </div>
-                </div>
-            </div>
-
-            <div className="bg-white p-6 sm:p-8 rounded-[2rem] border border-slate-200 shadow-sm flex flex-col gap-4 w-full">
-                <h3 className="text-sm font-black text-slate-700 flex items-center gap-2 uppercase tracking-widest"><Filter className="w-4 h-4"/> ตัวกรองใบงาน</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full">
-                    <div className="flex-1">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">พนักงาน (Staff)</label>
-                        <select value={reqFilterStaff} onChange={e => setReqFilterStaff(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold outline-none focus:border-indigo-500">
-                            <option value="ALL">-- ดูทั้งหมด (All Staff) --</option>
-                            <option value="MANAGER">ผู้จัดการสาขา (Manager)</option>
-                            {branchData.staff?.map(s => <option key={s.id} value={s.id}>{s.name} ({s.pos})</option>)}
-                        </select>
-                    </div>
-                    <div className="flex-1">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">ประเภทใบงาน (Type)</label>
-                        <select value={reqFilterType} onChange={e => setReqFilterType(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold outline-none focus:border-indigo-500">
-                            <option value="ALL">-- ดูทั้งหมด (All Types) --</option>
-                            <option value="EXTRA_OT">ขอ OT เกินโควตา</option>
-                            <option value="EXTRA_PT">ขอโควตา Event (PT)</option>
-                            <option value="LEAVE">ขอลาหยุด</option>
-                            <option value="SWAP">ขอสลับกะ</option>
-                        </select>
-                    </div>
-                    <div className="flex-1">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">สถานะ (Status)</label>
-                        <select value={reqFilterStatus} onChange={e => setReqFilterStatus(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold outline-none focus:border-indigo-500">
-                            <option value="ALL">-- ดูทั้งหมด (All Status) --</option>
-                            <option value="PENDING">รอตรวจสอบ (Pending)</option>
-                            <option value="APPROVED">✅ อนุมัติแล้ว (Approved)</option>
-                            <option value="REJECTED">❌ ปฏิเสธแล้ว (Rejected)</option>
-                            <option value="CANCELLED">🚫 ยกเลิกแล้ว (Cancelled)</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-
-            <div className="space-y-4">
-                {filteredRequests.length === 0 ? (
-                    <div className="text-center py-12 text-slate-400 font-bold text-sm bg-white rounded-[2rem] border-2 border-dashed border-slate-200 shadow-sm">ไม่พบรายการใบงานที่ตรงกับเงื่อนไข</div>
-                ) : (
-                    filteredRequests.map(req => {
-                        const staff = branchData.staff?.find(s => s.id === req.staffId);
-                        let detailHtml = null;
-                        if (req.reqType === 'SWAP') {
-                           const targetStaff = branchData.staff?.find(s => s.id === req.targetStaffId);
-                           detailHtml = (
-                             <div className="mt-3 text-xs font-bold text-slate-600 bg-indigo-50 p-4 rounded-xl border border-indigo-100">
-                               ขอสลับกะกับ <span className="text-indigo-700">{targetStaff?.name || 'Unknown'}</span> <br/>
-                               วันที่ <span className="text-indigo-700">{req.dateMy}</span> <ArrowLeftRight className="w-3 h-3 inline mx-1"/> วันที่ <span className="text-indigo-700">{req.datePeer}</span>
-                             </div>
-                           );
-                        } else if (req.reqType === 'EXTRA_OT') {
-                           detailHtml = (
-                             <div className="mt-3 text-xs font-bold text-slate-600 bg-rose-50 p-4 rounded-xl border border-rose-100">
-                               ขออนุมัติ OT เกินโควตา: <span className="text-rose-700 font-black">{req.requestedOt} ชม.</span> (จากเดิม {req.baseOt} ชม.) <br/>
-                               ประจำวันที่: <span className="text-rose-700">{req.dateStr}</span> <br/>
-                               เหตุผล: <span className="text-rose-700">{req.reason || '-'}</span>
-                             </div>
-                           );
-                        } else if (req.reqType === 'EXTRA_PT') {
-                           detailHtml = (
-                             <div className="mt-3 text-xs font-bold text-slate-600 bg-emerald-50 p-4 rounded-xl border border-emerald-100">
-                               ขอโควตาพิเศษ (Event): <span className="text-emerald-700 font-black">+{Number(req.requestedHours).toFixed(1)} ชม.</span> <br/>
-                               ประจำวันที่: <span className="text-emerald-700">{req.dateStr}</span> <br/>
-                               เหตุผล: <span className="text-emerald-700">{req.reason}</span> <br/>
-                               หลักฐาน: <span className="text-emerald-700">{req.evidence || '-'}</span> <br/>
-                               <span className="text-[10px] text-slate-400 font-normal mt-1 inline-block">(อ้างอิง Forecast: {req.forecastTc} บิล)</span>
-                             </div>
-                           );
-                        } else {
-                           const lType = LEAVE_TYPES.find(t => t.id === req.type);
-                           const dateObj = new Date(req.dateStr);
-                           detailHtml = (
-                             <div className="mt-3 text-xs font-bold text-slate-600 bg-slate-50 p-4 rounded-xl border border-slate-200">
-                               ขอหยุดวันที่: <span className="text-indigo-600">{dateObj.toLocaleDateString('th-TH', { dateStyle: 'medium'})}</span><br/>
-                               ประเภท: <span className={`px-2 py-0.5 rounded mt-2 inline-block ${lType?.color}`}>{lType?.label}</span>
-                             </div>
-                           );
-                        }
-
-                        return (
-                            <div key={req.id} className={`bg-white border-2 p-5 sm:p-6 rounded-[2rem] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-sm transition hover:shadow-md ${['APPROVED'].includes(req.status) ? 'border-emerald-100' : ['REJECTED'].includes(req.status) ? 'border-red-100' : ['CANCELLED'].includes(req.status) ? 'border-slate-100' : 'border-indigo-100'}`}>
-                                <div className="flex-1 w-full">
-                                    <h4 className="font-black text-slate-800 text-base sm:text-lg flex items-center gap-2">
-                                        {staff?.name || (['EXTRA_PT', 'EXTRA_OT'].includes(req.reqType) && !staff ? 'ผู้จัดการสาขา (Manager)' : 'Unknown Staff')} 
-                                        {staff && <span className="text-[10px] text-slate-500 bg-slate-100 px-2 py-1 rounded-lg border font-bold uppercase">{staff.pos}</span>}
-                                    </h4>
-                                    {detailHtml}
-                                </div>
-                                {['PENDING_MANAGER', 'PENDING_PEER'].includes(req.status) ? (
-                                    ['EXTRA_PT', 'EXTRA_OT'].includes(req.reqType) && authRole === 'branch' ? (
-                                        <div className="flex gap-2 w-full sm:w-auto mt-2 sm:mt-0">
-                                            <span className="flex-1 sm:flex-none text-xs font-bold text-amber-600 bg-amber-50 px-6 py-3 rounded-xl border border-amber-200 flex items-center justify-center whitespace-nowrap shadow-sm">รอผู้จัดการเขต (AM) อนุมัติ</span>
-                                            <button onClick={() => handleRejectRequest(req.id)} className="flex-1 sm:flex-none bg-white text-red-500 px-6 py-3 rounded-xl text-xs font-black hover:bg-red-50 hover:border-red-200 transition border border-slate-200 shadow-sm">ยกเลิกคำขอ</button>
-                                        </div>
-                                    ) : (
-                                        <div className="flex gap-2 w-full sm:w-auto mt-2 sm:mt-0">
-                                            <button onClick={() => handleManagerApproveRequest(req)} className="flex-1 sm:flex-none bg-emerald-500 text-white px-8 py-3.5 rounded-xl text-xs font-black hover:bg-emerald-600 transition shadow-lg shadow-emerald-200">อนุมัติ</button>
-                                            <button onClick={() => handleRejectRequest(req.id)} className="flex-1 sm:flex-none bg-white text-slate-500 border border-slate-200 px-8 py-3.5 rounded-xl text-xs font-black hover:bg-red-50 hover:text-red-500 hover:border-red-200 transition shadow-sm">ปฏิเสธ</button>
-                                        </div>
-                                    )
-                                ) : (
-                                    <div className="flex flex-col items-start sm:items-end gap-1.5 w-full sm:w-auto mt-2 sm:mt-0 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                                        {req.status === 'APPROVED' && <span className="text-xs font-black text-emerald-600 bg-emerald-100 px-4 py-1.5 rounded-lg border border-emerald-200 whitespace-nowrap">✅ อนุมัติแล้ว</span>}
-                                        {req.status === 'REJECTED' && <span className="text-xs font-black text-red-600 bg-red-100 px-4 py-1.5 rounded-lg border border-red-200 whitespace-nowrap">❌ ปฏิเสธแล้ว</span>}
-                                        {req.status === 'CANCELLED' && <span className="text-[10px] sm:text-xs font-black text-slate-500 bg-slate-200 px-4 py-1.5 rounded-lg border border-slate-300 whitespace-nowrap">🚫 ยกเลิกโดยสาขา</span>}
-                                        <span className="text-[10px] text-slate-400 font-bold ml-1 sm:ml-0">ทำรายการเมื่อ: {new Date(req.resolvedAt || req.timestamp).toLocaleString('th-TH', {dateStyle:'medium', timeStyle:'short'})}</span>
-                                    </div>
-                                )}
-                            </div>
-                        );
-                    })
-                )}
-            </div>
-         </div>
-      );
   }
 
   function renderRosterStyleSettings() {
@@ -5200,8 +5044,6 @@ export default function App() {
     );
   } else if (view === 'report') {
     mainContent = renderReportView();
-  } else if (view === 'requests') {
-    mainContent = activeBranchId ? renderRequestsView() : renderEmptyBranchAdmin();
   } else if (view === 'guide') {
     mainContent = renderGuideView();
   } else if (view === 'print') {
@@ -5269,16 +5111,16 @@ export default function App() {
                       </div>
                    )}
                    <div className="hidden sm:flex items-center ml-2">
-                       <button onClick={() => { setView('requests'); setReqFilterStatus('PENDING'); setShowRequestsModal(false); }} className="relative p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition shadow-sm">
+                       <button onClick={() => setShowRequestsModal(true)} className="relative p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition shadow-sm">
                            <Bell className="w-5 h-5 text-slate-600" />
-                           {pendingRequests.filter(r => r.status === 'PENDING_MANAGER').length > 0 && <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>}
+                           {pendingRequests.filter(r => r.reqType !== 'SWAP' || r.status === 'PENDING_MANAGER').length > 0 && <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>}
                        </button>
                    </div>
                    </div>
                    <div className="lg:hidden flex items-center gap-2">
-                      <button onClick={() => { setView('requests'); setReqFilterStatus('PENDING'); setShowRequestsModal(false); }} className="relative p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition shadow-sm">
+                      <button onClick={() => setShowRequestsModal(true)} className="relative p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition shadow-sm">
                           <Bell className="w-5 h-5 text-slate-600" />
-                          {pendingRequests.filter(r => r.status === 'PENDING_MANAGER').length > 0 && <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>}
+                          {pendingRequests.filter(r => r.reqType !== 'SWAP' || r.status === 'PENDING_MANAGER').length > 0 && <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>}
                       </button>
                       <button onClick={() => {setAuthRole('guest'); setView('manager');}} className="text-slate-400 p-2 bg-slate-100 rounded-lg"><LogIn className="w-4 h-4 rotate-180" /></button>
                    </div>
@@ -5298,7 +5140,6 @@ export default function App() {
                       {authRole === 'areamanager' && <button onClick={() => setView('area_dashboard')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'area_dashboard' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>ภาพรวมเขต (Dashboard)</button>}
                       <button onClick={() => setView('manager')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'manager' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>จัดตารางงาน</button>
                       <button onClick={() => setView('head_team')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'head_team' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>จัดบทบาทประจำวัน</button>
-                      <button onClick={() => setView('requests')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'requests' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>ประวัติใบงาน</button>
                       <button onClick={() => setView('report')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'report' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>รายงาน</button>
                       <button onClick={() => setView('admin')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'admin' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>ตั้งค่า</button>
                       <button onClick={() => setView('guide')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'guide' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>คู่มือ</button>
