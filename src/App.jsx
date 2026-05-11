@@ -1162,6 +1162,43 @@ export default function App() {
     });
   };
 
+  const handleAddExtraSlot = (dateStr, dutyId, matrixSlots, isEventExtra) => {
+    setSchedule(prev => {
+      const newSched = JSON.parse(JSON.stringify(prev));
+      if (!newSched[dateStr]) newSched[dateStr] = { duties: {}, leaves: [] };
+      if (!newSched[dateStr].duties) newSched[dateStr].duties = {};
+      if (!newSched[dateStr].duties[dutyId]) newSched[dateStr].duties[dutyId] = [];
+
+      const currentAssigned = newSched[dateStr].duties[dutyId];
+      
+      // เติมช่องว่างให้ครบตามโครงสร้างกะงาน (Matrix) ก่อนเพิ่ม Extra
+      while (currentAssigned.length < matrixSlots.length) {
+          currentAssigned.push({ staffId: "", otHours: 0 });
+      }
+
+      currentAssigned.push({
+          staffId: "",
+          otHours: 0,
+          isEventExtra: isEventExtra,
+          shiftPresetId: branchData.shiftPresets?.[0]?.id || 'S1'
+      });
+
+      if (activeBranchId) autoSaveSchedule(newSched);
+      return newSched;
+    });
+  };
+
+  const handleRemoveExtraSlot = (dateStr, dutyId, slotIdx) => {
+    setSchedule(prev => {
+      const newSched = JSON.parse(JSON.stringify(prev));
+      if (newSched[dateStr] && newSched[dateStr].duties && newSched[dateStr].duties[dutyId]) {
+          newSched[dateStr].duties[dutyId].splice(slotIdx, 1);
+      }
+      if (activeBranchId) autoSaveSchedule(newSched);
+      return newSched;
+    });
+  };
+
   const handleLeaveChange = useCallback((dateStr, leaveType, selectedStaffIds) => {
     setSchedule(prev => {
         const newSched = JSON.parse(JSON.stringify(prev));
