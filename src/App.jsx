@@ -3976,7 +3976,8 @@ export default function App() {
          const isEvening = stHour >= 16 && stHour < 19;
          const isNight = stHour >= 19;
          const timeText = `${formatTimeAbbreviation(startTime)}-${formatTimeAbbreviation(endTime)}`;
-         const otBadge = assignedData.otHours > 0 ? ` (O${assignedData.otHours})` : '';
+         const pendingExtraOt = pendingRequests.find(r => r.reqType === 'EXTRA_OT' && r.dateStr === selectedDateStr && r.dutyId === duty.id && r.slotIdx === originalIdx && r.status === 'PENDING_MANAGER');
+         const otBadge = pendingExtraOt ? ` (รออนุมัติ ${pendingExtraOt.requestedOt} ชม.)` : (assignedData.otHours > 0 ? ` (O${assignedData.otHours})` : '');
 
          return (
             <tr key={`${duty.id}-${originalIdx}`} className={`text-center h-10 sm:h-12 border border-slate-800 ${cat.color.split(' ')[0]} ${cat.color.split(' ')[1]}`}>
