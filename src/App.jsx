@@ -3517,6 +3517,7 @@ export default function App() {
                             const assigned = schedule[selectedDateStr]?.duties?.[duty.id] || [];
                             const reqArr = Array.isArray(duty.reqPos) ? duty.reqPos : [duty.reqPos || 'ALL'];
                             const displayPos = (reqArr.includes('ALL') || reqArr.length === 0) ? 'ALL POS' : reqArr.join(', ');
+                            const allowsPT = reqArr.includes('ALL') || reqArr.some(r => r.includes('PT'));
 
                             const totalSlotsCount = Math.max(slots.length, assigned.length);
                             if (totalSlotsCount === 0) return null;
@@ -3548,7 +3549,7 @@ export default function App() {
                                   <div className="p-5 sm:p-6 bg-white border-b border-slate-100 flex flex-col gap-2">
                                      <div className="flex justify-between items-start w-full gap-2">
                                         <h3 className="font-black text-slate-900 text-sm sm:text-base uppercase tracking-tighter leading-tight break-words">{duty.jobA}</h3>
-                                        {['branch', 'superadmin', 'areamanager'].includes(authRole) && (
+                                        {['branch', 'superadmin', 'areamanager'].includes(authRole) && allowsPT && (
                                            <div className="flex flex-col gap-1 items-end">
                                               <button onClick={() => handleAddExtraSlot(selectedDateStr, duty.id, slots, false)} className="bg-slate-100 text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 px-3 py-1.5 rounded-lg text-[9px] font-black transition-colors flex items-center gap-1 shadow-sm whitespace-nowrap">+ Extra (Base)</button>
                                               {dailyEventQuota > 0 && (
@@ -3605,6 +3606,7 @@ export default function App() {
                                                  {branchData.staff?.filter(s => s.dept === activeDept).map(s => {
                                                     const isUsed = usedStaffIds.includes(s.id) && data.staffId !== s.id;
                                                     const wrongPos = !checkPositionEligibility(s.pos, reqArr, activeDept) && data.staffId !== s.id;
+                                                    if (isExtra && !s.pos.includes('PT')) return null;
                                                     return (isUsed || wrongPos) ? null : <option key={s.id} value={s.id}>{s.name} ({s.pos})</option>
                                                  })}
                                               </select>
