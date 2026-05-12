@@ -4118,7 +4118,22 @@ export default function App() {
                )}
                {isFirstOfDuty && (
                   <React.Fragment>
-                     <td rowSpan={dutySlotCount} className="border border-slate-800 p-2 font-black text-left leading-tight" style={{ fontSize: `${rs.fontJobA || rs.fontSize}px` }}>{duty.jobA}</td>
+                     <td rowSpan={dutySlotCount} className="border border-slate-800 p-2 text-left leading-tight bg-white/40" style={{ fontSize: `${rs.fontJobA || rs.fontSize}px` }}>
+                        <div className="font-black text-slate-900">{duty.jobA}</div>
+                        {duty.prepItems && duty.prepItems.length > 0 && (
+                            <div className="mt-2 flex flex-col gap-1.5">
+                                {duty.prepItems.map(p => (
+                                    <div key={p.id} className="bg-amber-50 border border-amber-200 rounded px-2 py-1.5 text-[8px] sm:text-[9px] leading-tight shadow-sm">
+                                        <div className="font-black text-amber-800 mb-0.5 flex items-center gap-1"><TrendingUp className="w-2.5 h-2.5"/> {p.name}</div>
+                                        <div className="flex justify-between text-slate-600 font-bold bg-white px-1.5 py-0.5 rounded border border-amber-100">
+                                            <span>เช้า: <span className="text-amber-600 font-black">{(p.multiplier * morningTc).toFixed(1)} {p.unit}</span></span>
+                                            <span>บ่าย: <span className="text-indigo-600 font-black">{(p.multiplier * afternoonTc).toFixed(1)} {p.unit}</span></span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                     </td>
                      <td rowSpan={dutySlotCount} className="border border-slate-800 p-2 text-left leading-tight opacity-80" style={{ fontSize: `${rs.fontJobB || (rs.fontSize * 0.8)}px` }}>{duty.jobB}</td>
                      <td rowSpan={dutySlotCount} className="border border-slate-800 p-2 font-black" style={{ fontSize: `${rs.fontCount || (rs.fontSize * 1.2)}px` }}><u className="underline-offset-2">{dutySlotCount}</u></td>
                   </React.Fragment>
