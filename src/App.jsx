@@ -3275,8 +3275,20 @@ export default function App() {
                <div className="space-y-4 mb-6 sm:mb-10 w-full">
                  <div className="flex flex-col gap-2 sm:gap-4">
                     <div className="flex flex-col xl:flex-row gap-2 sm:gap-4">
-                      <textarea placeholder="หน้าที่หลัก (เช่น ต้อนรับหน้าร้าน)" rows="2" className="flex-[2] border-2 border-slate-100 rounded-xl px-4 py-3 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none resize-y" value={newDutyJobA} onChange={e => setNewDutyJobA(e.target.value)} />
-                      <textarea placeholder="หน้าที่รอง (เช่น เคลียร์โต๊ะ)" rows="2" className="flex-1 border-2 border-slate-100 rounded-xl px-4 py-3 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none resize-y" value={newDutyJobB} onChange={e => setNewDutyJobB(e.target.value)} />
+                        <div className="flex-[2] flex flex-col shadow-sm rounded-xl border border-slate-200">
+                            {renderRichTextToolbar('new-duty-job-a', newDutyJobA, setNewDutyJobA)}
+                            <div className="flex flex-col md:flex-row border-t border-slate-200 bg-white rounded-b-xl overflow-hidden">
+                                <textarea id="new-duty-job-a" placeholder="หน้าที่หลัก (เช่น ต้อนรับหน้าร้าน)" value={newDutyJobA} onChange={e => setNewDutyJobA(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleFormatContent('<br>', '', e.target.id, newDutyJobA, setNewDutyJobA); } }} className="w-full md:w-1/2 p-3 text-xs sm:text-sm font-bold outline-none resize-y border-b md:border-b-0 md:border-r border-slate-200 min-h-[100px]"></textarea>
+                                <div className="w-full md:w-1/2 p-3 bg-slate-50 text-xs sm:text-sm text-slate-700 overflow-y-auto" dangerouslySetInnerHTML={{ __html: newDutyJobA || '<span class="text-slate-400 italic">ตัวอย่าง...</span>' }}></div>
+                            </div>
+                        </div>
+                        <div className="flex-1 flex flex-col shadow-sm rounded-xl border border-slate-200">
+                            {renderRichTextToolbar('new-duty-job-b', newDutyJobB, setNewDutyJobB)}
+                            <div className="flex flex-col md:flex-row border-t border-slate-200 bg-white rounded-b-xl overflow-hidden">
+                                <textarea id="new-duty-job-b" placeholder="หน้าที่รอง (เช่น เคลียร์โต๊ะ)" value={newDutyJobB} onChange={e => setNewDutyJobB(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleFormatContent('<br>', '', e.target.id, newDutyJobB, setNewDutyJobB); } }} className="w-full md:w-1/2 p-3 text-xs sm:text-sm font-bold outline-none resize-y border-b md:border-b-0 md:border-r border-slate-200 min-h-[100px]"></textarea>
+                                <div className="w-full md:w-1/2 p-3 bg-slate-50 text-xs sm:text-sm text-slate-700 overflow-y-auto" dangerouslySetInnerHTML={{ __html: newDutyJobB || '<span class="text-slate-400 italic">ตัวอย่าง...</span>' }}></div>
+                            </div>
+                        </div>
                     </div>
                     <div className="flex flex-col xl:flex-row gap-2 sm:gap-4">
                       <input type="text" placeholder="XP-DNA SOP" className="flex-[2] border-2 border-slate-100 rounded-xl px-4 py-3 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none" value={newDutyXpDna} onChange={e => setNewDutyXpDna(e.target.value)} />
@@ -3304,11 +3316,23 @@ export default function App() {
                     )}
                     {editingDutyId === duty.id ? (
                        <div className="flex-1 flex flex-col gap-2">
-                         <div className="flex flex-col sm:flex-row gap-2">
-                            <textarea value={editDutyData.jobA} onChange={e => setEditDutyData({...editDutyData, jobA: e.target.value})} rows="2" className="border rounded px-3 py-2 text-[10px] sm:text-xs flex-1 font-bold outline-none focus:border-indigo-500 resize-y"/>
-                            <textarea value={editDutyData.jobB} onChange={e => setEditDutyData({...editDutyData, jobB: e.target.value})} rows="2" className="border rounded px-3 py-2 text-[10px] sm:text-xs flex-1 font-bold outline-none focus:border-indigo-500 resize-y"/>
-                          </div>
-                         <div className="flex flex-col shadow-sm rounded-xl border border-slate-200 w-full mt-1">
+                           <div className="flex flex-col sm:flex-row gap-2">
+                               <div className="flex-1 flex flex-col shadow-sm rounded-xl border border-slate-200">
+                                   {renderRichTextToolbar(`edit-duty-job-a-${duty.id}`, editDutyData.jobA || '', (val) => setEditDutyData({...editDutyData, jobA: val}))}
+                                   <div className="flex flex-col md:flex-row border-t border-slate-200 bg-white rounded-b-xl overflow-hidden">
+                                       <textarea id={`edit-duty-job-a-${duty.id}`} value={editDutyData.jobA || ''} onChange={e => setEditDutyData({...editDutyData, jobA: e.target.value})} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleFormatContent('<br>', '', e.target.id, editDutyData.jobA || '', (val) => setEditDutyData({...editDutyData, jobA: val})); } }} className="w-full md:w-1/2 p-3 text-[10px] sm:text-xs font-bold outline-none resize-y border-b md:border-b-0 md:border-r border-slate-200 min-h-[100px]"></textarea>
+                                       <div className="w-full md:w-1/2 p-3 bg-slate-50 text-[10px] sm:text-xs text-slate-700 overflow-y-auto" dangerouslySetInnerHTML={{ __html: editDutyData.jobA || '<span class="text-slate-400 italic">ตัวอย่าง...</span>' }}></div>
+                                   </div>
+                               </div>
+                               <div className="flex-1 flex flex-col shadow-sm rounded-xl border border-slate-200">
+                                   {renderRichTextToolbar(`edit-duty-job-b-${duty.id}`, editDutyData.jobB || '', (val) => setEditDutyData({...editDutyData, jobB: val}))}
+                                   <div className="flex flex-col md:flex-row border-t border-slate-200 bg-white rounded-b-xl overflow-hidden">
+                                       <textarea id={`edit-duty-job-b-${duty.id}`} value={editDutyData.jobB || ''} onChange={e => setEditDutyData({...editDutyData, jobB: e.target.value})} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleFormatContent('<br>', '', e.target.id, editDutyData.jobB || '', (val) => setEditDutyData({...editDutyData, jobB: val})); } }} className="w-full md:w-1/2 p-3 text-[10px] sm:text-xs font-bold outline-none resize-y border-b md:border-b-0 md:border-r border-slate-200 min-h-[100px]"></textarea>
+                                       <div className="w-full md:w-1/2 p-3 bg-slate-50 text-[10px] sm:text-xs text-slate-700 overflow-y-auto" dangerouslySetInnerHTML={{ __html: editDutyData.jobB || '<span class="text-slate-400 italic">ตัวอย่าง...</span>' }}></div>
+                                   </div>
+                               </div>
+                           </div>
+                           <div className="flex flex-col shadow-sm rounded-xl border border-slate-200 w-full mt-1">
                             {renderRichTextToolbar(`edit-duty-xp-dna-${duty.id}`, editDutyData.xpDna || '', (val) => setEditDutyData({...editDutyData, xpDna: val}))}
                             <div className="flex flex-col md:flex-row border-t border-slate-200 bg-white rounded-b-xl overflow-hidden min-h-[100px]">
                                 <textarea id={`edit-duty-xp-dna-${duty.id}`} placeholder="XP-DNA SOP... (รองรับ HTML)" value={editDutyData.xpDna || ''} onChange={e => setEditDutyData({...editDutyData, xpDna: e.target.value})} className="w-full md:w-1/2 p-3 text-[10px] sm:text-xs font-medium outline-none focus:border-indigo-500 resize-y border-b md:border-b-0 md:border-r border-slate-200 min-h-[100px]"></textarea>
