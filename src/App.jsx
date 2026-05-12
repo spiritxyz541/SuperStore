@@ -1358,6 +1358,18 @@ export default function App() {
       if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd);
   };
 
+  const handleUpdateHourlyTc = (cycleKey, hour, value) => {
+    setBranchData(prev => {
+        const nd = JSON.parse(JSON.stringify(prev));
+        if (!nd.matrix[cycleKey]) nd.matrix[cycleKey] = { duties: {} };
+        if (!nd.matrix[cycleKey].hourlyTc) {
+            nd.matrix[cycleKey].hourlyTc = {};
+        }
+        nd.matrix[cycleKey].hourlyTc[hour] = parseInt(value) || 0;
+        return nd;
+    });
+  };
+
   const handleAutoAssignDayOffs = async () => {
       const nd = JSON.parse(JSON.stringify(branchData));
       const limits = nd.dayOffLimits; // Now { service: {...}, kitchen: {...} }
@@ -4558,6 +4570,8 @@ export default function App() {
   function renderMatrixSettings() {
     if (!branchData.matrix) return null;
 
+    const hours = ['09', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '22', '23', '00', '01', '02', '03', '04'];
+
     return (
        <div className="space-y-6 sm:space-y-8 w-full mt-6 sm:mt-10 print:hidden">
          <h2 className="text-xl sm:text-2xl font-black text-slate-800 px-2 uppercase tracking-tighter flex items-center gap-3 sm:gap-4"><Clock className="w-6 h-6 sm:w-8 sm:h-8 text-indigo-600" /> โครงสร้างกะงานฝั่ง: {activeDept === 'service' ? 'บริการ' : 'ครัว'}</h2>
@@ -4650,6 +4664,26 @@ export default function App() {
                  </tbody>
                </table>
              </div>
+             {authRole === 'superadmin' && (
+                <div className="p-6 sm:p-10 border-t border-slate-100 bg-slate-50/50">
+                    <h3 className="text-sm font-black text-slate-700 uppercase tracking-widest mb-4">พยากรณ์ TC รายชั่วโมง</h3>
+                    <div className="grid grid-cols-5 sm:grid-cols-10 gap-3">
+                        {hours.map(hour => (
+                            <div key={hour} className="bg-white p-2 rounded-lg border border-slate-200 shadow-sm">
+                                <label className="text-[9px] font-bold text-slate-500 block text-center mb-1">{hour}:00</label>
+                                <input 
+                                    type="number"
+                                    value={data.hourlyTc?.[hour] || ''}
+                                    onChange={(e) => handleUpdateHourlyTc(key, hour, e.target.value)}
+                                    onBlur={async () => { if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }}
+                                    className="w-full border-t border-slate-100 pt-1 text-center font-bold text-sm outline-none focus:bg-indigo-50"
+                                    placeholder="0"
+                                />
+                            </div>
+                        ))}
+                    </div>
+                </div>
+             )}
            </div>
          ))}
        </div>
