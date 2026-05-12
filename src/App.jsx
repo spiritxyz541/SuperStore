@@ -3275,8 +3275,8 @@ export default function App() {
                <div className="space-y-4 mb-6 sm:mb-10 w-full">
                  <div className="flex flex-col gap-2 sm:gap-4">
                     <div className="flex flex-col xl:flex-row gap-2 sm:gap-4">
-                      <input type="text" placeholder="หน้าที่หลัก (เช่น ต้อนรับหน้าร้าน)" className="flex-[2] border-2 border-slate-100 rounded-xl px-4 py-3 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none" value={newDutyJobA} onChange={e => setNewDutyJobA(e.target.value)} />
-                      <input type="text" placeholder="หน้าที่รอง (เช่น เคลียร์โต๊ะ)" className="flex-1 border-2 border-slate-100 rounded-xl px-4 py-3 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none" value={newDutyJobB} onChange={e => setNewDutyJobB(e.target.value)} />
+                      <textarea placeholder="หน้าที่หลัก (เช่น ต้อนรับหน้าร้าน)" rows="2" className="flex-[2] border-2 border-slate-100 rounded-xl px-4 py-3 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none resize-y" value={newDutyJobA} onChange={e => setNewDutyJobA(e.target.value)} />
+                      <textarea placeholder="หน้าที่รอง (เช่น เคลียร์โต๊ะ)" rows="2" className="flex-1 border-2 border-slate-100 rounded-xl px-4 py-3 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none resize-y" value={newDutyJobB} onChange={e => setNewDutyJobB(e.target.value)} />
                     </div>
                     <div className="flex flex-col xl:flex-row gap-2 sm:gap-4">
                       <input type="text" placeholder="XP-DNA SOP" className="flex-[2] border-2 border-slate-100 rounded-xl px-4 py-3 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none" value={newDutyXpDna} onChange={e => setNewDutyXpDna(e.target.value)} />
@@ -3305,8 +3305,8 @@ export default function App() {
                     {editingDutyId === duty.id ? (
                        <div className="flex-1 flex flex-col gap-2">
                          <div className="flex flex-col sm:flex-row gap-2">
-                            <input type="text" value={editDutyData.jobA} onChange={e => setEditDutyData({...editDutyData, jobA: e.target.value})} className="border rounded px-3 py-2 text-[10px] sm:text-xs flex-1 font-bold outline-none focus:border-indigo-500"/>
-                            <input type="text" value={editDutyData.jobB} onChange={e => setEditDutyData({...editDutyData, jobB: e.target.value})} className="border rounded px-3 py-2 text-[10px] sm:text-xs flex-1 font-bold outline-none focus:border-indigo-500"/>
+                            <textarea value={editDutyData.jobA} onChange={e => setEditDutyData({...editDutyData, jobA: e.target.value})} rows="2" className="border rounded px-3 py-2 text-[10px] sm:text-xs flex-1 font-bold outline-none focus:border-indigo-500 resize-y"/>
+                            <textarea value={editDutyData.jobB} onChange={e => setEditDutyData({...editDutyData, jobB: e.target.value})} rows="2" className="border rounded px-3 py-2 text-[10px] sm:text-xs flex-1 font-bold outline-none focus:border-indigo-500 resize-y"/>
                           </div>
                          <div className="flex flex-col shadow-sm rounded-xl border border-slate-200 w-full mt-1">
                             {renderRichTextToolbar(`edit-duty-xp-dna-${duty.id}`, editDutyData.xpDna || '', (val) => setEditDutyData({...editDutyData, xpDna: val}))}
