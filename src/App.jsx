@@ -3349,6 +3349,26 @@ export default function App() {
                                 <div className="w-full md:w-1/2 p-3 bg-slate-50 text-[10px] sm:text-xs text-slate-600 overflow-y-auto whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: editDutyData.xpDna || '<span class="text-slate-400 italic font-bold">แสดงผลตัวอย่าง (Preview)...</span>' }}></div>
                             </div>
                          </div>
+                         
+                         <div className="flex flex-col bg-amber-50/50 p-3 rounded-xl border border-amber-100 gap-2 w-full mt-2">
+                            <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest">🎯 สูตรเป้าหมายการเตรียมของ (อิงตามยอด TC)</span>
+                            <div className="flex gap-2">
+                                <input type="text" placeholder="ชื่อวัตถุดิบ/งาน" value={editPrepName} onChange={e=>setEditPrepName(e.target.value)} className="flex-[2] border border-slate-200 rounded-lg px-2 py-1.5 text-[10px] font-bold outline-none focus:border-amber-500" />
+                                <input type="number" placeholder="ปริมาณ / TC" value={editPrepMultiplier} onChange={e=>setEditPrepMultiplier(e.target.value)} className="flex-1 border border-slate-200 rounded-lg px-2 py-1.5 text-[10px] font-bold outline-none focus:border-amber-500" />
+                                <input type="text" placeholder="หน่วย" value={editPrepUnit} onChange={e=>setEditPrepUnit(e.target.value)} className="flex-1 border border-slate-200 rounded-lg px-2 py-1.5 text-[10px] font-bold outline-none focus:border-amber-500" />
+                                <button onClick={() => { if(editPrepName && editPrepMultiplier) { setEditDutyData({...editDutyData, prepItems: [...(editDutyData.prepItems || []), { id: 'P'+Date.now(), name: editPrepName, multiplier: parseFloat(editPrepMultiplier)||0, unit: editPrepUnit }]}); setEditPrepName(''); setEditPrepMultiplier(''); } }} className="bg-amber-500 hover:bg-amber-600 text-white px-2 py-1.5 rounded-lg text-[10px] font-black shadow-sm transition">เพิ่ม</button>
+                            </div>
+                            {(editDutyData.prepItems || []).length > 0 && (
+                                <div className="flex flex-wrap gap-2 mt-1">
+                                    {(editDutyData.prepItems || []).map(p => (
+                                        <div key={p.id} className="bg-white text-amber-700 px-2 py-1 rounded border border-amber-200 text-[9px] font-black flex items-center gap-1 shadow-sm">
+                                            {p.name} : {p.multiplier} {p.unit}/TC
+                                            <button onClick={() => setEditDutyData({...editDutyData, prepItems: editDutyData.prepItems.filter(x => x.id !== p.id)})} className="text-amber-500 hover:text-red-500 ml-1"><X className="w-2 h-2"/></button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                         </div>
                          <div className="flex gap-2 items-center flex-wrap mt-1">
                             <select value={editDutyData.category} onChange={e => setEditDutyData({...editDutyData, category: e.target.value})} className="border rounded px-2 py-2 text-[10px] sm:text-xs font-bold outline-none focus:border-indigo-500 flex-1 min-w-[120px]">
                                 {DUTY_CATEGORIES[activeDept]?.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
@@ -3375,6 +3395,11 @@ export default function App() {
                               {duty.jobB}
                               {duty.xpDna && <span className="ml-2 px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded border border-indigo-100">XP-DNA</span>}
                            </div>
+                          {(duty.prepItems || []).length > 0 && (
+                             <div className="flex flex-wrap gap-1 mt-1.5">
+                                 {duty.prepItems.map(p => <span key={p.id} className="text-[7px] sm:text-[8px] bg-amber-50 text-amber-700 px-1.5 py-0.5 border border-amber-200 rounded font-black shadow-sm">{p.name} ({p.multiplier}{p.unit})</span>)}
+                             </div>
+                          )}
                          </div>
                          {authRole === 'superadmin' && (
                            <div className="flex gap-1 sm:gap-2">
