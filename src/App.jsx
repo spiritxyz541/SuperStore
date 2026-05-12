@@ -492,6 +492,13 @@ export default function App() {
   const [newDutyReqPos, setNewDutyReqPos] = useState(['ALL']); 
   const [newDutyCategory, setNewDutyCategory] = useState('FOH_STAFF');
   const [newDutyIsBackup, setNewDutyIsBackup] = useState(false);
+  const [newDutyPrepItems, setNewDutyPrepItems] = useState([]);
+  const [newPrepName, setNewPrepName] = useState('');
+  const [newPrepMultiplier, setNewPrepMultiplier] = useState('');
+  const [newPrepUnit, setNewPrepUnit] = useState('กก.');
+  const [editPrepName, setEditPrepName] = useState('');
+  const [editPrepMultiplier, setEditPrepMultiplier] = useState('');
+  const [editPrepUnit, setEditPrepUnit] = useState('กก.');
   const [editingDutyId, setEditingDutyId] = useState(null);
   const [editDutyData, setEditDutyData] = useState({});
   const [editingShiftPresetId, setEditingShiftPresetId] = useState(null);
@@ -1281,7 +1288,7 @@ export default function App() {
   const handleAddDuty = () => {
     if (!newDutyJobA.trim()) return;
     const newId = (activeDept === 'service' ? 'D' : 'K') + Date.now();
-    const newDuty = { id: newId, category: newDutyCategory, jobA: newDutyJobA.trim(), jobB: newDutyJobB.trim() || '-', xpDna: newDutyXpDna.trim(), reqPos: newDutyReqPos, isBackup: newDutyIsBackup };
+    const newDuty = { id: newId, category: newDutyCategory, jobA: newDutyJobA.trim(), jobB: newDutyJobB.trim() || '-', xpDna: newDutyXpDna.trim(), reqPos: newDutyReqPos, isBackup: newDutyIsBackup, prepItems: newDutyPrepItems };
     setBranchData(prev => {
       const nd = JSON.parse(JSON.stringify(prev));
       if (!nd.duties) nd.duties = { service: DEFAULT_SERVICE_DUTIES, kitchen: DEFAULT_KITCHEN_DUTIES };
@@ -1293,7 +1300,7 @@ export default function App() {
       });
       return nd;
     });
-    setNewDutyJobA(''); setNewDutyJobB(''); setNewDutyXpDna(''); setNewDutyReqPos(['ALL']); setNewDutyIsBackup(false);
+    setNewDutyJobA(''); setNewDutyJobB(''); setNewDutyXpDna(''); setNewDutyReqPos(['ALL']); setNewDutyIsBackup(false); setNewDutyPrepItems([]); setNewPrepName(''); setNewPrepMultiplier(''); setNewPrepUnit('กก.');
   };
 
   const handleEditDutySave = () => {
