@@ -2735,9 +2735,7 @@ export default function App() {
                         );
                     }
 
-                    const dayTypeMap = { 'weekday': 'baseTcWeekday', 'friday': 'baseTcFriday', 'weekend': 'baseTcWeekend' };
-                    const configKey = dayTypeMap[activeDay.type];
-                    const baseTc = branchData.ptConfig?.[configKey] || 0;
+                   const baseTc = Object.values(branchData.matrix?.[activeDay.type]?.hourlyTc || {}).reduce((sum, val) => sum + (parseInt(val) || 0), 0);
                     const baseMh = getBaseManHours(activeDay.type);
                     const ratio = baseTc > 0 ? (baseMh / baseTc) : 0;
                     
@@ -3488,17 +3486,20 @@ export default function App() {
            
            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-8 mb-4 border-b border-slate-100 pb-2">ตั้งค่าฐานยอดขาย (Base TC) สำหรับระบบ Forecast (อัตราส่วน Man-Hour)</h3>
            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+              <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100 relative overflow-hidden">
                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">Base TC (วันธรรมดา จ.-พฤ.)</label>
-                 <input type="text" inputMode="numeric" disabled={authRole !== 'superadmin'} value={branchData.ptConfig?.baseTcWeekday === 0 ? '' : (branchData.ptConfig?.baseTcWeekday ?? '')} onChange={(e) => handleUpdatePtConfig('baseTcWeekday', e.target.value.replace(/[^0-9.]/g, ''))} onBlur={(e) => handleSavePtConfig('baseTcWeekday', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 disabled:bg-white" placeholder="เช่น 100" />
+                 <input type="text" disabled value={Object.values(branchData.matrix?.weekday?.hourlyTc || {}).reduce((a, b) => a + (parseInt(b) || 0), 0)} className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-black outline-none bg-slate-100 text-slate-500" />
+                 <span className="absolute top-4 right-4 text-[8px] font-bold bg-indigo-100 text-indigo-600 px-2 py-1 rounded uppercase tracking-widest">Auto from CYCLE</span>
               </div>
-              <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+              <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100 relative overflow-hidden">
                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">Base TC (วันศุกร์)</label>
-                 <input type="text" inputMode="numeric" disabled={authRole !== 'superadmin'} value={branchData.ptConfig?.baseTcFriday === 0 ? '' : (branchData.ptConfig?.baseTcFriday ?? '')} onChange={(e) => handleUpdatePtConfig('baseTcFriday', e.target.value.replace(/[^0-9.]/g, ''))} onBlur={(e) => handleSavePtConfig('baseTcFriday', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 disabled:bg-white" placeholder="เช่น 120" />
+                 <input type="text" disabled value={Object.values(branchData.matrix?.friday?.hourlyTc || {}).reduce((a, b) => a + (parseInt(b) || 0), 0)} className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-black outline-none bg-slate-100 text-slate-500" />
+                 <span className="absolute top-4 right-4 text-[8px] font-bold bg-indigo-100 text-indigo-600 px-2 py-1 rounded uppercase tracking-widest">Auto from CYCLE</span>
               </div>
-              <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+              <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100 relative overflow-hidden">
                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">Base TC (วันหยุด/นักขัตฤกษ์)</label>
-                 <input type="text" inputMode="numeric" disabled={authRole !== 'superadmin'} value={branchData.ptConfig?.baseTcWeekend === 0 ? '' : (branchData.ptConfig?.baseTcWeekend ?? '')} onChange={(e) => handleUpdatePtConfig('baseTcWeekend', e.target.value.replace(/[^0-9.]/g, ''))} onBlur={(e) => handleSavePtConfig('baseTcWeekend', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 disabled:bg-white" placeholder="เช่น 150" />
+                 <input type="text" disabled value={Object.values(branchData.matrix?.weekend?.hourlyTc || {}).reduce((a, b) => a + (parseInt(b) || 0), 0)} className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-black outline-none bg-slate-100 text-slate-500" />
+                 <span className="absolute top-4 right-4 text-[8px] font-bold bg-indigo-100 text-indigo-600 px-2 py-1 rounded uppercase tracking-widest">Auto from CYCLE</span>
               </div>
            </div>
        </div>
