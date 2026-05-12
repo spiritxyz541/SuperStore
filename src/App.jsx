@@ -3562,13 +3562,33 @@ export default function App() {
   
           <div className="bg-white p-6 sm:p-12 rounded-[2rem] sm:rounded-[4rem] border border-slate-200 shadow-sm flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 sm:gap-10 relative overflow-hidden print:hidden w-full mb-6">
              <div className="absolute top-0 left-0 w-2 sm:w-4 h-full bg-indigo-600"></div>
-             <div>
+             <div className="flex-1">
                 <h2 className="text-3xl sm:text-5xl font-black text-slate-900 tracking-tighter leading-tight sm:leading-none mb-3 sm:mb-5">{new Date(selectedDateStr + "T00:00:00").toLocaleDateString('th-TH', { month: 'long', day: 'numeric', year: 'numeric', weekday: 'long' })}</h2>
                 <div className="flex flex-wrap items-center gap-2 sm:gap-4">
                    <div className="flex items-center gap-2 bg-slate-900 text-white px-3 sm:px-5 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl shadow-lg"><Store className="w-3 h-3 sm:w-4 sm:h-4 text-emerald-400" /> <span className="text-[10px] sm:text-xs font-black uppercase tracking-widest sm:tracking-[0.1em] truncate max-w-[150px] sm:max-w-none">{globalConfig.branches?.find(b=>b.id===activeBranchId)?.name}</span></div>
                    <span className={`text-[9px] sm:text-[11px] font-black px-3 sm:px-5 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl border-2 uppercase tracking-widest shadow-sm ${activeDay.type === 'weekday' ? 'bg-slate-100 text-slate-700 border-slate-200' : activeDay.type === 'friday' ? 'bg-sky-50 text-sky-700 border-sky-100' : 'bg-orange-50 text-orange-700 border-orange-100'}`}>{branchData.matrix?.[activeDay.type]?.name || activeDay.type.toUpperCase()}</span>
                 </div>
              </div>
+             
+             {(() => {
+                 const hourlyTcData = branchData.matrix?.[activeDay.type]?.hourlyTc || {};
+                 let morningTc = 0; let afternoonTc = 0;
+                 ['09', '10', '11', '12'].forEach(h => morningTc += parseInt(hourlyTcData[h]) || 0);
+                 ['13', '14', '15', '16', '17', '18', '19', '20', '21', '22'].forEach(h => afternoonTc += parseInt(hourlyTcData[h]) || 0);
+                 
+                 return (
+                     <div className="flex gap-2 sm:gap-4 w-full xl:w-auto mt-4 xl:mt-0">
+                         <div className="bg-amber-50 border border-amber-200 p-3 sm:p-4 rounded-[1.5rem] flex-1 flex flex-col justify-center items-center xl:items-start text-center xl:text-left min-w-[120px]">
+                             <span className="text-[9px] sm:text-[10px] font-black text-amber-500 uppercase tracking-widest">เตรียมกะเช้า (09-13)</span>
+                             <span className="text-xl sm:text-2xl font-black text-amber-700 mt-1">{morningTc} <span className="text-[10px] sm:text-xs text-amber-500">TC</span></span>
+                         </div>
+                         <div className="bg-indigo-50 border border-indigo-200 p-3 sm:p-4 rounded-[1.5rem] flex-1 flex flex-col justify-center items-center xl:items-start text-center xl:text-left min-w-[120px]">
+                             <span className="text-[9px] sm:text-[10px] font-black text-indigo-500 uppercase tracking-widest">เตรียมกะบ่าย (13-22)</span>
+                             <span className="text-xl sm:text-2xl font-black text-indigo-700 mt-1">{afternoonTc} <span className="text-[10px] sm:text-xs text-indigo-500">TC</span></span>
+                         </div>
+                     </div>
+                 );
+             })()}
           </div>
   
           <div className="bg-white rounded-[2rem] sm:rounded-[3.5rem] border-2 border-dashed border-slate-200 p-6 sm:p-12 shadow-sm print:hidden w-full mb-6">
@@ -3773,6 +3793,12 @@ export default function App() {
         headlineSize: 24, subHeadlineSize: 14, headerFontSize: 10,
         fontDuty: 10, fontXpDna: 8, fontJobA: 10, fontJobB: 8, fontCount: 12, fontName: 10, fontShift: 10, fontBreak: 10
     };
+
+    const hourlyTcData = branchData.matrix?.[activeDay.type]?.hourlyTc || {};
+    let morningTc = 0;
+    let afternoonTc = 0;
+    ['09', '10', '11', '12'].forEach(h => morningTc += parseInt(hourlyTcData[h]) || 0);
+    ['13', '14', '15', '16', '17', '18', '19', '20', '21', '22'].forEach(h => afternoonTc += parseInt(hourlyTcData[h]) || 0);
 
     const allTrs = [];
     const breakTracker = {};
@@ -4132,9 +4158,31 @@ export default function App() {
              <div className="p-4 sm:p-8 overflow-x-auto w-full">
                 {dailyViewMode === 'roster' ? (
                   <React.Fragment>
+                <div className="grid grid-cols-2 gap-4 mb-6 print:hidden">
+                   <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex items-center justify-between shadow-sm">
+                       <div>
+                           <div className="text-[10px] sm:text-xs font-black text-amber-600 uppercase tracking-widest mb-1">เป้าหมายเตรียมของ กะเช้า (09:00-13:00)</div>
+                           <div className="text-2xl sm:text-3xl font-black text-amber-700">{morningTc} <span className="text-sm">บิล (TC)</span></div>
+                       </div>
+                       <UtensilsCrossed className="w-8 h-8 text-amber-300 opacity-50" />
+                   </div>
+                   <div className="bg-indigo-50 border border-indigo-200 p-4 rounded-2xl flex items-center justify-between shadow-sm">
+                       <div>
+                           <div className="text-[10px] sm:text-xs font-black text-indigo-600 uppercase tracking-widest mb-1">เป้าหมายเตรียมของ กะบ่าย (13:00-22:00)</div>
+                           <div className="text-2xl sm:text-3xl font-black text-indigo-700">{afternoonTc} <span className="text-sm">บิล (TC)</span></div>
+                       </div>
+                       <UtensilsCrossed className="w-8 h-8 text-indigo-300 opacity-50" />
+                   </div>
+                </div>
+
                 <div className="text-center mb-6">
                    <h1 className="font-black uppercase tracking-tighter" style={{ fontSize: `${rs.headlineSize || 24}px` }}>แผนงานประจำวัน{activeDept === 'service' ? 'แผนกบริการ (FOH)' : 'แผนกครัว (BOH)'}</h1>
                    <p className="font-bold text-slate-600 mt-2" style={{ fontSize: `${rs.subHeadlineSize || 14}px` }}>วัน{activeDay.dayLabel} ที่ <span className="underline underline-offset-4">{activeDay.dayNum}</span> เดือน <span className="underline underline-offset-4">{THAI_MONTHS[selectedMonth]}</span> พ.ศ. <span className="underline underline-offset-4">{selectedYear + 543}</span></p>
+                   <div className="mt-4 flex flex-col sm:flex-row justify-center items-center gap-2 sm:gap-6 font-black text-[10px] sm:text-xs border-y border-slate-200 py-2 w-max mx-auto print:flex bg-slate-50 px-6 rounded-lg">
+                       <span className="text-amber-600 uppercase tracking-widest">🎯 เป้าเตรียมกะเช้า (09-13น.): <span className="text-sm sm:text-base">{morningTc} TC</span></span>
+                       <span className="text-slate-300 hidden sm:inline">|</span>
+                       <span className="text-indigo-600 uppercase tracking-widest">🎯 เป้าเตรียมกะบ่าย (13-22น.): <span className="text-sm sm:text-base">{afternoonTc} TC</span></span>
+                   </div>
                 </div>
                 <table className="w-full table-fixed border-collapse border-2 border-slate-800 min-w-[1100px] bg-white print:min-w-0" style={{ fontSize: `${rs.fontSize}px` }}>
                    <thead>
