@@ -500,6 +500,7 @@ export default function App() {
   const [editPrepName, setEditPrepName] = useState('');
   const [editPrepMultiplier, setEditPrepMultiplier] = useState('');
   const [editPrepUnit, setEditPrepUnit] = useState('กก.');
+  const [editPrepTarget, setEditPrepTarget] = useState('ALL');
   const [editingDutyId, setEditingDutyId] = useState(null);
   const [editDutyData, setEditDutyData] = useState({});
   const [editingShiftPresetId, setEditingShiftPresetId] = useState(null);
@@ -3480,16 +3481,32 @@ export default function App() {
                                 <input type="text" placeholder="ชื่อวัตถุดิบ/งาน" value={editPrepName} onChange={e=>setEditPrepName(e.target.value)} className="flex-[2] border border-slate-200 rounded-lg px-2 py-1.5 text-[10px] font-bold outline-none focus:border-amber-500" />
                                 <input type="number" placeholder="ปริมาณ / TC" value={editPrepMultiplier} onChange={e=>setEditPrepMultiplier(e.target.value)} className="flex-1 border border-slate-200 rounded-lg px-2 py-1.5 text-[10px] font-bold outline-none focus:border-amber-500" />
                                 <input type="text" placeholder="หน่วย" value={editPrepUnit} onChange={e=>setEditPrepUnit(e.target.value)} className="flex-1 border border-slate-200 rounded-lg px-2 py-1.5 text-[10px] font-bold outline-none focus:border-amber-500" />
-                                <button onClick={() => { if(editPrepName && editPrepMultiplier) { setEditDutyData({...editDutyData, prepItems: [...(editDutyData.prepItems || []), { id: 'P'+Date.now(), name: editPrepName, multiplier: parseFloat(editPrepMultiplier)||0, unit: editPrepUnit }]}); setEditPrepName(''); setEditPrepMultiplier(''); } }} className="bg-amber-500 hover:bg-amber-600 text-white px-2 py-1.5 rounded-lg text-[10px] font-black shadow-sm transition">เพิ่ม</button>
+                                <select value={editPrepTarget} onChange={e=>setEditPrepTarget(e.target.value)} className="flex-1 border border-slate-200 rounded-lg px-2 py-1.5 text-[10px] font-bold outline-none focus:border-amber-500 bg-white">
+                                    <option value="ALL">ทุกกะ</option>
+                                    {(() => {
+                                        let prepGoals = branchData.matrix?.weekday?.prepGoals;
+                                        if (!prepGoals) prepGoals = [{ id: 'prep_1', name: 'กะเช้า' }, { id: 'prep_2', name: 'กะบ่าย' }];
+                                        else if (!Array.isArray(prepGoals)) prepGoals = [{ id: 'prep_1', name: 'กะเช้า' }, { id: 'prep_2', name: 'กะบ่าย' }];
+                                        return prepGoals.map(g => <option key={g.id} value={g.id}>{g.name}</option>);
+                                    })()}
+                                </select>
+                                <button onClick={() => { if(editPrepName && editPrepMultiplier) { setEditDutyData({...editDutyData, prepItems: [...(editDutyData.prepItems || []), { id: 'P'+Date.now(), name: editPrepName, multiplier: parseFloat(editPrepMultiplier)||0, unit: editPrepUnit, target: editPrepTarget }]}); setEditPrepName(''); setEditPrepMultiplier(''); setEditPrepTarget('ALL'); } }} className="bg-amber-500 hover:bg-amber-600 text-white px-2 py-1.5 rounded-lg text-[10px] font-black shadow-sm transition">เพิ่ม</button>
                             </div>
                             {(editDutyData.prepItems || []).length > 0 && (
                                 <div className="flex flex-wrap gap-2 mt-1">
-                                    {(editDutyData.prepItems || []).map(p => (
+                                    {(editDutyData.prepItems || []).map(p => {
+                                        let targetName = 'ทุกกะ';
+                                        if (p.target && p.target !== 'ALL') {
+                                            let pg = branchData.matrix?.weekday?.prepGoals;
+                                            if (!Array.isArray(pg)) pg = [{ id: 'prep_1', name: 'กะเช้า' }, { id: 'prep_2', name: 'กะบ่าย' }];
+                                            targetName = `เฉพาะ ${pg.find(g=>g.id === p.target)?.name || p.target}`;
+                                        }
+                                        return (
                                         <div key={p.id} className="bg-white text-amber-700 px-2 py-1 rounded border border-amber-200 text-[9px] font-black flex items-center gap-1 shadow-sm">
-                                            {p.name} : {p.multiplier} {p.unit}/TC
+                                            {p.name} : {p.multiplier} {p.unit}/TC {p.target && p.target !== 'ALL' ? `(${targetName})` : ''}
                                             <button onClick={() => setEditDutyData({...editDutyData, prepItems: editDutyData.prepItems.filter(x => x.id !== p.id)})} className="text-amber-500 hover:text-red-500 ml-1"><X className="w-2 h-2"/></button>
                                         </div>
-                                    ))}
+                                    )})}
                                 </div>
                             )}
                          </div>
@@ -3521,7 +3538,15 @@ export default function App() {
                            </div>
                           {(duty.prepItems || []).length > 0 && (
                              <div className="flex flex-wrap gap-1 mt-1.5">
-                                 {duty.prepItems.map(p => <span key={p.id} className="text-[7px] sm:text-[8px] bg-amber-50 text-amber-700 px-1.5 py-0.5 border border-amber-200 rounded font-black shadow-sm">{p.name} ({p.multiplier}{p.unit})</span>)}
+                                 {duty.prepItems.map(p => {
+                                     let targetName = '';
+                                     if (p.target && p.target !== 'ALL') {
+                                         let pg = branchData.matrix?.weekday?.prepGoals;
+                                         if (!Array.isArray(pg)) pg = [{ id: 'prep_1', name: 'กะเช้า' }, { id: 'prep_2', name: 'กะบ่าย' }];
+                                         targetName = ` [${pg.find(g=>g.id === p.target)?.name || 'เฉพาะกะ'}]`;
+                                     }
+                                     return <span key={p.id} className="text-[7px] sm:text-[8px] bg-amber-50 text-amber-700 px-1.5 py-0.5 border border-amber-200 rounded font-black shadow-sm">{p.name} ({p.multiplier}{p.unit}){targetName}</span>
+                                 })}
                              </div>
                           )}
                          </div>
@@ -4335,17 +4360,20 @@ export default function App() {
                         <div className="font-black text-slate-900 whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: duty.jobA }}></div>
                         {duty.prepItems && duty.prepItems.length > 0 && (
                             <div className="mt-2 flex flex-col gap-1.5">
-                                {duty.prepItems.map(p => (
+                                {duty.prepItems.map(p => {
+                                    const filteredGoals = goalsData.filter(g => !p.target || p.target === 'ALL' || p.target === g.id);
+                                    if (filteredGoals.length === 0) return null;
+                                    return (
                                     <div key={p.id} className="bg-amber-50 border border-amber-200 rounded px-2 py-1.5 text-[8px] sm:text-[9px] leading-tight shadow-sm">
                                         <div className="font-black text-amber-800 mb-0.5 flex items-center gap-1"><TrendingUp className="w-2.5 h-2.5"/> {p.name}</div>
                                         <div className="flex flex-wrap gap-x-2 gap-y-1 text-slate-600 font-bold bg-white px-1.5 py-1 rounded border border-amber-100">
-                                            {goalsData.map((g, i) => {
+                                            {filteredGoals.map((g, i) => {
                                                 const colorClass = colors[i % colors.length].text1;
                                                 return <span key={g.id}>{g.name}: <span className={`${colorClass} font-black`}>{(p.multiplier * g.tc).toFixed(1)} {p.unit}</span></span>
                                             })}
                                         </div>
                                     </div>
-                                ))}
+                                )})}
                             </div>
                         )}
                      </td>
