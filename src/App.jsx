@@ -650,6 +650,42 @@ export default function App() {
       const staffMap = {};
       (branchData.staff || []).forEach(s => staffMap[s.id] = s);
 
+      let vacancyCompensations = 0;
+      const compHoursPerDayService = branchData.ptConfig?.compHoursPerDayService ?? 8;
+      const compHoursPerDayKitchen = branchData.ptConfig?.compHoursPerDayKitchen ?? 8;
+
+      let targetFtHeadcountService = 0;
+      DUTY_CATEGORIES.service.forEach(cat => {
+          const limit = branchData.staffLimits?.[cat.id];
+          if (limit) targetFtHeadcountService += parseInt(limit, 10);
+      });
+      let targetFtHeadcountKitchen = 0;
+      DUTY_CATEGORIES.kitchen.forEach(cat => {
+          const limit = branchData.staffLimits?.[cat.id];
+          if (limit) targetFtHeadcountKitchen += parseInt(limit, 10);
+      });
+
+      CALENDAR_DAYS.forEach(day => {
+           let activeFtCountService = 0;
+           let activeFtCountKitchen = 0;
+           (branchData.staff || []).forEach(s => {
+               if (s.pos.includes('PT')) return; 
+               if (s.isActive === false && !s.resignDate) return; 
+               
+               const started = !s.startDate || s.startDate <= day.dateStr;
+               const notResignedYet = !s.resignDate || s.resignDate >= day.dateStr;
+               
+               if (started && notResignedYet) {
+                   if (s.dept === 'service') activeFtCountService++;
+                   if (s.dept === 'kitchen') activeFtCountKitchen++;
+               }
+           });
+           const gapService = Math.max(0, targetFtHeadcountService - activeFtCountService);
+           const gapKitchen = Math.max(0, targetFtHeadcountKitchen - activeFtCountKitchen);
+           
+           vacancyCompensations += (gapService * compHoursPerDayService) + (gapKitchen * compHoursPerDayKitchen);
+      });
+
       Object.keys(schedule).forEach(dateStr => {
           const [yStr, mStr] = dateStr.split('-');
           if (parseInt(mStr, 10) - 1 !== selectedMonth || parseInt(yStr, 10) !== selectedYear) return;
@@ -3701,7 +3737,7 @@ export default function App() {
 
        <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm w-full mt-6 sm:mt-10 print:hidden">
            <h2 className="text-lg sm:text-xl font-black text-slate-800 mb-6 sm:mb-8 flex items-center gap-2 sm:gap-4 uppercase tracking-tighter"><TrendingUp className="w-6 h-6 sm:w-7 sm:h-7 text-emerald-500" /> ข้อมูลสาขาและงบประมาณ (Branch Configs)</h2>
-           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
               <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">จำนวนโต๊ะ (Total Tables)</label>
                  <input type="number" inputMode="numeric" disabled={authRole !== 'superadmin'} value={branchData.totalTables || ''} onChange={(e) => setBranchData(prev => ({...prev, totalTables: parseInt(e.target.value) || 0}))} onBlur={async () => { if(activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" placeholder="เช่น 30" />
@@ -3711,12 +3747,16 @@ export default function App() {
                  <input type="text" inputMode="numeric" disabled={authRole !== 'superadmin'} value={branchData.ptConfig?.monthlyBudget === 0 ? '' : (branchData.ptConfig?.monthlyBudget ?? '')} onChange={(e) => handleUpdatePtConfig('monthlyBudget', e.target.value.replace(/[^0-9.]/g, ''))} onBlur={(e) => handleSavePtConfig('monthlyBudget', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-indigo-700 disabled:opacity-70 disabled:bg-white" placeholder="เช่น 20000" />
               </div>
               <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
-                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">อัตราค่าจ้าง PT ต่อชั่วโมง (บาท)</label>
+                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">อัตราค่าจ้าง PT ต่อชม. (บาท)</label>
                  <input type="text" inputMode="numeric" disabled={authRole !== 'superadmin'} value={branchData.ptConfig?.hourlyRate === 0 ? '' : (branchData.ptConfig?.hourlyRate ?? '')} onChange={(e) => handleUpdatePtConfig('hourlyRate', e.target.value.replace(/[^0-9.]/g, ''))} onBlur={(e) => handleSavePtConfig('hourlyRate', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-emerald-600 disabled:opacity-70 disabled:bg-white" placeholder="เช่น 50" />
               </div>
               <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
-                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">อัตราทดแทนคนขาด (ชม. / คน / วัน)</label>
-                 <input type="text" inputMode="numeric" disabled={authRole !== 'superadmin'} value={branchData.ptConfig?.compHoursPerDay === 0 ? '' : (branchData.ptConfig?.compHoursPerDay ?? 8)} onChange={(e) => handleUpdatePtConfig('compHoursPerDay', e.target.value.replace(/[^0-9.]/g, ''))} onBlur={(e) => handleSavePtConfig('compHoursPerDay', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-sky-600 disabled:opacity-70 disabled:bg-white" placeholder="ค่าเริ่มต้น 8 ชม." />
+                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">อัตราทดแทน (บริการ) ชม./คน/วัน</label>
+                 <input type="text" inputMode="numeric" disabled={authRole !== 'superadmin'} value={branchData.ptConfig?.compHoursPerDayService === 0 ? '' : (branchData.ptConfig?.compHoursPerDayService ?? 8)} onChange={(e) => handleUpdatePtConfig('compHoursPerDayService', e.target.value.replace(/[^0-9.]/g, ''))} onBlur={(e) => handleSavePtConfig('compHoursPerDayService', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-sky-600 disabled:opacity-70 disabled:bg-white" placeholder="ค่าเริ่มต้น 8" />
+              </div>
+              <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">อัตราทดแทน (ครัว) ชม./คน/วัน</label>
+                 <input type="text" inputMode="numeric" disabled={authRole !== 'superadmin'} value={branchData.ptConfig?.compHoursPerDayKitchen === 0 ? '' : (branchData.ptConfig?.compHoursPerDayKitchen ?? 8)} onChange={(e) => handleUpdatePtConfig('compHoursPerDayKitchen', e.target.value.replace(/[^0-9.]/g, ''))} onBlur={(e) => handleSavePtConfig('compHoursPerDayKitchen', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-orange-600 disabled:opacity-70 disabled:bg-white" placeholder="ค่าเริ่มต้น 8" />
               </div>
            </div>
            <p className="text-[10px] text-slate-400 font-bold mt-4">* ระบบจะนำยอดเงินมาหารเป็นชั่วโมงโควตาตั้งต้น สำหรับบริหารจัดการ Part-Time ในกระเป๋าชั่วโมง (PT Ledger)</p>
