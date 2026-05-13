@@ -6001,6 +6001,37 @@ export default function App() {
                                                      else val = p.multiplier * g.tc;
                                                      let displayVal = val % 1 === 0 ? val.toString() : val.toFixed(1);
 
+                                                     let preparerNames = [];
+                                                     const assignedSlots = schedule[selectedDateStr]?.duties?.[duty.id] || [];
+                                                     const matrixSlots = branchData.matrix?.[activeDay.type]?.duties?.[duty.id] || [];
+                                                     assignedSlots.forEach((asg, aIdx) => {
+                                                         if (asg && asg.staffId) {
+                                                             const mSlot = matrixSlots[aIdx];
+                                                             const presetId = asg.shiftPresetId || mSlot?.shiftPresetId;
+                                                             const shiftPreset = branchData.shiftPresets?.find(preset => preset.id === presetId);
+                                                             const actualStaffId = asg.staffId.startsWith('COVER_BY_') ? asg.staffId.replace('COVER_BY_', '') : asg.staffId;
+                                                             const staff = branchData.staff?.find(s => s.id === actualStaffId);
+                                                             if (staff && shiftPreset) {
+                                                                 const timings = getShiftTimesForStaff(staff.pos, shiftPreset);
+                                                                 const stHour = parseInt(timings.startTime.split(':')[0], 10) || 0;
+                                                                 let matched = false;
+                                                                 if (g.name.includes('เช้า') && stHour < 12) {
+                                                                     matched = true;
+                                                                 } else if ((g.name.includes('บ่าย') || g.name.includes('เย็น')) && stHour >= 12) {
+                                                                     matched = true;
+                                                                 } else {
+                                                                     const gStart = parseInt(g.start, 10) || 0;
+                                                                     const gEnd = parseInt(g.end, 10) || 24;
+                                                                     if (stHour >= gStart && stHour <= gEnd) {
+                                                                         matched = true;
+                                                                     }
+                                                                 }
+                                                                 if (matched) preparerNames.push(staff.name);
+                                                             }
+                                                         }
+                                                     });
+                                                     preparerNames = [...new Set(preparerNames)];
+
                                                      return (
                                                          <tr key={`${duty.id}-${p.id}-${g.id}`} className="hover:bg-slate-50 transition-colors">
                                                              {pIdx === 0 && gIdx === 0 && (
@@ -6016,8 +6047,12 @@ export default function App() {
                                                              <td className="border border-slate-800 p-3 text-center font-black text-emerald-600 text-lg bg-emerald-50/30">
                                                                  {displayVal} <span className="text-xs font-bold text-slate-500">{p.unit}</span>
                                                              </td>
-                                                             <td className="border border-slate-800 p-3">
-                                                                 <div className="w-full h-8 border-b-2 border-dotted border-slate-300"></div>
+                                                             <td className="border border-slate-800 p-3 text-center align-middle">
+                                                                 {preparerNames.length > 0 ? (
+                                                                     <div className="font-bold text-indigo-700 text-sm">{preparerNames.join(', ')}</div>
+                                                                 ) : (
+                                                                     <div className="w-full h-8 border-b-2 border-dotted border-slate-300"></div>
+                                                                 )}
                                                              </td>
                                                              <td className="border border-slate-800 p-3">
                                                                  <div className="w-full h-8 border-b-2 border-dotted border-slate-300"></div>
