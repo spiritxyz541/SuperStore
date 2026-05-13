@@ -457,6 +457,9 @@ export default function App() {
   const [confirmModal, setConfirmModal] = useState(null);
   const [showRequestsModal, setShowRequestsModal] = useState(false);
   const [requestTab, setRequestTab] = useState('pending');
+  const [reqHistoryFilterType, setReqHistoryFilterType] = useState('ALL');
+  const [reqHistoryFilterMonth, setReqHistoryFilterMonth] = useState('ALL');
+  const [reqHistoryFilterDate, setReqHistoryFilterDate] = useState('');
 
   const [showExtraOtModal, setShowExtraOtModal] = useState(null);
   const [extraOtReason, setExtraOtReason] = useState('');
@@ -2688,11 +2691,50 @@ export default function App() {
                       </div>
                   )
                   ) : (
-                      pendingRequests.filter(r => r.status === 'APPROVED' || r.status === 'REJECTED').length === 0 ? (
-                          <div className="text-center py-10 text-slate-400 font-bold text-sm bg-slate-50 rounded-2xl border border-slate-100">ยังไม่มีประวัติใบงาน</div>
-                      ) : (
-                          <div className="space-y-3">
-                              {pendingRequests.filter(r => r.status === 'APPROVED' || r.status === 'REJECTED').sort((a,b) => (b.updatedTimestamp || 0) - (a.updatedTimestamp || 0)).map(req => {
+                      (() => {
+                          let historyList = pendingRequests.filter(r => r.status === 'APPROVED' || r.status === 'REJECTED');
+                          
+                          if (reqHistoryFilterType !== 'ALL') {
+                              historyList = historyList.filter(r => r.reqType === reqHistoryFilterType || (reqHistoryFilterType === 'LEAVE' && !['SWAP', 'EXTRA_OT', 'EXTRA_PT'].includes(r.reqType)));
+                          }
+                          if (reqHistoryFilterMonth !== 'ALL') {
+                              historyList = historyList.filter(r => {
+                                  if (!r.dateStr) return false;
+                                  const m = parseInt(r.dateStr.split('-')[1], 10) - 1;
+                                  return m === parseInt(reqHistoryFilterMonth, 10);
+                              });
+                          }
+                          if (reqHistoryFilterDate !== '') {
+                              historyList = historyList.filter(r => r.dateStr === reqHistoryFilterDate);
+                          }
+                          
+                          historyList = historyList.sort((a,b) => (b.updatedTimestamp || 0) - (a.updatedTimestamp || 0));
+
+                          return (
+                              <div className="flex flex-col gap-3 h-full">
+                                  <div className="flex flex-wrap gap-2 bg-slate-50 p-3 rounded-xl border border-slate-100 flex-shrink-0">
+                                      <select value={reqHistoryFilterType} onChange={e => setReqHistoryFilterType(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 outline-none bg-white text-slate-700 font-bold">
+                                          <option value="ALL">ทุกประเภท</option>
+                                          <option value="LEAVE">ลาหยุด</option>
+                                          <option value="SWAP">สลับกะ</option>
+                                          <option value="EXTRA_PT">โควตาพิเศษ (Event)</option>
+                                          <option value="EXTRA_OT">OT ส่วนเกิน</option>
+                                      </select>
+                                      <select value={reqHistoryFilterMonth} onChange={e => setReqHistoryFilterMonth(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 outline-none bg-white text-slate-700 font-bold">
+                                          <option value="ALL">ทุกเดือน</option>
+                                          {THAI_MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
+                                      </select>
+                                      <input type="date" value={reqHistoryFilterDate} onChange={e => setReqHistoryFilterDate(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 outline-none bg-white text-slate-700 font-bold w-full sm:w-auto" />
+                                      {(reqHistoryFilterType !== 'ALL' || reqHistoryFilterMonth !== 'ALL' || reqHistoryFilterDate !== '') && (
+                                          <button onClick={() => { setReqHistoryFilterType('ALL'); setReqHistoryFilterMonth('ALL'); setReqHistoryFilterDate(''); }} className="text-[10px] text-rose-500 hover:bg-rose-50 px-2 py-1 rounded-lg transition font-black ml-auto border border-transparent hover:border-rose-100">ล้างตัวกรอง</button>
+                                      )}
+                                  </div>
+                                  
+                                  {historyList.length === 0 ? (
+                                      <div className="text-center py-10 text-slate-400 font-bold text-sm bg-slate-50 rounded-2xl border border-slate-100">ไม่พบประวัติใบงานที่ตรงกับตัวกรอง</div>
+                                  ) : (
+                                      <div className="space-y-3">
+                                          {historyList.map(req => {
                                   const staff = branchData.staff?.find(s => s.id === req.staffId);
                                   const isSwap = req.reqType === 'SWAP';
                                   let detailHtml = null;
@@ -2741,8 +2783,11 @@ export default function App() {
                                   );
                               })}
                           </div>
-                      )
-                  )}
+                      )}
+                    </div>
+                  );
+              })()
+          )}
                </div>
              </div>
           </div>
@@ -5628,14 +5673,14 @@ export default function App() {
                    <div className="hidden sm:flex items-center ml-2">
                        <button onClick={() => setShowRequestsModal(true)} className="relative p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition shadow-sm">
                            <Bell className="w-5 h-5 text-slate-600" />
-                           {pendingRequests.filter(r => r.reqType !== 'SWAP' || r.status === 'PENDING_MANAGER').length > 0 && <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>}
+                           {pendingRequests.some(r => r.status === 'PENDING_MANAGER') && <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>}
                        </button>
                    </div>
                    </div>
                    <div className="lg:hidden flex items-center gap-2">
                       <button onClick={() => setShowRequestsModal(true)} className="relative p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition shadow-sm">
                           <Bell className="w-5 h-5 text-slate-600" />
-                          {pendingRequests.filter(r => r.reqType !== 'SWAP' || r.status === 'PENDING_MANAGER').length > 0 && <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>}
+                          {pendingRequests.some(r => r.status === 'PENDING_MANAGER') && <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>}
                       </button>
                       <button onClick={() => {setAuthRole('guest'); setView('manager');}} className="text-slate-400 p-2 bg-slate-100 rounded-lg"><LogIn className="w-4 h-4 rotate-180" /></button>
                    </div>
