@@ -5949,29 +5949,38 @@ export default function App() {
              <div className="text-center mb-8 print:block">
                 <h1 className="text-2xl font-black uppercase tracking-tighter text-slate-800">ใบสรุปเป้าหมายการเตรียมของ (PREP LIST)</h1>
                 <p className="font-bold text-slate-600 mt-2 text-sm">วัน{activeDay.dayLabel} ที่ <span className="underline underline-offset-4">{activeDay.dayNum}</span> เดือน <span className="underline underline-offset-4">{THAI_MONTHS[selectedMonth]}</span> พ.ศ. <span className="underline underline-offset-4">{selectedYear + 543}</span> | สาขา: {globalConfig.branches?.find(b=>b.id===activeBranchId)?.name}</p>
-                <div className="mt-4 flex flex-wrap justify-center items-center gap-4 font-black text-xs border-y border-slate-200 py-3 w-max mx-auto bg-slate-50 px-6 rounded-lg">
-                    {goalsData.map((g, i) => (
-                        <span key={g.id} className="text-emerald-700 uppercase tracking-widest">🎯 เป้าเตรียม{g.name} ({g.start}-{parseInt(g.end)+1}น.): <span className="text-sm">{g.tc} TC</span></span>
-                    ))}
-                </div>
              </div>
 
              {dutiesWithPrep.length === 0 ? (
                  <div className="text-center p-10 border-2 border-dashed border-slate-200 rounded-2xl text-slate-400 font-bold">ไม่มีรายการที่ต้องเตรียมของในแผนกนี้</div>
              ) : (
-                 <div className="space-y-6">
-                     {DUTY_CATEGORIES[activeDept].map(cat => {
-                         const catDuties = dutiesWithPrep.filter(d => d.category === cat.id);
-                         if (catDuties.length === 0) return null;
+                 <div className="space-y-8">
+                     {goalsData.map(g => {
+                         const dutiesForThisGoal = dutiesWithPrep.map(duty => {
+                             const matchingPrepItems = duty.prepItems.filter(p => {
+                                 let targetName = p.target;
+                                 if (targetName === 'prep_1') targetName = 'กะเช้า';
+                                 if (targetName === 'prep_2') targetName = 'กะบ่าย';
+                                 return !targetName || targetName === 'ALL' || targetName === g.name || targetName === g.id;
+                             });
+                             return { ...duty, matchingPrepItems };
+                         }).filter(d => d.matchingPrepItems.length > 0);
+
+                         if (dutiesForThisGoal.length === 0) return null;
 
                          return (
-                             <div key={cat.id} className="mb-6">
-                                 <h3 className={`text-sm font-black uppercase tracking-widest mb-3 px-4 py-2 rounded-lg inline-block ${cat.color}`}>{cat.label}</h3>
+                             <div key={g.id} className="mb-8 break-inside-avoid">
+                                 <div className="flex items-center gap-3 mb-4 border-b-2 border-slate-200 pb-3">
+                                     <h3 className="text-lg font-black uppercase tracking-widest text-slate-800 bg-slate-100 px-4 py-2 rounded-xl border border-slate-200 shadow-sm">
+                                         🕒 รอบเตรียม: {g.name} <span className="text-sm text-slate-500">({g.start}:00-{parseInt(g.end)}:59 น.)</span>
+                                     </h3>
+                                     <span className="text-emerald-700 bg-emerald-50 px-3 py-2 rounded-xl border border-emerald-200 font-black shadow-sm text-sm">🎯 เป้าหมาย: {g.tc} TC</span>
+                                 </div>
                                  <table className="w-full text-sm border-collapse border-2 border-slate-800 bg-white">
                                      <thead>
                                          <tr className="bg-slate-100 font-black text-slate-700 text-center">
-                                             <th className="border border-slate-800 p-3 w-[20%]">หน้าที่ / ตำแหน่ง</th>
-                                             <th className="border border-slate-800 p-3 w-[30%]">รายการที่ต้องเตรียม</th>
+                                             <th className="border border-slate-800 p-3 w-[25%]">หมวดหมู่ / หน้าที่</th>
+                                             <th className="border border-slate-800 p-3 w-[25%]">รายการที่ต้องเตรียม</th>
                                              <th className="border border-slate-800 p-3 w-[15%]">เป้าหมาย</th>
                                              <th className="border border-slate-800 p-3 w-[15%]">ผู้เตรียม</th>
                                              <th className="border border-slate-800 p-3 w-[12%]">ผู้ตรวจ</th>
@@ -5979,22 +5988,9 @@ export default function App() {
                                          </tr>
                                      </thead>
                                      <tbody>
-                                         {catDuties.map(duty => {
-                                             const dutyRowSpan = duty.prepItems.reduce((acc, p) => {
-                                                 let targetName = p.target;
-                                                 if (targetName === 'prep_1') targetName = 'กะเช้า';
-                                                 if (targetName === 'prep_2') targetName = 'กะบ่าย';
-                                                 const filteredGoals = goalsData.filter(g => !targetName || targetName === 'ALL' || targetName === g.name || targetName === g.id);
-                                                 return acc + filteredGoals.length;
-                                             }, 0);
-
-                                             return duty.prepItems.map((p, pIdx) => {
-                                                 let targetName = p.target;
-                                                 if (targetName === 'prep_1') targetName = 'กะเช้า';
-                                                 if (targetName === 'prep_2') targetName = 'กะบ่าย';
-                                                 const filteredGoals = goalsData.filter(g => !targetName || targetName === 'ALL' || targetName === g.name || targetName === g.id);
-                                                 
-                                                 return filteredGoals.map((g, gIdx) => {
+                                         {dutiesForThisGoal.map(duty => {
+                                             const catInfo = DUTY_CATEGORIES[activeDept].find(c => c.id === duty.category);
+                                             return duty.matchingPrepItems.map((p, pIdx) => {
                                                      let val = 0;
                                                      if (p.mode === 'TABLE') val = p.multiplier * (branchData.totalTables || 0);
                                                      else if (p.mode === 'STATIC') val = p.multiplier;
@@ -6034,15 +6030,15 @@ export default function App() {
 
                                                      return (
                                                          <tr key={`${duty.id}-${p.id}-${g.id}`} className="hover:bg-slate-50 transition-colors">
-                                                             {pIdx === 0 && gIdx === 0 && (
-                                                                 <td rowSpan={dutyRowSpan} className="border border-slate-800 p-3 font-black text-slate-800 align-top bg-slate-50/50">
+                                                             {pIdx === 0 && (
+                                                                 <td rowSpan={duty.matchingPrepItems.length} className="border border-slate-800 p-3 font-black text-slate-800 align-top bg-slate-50/50">
+                                                                     {catInfo && <div className={`text-[9px] px-2 py-0.5 rounded uppercase mb-1 w-max ${catInfo.color.split(' ')[0]} ${catInfo.color.split(' ')[1]}`}>{catInfo.label}</div>}
                                                                      <div dangerouslySetInnerHTML={{ __html: duty.jobA }}></div>
                                                                      <div className="text-[10px] text-slate-500 mt-1 uppercase">POS: {(duty.reqPos || ['ALL']).join(', ')}</div>
                                                                  </td>
                                                              )}
                                                              <td className="border border-slate-800 p-3 font-bold text-slate-700">
                                                                  {p.name}
-                                                                 <div className="text-[10px] text-slate-400 mt-0.5">กะ: <span className="font-black text-slate-600">{g.name}</span></div>
                                                              </td>
                                                              <td className="border border-slate-800 p-3 text-center font-black text-emerald-600 text-lg bg-emerald-50/30">
                                                                  {displayVal} <span className="text-xs font-bold text-slate-500">{p.unit}</span>
@@ -6062,7 +6058,6 @@ export default function App() {
                                                              </td>
                                                          </tr>
                                                      );
-                                                 });
                                              });
                                          })}
                                      </tbody>
