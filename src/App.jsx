@@ -501,6 +501,7 @@ export default function App() {
   const [editPrepMultiplier, setEditPrepMultiplier] = useState('');
   const [editPrepUnit, setEditPrepUnit] = useState('กก.');
   const [editPrepTarget, setEditPrepTarget] = useState('ALL');
+  const [editPrepMode, setEditPrepMode] = useState('TC');
   const [editingDutyId, setEditingDutyId] = useState(null);
   const [editDutyData, setEditDutyData] = useState({});
   const [editingShiftPresetId, setEditingShiftPresetId] = useState(null);
@@ -3476,10 +3477,15 @@ export default function App() {
                          </div>
                          
                          <div className="flex flex-col bg-amber-50/50 p-3 rounded-xl border border-amber-100 gap-2 w-full mt-2">
-                            <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest">🎯 สูตรเป้าหมายการเตรียมของ (อิงตามยอด TC)</span>
+                            <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest">🎯 สูตรเป้าหมายการเตรียมของ (Prep Goals)</span>
                             <div className="flex gap-2">
                                 <input type="text" placeholder="ชื่อวัตถุดิบ/งาน" value={editPrepName} onChange={e=>setEditPrepName(e.target.value)} className="flex-[2] border border-slate-200 rounded-lg px-2 py-1.5 text-[10px] font-bold outline-none focus:border-amber-500" />
-                                <input type="number" placeholder="ปริมาณ / TC" value={editPrepMultiplier} onChange={e=>setEditPrepMultiplier(e.target.value)} className="flex-1 border border-slate-200 rounded-lg px-2 py-1.5 text-[10px] font-bold outline-none focus:border-amber-500" />
+                                <select value={editPrepMode} onChange={e=>setEditPrepMode(e.target.value)} className="flex-[1] border border-slate-200 rounded-lg px-2 py-1.5 text-[10px] font-bold outline-none focus:border-amber-500 bg-white">
+                                    <option value="TC">อิง TC</option>
+                                    <option value="TABLE">อิงโต๊ะ</option>
+                                    <option value="STATIC">คงที่</option>
+                                </select>
+                                <input type="number" placeholder={editPrepMode === 'TC' ? "ปริมาณ/TC" : editPrepMode === 'TABLE' ? "ปริมาณ/โต๊ะ" : "ปริมาณ"} value={editPrepMultiplier} onChange={e=>setEditPrepMultiplier(e.target.value)} className="flex-[1.5] border border-slate-200 rounded-lg px-2 py-1.5 text-[10px] font-bold outline-none focus:border-amber-500" />
                                 <input type="text" placeholder="หน่วย" value={editPrepUnit} onChange={e=>setEditPrepUnit(e.target.value)} className="flex-1 border border-slate-200 rounded-lg px-2 py-1.5 text-[10px] font-bold outline-none focus:border-amber-500" />
                                 <select value={editPrepTarget} onChange={e=>setEditPrepTarget(e.target.value)} className="flex-1 border border-slate-200 rounded-lg px-2 py-1.5 text-[10px] font-bold outline-none focus:border-amber-500 bg-white">
                                     <option value="ALL">ทุกกะ</option>
@@ -3493,7 +3499,7 @@ export default function App() {
                                         return Array.from(names).map(name => <option key={name} value={name}>{name}</option>);
                                     })()}
                                 </select>
-                                <button onClick={() => { if(editPrepName && editPrepMultiplier) { setEditDutyData({...editDutyData, prepItems: [...(editDutyData.prepItems || []), { id: 'P'+Date.now(), name: editPrepName, multiplier: parseFloat(editPrepMultiplier)||0, unit: editPrepUnit, target: editPrepTarget }]}); setEditPrepName(''); setEditPrepMultiplier(''); setEditPrepTarget('ALL'); } }} className="bg-amber-500 hover:bg-amber-600 text-white px-2 py-1.5 rounded-lg text-[10px] font-black shadow-sm transition">เพิ่ม</button>
+                                <button onClick={() => { if(editPrepName && editPrepMultiplier) { setEditDutyData({...editDutyData, prepItems: [...(editDutyData.prepItems || []), { id: 'P'+Date.now(), name: editPrepName, multiplier: parseFloat(editPrepMultiplier)||0, unit: editPrepUnit, target: editPrepTarget, mode: editPrepMode }]}); setEditPrepName(''); setEditPrepMultiplier(''); setEditPrepTarget('ALL'); setEditPrepMode('TC'); } }} className="bg-amber-500 hover:bg-amber-600 text-white px-2 py-1.5 rounded-lg text-[10px] font-black shadow-sm transition">เพิ่ม</button>
                             </div>
                             {(editDutyData.prepItems || []).length > 0 && (
                                 <div className="flex flex-wrap gap-2 mt-1">
@@ -3502,9 +3508,10 @@ export default function App() {
                                         if (p.target && p.target !== 'ALL') {
                                             targetName = `เฉพาะ ${p.target === 'prep_1' ? 'กะเช้า' : p.target === 'prep_2' ? 'กะบ่าย' : p.target}`;
                                         }
+                                        let modeText = p.mode === 'TABLE' ? '/โต๊ะ' : p.mode === 'STATIC' ? '' : '/TC';
                                         return (
                                         <div key={p.id} className="bg-white text-amber-700 px-2 py-1 rounded border border-amber-200 text-[9px] font-black flex items-center gap-1 shadow-sm">
-                                            {p.name} : {p.multiplier} {p.unit}/TC {p.target && p.target !== 'ALL' ? `(${targetName})` : ''}
+                                            {p.name} : {p.multiplier} {p.unit}{modeText} {p.target && p.target !== 'ALL' ? `(${targetName})` : ''}
                                             <button onClick={() => setEditDutyData({...editDutyData, prepItems: editDutyData.prepItems.filter(x => x.id !== p.id)})} className="text-amber-500 hover:text-red-500 ml-1"><X className="w-2 h-2"/></button>
                                         </div>
                                     )})}
@@ -3544,7 +3551,8 @@ export default function App() {
                                      if (p.target && p.target !== 'ALL') {
                                          targetName = ` [เฉพาะ ${p.target === 'prep_1' ? 'กะเช้า' : p.target === 'prep_2' ? 'กะบ่าย' : p.target}]`;
                                      }
-                                     return <span key={p.id} className="text-[7px] sm:text-[8px] bg-amber-50 text-amber-700 px-1.5 py-0.5 border border-amber-200 rounded font-black shadow-sm">{p.name} ({p.multiplier}{p.unit}){targetName}</span>
+                                     let modeText = p.mode === 'TABLE' ? '/โต๊ะ' : p.mode === 'STATIC' ? '' : '/TC';
+                                     return <span key={p.id} className="text-[7px] sm:text-[8px] bg-amber-50 text-amber-700 px-1.5 py-0.5 border border-amber-200 rounded font-black shadow-sm">{p.name} ({p.multiplier}{p.unit}{modeText}){targetName}</span>
                                  })}
                              </div>
                           )}
@@ -3644,8 +3652,12 @@ export default function App() {
            </div>
 
        <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm w-full mt-6 sm:mt-10 print:hidden">
-           <h2 className="text-lg sm:text-xl font-black text-slate-800 mb-6 sm:mb-8 flex items-center gap-2 sm:gap-4 uppercase tracking-tighter"><TrendingUp className="w-6 h-6 sm:w-7 sm:h-7 text-emerald-500" /> ตั้งค่างบประมาณ Part-Time (PT Budget)</h2>
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+           <h2 className="text-lg sm:text-xl font-black text-slate-800 mb-6 sm:mb-8 flex items-center gap-2 sm:gap-4 uppercase tracking-tighter"><TrendingUp className="w-6 h-6 sm:w-7 sm:h-7 text-emerald-500" /> ข้อมูลสาขาและงบประมาณ (Branch Configs)</h2>
+           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">จำนวนโต๊ะ (Total Tables)</label>
+                 <input type="number" inputMode="numeric" disabled={authRole !== 'superadmin'} value={branchData.totalTables || ''} onChange={(e) => setBranchData(prev => ({...prev, totalTables: parseInt(e.target.value) || 0}))} onBlur={async () => { if(activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" placeholder="เช่น 30" />
+              </div>
               <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">งบประมาณ PT รายเดือน (บาท)</label>
                  <input type="text" inputMode="numeric" disabled={authRole !== 'superadmin'} value={branchData.ptConfig?.monthlyBudget === 0 ? '' : (branchData.ptConfig?.monthlyBudget ?? '')} onChange={(e) => handleUpdatePtConfig('monthlyBudget', e.target.value.replace(/[^0-9.]/g, ''))} onBlur={(e) => handleSavePtConfig('monthlyBudget', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-indigo-700 disabled:opacity-70 disabled:bg-white" placeholder="เช่น 20000" />
@@ -4371,7 +4383,12 @@ export default function App() {
                                         <div className="flex flex-wrap gap-x-2 gap-y-1 text-slate-600 font-bold bg-white px-1.5 py-1 rounded border border-amber-100">
                                             {filteredGoals.map((g, i) => {
                                                 const colorClass = colors[i % colors.length].text1;
-                                                return <span key={g.id}>{g.name}: <span className={`${colorClass} font-black`}>{(p.multiplier * g.tc).toFixed(1)} {p.unit}</span></span>
+                                                let val = 0;
+                                                if (p.mode === 'TABLE') val = p.multiplier * (branchData.totalTables || 0);
+                                                else if (p.mode === 'STATIC') val = p.multiplier;
+                                                else val = p.multiplier * g.tc;
+                                                let displayVal = val % 1 === 0 ? val.toString() : val.toFixed(1);
+                                                return <span key={g.id}>{g.name}: <span className={`${colorClass} font-black`}>{displayVal} {p.unit}</span></span>
                                             })}
                                         </div>
                                     </div>
