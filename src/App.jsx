@@ -1378,6 +1378,18 @@ export default function App() {
     });
   };
 
+  const handleUpdatePrepGoal = (cycleKey, shift, field, value) => {
+    setBranchData(prev => {
+        const nd = JSON.parse(JSON.stringify(prev));
+        if (!nd.matrix[cycleKey]) nd.matrix[cycleKey] = { duties: {} };
+        if (!nd.matrix[cycleKey].prepGoals) {
+            nd.matrix[cycleKey].prepGoals = { morning: { start: '09', end: '12' }, afternoon: { start: '13', end: '22' } };
+        }
+        nd.matrix[cycleKey].prepGoals[shift][field] = value;
+        return nd;
+    });
+  };
+
   const handleAutoAssignDayOffs = async () => {
       const nd = JSON.parse(JSON.stringify(branchData));
       const limits = nd.dayOffLimits; // Now { service: {...}, kitchen: {...} }
@@ -1709,7 +1721,7 @@ export default function App() {
           const currentList = snap.exists() ? (snap.data().list || []) : [];
           await setDoc(docRef, { list: [...currentList, newReq] });
           setShowForecastModal(false);
-          setConfirmModal({ message: 'ส่งคำขออนุมัติชั่วโมงพิเศษ (Event) เรียบร้อยแล้ว รอการตรวจสอบจาก Admin ส่วนกลาง' });
+          setConfirmModal({ message: 'ส่งคำขออนุมัติชั่วโมงพิเศษ (Event) เรียบร้อยแล้ว รอการตรวจสอบจาก Coach' });
       } catch (e) { 
           setConfirmModal({ message: 'เกิดข้อผิดพลาดในการส่งคำขอ' }); 
       }
@@ -1734,7 +1746,7 @@ export default function App() {
           const snap = await getDoc(docRef);
           const currentList = snap.exists() ? (snap.data().list || []) : [];
           await setDoc(docRef, { list: [...currentList, newReq] });
-          setConfirmModal({ message: 'ส่งคำขออนุมัติ OT ส่วนเกิน เรียบร้อยแล้ว รอการตรวจสอบจาก AM' });
+          setConfirmModal({ message: 'ส่งคำขออนุมัติ OT ส่วนเกิน เรียบร้อยแล้ว รอการตรวจสอบจาก Coach' });
       } catch (e) { 
           setConfirmModal({ message: 'เกิดข้อผิดพลาดในการส่งคำขอ' }); 
       }
@@ -3686,18 +3698,26 @@ export default function App() {
              
              {(() => {
                  const hourlyTcData = branchData.matrix?.[activeDay.type]?.hourlyTc || {};
+                 const prepGoals = branchData.matrix?.[activeDay.type]?.prepGoals || { morning: { start: '09', end: '12' }, afternoon: { start: '13', end: '22' } };
+                 const getHoursInRange = (start, end) => {
+                     const hours = [];
+                     let s = parseInt(start); let e = parseInt(end);
+                     if (e < s) e += 24;
+                     for (let i = s; i <= e; i++) { hours.push(String(i % 24).padStart(2, '0')); }
+                     return hours;
+                 };
                  let morningTc = 0; let afternoonTc = 0;
-                 ['09', '10', '11', '12'].forEach(h => morningTc += parseInt(hourlyTcData[h]) || 0);
-                 ['13', '14', '15', '16', '17', '18', '19', '20', '21', '22'].forEach(h => afternoonTc += parseInt(hourlyTcData[h]) || 0);
+                 getHoursInRange(prepGoals.morning.start, prepGoals.morning.end).forEach(h => morningTc += parseInt(hourlyTcData[h]) || 0);
+                 getHoursInRange(prepGoals.afternoon.start, prepGoals.afternoon.end).forEach(h => afternoonTc += parseInt(hourlyTcData[h]) || 0);
                  
                  return (
                      <div className="flex gap-2 sm:gap-4 w-full xl:w-auto mt-4 xl:mt-0">
                          <div className="bg-amber-50 border border-amber-200 p-3 sm:p-4 rounded-[1.5rem] flex-1 flex flex-col justify-center items-center xl:items-start text-center xl:text-left min-w-[120px]">
-                             <span className="text-[9px] sm:text-[10px] font-black text-amber-500 uppercase tracking-widest">เตรียมกะเช้า (09-13)</span>
+                             <span className="text-[9px] sm:text-[10px] font-black text-amber-500 uppercase tracking-widest">เตรียมกะเช้า ({prepGoals.morning.start}-{parseInt(prepGoals.morning.end)+1})</span>
                              <span className="text-xl sm:text-2xl font-black text-amber-700 mt-1">{morningTc} <span className="text-[10px] sm:text-xs text-amber-500">TC</span></span>
                          </div>
                          <div className="bg-indigo-50 border border-indigo-200 p-3 sm:p-4 rounded-[1.5rem] flex-1 flex flex-col justify-center items-center xl:items-start text-center xl:text-left min-w-[120px]">
-                             <span className="text-[9px] sm:text-[10px] font-black text-indigo-500 uppercase tracking-widest">เตรียมกะบ่าย (13-22)</span>
+                             <span className="text-[9px] sm:text-[10px] font-black text-indigo-500 uppercase tracking-widest">เตรียมกะบ่าย ({prepGoals.afternoon.start}-{parseInt(prepGoals.afternoon.end)+1})</span>
                              <span className="text-xl sm:text-2xl font-black text-indigo-700 mt-1">{afternoonTc} <span className="text-[10px] sm:text-xs text-indigo-500">TC</span></span>
                          </div>
                      </div>
@@ -3915,10 +3935,17 @@ export default function App() {
     };
 
     const hourlyTcData = branchData.matrix?.[activeDay.type]?.hourlyTc || {};
-    let morningTc = 0;
-    let afternoonTc = 0;
-    ['09', '10', '11', '12'].forEach(h => morningTc += parseInt(hourlyTcData[h]) || 0);
-    ['13', '14', '15', '16', '17', '18', '19', '20', '21', '22'].forEach(h => afternoonTc += parseInt(hourlyTcData[h]) || 0);
+    const prepGoals = branchData.matrix?.[activeDay.type]?.prepGoals || { morning: { start: '09', end: '12' }, afternoon: { start: '13', end: '22' } };
+    const getHoursInRange = (start, end) => {
+        const hours = [];
+        let s = parseInt(start); let e = parseInt(end);
+        if (e < s) e += 24;
+        for (let i = s; i <= e; i++) { hours.push(String(i % 24).padStart(2, '0')); }
+        return hours;
+    };
+    let morningTc = 0; let afternoonTc = 0;
+    getHoursInRange(prepGoals.morning.start, prepGoals.morning.end).forEach(h => morningTc += parseInt(hourlyTcData[h]) || 0);
+    getHoursInRange(prepGoals.afternoon.start, prepGoals.afternoon.end).forEach(h => afternoonTc += parseInt(hourlyTcData[h]) || 0);
 
     const allTrs = [];
     const breakTracker = {};
@@ -4296,14 +4323,14 @@ export default function App() {
                 <div className="grid grid-cols-2 gap-4 mb-6 print:hidden">
                    <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex items-center justify-between shadow-sm">
                        <div>
-                           <div className="text-[10px] sm:text-xs font-black text-amber-600 uppercase tracking-widest mb-1">เป้าหมายเตรียมของ กะเช้า (09:00-13:00)</div>
+                           <div className="text-[10px] sm:text-xs font-black text-amber-600 uppercase tracking-widest mb-1">เป้าหมายเตรียมของ กะเช้า ({prepGoals.morning.start}:00-{prepGoals.morning.end}:59)</div>
                            <div className="text-2xl sm:text-3xl font-black text-amber-700">{morningTc} <span className="text-sm">บิล (TC)</span></div>
                        </div>
                        <UtensilsCrossed className="w-8 h-8 text-amber-300 opacity-50" />
                    </div>
                    <div className="bg-indigo-50 border border-indigo-200 p-4 rounded-2xl flex items-center justify-between shadow-sm">
                        <div>
-                           <div className="text-[10px] sm:text-xs font-black text-indigo-600 uppercase tracking-widest mb-1">เป้าหมายเตรียมของ กะบ่าย (13:00-22:00)</div>
+                           <div className="text-[10px] sm:text-xs font-black text-indigo-600 uppercase tracking-widest mb-1">เป้าหมายเตรียมของ กะบ่าย ({prepGoals.afternoon.start}:00-{prepGoals.afternoon.end}:59)</div>
                            <div className="text-2xl sm:text-3xl font-black text-indigo-700">{afternoonTc} <span className="text-sm">บิล (TC)</span></div>
                        </div>
                        <UtensilsCrossed className="w-8 h-8 text-indigo-300 opacity-50" />
@@ -4314,9 +4341,9 @@ export default function App() {
                    <h1 className="font-black uppercase tracking-tighter" style={{ fontSize: `${rs.headlineSize || 24}px` }}>แผนงานประจำวัน{activeDept === 'service' ? 'แผนกบริการ (FOH)' : 'แผนกครัว (BOH)'}</h1>
                    <p className="font-bold text-slate-600 mt-2" style={{ fontSize: `${rs.subHeadlineSize || 14}px` }}>วัน{activeDay.dayLabel} ที่ <span className="underline underline-offset-4">{activeDay.dayNum}</span> เดือน <span className="underline underline-offset-4">{THAI_MONTHS[selectedMonth]}</span> พ.ศ. <span className="underline underline-offset-4">{selectedYear + 543}</span></p>
                    <div className="mt-4 flex flex-col sm:flex-row justify-center items-center gap-2 sm:gap-6 font-black text-[10px] sm:text-xs border-y border-slate-200 py-2 w-max mx-auto print:flex bg-slate-50 px-6 rounded-lg">
-                       <span className="text-amber-600 uppercase tracking-widest">🎯 เป้าเตรียมกะเช้า (09-13น.): <span className="text-sm sm:text-base">{morningTc} TC</span></span>
+                       <span className="text-amber-600 uppercase tracking-widest">🎯 เป้าเตรียมกะเช้า ({prepGoals.morning.start}-{parseInt(prepGoals.morning.end)+1}น.): <span className="text-sm sm:text-base">{morningTc} TC</span></span>
                        <span className="text-slate-300 hidden sm:inline">|</span>
-                       <span className="text-indigo-600 uppercase tracking-widest">🎯 เป้าเตรียมกะบ่าย (13-22น.): <span className="text-sm sm:text-base">{afternoonTc} TC</span></span>
+                       <span className="text-indigo-600 uppercase tracking-widest">🎯 เป้าเตรียมกะบ่าย ({prepGoals.afternoon.start}-{parseInt(prepGoals.afternoon.end)+1}น.): <span className="text-sm sm:text-base">{afternoonTc} TC</span></span>
                    </div>
                 </div>
                 <table className="w-full table-fixed border-collapse border-2 border-slate-800 min-w-[1100px] bg-white print:min-w-0" style={{ fontSize: `${rs.fontSize}px` }}>
@@ -4924,21 +4951,59 @@ export default function App() {
              </div>
              {authRole === 'superadmin' && (
                 <div className="p-6 sm:p-10 border-t border-slate-100 bg-slate-50/50">
-                    <h3 className="text-sm font-black text-slate-700 uppercase tracking-widest mb-4">พยากรณ์ TC รายชั่วโมง</h3>
-                    <div className="grid grid-cols-5 sm:grid-cols-10 gap-3">
-                        {hours.map(hour => (
-                            <div key={hour} className="bg-white p-2 rounded-lg border border-slate-200 shadow-sm">
-                                <label className="text-[9px] font-bold text-slate-500 block text-center mb-1">{hour}:00</label>
-                                <input 
-                                    type="number"
-                                    value={data.hourlyTc?.[hour] || ''}
-                                    onChange={(e) => handleUpdateHourlyTc(key, hour, e.target.value)}
-                                    onBlur={async () => { if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }}
-                                    className="w-full border-t border-slate-100 pt-1 text-center font-bold text-sm outline-none focus:bg-indigo-50"
-                                    placeholder="0"
-                                />
+                    <div className="flex flex-col xl:flex-row gap-6">
+                        <div className="flex-[3]">
+                            <h3 className="text-sm font-black text-slate-700 uppercase tracking-widest mb-4">พยากรณ์ TC รายชั่วโมง</h3>
+                            <div className="grid grid-cols-5 sm:grid-cols-10 gap-3">
+                                {hours.map(hour => (
+                                    <div key={hour} className="bg-white p-2 rounded-lg border border-slate-200 shadow-sm">
+                                        <label className="text-[9px] font-bold text-slate-500 block text-center mb-1">{hour}:00</label>
+                                        <input 
+                                            type="number"
+                                            value={data.hourlyTc?.[hour] || ''}
+                                            onChange={(e) => handleUpdateHourlyTc(key, hour, e.target.value)}
+                                            onBlur={async () => { if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }}
+                                            className="w-full border-t border-slate-100 pt-1 text-center font-bold text-sm outline-none focus:bg-indigo-50"
+                                            placeholder="0"
+                                        />
+                                    </div>
+                                ))}
                             </div>
-                        ))}
+                        </div>
+                        <div className="flex-1 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                            <h3 className="text-sm font-black text-slate-700 uppercase tracking-widest mb-4 border-b border-slate-100 pb-2">ตั้งค่าช่วงเวลาเป้าหมายเตรียมของ</h3>
+                            {(() => {
+                                const prepGoals = data.prepGoals || { morning: { start: '09', end: '12' }, afternoon: { start: '13', end: '22' } };
+                                return (
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="text-[10px] font-bold text-amber-600 uppercase mb-1 block">กะเช้า</label>
+                                            <div className="flex items-center gap-2">
+                                                <select value={prepGoals.morning.start} onChange={(e) => handleUpdatePrepGoal(key, 'morning', 'start', e.target.value)} onBlur={async () => { if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }} className="border rounded-lg p-1 text-xs font-bold outline-none flex-1">
+                                                    {hours.map(h => <option key={h} value={h}>{h}:00</option>)}
+                                                </select>
+                                                <span className="text-xs font-bold text-slate-400">-</span>
+                                                <select value={prepGoals.morning.end} onChange={(e) => handleUpdatePrepGoal(key, 'morning', 'end', e.target.value)} onBlur={async () => { if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }} className="border rounded-lg p-1 text-xs font-bold outline-none flex-1">
+                                                    {hours.map(h => <option key={h} value={h}>{h}:59</option>)}
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] font-bold text-indigo-600 uppercase mb-1 block">กะบ่าย</label>
+                                            <div className="flex items-center gap-2">
+                                                <select value={prepGoals.afternoon.start} onChange={(e) => handleUpdatePrepGoal(key, 'afternoon', 'start', e.target.value)} onBlur={async () => { if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }} className="border rounded-lg p-1 text-xs font-bold outline-none flex-1">
+                                                    {hours.map(h => <option key={h} value={h}>{h}:00</option>)}
+                                                </select>
+                                                <span className="text-xs font-bold text-slate-400">-</span>
+                                                <select value={prepGoals.afternoon.end} onChange={(e) => handleUpdatePrepGoal(key, 'afternoon', 'end', e.target.value)} onBlur={async () => { if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }} className="border rounded-lg p-1 text-xs font-bold outline-none flex-1">
+                                                    {hours.map(h => <option key={h} value={h}>{h}:59</option>)}
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+                        </div>
                     </div>
                 </div>
              )}
@@ -5245,7 +5310,7 @@ export default function App() {
           <div className="bg-white p-5 sm:p-6 rounded-[2rem] border border-slate-200 shadow-sm mb-6 print:hidden w-full flex flex-col gap-4 animate-in fade-in duration-500">
               <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
                   <div>
-                      <h3 className="text-base sm:text-lg font-black text-slate-800 uppercase tracking-tighter flex items-center gap-2"><TrendingUp className="w-5 h-5 text-emerald-500" /> PT Hours Ledger (กระเป๋าชั่วโมง PT)</h3>
+                      <h3 className="text-base sm:text-lg font-black text-slate-800 uppercase tracking-tighter flex items-center gap-2"><TrendingUp className="w-5 h-5 text-emerald-500" /> กระเป๋าชั่วโมง PT</h3>
                       <p className="text-[10px] sm:text-xs font-bold text-slate-500 mt-1">ยอดรวมชั่วโมงที่ใช้ไป: <span className="text-slate-800">{ptLedger.usedHours.toFixed(1)} / {ptLedger.totalAllowance.toFixed(1)} ชม.</span></p>
                   </div>
               </div>
