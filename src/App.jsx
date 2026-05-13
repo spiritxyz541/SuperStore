@@ -468,6 +468,7 @@ export default function App() {
   const [forecastTc, setForecastTc] = useState('');
   const [forecastReason, setForecastReason] = useState('');
   const [forecastEvidence, setForecastEvidence] = useState('');
+  const [showPtLedgerDetails, setShowPtLedgerDetails] = useState(false);
   
   const [newAmName, setNewAmName] = useState('');
   const [newAmUser, setNewAmUser] = useState('');
@@ -647,6 +648,8 @@ export default function App() {
       let usedEventHours = 0;
       let dailyEventQuota = 0;
       let dailyEventUsed = 0;
+      let staffUsage = {};
+      let dailyUsage = {};
       const staffMap = {};
       (branchData.staff || []).forEach(s => staffMap[s.id] = s);
 
@@ -737,13 +740,21 @@ export default function App() {
                                   shiftHrs = (eh + em/60) - (sh + sm/60);
                               }
                               const totalSlotHrs = shiftHrs + Number(slot.otHours || 0);
+                              
+                              if (!staffUsage[staff.id]) staffUsage[staff.id] = { name: staff.name, pos: staff.pos, base: 0, event: 0 };
+                              if (!dailyUsage[dateStr]) dailyUsage[dateStr] = { base: 0, event: 0 };
+                              
                               if (slot.isEventExtra) {
                                   usedEventHours += totalSlotHrs;
+                                  staffUsage[staff.id].event += totalSlotHrs;
+                                  dailyUsage[dateStr].event += totalSlotHrs;
                                   if (dateStr === selectedDateStr) {
                                       dailyEventUsed += totalSlotHrs;
                                   }
                               } else {
                                   usedBaseHours += totalSlotHrs;
+                                  staffUsage[staff.id].base += totalSlotHrs;
+                                  dailyUsage[dateStr].base += totalSlotHrs;
                               }
                           }
                       }
@@ -755,7 +766,7 @@ export default function App() {
       const totalAllowance = baseTotalAllowance + eventExtras;
       const usedHours = usedBaseHours + usedEventHours;
       const usagePercent = totalAllowance > 0 ? (usedHours / totalAllowance) * 100 : 0;
-      return { baseAllowance, leaveRefunds, vacancyCompensations, baseTotalAllowance, eventExtras, totalAllowance, usedHours, usedBaseHours, usedEventHours, dailyEventQuota, dailyEventUsed, usagePercent };
+      return { baseAllowance, leaveRefunds, vacancyCompensations, baseTotalAllowance, eventExtras, totalAllowance, usedHours, usedBaseHours, usedEventHours, dailyEventQuota, dailyEventUsed, usagePercent, staffUsage, dailyUsage };
   }, [schedule, branchData, selectedMonth, selectedYear, selectedDateStr, CALENDAR_DAYS]);
 
   const activeDayShiftVisibilities = useMemo(() => {
@@ -2986,6 +2997,75 @@ export default function App() {
                         </div>
                     );
                 })()}
+             </div>
+          </div>
+        )}
+        {showPtLedgerDetails && (
+          <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300 font-sans">
+             <div className="bg-white rounded-[2rem] p-6 sm:p-8 max-w-2xl w-full shadow-2xl relative flex flex-col gap-4 animate-in zoom-in-95 max-h-[85vh]">
+                <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                   <h3 className="text-xl font-black text-slate-800 uppercase tracking-tighter flex items-center gap-2"><BarChart3 className="w-6 h-6 text-indigo-500"/> รายละเอียดการใช้ชั่วโมง PT</h3>
+                   <button onClick={() => setShowPtLedgerDetails(false)} className="text-slate-400 hover:bg-slate-100 p-2 rounded-full transition"><X className="w-5 h-5"/></button>
+                </div>
+                
+                <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-6">
+                    <div>
+                        <h4 className="font-black text-slate-700 text-sm mb-3 uppercase tracking-widest border-b border-slate-100 pb-2">สรุปชั่วโมงตามรายบุคคล (PT Staff)</h4>
+                        {Object.keys(ptLedger.staffUsage || {}).length === 0 ? (
+                            <div className="text-center text-xs text-slate-400 font-bold py-4">ยังไม่มีการจ่ายงานให้ PT</div>
+                        ) : (
+                            <table className="w-full text-xs text-left border-collapse">
+                                <thead>
+                                    <tr className="bg-slate-50 text-slate-500">
+                                        <th className="p-2 border-b border-slate-200 font-black">ชื่อพนักงาน</th>
+                                        <th className="p-2 border-b border-slate-200 font-black text-center">ตำแหน่ง</th>
+                                        <th className="p-2 border-b border-slate-200 font-black text-center">ชม. ปกติ</th>
+                                        <th className="p-2 border-b border-slate-200 font-black text-center">ชม. พิเศษ (Event)</th>
+                                        <th className="p-2 border-b border-slate-200 font-black text-center text-indigo-600">รวม</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {Object.values(ptLedger.staffUsage).sort((a,b) => (b.base + b.event) - (a.base + a.event)).map((s, idx) => (
+                                        <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                                            <td className="p-2 font-bold text-slate-700">{s.name}</td>
+                                            <td className="p-2 text-center"><span className="bg-slate-100 px-2 py-0.5 rounded text-[9px] font-black text-slate-600">{s.pos}</span></td>
+                                            <td className="p-2 text-center font-bold text-slate-600">{s.base > 0 ? s.base.toFixed(1) : '-'}</td>
+                                            <td className="p-2 text-center font-bold text-amber-600">{s.event > 0 ? s.event.toFixed(1) : '-'}</td>
+                                            <td className="p-2 text-center font-black text-indigo-600">{(s.base + s.event).toFixed(1)}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
+                    </div>
+                    <div>
+                        <h4 className="font-black text-slate-700 text-sm mb-3 uppercase tracking-widest border-b border-slate-100 pb-2">สรุปชั่วโมงตามรายวัน</h4>
+                        {Object.keys(ptLedger.dailyUsage || {}).length === 0 ? (
+                            <div className="text-center text-xs text-slate-400 font-bold py-4">ยังไม่มีการจ่ายงานให้ PT</div>
+                        ) : (
+                            <table className="w-full text-xs text-left border-collapse">
+                                <thead>
+                                    <tr className="bg-slate-50 text-slate-500">
+                                        <th className="p-2 border-b border-slate-200 font-black">วันที่</th>
+                                        <th className="p-2 border-b border-slate-200 font-black text-center">ชม. ปกติ</th>
+                                        <th className="p-2 border-b border-slate-200 font-black text-center">ชม. พิเศษ (Event)</th>
+                                        <th className="p-2 border-b border-slate-200 font-black text-center text-indigo-600">รวม</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {Object.entries(ptLedger.dailyUsage).sort(([a],[b]) => a.localeCompare(b)).map(([dateStr, u]) => (
+                                        <tr key={dateStr} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                                            <td className="p-2 font-bold text-slate-700">{dateStr}</td>
+                                            <td className="p-2 text-center font-bold text-slate-600">{u.base > 0 ? u.base.toFixed(1) : '-'}</td>
+                                            <td className="p-2 text-center font-bold text-amber-600">{u.event > 0 ? u.event.toFixed(1) : '-'}</td>
+                                            <td className="p-2 text-center font-black text-indigo-600">{(u.base + u.event).toFixed(1)}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
+                    </div>
+                </div>
              </div>
           </div>
         )}
@@ -5562,7 +5642,10 @@ export default function App() {
                   </div>
                   )}
               </div>
-              {ptLedger.usedHours > ptLedger.totalAllowance && <p className="text-[10px] font-black text-red-500 mt-1 text-right uppercase animate-pulse">⚠️ โควตาชั่วโมง Part-Time เกินกำหนด กรุณาตรวจสอบ</p>}
+              <div className="flex justify-between items-center mt-1">
+                  <button onClick={() => setShowPtLedgerDetails(true)} className="text-[10px] sm:text-xs font-bold text-indigo-500 hover:text-indigo-700 underline flex items-center gap-1"><BarChart3 className="w-3 h-3"/> ดูรายละเอียดการใช้ PT</button>
+                  {ptLedger.usedHours > ptLedger.totalAllowance && <p className="text-[10px] sm:text-xs font-black text-red-500 uppercase animate-pulse">⚠️ โควตาเกินกำหนด กรุณาตรวจสอบ</p>}
+              </div>
           </div>
       );
   }
