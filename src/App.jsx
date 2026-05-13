@@ -1742,13 +1742,26 @@ export default function App() {
 
   const handleOtBlur = (dateStr, dutyId, idx, val, maxOtHours, staffId) => {
       const parsed = parseFloat(val) || 0;
+      setSchedule(prev => {
+          const newSched = JSON.parse(JSON.stringify(prev));
+          if (!newSched[dateStr]) newSched[dateStr] = { duties: {}, leaves: [] };
+          if (!newSched[dateStr].duties) newSched[dateStr].duties = {};
+          if (!newSched[dateStr].duties[dutyId]) newSched[dateStr].duties[dutyId] = [];
+          if (!newSched[dateStr].duties[dutyId][idx]) newSched[dateStr].duties[dutyId][idx] = { staffId: "", otHours: 0 };
+          
+          if (parsed > maxOtHours && authRole === 'branch' && staffId) {
+              newSched[dateStr].duties[dutyId][idx].otHours = maxOtHours;
+          } else {
+              newSched[dateStr].duties[dutyId][idx].otHours = parsed;
+          }
+          newSched[dateStr].duties[dutyId][idx].otUpdated = true;
+          
+          if (activeBranchId) autoSaveSchedule(newSched);
+          return newSched;
+      });
+
       if (parsed > maxOtHours && authRole === 'branch' && staffId) {
-          handleScheduleUpdate(dateStr, dutyId, idx, 'otHours', maxOtHours);
-          autoSaveSchedule();
           setShowExtraOtModal({ dateStr, dutyId, slotIdx: idx, staffId, baseOt: maxOtHours, requestedOt: parsed });
-      } else {
-          handleScheduleUpdate(dateStr, dutyId, idx, 'otHours', parsed);
-          autoSaveSchedule();
       }
   };
 
