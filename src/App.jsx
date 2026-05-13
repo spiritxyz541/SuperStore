@@ -1528,7 +1528,7 @@ export default function App() {
               if (url) handleFormatContent(`<a href="${url}" target="_blank" class="text-blue-600 underline hover:text-blue-800">`, '</a>', editorId, textValue, setTextValue);
           }} className="p-1.5 text-slate-700 hover:bg-white hover:shadow-sm rounded transition" title="แทรกลิงก์"><LinkIcon className="w-4 h-4"/></button>
           <div className="w-px h-5 bg-slate-300 mx-1"></div>
-          <button type="button" onClick={() => handleFormatContent('<br>', '', editorId, textValue, setTextValue)} className="px-2 py-1 text-slate-700 hover:bg-white hover:shadow-sm rounded text-[10px] font-bold transition" title="ขึ้นบรรทัดใหม่">↵ ปัดบรรทัด</button>
+          <button type="button" onClick={() => handleFormatContent('\n', '', editorId, textValue, setTextValue)} className="px-2 py-1 text-slate-700 hover:bg-white hover:shadow-sm rounded text-[10px] font-bold transition" title="ขึ้นบรรทัดใหม่">↵ ปัดบรรทัด</button>
       </div>
   );
 
@@ -3295,15 +3295,15 @@ export default function App() {
                         <div className="flex-[2] flex flex-col shadow-sm rounded-xl border border-slate-200">
                             {renderRichTextToolbar('new-duty-job-a', newDutyJobA, setNewDutyJobA)}
                             <div className="flex flex-col md:flex-row border-t border-slate-200 bg-white rounded-b-xl overflow-hidden">
-                                <textarea id="new-duty-job-a" placeholder="หน้าที่หลัก (เช่น ต้อนรับหน้าร้าน)" value={newDutyJobA} onChange={e => setNewDutyJobA(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleFormatContent('<br>', '', e.target.id, newDutyJobA, setNewDutyJobA); } }} className="w-full md:w-1/2 p-3 text-xs sm:text-sm font-bold outline-none resize-y border-b md:border-b-0 md:border-r border-slate-200 min-h-[100px]"></textarea>
-                                <div className="w-full md:w-1/2 p-3 bg-slate-50 text-xs sm:text-sm text-slate-700 overflow-y-auto" dangerouslySetInnerHTML={{ __html: newDutyJobA || '<span class="text-slate-400 italic">ตัวอย่าง...</span>' }}></div>
+                                <textarea id="new-duty-job-a" placeholder="หน้าที่หลัก (เช่น ต้อนรับหน้าร้าน)" value={newDutyJobA} onChange={e => setNewDutyJobA(e.target.value)} className="w-full md:w-1/2 p-3 text-xs sm:text-sm font-bold outline-none resize-y border-b md:border-b-0 md:border-r border-slate-200 min-h-[100px]"></textarea>
+                                <div className="w-full md:w-1/2 p-3 bg-slate-50 text-xs sm:text-sm text-slate-700 overflow-y-auto whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: newDutyJobA || '<span class="text-slate-400 italic">ตัวอย่าง...</span>' }}></div>
                             </div>
                         </div>
                         <div className="flex-1 flex flex-col shadow-sm rounded-xl border border-slate-200">
                             {renderRichTextToolbar('new-duty-job-b', newDutyJobB, setNewDutyJobB)}
                             <div className="flex flex-col md:flex-row border-t border-slate-200 bg-white rounded-b-xl overflow-hidden">
-                                <textarea id="new-duty-job-b" placeholder="หน้าที่รอง (เช่น เคลียร์โต๊ะ)" value={newDutyJobB} onChange={e => setNewDutyJobB(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleFormatContent('<br>', '', e.target.id, newDutyJobB, setNewDutyJobB); } }} className="w-full md:w-1/2 p-3 text-xs sm:text-sm font-bold outline-none resize-y border-b md:border-b-0 md:border-r border-slate-200 min-h-[100px]"></textarea>
-                                <div className="w-full md:w-1/2 p-3 bg-slate-50 text-xs sm:text-sm text-slate-700 overflow-y-auto" dangerouslySetInnerHTML={{ __html: newDutyJobB || '<span class="text-slate-400 italic">ตัวอย่าง...</span>' }}></div>
+                                <textarea id="new-duty-job-b" placeholder="หน้าที่รอง (เช่น เคลียร์โต๊ะ)" value={newDutyJobB} onChange={e => setNewDutyJobB(e.target.value)} className="w-full md:w-1/2 p-3 text-xs sm:text-sm font-bold outline-none resize-y border-b md:border-b-0 md:border-r border-slate-200 min-h-[100px]"></textarea>
+                                <div className="w-full md:w-1/2 p-3 bg-slate-50 text-xs sm:text-sm text-slate-700 overflow-y-auto whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: newDutyJobB || '<span class="text-slate-400 italic">ตัวอย่าง...</span>' }}></div>
                             </div>
                         </div>
                     </div>
@@ -3337,15 +3337,15 @@ export default function App() {
                                <div className="flex-1 flex flex-col shadow-sm rounded-xl border border-slate-200">
                                    {renderRichTextToolbar(`edit-duty-job-a-${duty.id}`, editDutyData.jobA || '', (val) => setEditDutyData({...editDutyData, jobA: val}))}
                                    <div className="flex flex-col md:flex-row border-t border-slate-200 bg-white rounded-b-xl overflow-hidden">
-                                       <textarea id={`edit-duty-job-a-${duty.id}`} value={editDutyData.jobA || ''} onChange={e => setEditDutyData({...editDutyData, jobA: e.target.value})} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleFormatContent('<br>', '', e.target.id, editDutyData.jobA || '', (val) => setEditDutyData({...editDutyData, jobA: val})); } }} className="w-full md:w-1/2 p-3 text-[10px] sm:text-xs font-bold outline-none resize-y border-b md:border-b-0 md:border-r border-slate-200 min-h-[100px]"></textarea>
-                                       <div className="w-full md:w-1/2 p-3 bg-slate-50 text-[10px] sm:text-xs text-slate-700 overflow-y-auto" dangerouslySetInnerHTML={{ __html: editDutyData.jobA || '<span class="text-slate-400 italic">ตัวอย่าง...</span>' }}></div>
+                                       <textarea id={`edit-duty-job-a-${duty.id}`} value={editDutyData.jobA || ''} onChange={e => setEditDutyData({...editDutyData, jobA: e.target.value})} className="w-full md:w-1/2 p-3 text-[10px] sm:text-xs font-bold outline-none resize-y border-b md:border-b-0 md:border-r border-slate-200 min-h-[100px]"></textarea>
+                                       <div className="w-full md:w-1/2 p-3 bg-slate-50 text-[10px] sm:text-xs text-slate-700 overflow-y-auto whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: editDutyData.jobA || '<span class="text-slate-400 italic">ตัวอย่าง...</span>' }}></div>
                                    </div>
                                </div>
                                <div className="flex-1 flex flex-col shadow-sm rounded-xl border border-slate-200">
                                    {renderRichTextToolbar(`edit-duty-job-b-${duty.id}`, editDutyData.jobB || '', (val) => setEditDutyData({...editDutyData, jobB: val}))}
                                    <div className="flex flex-col md:flex-row border-t border-slate-200 bg-white rounded-b-xl overflow-hidden">
-                                       <textarea id={`edit-duty-job-b-${duty.id}`} value={editDutyData.jobB || ''} onChange={e => setEditDutyData({...editDutyData, jobB: e.target.value})} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleFormatContent('<br>', '', e.target.id, editDutyData.jobB || '', (val) => setEditDutyData({...editDutyData, jobB: val})); } }} className="w-full md:w-1/2 p-3 text-[10px] sm:text-xs font-bold outline-none resize-y border-b md:border-b-0 md:border-r border-slate-200 min-h-[100px]"></textarea>
-                                       <div className="w-full md:w-1/2 p-3 bg-slate-50 text-[10px] sm:text-xs text-slate-700 overflow-y-auto" dangerouslySetInnerHTML={{ __html: editDutyData.jobB || '<span class="text-slate-400 italic">ตัวอย่าง...</span>' }}></div>
+                                       <textarea id={`edit-duty-job-b-${duty.id}`} value={editDutyData.jobB || ''} onChange={e => setEditDutyData({...editDutyData, jobB: e.target.value})} className="w-full md:w-1/2 p-3 text-[10px] sm:text-xs font-bold outline-none resize-y border-b md:border-b-0 md:border-r border-slate-200 min-h-[100px]"></textarea>
+                                       <div className="w-full md:w-1/2 p-3 bg-slate-50 text-[10px] sm:text-xs text-slate-700 overflow-y-auto whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: editDutyData.jobB || '<span class="text-slate-400 italic">ตัวอย่าง...</span>' }}></div>
                                    </div>
                                </div>
                            </div>
@@ -3393,13 +3393,13 @@ export default function App() {
                        <React.Fragment>
                          <div className="flex-1 min-w-0 pr-4">
                            <div className="flex items-center gap-2">
-                              <div className="font-black text-xs sm:text-sm text-slate-800 truncate">{duty.jobA}</div>
+                              <div className="font-black text-xs sm:text-sm text-slate-800 truncate" dangerouslySetInnerHTML={{ __html: duty.jobA }}></div>
                               {duty.isBackup && <span className="text-[8px] font-black text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 whitespace-nowrap">กะสำรอง</span>}
                               <span className="text-[8px] font-black text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100 truncate max-w-[80px] sm:max-w-[120px]" title={(duty.reqPos || ['ALL']).join(', ')}>{(duty.reqPos || ['ALL']).join(', ')}</span>
                            </div>
                            <div className="text-[9px] sm:text-[10px] text-slate-400 font-bold truncate mt-0.5 flex items-center gap-2">
                               {catInfo && <div className={`w-2 h-2 rounded-full ${catInfo.color.split(' ')[0]}`} title={catInfo.label}></div>}
-                              {duty.jobB}
+                              <div dangerouslySetInnerHTML={{ __html: duty.jobB }}></div>
                               {duty.xpDna && <span className="ml-2 px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded border border-indigo-100">XP-DNA</span>}
                            </div>
                           {(duty.prepItems || []).length > 0 && (
@@ -3733,7 +3733,7 @@ export default function App() {
                                <div key={duty.id} className="bg-white rounded-2xl sm:rounded-3xl shadow-sm border border-slate-200 overflow-hidden flex flex-col transition hover:shadow-xl w-full">
                                   <div className="p-5 sm:p-6 bg-white border-b border-slate-100 flex flex-col gap-2">
                                      <div className="flex justify-between items-start w-full gap-2">
-                                        <h3 className="font-black text-slate-900 text-sm sm:text-base uppercase tracking-tighter leading-tight break-words">{duty.jobA}</h3>
+                                        <h3 className="font-black text-slate-900 text-sm sm:text-base uppercase tracking-tighter leading-tight break-words whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: duty.jobA }}></h3>
                                         {['branch', 'superadmin', 'areamanager'].includes(authRole) && allowsPT && (
                                            <div className="flex flex-col gap-1 items-end">
                                               <button onClick={() => handleAddExtraSlot(selectedDateStr, duty.id, slots, false)} className="bg-slate-100 text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 px-3 py-1.5 rounded-lg text-[9px] font-black transition-colors flex items-center gap-1 shadow-sm whitespace-nowrap">+ Extra (Base)</button>
@@ -3744,7 +3744,7 @@ export default function App() {
                                         )}
                                      </div>
                                      <div className="flex items-center gap-2 opacity-90 w-full justify-between">
-                                        <span className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase italic leading-tight">{duty.jobB}</span>
+                                        <span className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase italic leading-tight whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: duty.jobB }}></span>
                                         <div className="flex items-center gap-2">
                                             {duty.xpDna && <span className="text-[8px] sm:text-[9px] font-black px-1.5 py-0.5 rounded border border-indigo-200 text-indigo-600 uppercase bg-indigo-50">XP-DNA</span>}
                                             <span className="text-[8px] sm:text-[9px] font-black px-1.5 py-0.5 rounded border border-slate-200 text-slate-500 uppercase bg-slate-50">{displayPos}</span>
@@ -4091,8 +4091,8 @@ export default function App() {
                                 return (
                                     <tr key={dutyId} className="transition-colors border border-slate-800 h-10 sm:h-12">
                                         <td className={`p-3 text-left sticky left-0 z-10 border border-slate-800 print:bg-transparent ${data.color.split(' ')[0]} ${data.color.split(' ')[1]}`} style={{ fontSize: `${rs.fontDuty || rs.fontSize}px` }}>
-                                            <div className="font-black truncate max-w-[150px] sm:max-w-[200px]" title={data.label}>{data.label}</div>
-                                            {data.jobB && data.jobB !== '-' && <div className="text-[8px] sm:text-[9px] font-bold opacity-80 truncate max-w-[150px] sm:max-w-[200px] italic mt-0.5" title={data.jobB}>{data.jobB}</div>}
+                                            <div className="font-black truncate max-w-[150px] sm:max-w-[200px]" title={data.label.replace(/<[^>]*>?/gm, '')} dangerouslySetInnerHTML={{__html: data.label}}></div>
+                                            {data.jobB && data.jobB !== '-' && <div className="text-[8px] sm:text-[9px] font-bold opacity-80 truncate max-w-[150px] sm:max-w-[200px] italic mt-0.5" title={data.jobB.replace(/<[^>]*>?/gm, '')} dangerouslySetInnerHTML={{__html: data.jobB}}></div>}
                                         </td>
                                         {data.counts.map((count, i) => (
                                             <td key={i} className={`p-2 font-black border border-slate-800 print:bg-transparent ${count === 0 ? 'text-slate-300' : count < 2 ? 'text-amber-500 bg-amber-50 print:text-black' : 'text-emerald-600 bg-emerald-50 print:text-black'}`} style={{ fontSize: `${rs.fontCount || rs.fontSize}px` }}>
@@ -4151,7 +4151,7 @@ export default function App() {
                {isFirstOfDuty && (
                   <React.Fragment>
                      <td rowSpan={dutySlotCount} className="border border-slate-800 p-2 text-left leading-tight bg-white/40" style={{ fontSize: `${rs.fontJobA || rs.fontSize}px` }}>
-                        <div className="font-black text-slate-900" dangerouslySetInnerHTML={{ __html: duty.jobA }}></div>
+                        <div className="font-black text-slate-900 whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: duty.jobA }}></div>
                         {duty.prepItems && duty.prepItems.length > 0 && (
                             <div className="mt-2 flex flex-col gap-1.5">
                                 {duty.prepItems.map(p => (
@@ -4166,7 +4166,7 @@ export default function App() {
                             </div>
                         )}
                      </td>
-                     <td rowSpan={dutySlotCount} className="border border-slate-800 p-2 text-left leading-tight opacity-80" style={{ fontSize: `${rs.fontJobB || (rs.fontSize * 0.8)}px` }} dangerouslySetInnerHTML={{ __html: duty.jobB || '-' }}></td>
+                     <td rowSpan={dutySlotCount} className="border border-slate-800 p-2 text-left leading-tight opacity-80 whitespace-pre-wrap" style={{ fontSize: `${rs.fontJobB || (rs.fontSize * 0.8)}px` }} dangerouslySetInnerHTML={{ __html: duty.jobB || '-' }}></td>
                      <td rowSpan={dutySlotCount} className="border border-slate-800 p-2 font-black" style={{ fontSize: `${rs.fontCount || (rs.fontSize * 1.2)}px` }}><u className="underline-offset-2">{dutySlotCount}</u></td>
                   </React.Fragment>
                )}
@@ -4752,11 +4752,11 @@ export default function App() {
                      return (
                      <tr key={duty.id}>
                        <td className="px-6 sm:px-10 py-6 sm:py-8 w-[30%]">
-                          <div className="font-black text-slate-900 text-sm sm:text-lg mb-1 leading-tight flex items-center gap-2">
+                          <div className="font-black text-slate-900 text-sm sm:text-lg mb-1 leading-tight flex items-center gap-2 whitespace-pre-wrap">
                              {catInfo && <div className={`w-3 h-3 rounded-full ${catInfo.color.split(' ')[0]}`} title={catInfo.label}></div>}
-                             {duty.jobA}
+                             <div dangerouslySetInnerHTML={{ __html: duty.jobA }}></div>
                           </div>
-                          <div className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase italic leading-tight mt-1 sm:ml-5">{duty.jobB}</div>
+                          <div className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase italic leading-tight mt-1 sm:ml-5 whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: duty.jobB }}></div>
                        </td>
                        <td className="px-6 sm:px-10 py-6 sm:py-8">
                          <div className="flex flex-wrap gap-4 sm:gap-6">
