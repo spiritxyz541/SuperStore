@@ -650,6 +650,7 @@ export default function App() {
       let dailyEventUsed = 0;
       let staffUsage = {};
       let dailyUsage = {};
+      let dailyAllowance = {};
       const staffMap = {};
       (branchData.staff || []).forEach(s => staffMap[s.id] = s);
 
@@ -667,6 +668,9 @@ export default function App() {
           const limit = branchData.staffLimits?.[cat.id];
           if (limit) targetFtHeadcountKitchen += parseInt(limit, 10);
       });
+
+      const daysInMonth = CALENDAR_DAYS.length || 30;
+      const dailyBaseAvg = baseAllowance / daysInMonth;
 
       CALENDAR_DAYS.forEach(day => {
            let activeFtCountService = 0;
@@ -686,7 +690,9 @@ export default function App() {
            const gapService = Math.max(0, targetFtHeadcountService - activeFtCountService);
            const gapKitchen = Math.max(0, targetFtHeadcountKitchen - activeFtCountKitchen);
            
-           vacancyCompensations += (gapService * compHoursPerDayService) + (gapKitchen * compHoursPerDayKitchen);
+           const dayVacancy = (gapService * compHoursPerDayService) + (gapKitchen * compHoursPerDayKitchen);
+           vacancyCompensations += dayVacancy;
+           dailyAllowance[day.dateStr] = { baseAvg: dailyBaseAvg, leave: 0, vacancy: dayVacancy, event: 0, total: dailyBaseAvg + dayVacancy };
       });
 
       Object.keys(schedule).forEach(dateStr => {
@@ -696,6 +702,10 @@ export default function App() {
           
           if (dayData.eventExtraHours) {
               eventExtras += dayData.eventExtraHours;
+              if (dailyAllowance[dateStr]) {
+                  dailyAllowance[dateStr].event = dayData.eventExtraHours;
+                  dailyAllowance[dateStr].total += dayData.eventExtraHours;
+              }
               if (dateStr === selectedDateStr) {
                   dailyEventQuota += dayData.eventExtraHours;
               }
@@ -707,6 +717,10 @@ export default function App() {
                   if (staff && !staff.pos.includes('PT')) {
                       if (['AL', 'SL', 'SL_UNPAID', 'PL', 'PL_UNPAID', 'MATERNITY', 'MARRIAGE', 'TRAINING', 'MY_DAY', 'FAMILY_DAY', 'CO'].includes(l.type)) {
                           leaveRefunds += 8;
+                          if (dailyAllowance[dateStr]) {
+                              dailyAllowance[dateStr].leave += 8;
+                              dailyAllowance[dateStr].total += 8;
+                          }
                       }
                   }
               });
@@ -766,7 +780,7 @@ export default function App() {
       const totalAllowance = baseTotalAllowance + eventExtras;
       const usedHours = usedBaseHours + usedEventHours;
       const usagePercent = totalAllowance > 0 ? (usedHours / totalAllowance) * 100 : 0;
-      return { baseAllowance, leaveRefunds, vacancyCompensations, baseTotalAllowance, eventExtras, totalAllowance, usedHours, usedBaseHours, usedEventHours, dailyEventQuota, dailyEventUsed, usagePercent, staffUsage, dailyUsage };
+      return { baseAllowance, leaveRefunds, vacancyCompensations, baseTotalAllowance, eventExtras, totalAllowance, usedHours, usedBaseHours, usedEventHours, dailyEventQuota, dailyEventUsed, usagePercent, staffUsage, dailyUsage, dailyAllowance };
   }, [schedule, branchData, selectedMonth, selectedYear, selectedDateStr, CALENDAR_DAYS]);
 
   const activeDayShiftVisibilities = useMemo(() => {
@@ -3039,31 +3053,48 @@ export default function App() {
                         )}
                     </div>
                     <div>
-                        <h4 className="font-black text-slate-700 text-sm mb-3 uppercase tracking-widest border-b border-slate-100 pb-2">สรุปชั่วโมงตามรายวัน</h4>
-                        {Object.keys(ptLedger.dailyUsage || {}).length === 0 ? (
-                            <div className="text-center text-xs text-slate-400 font-bold py-4">ยังไม่มีการจ่ายงานให้ PT</div>
-                        ) : (
+                        <h4 className="font-black text-slate-700 text-sm mb-3 uppercase tracking-widest border-b border-slate-100 pb-2">สรุปโควตาและการใช้งานรายวัน (Daily Quota vs Usage)</h4>
                             <table className="w-full text-xs text-left border-collapse">
                                 <thead>
                                     <tr className="bg-slate-50 text-slate-500">
-                                        <th className="p-2 border-b border-slate-200 font-black">วันที่</th>
-                                        <th className="p-2 border-b border-slate-200 font-black text-center">ชม. ปกติ</th>
-                                        <th className="p-2 border-b border-slate-200 font-black text-center">ชม. พิเศษ (Event)</th>
-                                        <th className="p-2 border-b border-slate-200 font-black text-center text-indigo-600">รวม</th>
+                                        <th className="p-2 border-b border-slate-200 font-black text-center w-12">วันที่</th>
+                                        <th className="p-2 border-b border-slate-200 font-black text-center">โควตารวม (H)</th>
+                                        <th className="p-2 border-b border-slate-200 font-black text-center">ใช้ไป (H)</th>
+                                        <th className="p-2 border-b border-slate-200 font-black text-center">คงเหลือ (H)</th>
+                                        <th className="p-2 border-b border-slate-200 font-black text-center w-20">สถานะ</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {Object.entries(ptLedger.dailyUsage).sort(([a],[b]) => a.localeCompare(b)).map(([dateStr, u]) => (
-                                        <tr key={dateStr} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                                            <td className="p-2 font-bold text-slate-700">{dateStr}</td>
-                                            <td className="p-2 text-center font-bold text-slate-600">{u.base > 0 ? u.base.toFixed(1) : '-'}</td>
-                                            <td className="p-2 text-center font-bold text-amber-600">{u.event > 0 ? u.event.toFixed(1) : '-'}</td>
-                                            <td className="p-2 text-center font-black text-indigo-600">{(u.base + u.event).toFixed(1)}</td>
-                                        </tr>
-                                    ))}
+                                    {CALENDAR_DAYS.map(day => {
+                                        const dateStr = day.dateStr;
+                                        const u = ptLedger.dailyUsage[dateStr] || { base: 0, event: 0 };
+                                        const a = ptLedger.dailyAllowance?.[dateStr] || { baseAvg: 0, leave: 0, vacancy: 0, event: 0, total: 0 };
+                                        const totalUsed = u.base + u.event;
+                                        const diff = a.total - totalUsed;
+                                        const isOver = diff < 0 && totalUsed > 0;
+                                        
+                                        return (
+                                            <tr key={dateStr} className={`border-b border-slate-100 hover:bg-slate-50 transition-colors ${isOver ? 'bg-rose-50/30' : ''}`}>
+                                                <td className="p-2 font-bold text-slate-700 text-center">{day.dayNum}</td>
+                                                <td className="p-2 text-center">
+                                                    <div className="font-black text-slate-700">{a.total.toFixed(1)}</div>
+                                                    <div className="text-[8px] text-slate-400 leading-tight mt-0.5">เฉลี่ย {a.baseAvg.toFixed(1)} + ขาด {a.vacancy.toFixed(1)} + ลา {a.leave.toFixed(1)} + พิเศษ {a.event.toFixed(1)}</div>
+                                                </td>
+                                                <td className="p-2 text-center">
+                                                    <div className="font-black text-indigo-600">{totalUsed.toFixed(1)}</div>
+                                                    <div className="text-[8px] text-slate-400 leading-tight mt-0.5">ปกติ {u.base.toFixed(1)} + พิเศษ {u.event.toFixed(1)}</div>
+                                                </td>
+                                                <td className={`p-2 text-center font-black ${isOver ? 'text-red-500' : 'text-emerald-500'}`}>
+                                                    {diff > 0 ? '+' : ''}{diff.toFixed(1)}
+                                                </td>
+                                                <td className="p-2 text-center">
+                                                    {isOver ? <span className="bg-red-100 text-red-600 px-2 py-0.5 rounded text-[9px] font-black shadow-sm">เกินโควตา</span> : <span className="bg-emerald-100 text-emerald-600 px-2 py-0.5 rounded text-[9px] font-black">ปกติ</span>}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
-                        )}
                     </div>
                 </div>
              </div>
