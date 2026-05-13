@@ -6,7 +6,7 @@ import {
   Users, AlertCircle, Clock, Save, Plus, Trash2, LayoutDashboard, Printer, ChevronLeft, ChevronRight, 
   Coffee, BarChart3, TrendingUp, Award, PlaneTakeoff, Loader2, Store, ArrowLeftRight, Sparkles, Wand2, Bold, Italic, Underline, Link as LinkIcon, BookOpen,
   Eraser, Filter, ChevronDown, Download, MessageCircle, Bell, UserCircle, SaveAll, FolderOpen, CheckCircle2, Edit2, X, Check, List, TableProperties, GripVertical, LogIn, ShieldCheck, Megaphone,
-  UtensilsCrossed, ConciergeBell, UserPlus, ArrowUpRight, ArrowDownRight, CalendarDays as CalendarDaysIcon, Calendar as CalendarIcon
+  UtensilsCrossed, ConciergeBell, UserPlus, ArrowUpRight, ArrowDownRight, CalendarDays as CalendarDaysIcon, Calendar as CalendarIcon, CheckSquare
 } from 'lucide-react';
 
 /**
@@ -5903,6 +5903,140 @@ export default function App() {
       );
   }
 
+  function renderPrepChecklistView() {
+    const hourlyTcData = branchData.matrix?.[activeDay.type]?.hourlyTc || {};
+    let prepGoals = branchData.matrix?.[activeDay.type]?.prepGoals;
+    if (!prepGoals) {
+        prepGoals = [
+            { id: 'prep_1', name: 'กะเช้า', start: '09', end: '12' },
+            { id: 'prep_2', name: 'กะบ่าย', start: '13', end: '22' }
+        ];
+    } else if (!Array.isArray(prepGoals)) {
+        prepGoals = [
+            { id: 'prep_1', name: 'กะเช้า', start: prepGoals.morning?.start || '09', end: prepGoals.morning?.end || '12' },
+            { id: 'prep_2', name: 'กะบ่าย', start: prepGoals.afternoon?.start || '13', end: prepGoals.afternoon?.end || '22' }
+        ];
+    }
+    
+    const getHoursInRange = (start, end) => {
+        const hours = [];
+        let s = parseInt(start); let e = parseInt(end);
+        if (e < s) e += 24;
+        for (let i = s; i <= e; i++) { hours.push(String(i % 24).padStart(2, '0')); }
+        return hours;
+    };
+    
+    const goalsData = prepGoals.map(goal => {
+        let tc = 0;
+        getHoursInRange(goal.start, goal.end).forEach(h => tc += parseInt(hourlyTcData[h]) || 0);
+        return { ...goal, tc };
+    });
+
+    const dutiesWithPrep = CURRENT_DUTY_LIST.filter(d => d.prepItems && d.prepItems.length > 0);
+
+    return (
+        <div className="w-full animate-in fade-in duration-500 bg-white p-6 sm:p-10 rounded-[2rem] border border-slate-200 shadow-sm print:border-none print:shadow-none print:p-0">
+             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 sm:mb-8 gap-4 print:hidden">
+                <div className="flex flex-col">
+                   <h2 className="text-xl sm:text-2xl font-black text-slate-900 uppercase tracking-tighter flex items-center gap-3"><CheckSquare className="w-6 h-6 text-emerald-500" /> Prep Checklist: {new Date(selectedDateStr).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}</h2>
+                   <div className="text-xs font-bold text-emerald-600 uppercase tracking-widest mt-1">{activeDept.toUpperCase()} DEPT</div>
+                </div>
+                <div className="flex gap-2 w-full sm:w-auto">
+                   <button onClick={() => window.print()} className="flex-1 sm:flex-none bg-slate-900 text-white px-6 py-3 rounded-xl font-black flex items-center justify-center gap-2 hover:bg-black shadow-lg active:scale-95 transition-all text-xs uppercase tracking-widest"><Printer className="w-4 h-4" /> พิมพ์ Checklist</button>
+                </div>
+             </div>
+
+             <div className="text-center mb-8 print:block">
+                <h1 className="text-2xl font-black uppercase tracking-tighter text-slate-800">ใบสรุปเป้าหมายการเตรียมของ (PREP LIST)</h1>
+                <p className="font-bold text-slate-600 mt-2 text-sm">วัน{activeDay.dayLabel} ที่ <span className="underline underline-offset-4">{activeDay.dayNum}</span> เดือน <span className="underline underline-offset-4">{THAI_MONTHS[selectedMonth]}</span> พ.ศ. <span className="underline underline-offset-4">{selectedYear + 543}</span> | สาขา: {globalConfig.branches?.find(b=>b.id===activeBranchId)?.name}</p>
+                <div className="mt-4 flex flex-wrap justify-center items-center gap-4 font-black text-xs border-y border-slate-200 py-3 w-max mx-auto bg-slate-50 px-6 rounded-lg">
+                    {goalsData.map((g, i) => (
+                        <span key={g.id} className="text-emerald-700 uppercase tracking-widest">🎯 เป้าเตรียม{g.name} ({g.start}-{parseInt(g.end)+1}น.): <span className="text-sm">{g.tc} TC</span></span>
+                    ))}
+                </div>
+             </div>
+
+             {dutiesWithPrep.length === 0 ? (
+                 <div className="text-center p-10 border-2 border-dashed border-slate-200 rounded-2xl text-slate-400 font-bold">ไม่มีรายการที่ต้องเตรียมของในแผนกนี้</div>
+             ) : (
+                 <div className="space-y-6">
+                     {DUTY_CATEGORIES[activeDept].map(cat => {
+                         const catDuties = dutiesWithPrep.filter(d => d.category === cat.id);
+                         if (catDuties.length === 0) return null;
+
+                         return (
+                             <div key={cat.id} className="mb-6">
+                                 <h3 className={`text-sm font-black uppercase tracking-widest mb-3 px-4 py-2 rounded-lg inline-block ${cat.color}`}>{cat.label}</h3>
+                                 <table className="w-full text-sm border-collapse border-2 border-slate-800 bg-white">
+                                     <thead>
+                                         <tr className="bg-slate-100 font-black text-slate-700 text-center">
+                                             <th className="border border-slate-800 p-3 w-1/4">หน้าที่ / ตำแหน่ง</th>
+                                             <th className="border border-slate-800 p-3 w-1/3">รายการที่ต้องเตรียม</th>
+                                             <th className="border border-slate-800 p-3 w-1/6">เป้าหมาย</th>
+                                             <th className="border border-slate-800 p-3 w-[10%]">ผู้เตรียม</th>
+                                             <th className="border border-slate-800 p-3 w-[10%]">Check</th>
+                                         </tr>
+                                     </thead>
+                                     <tbody>
+                                         {catDuties.map(duty => {
+                                             const dutyRowSpan = duty.prepItems.reduce((acc, p) => {
+                                                 let targetName = p.target;
+                                                 if (targetName === 'prep_1') targetName = 'กะเช้า';
+                                                 if (targetName === 'prep_2') targetName = 'กะบ่าย';
+                                                 const filteredGoals = goalsData.filter(g => !targetName || targetName === 'ALL' || targetName === g.name || targetName === g.id);
+                                                 return acc + filteredGoals.length;
+                                             }, 0);
+
+                                             return duty.prepItems.map((p, pIdx) => {
+                                                 let targetName = p.target;
+                                                 if (targetName === 'prep_1') targetName = 'กะเช้า';
+                                                 if (targetName === 'prep_2') targetName = 'กะบ่าย';
+                                                 const filteredGoals = goalsData.filter(g => !targetName || targetName === 'ALL' || targetName === g.name || targetName === g.id);
+                                                 
+                                                 return filteredGoals.map((g, gIdx) => {
+                                                     let val = 0;
+                                                     if (p.mode === 'TABLE') val = p.multiplier * (branchData.totalTables || 0);
+                                                     else if (p.mode === 'STATIC') val = p.multiplier;
+                                                     else val = p.multiplier * g.tc;
+                                                     let displayVal = val % 1 === 0 ? val.toString() : val.toFixed(1);
+
+                                                     return (
+                                                         <tr key={`${duty.id}-${p.id}-${g.id}`} className="hover:bg-slate-50 transition-colors">
+                                                             {pIdx === 0 && gIdx === 0 && (
+                                                                 <td rowSpan={dutyRowSpan} className="border border-slate-800 p-3 font-black text-slate-800 align-top bg-slate-50/50">
+                                                                     <div dangerouslySetInnerHTML={{ __html: duty.jobA }}></div>
+                                                                     <div className="text-[10px] text-slate-500 mt-1 uppercase">POS: {(duty.reqPos || ['ALL']).join(', ')}</div>
+                                                                 </td>
+                                                             )}
+                                                             <td className="border border-slate-800 p-3 font-bold text-slate-700">
+                                                                 {p.name}
+                                                                 <div className="text-[10px] text-slate-400 mt-0.5">กะ: <span className="font-black text-slate-600">{g.name}</span></div>
+                                                             </td>
+                                                             <td className="border border-slate-800 p-3 text-center font-black text-emerald-600 text-lg bg-emerald-50/30">
+                                                                 {displayVal} <span className="text-xs font-bold text-slate-500">{p.unit}</span>
+                                                             </td>
+                                                             <td className="border border-slate-800 p-3">
+                                                                 <div className="w-full h-8 border-b-2 border-dotted border-slate-300"></div>
+                                                             </td>
+                                                             <td className="border border-slate-800 p-3 text-center align-middle">
+                                                                 <div className="w-6 h-6 border-2 border-slate-400 rounded mx-auto"></div>
+                                                             </td>
+                                                         </tr>
+                                                     );
+                                                 });
+                                             });
+                                         })}
+                                     </tbody>
+                                 </table>
+                             </div>
+                         );
+                     })}
+                 </div>
+             )}
+        </div>
+    );
+  }
+
   let mainContent = null;
   if (view === 'area_dashboard') {
     mainContent = renderAreaDashboard();
@@ -5926,6 +6060,8 @@ export default function App() {
     mainContent = renderGuideView();
   } else if (view === 'print') {
     mainContent = <PrintMonthlyView CALENDAR_DAYS={CALENDAR_DAYS} branchData={branchData} globalConfig={globalConfig} activeBranchId={activeBranchId} THAI_MONTHS={THAI_MONTHS} selectedMonth={selectedMonth} getStaffDayInfo={getStaffDayInfo} setView={setView} activeDept={activeDept} CURRENT_DUTY_LIST={CURRENT_DUTY_LIST} schedule={schedule} handleToggleLeave={handleToggleLeave} LEAVE_TYPES={LEAVE_TYPES} />;
+  } else if (view === 'prep_checklist') {
+    mainContent = renderPrepChecklistView();
   }
 
   return (
@@ -6018,6 +6154,7 @@ export default function App() {
                       {authRole === 'areamanager' && <button onClick={() => setView('area_dashboard')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'area_dashboard' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>ภาพรวมเขต (Dashboard)</button>}
                       <button onClick={() => setView('manager')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'manager' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>จัดตารางงาน</button>
                       <button onClick={() => setView('head_team')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'head_team' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>จัดบทบาทประจำวัน</button>
+                      <button onClick={() => setView('prep_checklist')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'prep_checklist' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>ใบเตรียมของ (Prep)</button>
                       <button onClick={() => setView('report')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'report' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>รายงาน</button>
                       <button onClick={() => setView('admin')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'admin' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>ตั้งค่า</button>
                       <button onClick={() => setView('guide')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'guide' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>คู่มือ</button>
