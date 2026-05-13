@@ -5970,11 +5970,12 @@ export default function App() {
                                  <table className="w-full text-sm border-collapse border-2 border-slate-800 bg-white">
                                      <thead>
                                          <tr className="bg-slate-100 font-black text-slate-700 text-center">
-                                             <th className="border border-slate-800 p-3 w-1/4">หน้าที่ / ตำแหน่ง</th>
-                                             <th className="border border-slate-800 p-3 w-1/3">รายการที่ต้องเตรียม</th>
-                                             <th className="border border-slate-800 p-3 w-1/6">เป้าหมาย</th>
-                                             <th className="border border-slate-800 p-3 w-[10%]">ผู้เตรียม</th>
-                                             <th className="border border-slate-800 p-3 w-[10%]">Check</th>
+                                             <th className="border border-slate-800 p-3 w-[20%]">หน้าที่ / ตำแหน่ง</th>
+                                             <th className="border border-slate-800 p-3 w-[30%]">รายการที่ต้องเตรียม</th>
+                                             <th className="border border-slate-800 p-3 w-[15%]">เป้าหมาย</th>
+                                             <th className="border border-slate-800 p-3 w-[15%]">ผู้เตรียม</th>
+                                             <th className="border border-slate-800 p-3 w-[12%]">ผู้ตรวจ</th>
+                                             <th className="border border-slate-800 p-3 w-[8%]">Check</th>
                                          </tr>
                                      </thead>
                                      <tbody>
@@ -6014,6 +6015,9 @@ export default function App() {
                                                              </td>
                                                              <td className="border border-slate-800 p-3 text-center font-black text-emerald-600 text-lg bg-emerald-50/30">
                                                                  {displayVal} <span className="text-xs font-bold text-slate-500">{p.unit}</span>
+                                                             </td>
+                                                             <td className="border border-slate-800 p-3">
+                                                                 <div className="w-full h-8 border-b-2 border-dotted border-slate-300"></div>
                                                              </td>
                                                              <td className="border border-slate-800 p-3">
                                                                  <div className="w-full h-8 border-b-2 border-dotted border-slate-300"></div>
@@ -6079,7 +6083,7 @@ export default function App() {
         .snap-x { scroll-snap-type: x mandatory; }
         .snap-center { scroll-snap-align: center; }
         @media print {
-          @page { size: A4 landscape; margin: 8mm; }
+            @page { size: A4 ${view === 'prep_checklist' ? 'portrait' : 'landscape'}; margin: 8mm; }
           html, body { background: white !important; -webkit-print-color-adjust: exact; padding: 0 !important; margin: 0 !important; width: 100% !important; height: 100% !important; display: block !important; }
           .print\\:hidden { display: none !important; }
           nav, button, footer { display: none !important; }
