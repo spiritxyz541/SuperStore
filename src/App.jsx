@@ -4390,8 +4390,8 @@ export default function App() {
                                        </td>
                                    )}
                                    <td className="p-4 border-r border-slate-200 sticky left-[150px] bg-white z-10 align-top">
-                                       <div className="font-black text-sm text-slate-800 leading-tight mb-1">{duty.jobA}</div>
-                                       <div className="font-bold text-[9px] text-slate-500 leading-tight">{duty.jobB}</div>
+                                       <div className="font-black text-sm text-slate-800 leading-tight mb-1 whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: duty.jobA }}></div>
+                                       <div className="font-bold text-[9px] text-slate-500 leading-tight whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: duty.jobB || '-' }}></div>
                                        <div className="mt-2 text-[8px] font-black px-1.5 py-0.5 rounded border uppercase bg-slate-50 text-slate-500 inline-block">{(duty.reqPos || ['ALL']).join(', ')}</div>
                                    </td>
                                    {CALENDAR_DAYS.map(day => {
