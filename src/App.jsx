@@ -218,6 +218,15 @@ function getShiftTimesForStaff(staffPos, shiftPreset) {
     return { startTime: timings.startTime, endTime: timings.endTime };
 }
 
+function getNetWorkHours(startTime, endTime) {
+    if (!startTime || startTime === '??:??' || !endTime || endTime === '??:??') return 0;
+    const [sh, sm] = startTime.split(':').map(Number);
+    let [eh, em] = endTime.split(':').map(Number);
+    if (eh < sh) eh += 24; // รองรับกะทำงานข้ามคืน
+    let gross = (eh + em / 60) - (sh + sm / 60);
+    return gross >= 8 ? gross - 1 : gross; // ถ้าเวลาทำงานรวม >= 8 ชม. ให้หักพัก 1 ชม.
+}
+
 function getStaffLayer(dept, pos) {
   if (dept === 'service') {
     if (["OC", "AOC", "SH", "SSD"].includes(pos)) return DUTY_CATEGORIES.service[0];
@@ -613,11 +622,7 @@ export default function App() {
               const shiftPreset = branchData.shiftPresets?.find(p => p.id === mSlot?.shiftPresetId);
               const staffPos = staffMap[slot.staffId].pos;
               const { startTime, endTime } = getShiftTimesForStaff(staffPos, shiftPreset);
-              if (startTime && startTime !== '??:??' && endTime && endTime !== '??:??') {
-                  const [sh, sm] = startTime.split(':').map(Number);
-                  const [eh, em] = endTime.split(':').map(Number);
-                  staffMap[slot.staffId].workHours += (eh + em/60) - (sh + sm/60);
-              }
+              staffMap[slot.staffId].workHours += getNetWorkHours(startTime, endTime);
               staffMap[slot.staffId].shifts += 1;
               staffMap[slot.staffId].actualOT += Number(slot.otHours || 0);
               staffMap[slot.staffId].plannedOT += Number(mSlot?.maxOtHours || 0);
@@ -746,13 +751,7 @@ export default function App() {
                               const mSlot = matrixSlots[idx];
                               const shiftPreset = branchData.shiftPresets?.find(p => p.id === (slot.shiftPresetId || mSlot?.shiftPresetId));
                               const times = getShiftTimesForStaff(staff.pos, shiftPreset);
-                              let shiftHrs = 0;
-                              if (times.startTime && times.startTime !== '??:??' && times.endTime && times.endTime !== '??:??') {
-                                  const [sh, sm] = times.startTime.split(':').map(Number);
-                                  let [eh, em] = times.endTime.split(':').map(Number);
-                                  if (eh < sh) eh += 24; 
-                                  shiftHrs = (eh + em/60) - (sh + sm/60);
-                              }
+                              const shiftHrs = getNetWorkHours(times.startTime, times.endTime);
                               const totalSlotHrs = shiftHrs + Number(slot.otHours || 0);
                               
                               if (!staffUsage[staff.id]) staffUsage[staff.id] = { name: staff.name, pos: staff.pos, base: 0, event: 0 };
@@ -816,12 +815,7 @@ export default function App() {
                   const preset = branchData.shiftPresets?.find(p => p.id === slot.shiftPresetId);
                   if (preset) {
                       const { startTime, endTime } = preset.timings.long;
-                      if (startTime && startTime !== '??:??' && endTime && endTime !== '??:??') {
-                          const [sh, sm] = startTime.split(':').map(Number);
-                          let [eh, em] = endTime.split(':').map(Number);
-                          if (eh < sh) eh += 24;
-                          total += (eh + em/60) - (sh + sm/60);
-                      }
+                      total += getNetWorkHours(startTime, endTime);
                   }
                   total += Number(slot.maxOtHours || 0);
               });
@@ -4103,13 +4097,7 @@ export default function App() {
                                         if (staff && staff.pos.includes('PT')) {
                                             const shiftPreset = branchData.shiftPresets?.find(p => p.id === (s.shiftPresetId || branchData.shiftPresets[0].id));
                                             const times = getShiftTimesForStaff(staff.pos, shiftPreset);
-                                            let shiftHrs = 0;
-                                            if (times.startTime && times.startTime !== '??:??' && times.endTime !== '??:??') {
-                                                const [sh, sm] = times.startTime.split(':').map(Number);
-                                                let [eh, em] = times.endTime.split(':').map(Number);
-                                                if (eh < sh) eh += 24; 
-                                                shiftHrs = (eh + em/60) - (sh + sm/60);
-                                            }
+                                            const shiftHrs = getNetWorkHours(times.startTime, times.endTime);
                                             dailyEventUsed += shiftHrs + Number(s.otHours || 0);
                                         }
                                     }
