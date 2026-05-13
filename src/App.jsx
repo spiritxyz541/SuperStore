@@ -484,6 +484,7 @@ export default function App() {
   const [newStaffDept, setNewStaffDept] = useState('service');
   const [newStaffPos, setNewStaffPos] = useState('OC');
   const [newStaffDayOff, setNewStaffDayOff] = useState(''); 
+  const [newStaffStartDate, setNewStaffStartDate] = useState(''); 
 
   const [editingStaffId, setEditingStaffId] = useState(null);
   const [editStaffData, setEditStaffData] = useState({});
@@ -714,12 +715,12 @@ export default function App() {
               });
           }
       });
-      const baseTotalAllowance = baseAllowance + leaveRefunds;
+      const baseTotalAllowance = baseAllowance + leaveRefunds + vacancyCompensations;
       const totalAllowance = baseTotalAllowance + eventExtras;
       const usedHours = usedBaseHours + usedEventHours;
       const usagePercent = totalAllowance > 0 ? (usedHours / totalAllowance) * 100 : 0;
-      return { baseAllowance, leaveRefunds, baseTotalAllowance, eventExtras, totalAllowance, usedHours, usedBaseHours, usedEventHours, dailyEventQuota, dailyEventUsed, usagePercent };
-  }, [schedule, branchData, selectedMonth, selectedYear, selectedDateStr]);
+      return { baseAllowance, leaveRefunds, vacancyCompensations, baseTotalAllowance, eventExtras, totalAllowance, usedHours, usedBaseHours, usedEventHours, dailyEventQuota, dailyEventUsed, usagePercent };
+  }, [schedule, branchData, selectedMonth, selectedYear, selectedDateStr, CALENDAR_DAYS]);
 
   const activeDayShiftVisibilities = useMemo(() => {
       let hasMorning = false, hasLateMorning = false, hasAfternoon = false, hasEvening = false, hasNight = false;
@@ -3354,6 +3355,7 @@ export default function App() {
                             return <option key={d.id} value={d.id} disabled={isFull}>{d.label} {isFull ? '(เต็ม)' : ''}</option>
                         })}
                     </select>
+                    <input type="date" title="วันเริ่มงาน" className="flex-1 bg-slate-50 border-2 border-slate-100 rounded-xl sm:rounded-2xl px-3 sm:px-4 py-3 text-[10px] sm:text-xs font-black outline-none focus:border-indigo-500 text-slate-500" value={newStaffStartDate} onChange={(e) => setNewStaffStartDate(e.target.value)} />
                   </div>
                   <button onClick={() => { 
                       if(newStaffName.trim()){ 
@@ -3366,8 +3368,8 @@ export default function App() {
                               setConfirmModal({ message: `เพิ่มพนักงานไม่ได้ เนื่องจากกลุ่ม ${isPT ? 'Part-Time' : layer.label} เต็มแล้ว (รับได้สูงสุด ${limit} คน)` });
                               return;
                           }
-                          setBranchData(p => ({...p, staff: [...(p.staff || []), {id: 's' + Date.now(), empId: newStaffEmpId.trim(), name: newStaffName.trim(), dept: newStaffDept, pos: newStaffPos, regularDayOff: newStaffDayOff === '' ? null : parseInt(newStaffDayOff)}]})); 
-                          setNewStaffName(''); setNewStaffEmpId(''); setNewStaffDayOff(''); 
+                          setBranchData(p => ({...p, staff: [...(p.staff || []), {id: 's' + Date.now(), empId: newStaffEmpId.trim(), name: newStaffName.trim(), dept: newStaffDept, pos: newStaffPos, regularDayOff: newStaffDayOff === '' ? null : parseInt(newStaffDayOff), startDate: newStaffStartDate || null}]})); 
+                          setNewStaffName(''); setNewStaffEmpId(''); setNewStaffDayOff(''); setNewStaffStartDate('');
                       } 
                   }} className="w-full xl:w-auto bg-slate-900 text-white px-6 sm:px-8 py-3 rounded-xl sm:rounded-2xl font-black text-xs hover:bg-indigo-600 transition uppercase flex items-center justify-center"><UserPlus className="w-4 h-4 sm:w-5 sm:h-5 mr-0 sm:mr-0"/><span className="xl:hidden ml-2">เพิ่มพนักงาน</span></button>
                </div>
@@ -3386,6 +3388,7 @@ export default function App() {
                           <select value={editStaffData.pos} onChange={e => setEditStaffData({...editStaffData, pos: e.target.value})} className="border rounded px-2 py-1 text-[10px]">
                               {POSITIONS[s.dept].map(p => <option key={p} value={p}>{p}</option>)}
                           </select>
+                          <input type="date" value={editStaffData.startDate || ''} onChange={e => setEditStaffData({...editStaffData, startDate: e.target.value})} className="border rounded px-2 py-1 text-[10px] w-24 sm:w-auto" title="วันเริ่มงาน" />
                       <div className="flex gap-1 items-center">
                           <select value={editStaffData.resignDate || editStaffData.isActive === false ? 'false' : 'true'} onChange={e => {
                               const isResigned = e.target.value === 'false';
@@ -3438,7 +3441,7 @@ export default function App() {
                                    const isResigned = s.resignDate || s.isActive === false;
                                    return <span className={`text-[7px] sm:text-[8px] font-black px-1.5 sm:px-2 py-0.5 rounded border uppercase ${isResigned ? 'bg-rose-50 text-rose-500 border-rose-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200'}`}>{isResigned ? (s.resignDate ? `ลาออก (${s.resignDate})` : 'ลาออก/ไม่รับงาน') : 'ทำงานปกติ'}</span>;
                                })()}
-                               <span className="text-[7px] sm:text-[8px] font-black px-1.5 sm:px-2 py-0.5 rounded border border-slate-200 bg-white text-slate-400 uppercase truncate">หยุด: {s.regularDayOff !== undefined && s.regularDayOff !== null ? DAYS_OF_WEEK.find(d => d.id === s.regularDayOff)?.label : '-'}</span>
+                              <span className="text-[7px] sm:text-[8px] font-black px-1.5 sm:px-2 py-0.5 rounded border border-slate-200 bg-white text-slate-400 uppercase truncate" title={`วันเริ่มงาน: ${s.startDate || 'ไม่ระบุ'} | หยุดประจำ: ${s.regularDayOff !== undefined && s.regularDayOff !== null ? DAYS_OF_WEEK.find(d => d.id === s.regularDayOff)?.label : '-'}`}>หยุด: {s.regularDayOff !== undefined && s.regularDayOff !== null ? DAYS_OF_WEEK.find(d => d.id === s.regularDayOff)?.label : '-'}</span>
                                <button onClick={() => startEditStaff(s)} className="text-slate-300 hover:text-indigo-500"><Edit2 className="w-3 h-3"/></button>
                             </div>
                          </div>
@@ -3698,7 +3701,7 @@ export default function App() {
 
        <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm w-full mt-6 sm:mt-10 print:hidden">
            <h2 className="text-lg sm:text-xl font-black text-slate-800 mb-6 sm:mb-8 flex items-center gap-2 sm:gap-4 uppercase tracking-tighter"><TrendingUp className="w-6 h-6 sm:w-7 sm:h-7 text-emerald-500" /> ข้อมูลสาขาและงบประมาณ (Branch Configs)</h2>
-           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">จำนวนโต๊ะ (Total Tables)</label>
                  <input type="number" inputMode="numeric" disabled={authRole !== 'superadmin'} value={branchData.totalTables || ''} onChange={(e) => setBranchData(prev => ({...prev, totalTables: parseInt(e.target.value) || 0}))} onBlur={async () => { if(activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" placeholder="เช่น 30" />
@@ -3710,6 +3713,10 @@ export default function App() {
               <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">อัตราค่าจ้าง PT ต่อชั่วโมง (บาท)</label>
                  <input type="text" inputMode="numeric" disabled={authRole !== 'superadmin'} value={branchData.ptConfig?.hourlyRate === 0 ? '' : (branchData.ptConfig?.hourlyRate ?? '')} onChange={(e) => handleUpdatePtConfig('hourlyRate', e.target.value.replace(/[^0-9.]/g, ''))} onBlur={(e) => handleSavePtConfig('hourlyRate', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-emerald-600 disabled:opacity-70 disabled:bg-white" placeholder="เช่น 50" />
+              </div>
+              <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">อัตราทดแทนคนขาด (ชม. / คน / วัน)</label>
+                 <input type="text" inputMode="numeric" disabled={authRole !== 'superadmin'} value={branchData.ptConfig?.compHoursPerDay === 0 ? '' : (branchData.ptConfig?.compHoursPerDay ?? 8)} onChange={(e) => handleUpdatePtConfig('compHoursPerDay', e.target.value.replace(/[^0-9.]/g, ''))} onBlur={(e) => handleSavePtConfig('compHoursPerDay', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-sky-600 disabled:opacity-70 disabled:bg-white" placeholder="ค่าเริ่มต้น 8 ชม." />
               </div>
            </div>
            <p className="text-[10px] text-slate-400 font-bold mt-4">* ระบบจะนำยอดเงินมาหารเป็นชั่วโมงโควตาตั้งต้น สำหรับบริหารจัดการ Part-Time ในกระเป๋าชั่วโมง (PT Ledger)</p>
@@ -5498,8 +5505,8 @@ export default function App() {
                   <div className="bg-slate-50 p-3 sm:p-4 rounded-xl border border-slate-100 flex flex-col gap-2">
                       <div className="flex justify-between items-end">
                           <div className="flex flex-col">
-                              <span className="text-[10px] sm:text-xs font-black text-slate-500 uppercase">งบปกติ + ทุนคนลา (Base + Leave)</span>
-                              <span className="text-[9px] font-bold text-slate-400">Budget: {(ptLedger.baseAllowance || 0).toFixed(1)} ชม. | Leave: {(ptLedger.leaveRefunds || 0).toFixed(1)} ชม.</span>
+                              <span className="text-[10px] sm:text-xs font-black text-slate-500 uppercase">งบปกติ + ทุนคนลา + ทุนขาดคน (Vacancy)</span>
+                              <span className="text-[9px] font-bold text-slate-400">Budget: {(ptLedger.baseAllowance || 0).toFixed(1)}H | Leave: {(ptLedger.leaveRefunds || 0).toFixed(1)}H | Vacancy: {(ptLedger.vacancyCompensations || 0).toFixed(1)}H</span>
                           </div>
                           <span className="text-sm font-black text-slate-800">{usedBaseAll.toFixed(1)} <span className="text-[10px] text-slate-400">/ {baseTotalAllowance.toFixed(1)} ชม.</span></span>
                       </div>
