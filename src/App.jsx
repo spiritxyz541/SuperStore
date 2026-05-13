@@ -4612,13 +4612,14 @@ export default function App() {
           <div className="bg-white rounded-[2rem] sm:rounded-[3rem] border border-slate-200 shadow-sm overflow-hidden w-full print:border-none print:shadow-none">
              <div className="p-6 sm:p-8 bg-slate-50 border-b border-slate-100 flex justify-between items-center print:hidden flex-wrap gap-4">
                 <div className="flex flex-col">
-                   <h2 className="text-xl sm:text-2xl font-black text-slate-900 uppercase tracking-tighter">Duty Roster Chart: {new Date(selectedDateStr).toLocaleDateString('th-TH', { day: 'numeric', month: 'long' })}</h2>
+                   <h2 className="text-xl sm:text-2xl font-black text-slate-900 uppercase tracking-tighter">{dailyViewMode === 'prep' ? 'Prep Checklist' : 'Duty Roster Chart'}: {new Date(selectedDateStr).toLocaleDateString('th-TH', { day: 'numeric', month: 'long' })}</h2>
                    <div className="text-xs font-bold text-indigo-600 uppercase tracking-widest mt-1">{activeDept.toUpperCase()} DEPT</div>
                 </div>
                 <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                    <div className="bg-slate-200 p-1.5 rounded-xl flex gap-1 w-full sm:w-auto">
                       <button onClick={() => setDailyViewMode('roster')} className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-[10px] sm:text-xs font-black transition-all ${dailyViewMode === 'roster' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>ตารางกะงาน</button>
                       <button onClick={() => setDailyViewMode('headcount')} className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-[10px] sm:text-xs font-black transition-all ${dailyViewMode === 'headcount' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>สรุปกำลังคน</button>
+                      <button onClick={() => setDailyViewMode('prep')} className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-[10px] sm:text-xs font-black transition-all ${dailyViewMode === 'prep' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>ใบเตรียมของ</button>
                    </div>
                    <button onClick={() => window.print()} className="flex-1 sm:flex-none justify-center bg-slate-900 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-black flex items-center gap-2 hover:bg-black shadow-lg active:scale-95 transition-all text-[10px] sm:text-xs uppercase tracking-widest"><Printer className="w-4 h-4" /> พิมพ์ตารางนี้</button>
                 </div>
@@ -4683,8 +4684,10 @@ export default function App() {
                    </tbody>
                 </table>
                   </React.Fragment>
-                ) : (
+                ) : dailyViewMode === 'headcount' ? (
                   renderHeadcountChart()
+                ) : (
+                  renderPrepChecklistView()
                 )}
              </div>
           </div>
@@ -5935,17 +5938,7 @@ export default function App() {
     const dutiesWithPrep = CURRENT_DUTY_LIST.filter(d => d.prepItems && d.prepItems.length > 0);
 
     return (
-        <div className="w-full animate-in fade-in duration-500 bg-white p-6 sm:p-10 rounded-[2rem] border border-slate-200 shadow-sm print:border-none print:shadow-none print:p-0">
-             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 sm:mb-8 gap-4 print:hidden">
-                <div className="flex flex-col">
-                   <h2 className="text-xl sm:text-2xl font-black text-slate-900 uppercase tracking-tighter flex items-center gap-3"><CheckSquare className="w-6 h-6 text-emerald-500" /> Prep Checklist: {new Date(selectedDateStr).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })}</h2>
-                   <div className="text-xs font-bold text-emerald-600 uppercase tracking-widest mt-1">{activeDept.toUpperCase()} DEPT</div>
-                </div>
-                <div className="flex gap-2 w-full sm:w-auto">
-                   <button onClick={() => window.print()} className="flex-1 sm:flex-none bg-slate-900 text-white px-6 py-3 rounded-xl font-black flex items-center justify-center gap-2 hover:bg-black shadow-lg active:scale-95 transition-all text-xs uppercase tracking-widest"><Printer className="w-4 h-4" /> พิมพ์ Checklist</button>
-                </div>
-             </div>
-
+        <div className="w-full animate-in fade-in duration-500">
              <div className="text-center mb-8 print:block">
                 <h1 className="text-2xl font-black uppercase tracking-tighter text-slate-800">ใบสรุปเป้าหมายการเตรียมของ (PREP LIST)</h1>
                 <p className="font-bold text-slate-600 mt-2 text-sm">วัน{activeDay.dayLabel} ที่ <span className="underline underline-offset-4">{activeDay.dayNum}</span> เดือน <span className="underline underline-offset-4">{THAI_MONTHS[selectedMonth]}</span> พ.ศ. <span className="underline underline-offset-4">{selectedYear + 543}</span> | สาขา: {globalConfig.branches?.find(b=>b.id===activeBranchId)?.name}</p>
@@ -6094,8 +6087,6 @@ export default function App() {
     mainContent = renderGuideView();
   } else if (view === 'print') {
     mainContent = <PrintMonthlyView CALENDAR_DAYS={CALENDAR_DAYS} branchData={branchData} globalConfig={globalConfig} activeBranchId={activeBranchId} THAI_MONTHS={THAI_MONTHS} selectedMonth={selectedMonth} getStaffDayInfo={getStaffDayInfo} setView={setView} activeDept={activeDept} CURRENT_DUTY_LIST={CURRENT_DUTY_LIST} schedule={schedule} handleToggleLeave={handleToggleLeave} LEAVE_TYPES={LEAVE_TYPES} />;
-  } else if (view === 'prep_checklist') {
-    mainContent = renderPrepChecklistView();
   }
 
   return (
@@ -6113,7 +6104,7 @@ export default function App() {
         .snap-x { scroll-snap-type: x mandatory; }
         .snap-center { scroll-snap-align: center; }
         @media print {
-            @page { size: A4 ${view === 'prep_checklist' ? 'portrait' : 'landscape'}; margin: 8mm; }
+            @page { size: A4 ${(view === 'head_team' && dailyViewMode === 'prep') ? 'portrait' : 'landscape'}; margin: 8mm; }
           html, body { background: white !important; -webkit-print-color-adjust: exact; padding: 0 !important; margin: 0 !important; width: 100% !important; height: 100% !important; display: block !important; }
           .print\\:hidden { display: none !important; }
           nav, button, footer { display: none !important; }
@@ -6188,7 +6179,6 @@ export default function App() {
                       {authRole === 'areamanager' && <button onClick={() => setView('area_dashboard')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'area_dashboard' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>ภาพรวมเขต (Dashboard)</button>}
                       <button onClick={() => setView('manager')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'manager' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>จัดตารางงาน</button>
                       <button onClick={() => setView('head_team')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'head_team' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>จัดบทบาทประจำวัน</button>
-                      <button onClick={() => setView('prep_checklist')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'prep_checklist' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>ใบเตรียมของ (Prep)</button>
                       <button onClick={() => setView('report')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'report' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>รายงาน</button>
                       <button onClick={() => setView('admin')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'admin' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>ตั้งค่า</button>
                       <button onClick={() => setView('guide')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'guide' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>คู่มือ</button>
