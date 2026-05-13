@@ -5743,6 +5743,10 @@ export default function App() {
                        <p className="text-indigo-200 font-bold text-sm mt-1">ยินดีต้อนรับ, {am?.name || authUser} | ดูแลทั้งหมด {am?.branches?.length || 0} สาขา</p>
                    </div>
                 </div>
+                <div className="flex items-center gap-3 bg-slate-800 px-5 py-3 rounded-2xl border border-slate-700">
+                    <CalendarIcon className="w-5 h-5 text-emerald-400"/>
+                    <span className="font-black text-lg tracking-widest uppercase">{THAI_MONTHS[selectedMonth]} {selectedYear}</span>
+                </div>
             </div>
             
             <div className="grid grid-cols-1 gap-6">
@@ -5760,19 +5764,92 @@ export default function App() {
                     const staffCount = bData?.staff?.length || 0;
                     const ptCount = bData?.staff?.filter(s => s.pos.includes('PT')).length || 0;
                     
+                    const bDays = getDaysInMonth(selectedYear, selectedMonth, bData?.holidays || []);
+                    let targetFtService = 0, targetFtKitchen = 0;
+                    DUTY_CATEGORIES.service.forEach(cat => { if (bData?.staffLimits?.[cat.id]) targetFtService += parseInt(bData?.staffLimits[cat.id], 10); });
+                    DUTY_CATEGORIES.kitchen.forEach(cat => { if (bData?.staffLimits?.[cat.id]) targetFtKitchen += parseInt(bData?.staffLimits[cat.id], 10); });
+
+                    const compHrSvc = bData?.ptConfig?.compHoursPerDayService ?? 8;
+                    const compHrKit = bData?.ptConfig?.compHoursPerDayKitchen ?? 8;
+
+                    let vacancyComp = 0;
+                    bDays.forEach(day => {
+                        let actSvc = 0, actKit = 0;
+                        (bData?.staff || []).forEach(s => {
+                            if (s.pos.includes('PT') || (s.isActive === false && !s.resignDate)) return;
+                            if ((!s.startDate || s.startDate <= day.dateStr) && (!s.resignDate || s.resignDate >= day.dateStr)) {
+                                if (s.dept === 'service') actSvc++;
+                                if (s.dept === 'kitchen') actKit++;
+                            }
+                        });
+                        vacancyComp += (Math.max(0, targetFtService - actSvc) * compHrSvc) + (Math.max(0, targetFtKitchen - actKit) * compHrKit);
+                    });
+
                     let totalOT = 0;
                     let totalLeaves = 0;
+                    let leaveRefunds = 0;
+                    let eventExtras = 0;
+                    let totalPtHours = 0;
                     
-                    Object.keys(sData).forEach(d => {
-                        const day = sData[d];
-                        if (day.duties) {
-                            Object.values(day.duties).forEach(slots => { slots.forEach(s => { if (s.otHours) totalOT += s.otHours; }); });
+                    const staffMap = {};
+                    (bData?.staff || []).forEach(s => staffMap[s.id] = s);
+
+                    Object.keys(sData).forEach(dateStr => {
+                        const [y, m] = dateStr.split('-');
+                        if (parseInt(m, 10) - 1 !== selectedMonth || parseInt(y, 10) !== selectedYear) return;
+
+                        const dayData = sData[dateStr];
+                        if (dayData.eventExtraHours) eventExtras += dayData.eventExtraHours;
+
+                        if (dayData.leaves) {
+                            totalLeaves += dayData.leaves.length;
+                            dayData.leaves.forEach(l => {
+                                const staff = staffMap[l.staffId];
+                                if (staff && !staff.pos.includes('PT') && ['AL', 'SL', 'SL_UNPAID', 'PL', 'PL_UNPAID', 'MATERNITY', 'MARRIAGE', 'TRAINING', 'MY_DAY', 'FAMILY_DAY', 'CO'].includes(l.type)) {
+                                    leaveRefunds += 8;
+                                }
+                            });
                         }
-                        if (day.leaves) totalLeaves += day.leaves.length;
+
+                        if (dayData.duties) {
+                            const dateObj = new Date(parseInt(y), parseInt(m) - 1, parseInt(dateStr.split('-')[2]));
+                            const dOW = dateObj.getDay();
+                            let dayType = 'weekday';
+                            if (bData?.holidays?.includes?.(dateStr) || dOW === 0 || dOW === 6) dayType = 'weekend';
+                            else if (dOW === 5) dayType = 'friday';
+
+                            Object.keys(dayData.duties).forEach(dutyId => {
+                                const slots = dayData.duties[dutyId] || [];
+                                const matrixSlots = bData?.matrix?.[dayType]?.duties?.[dutyId] || [];
+                                slots.forEach((slot, idx) => {
+                                    if (slot.otHours) totalOT += Number(slot.otHours);
+                                    if (slot.staffId) {
+                                        const actualStaffId = slot.staffId.startsWith('COVER_BY_') ? slot.staffId.replace('COVER_BY_', '') : slot.staffId;
+                                        const staff = staffMap[actualStaffId];
+                                        if (staff && staff.pos.includes('PT')) {
+                                            const mSlot = matrixSlots[idx];
+                                            const shiftPreset = bData?.shiftPresets?.find(p => p.id === (slot.shiftPresetId || mSlot?.shiftPresetId));
+                                            const times = getShiftTimesForStaff(staff.pos, shiftPreset);
+                                            const shiftHrs = getNetWorkHours(times.startTime, times.endTime);
+                                            totalPtHours += shiftHrs + Number(slot.otHours || 0);
+                                        }
+                                    }
+                                });
+                            });
+                        }
                     });
                     
+                    const ptRate = bData?.ptConfig?.hourlyRate || 0;
+                    const baseBudget = bData?.ptConfig?.monthlyBudget || 0;
+                    const baseAllowance = ptRate > 0 ? baseBudget / ptRate : 0;
+                    
+                    const totalAllowedExpense = (baseAllowance + leaveRefunds + vacancyComp + eventExtras) * ptRate;
+                    const estimatedPtExpense = totalPtHours * ptRate;
+                    const isOverAllowed = estimatedPtExpense > totalAllowedExpense;
+
                     return (
-                        <div key={bId} className="bg-white p-6 sm:p-8 rounded-[2rem] border border-slate-200 shadow-sm flex flex-col xl:flex-row items-start xl:items-center justify-between gap-6 transition hover:border-indigo-300">
+                        <div key={bId} className="bg-white p-6 sm:p-8 rounded-[2rem] border border-slate-200 shadow-sm flex flex-col gap-6 transition hover:border-indigo-300">
+                          <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-6">
                             <div className="flex-1 w-full">
                                 <h3 className="text-xl font-black text-slate-800 uppercase flex items-center gap-3"><Store className="w-6 h-6 text-indigo-500"/> {branchName}</h3>
                                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-5 w-full">
@@ -5786,6 +5863,38 @@ export default function App() {
                                 <button onClick={() => { setActiveBranchId(bId); setView('report'); }} className="flex-1 bg-indigo-50 text-indigo-600 px-8 py-4 rounded-xl font-black text-xs hover:bg-indigo-100 transition shadow-sm whitespace-nowrap text-center uppercase tracking-widest border border-indigo-100">ดูรายงานฉบับเต็ม</button>
                                 <button onClick={() => { setActiveBranchId(bId); setView('manager'); }} className="flex-1 bg-slate-900 text-white px-8 py-4 rounded-xl font-black text-xs hover:bg-black transition shadow-lg whitespace-nowrap text-center uppercase tracking-widest">จัดการตารางกะสาขานี้</button>
                             </div>
+                          </div>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-slate-100 pt-6">
+                              <div className="bg-slate-50 p-5 rounded-2xl flex flex-col justify-between border border-slate-100">
+                                  <div>
+                                      <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">พยากรณ์ค่าใช้จ่าย PT</h4>
+                                      <div className="text-2xl sm:text-3xl font-black text-emerald-600 tracking-tighter mt-1">{estimatedPtExpense.toLocaleString()} <span className="text-xs sm:text-sm text-slate-500">THB</span></div>
+                                      <p className="text-[9px] font-bold text-slate-400 mt-1">ใช้ไป {totalPtHours.toFixed(1)} ชม. x {ptRate} บ./ชม.</p>
+                                  </div>
+                              </div>
+                              <div className="bg-slate-50 p-5 rounded-2xl flex flex-col justify-between border border-slate-100">
+                                  <div>
+                                      <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">งบประมาณ PT ที่ใช้งานได้</h4>
+                                      <div className="text-2xl sm:text-3xl font-black text-slate-800 tracking-tighter mt-1">{totalAllowedExpense.toLocaleString(undefined, {maximumFractionDigits:0})} <span className="text-xs sm:text-sm text-slate-500">THB</span></div>
+                                      <div className={`mt-3 text-[10px] font-black px-2.5 py-1.5 rounded-lg inline-block ${isOverAllowed ? 'bg-rose-100 text-rose-700 border border-rose-200' : 'bg-emerald-100 text-emerald-700 border border-emerald-200'}`}>
+                                          {isOverAllowed ? `⚠️ ทะลุงบ ${(estimatedPtExpense - totalAllowedExpense).toLocaleString(undefined, {maximumFractionDigits:0})} THB` : `✨ คงเหลือ ${(totalAllowedExpense - estimatedPtExpense).toLocaleString(undefined, {maximumFractionDigits:0})} THB`}
+                                      </div>
+                                  </div>
+                              </div>
+                              <div className="bg-slate-50 p-5 rounded-2xl flex flex-col justify-between border border-slate-100">
+                                  <div>
+                                      <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">สัดส่วนกำลังคน (FT : PT)</h4>
+                                      <div className="flex gap-6 mt-3">
+                                          <div><div className="text-2xl sm:text-3xl font-black text-indigo-600">{staffCount - ptCount}</div><p className="text-[9px] font-bold text-slate-400">Full-Time</p></div>
+                                          <div><div className="text-2xl sm:text-3xl font-black text-orange-500">{ptCount}</div><p className="text-[9px] font-bold text-slate-400">Part-Time</p></div>
+                                      </div>
+                                      <div className="mt-3 h-1.5 w-full bg-orange-100 rounded-full overflow-hidden flex">
+                                          <div className="h-full bg-indigo-500" style={{ width: `${staffCount > 0 ? ((staffCount - ptCount) / staffCount) * 100 : 0}%` }}></div>
+                                      </div>
+                                  </div>
+                              </div>
+                          </div>
                         </div>
                     );
                 })}
