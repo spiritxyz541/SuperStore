@@ -3484,10 +3484,13 @@ export default function App() {
                                 <select value={editPrepTarget} onChange={e=>setEditPrepTarget(e.target.value)} className="flex-1 border border-slate-200 rounded-lg px-2 py-1.5 text-[10px] font-bold outline-none focus:border-amber-500 bg-white">
                                     <option value="ALL">ทุกกะ</option>
                                     {(() => {
-                                        let prepGoals = branchData.matrix?.weekday?.prepGoals;
-                                        if (!prepGoals) prepGoals = [{ id: 'prep_1', name: 'กะเช้า' }, { id: 'prep_2', name: 'กะบ่าย' }];
-                                        else if (!Array.isArray(prepGoals)) prepGoals = [{ id: 'prep_1', name: 'กะเช้า' }, { id: 'prep_2', name: 'กะบ่าย' }];
-                                        return prepGoals.map(g => <option key={g.id} value={g.id}>{g.name}</option>);
+                                        const names = new Set();
+                                        ['weekday', 'friday', 'weekend'].forEach(dt => {
+                                            const pg = branchData.matrix?.[dt]?.prepGoals;
+                                            if (Array.isArray(pg)) pg.forEach(g => names.add(g.name));
+                                            else { names.add('กะเช้า'); names.add('กะบ่าย'); }
+                                        });
+                                        return Array.from(names).map(name => <option key={name} value={name}>{name}</option>);
                                     })()}
                                 </select>
                                 <button onClick={() => { if(editPrepName && editPrepMultiplier) { setEditDutyData({...editDutyData, prepItems: [...(editDutyData.prepItems || []), { id: 'P'+Date.now(), name: editPrepName, multiplier: parseFloat(editPrepMultiplier)||0, unit: editPrepUnit, target: editPrepTarget }]}); setEditPrepName(''); setEditPrepMultiplier(''); setEditPrepTarget('ALL'); } }} className="bg-amber-500 hover:bg-amber-600 text-white px-2 py-1.5 rounded-lg text-[10px] font-black shadow-sm transition">เพิ่ม</button>
@@ -3497,9 +3500,7 @@ export default function App() {
                                     {(editDutyData.prepItems || []).map(p => {
                                         let targetName = 'ทุกกะ';
                                         if (p.target && p.target !== 'ALL') {
-                                            let pg = branchData.matrix?.weekday?.prepGoals;
-                                            if (!Array.isArray(pg)) pg = [{ id: 'prep_1', name: 'กะเช้า' }, { id: 'prep_2', name: 'กะบ่าย' }];
-                                            targetName = `เฉพาะ ${pg.find(g=>g.id === p.target)?.name || p.target}`;
+                                            targetName = `เฉพาะ ${p.target === 'prep_1' ? 'กะเช้า' : p.target === 'prep_2' ? 'กะบ่าย' : p.target}`;
                                         }
                                         return (
                                         <div key={p.id} className="bg-white text-amber-700 px-2 py-1 rounded border border-amber-200 text-[9px] font-black flex items-center gap-1 shadow-sm">
@@ -3541,9 +3542,7 @@ export default function App() {
                                  {duty.prepItems.map(p => {
                                      let targetName = '';
                                      if (p.target && p.target !== 'ALL') {
-                                         let pg = branchData.matrix?.weekday?.prepGoals;
-                                         if (!Array.isArray(pg)) pg = [{ id: 'prep_1', name: 'กะเช้า' }, { id: 'prep_2', name: 'กะบ่าย' }];
-                                         targetName = ` [${pg.find(g=>g.id === p.target)?.name || 'เฉพาะกะ'}]`;
+                                         targetName = ` [เฉพาะ ${p.target === 'prep_1' ? 'กะเช้า' : p.target === 'prep_2' ? 'กะบ่าย' : p.target}]`;
                                      }
                                      return <span key={p.id} className="text-[7px] sm:text-[8px] bg-amber-50 text-amber-700 px-1.5 py-0.5 border border-amber-200 rounded font-black shadow-sm">{p.name} ({p.multiplier}{p.unit}){targetName}</span>
                                  })}
@@ -4361,7 +4360,10 @@ export default function App() {
                         {duty.prepItems && duty.prepItems.length > 0 && (
                             <div className="mt-2 flex flex-col gap-1.5">
                                 {duty.prepItems.map(p => {
-                                    const filteredGoals = goalsData.filter(g => !p.target || p.target === 'ALL' || p.target === g.id);
+                                    let targetName = p.target;
+                                    if (targetName === 'prep_1') targetName = 'กะเช้า';
+                                    if (targetName === 'prep_2') targetName = 'กะบ่าย';
+                                    const filteredGoals = goalsData.filter(g => !targetName || targetName === 'ALL' || targetName === g.name || targetName === g.id);
                                     if (filteredGoals.length === 0) return null;
                                     return (
                                     <div key={p.id} className="bg-amber-50 border border-amber-200 rounded px-2 py-1.5 text-[8px] sm:text-[9px] leading-tight shadow-sm">
