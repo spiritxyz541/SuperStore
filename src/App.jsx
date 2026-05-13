@@ -456,6 +456,7 @@ export default function App() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [confirmModal, setConfirmModal] = useState(null);
   const [showRequestsModal, setShowRequestsModal] = useState(false);
+  const [requestTab, setRequestTab] = useState('pending');
 
   const [showExtraOtModal, setShowExtraOtModal] = useState(null);
   const [extraOtReason, setExtraOtReason] = useState('');
@@ -1828,12 +1829,12 @@ export default function App() {
           return newSched;
       });
       
-      const newList = pendingRequests.filter(r => r.id !== req.id);
+      const newList = pendingRequests.map(r => r.id === req.id ? { ...r, status: 'APPROVED', updatedTimestamp: Date.now() } : r);
       await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'requests', activeBranchId), { list: newList });
   };
 
-  const handleRejectRequest = async (reqId) => {
-      const newList = pendingRequests.filter(r => r.id !== reqId);
+  const handleRejectRequest = async (reqId, reason = '') => {
+      const newList = pendingRequests.map(r => r.id === reqId ? { ...r, status: 'REJECTED', rejectReason: reason, updatedTimestamp: Date.now() } : r);
       await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'requests', activeBranchId), { list: newList });
   };
 
@@ -2558,16 +2559,23 @@ export default function App() {
                <div className="flex justify-between items-center border-b border-slate-100 pb-4">
                    <div className="flex items-center gap-3">
                       <div className="bg-orange-100 p-3 rounded-full"><Bell className="w-6 h-6 text-orange-500"/></div>
-                      <div><h3 className="text-xl font-black text-slate-800 uppercase tracking-tighter">การอนุมัติคำขอ</h3><p className="text-[10px] sm:text-xs font-bold text-slate-400">รายการลาหยุด และ สลับกะที่รอตรวจสอบ</p></div>
+                      <div><h3 className="text-xl font-black text-slate-800 uppercase tracking-tighter">การอนุมัติคำขอ</h3><p className="text-[10px] sm:text-xs font-bold text-slate-400">รายการลาหยุด, OT และใบงาน</p></div>
                    </div>
                    <button onClick={() => setShowRequestsModal(false)} className="text-slate-400 hover:bg-slate-100 p-2 rounded-full transition"><X className="w-6 h-6"/></button>
                </div>
+               
+               <div className="flex gap-2 border-b border-slate-100 pb-2 flex-shrink-0">
+                   <button onClick={() => setRequestTab('pending')} className={`px-4 py-2 rounded-lg text-xs font-black uppercase transition ${requestTab === 'pending' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}>รออนุมัติ</button>
+                   <button onClick={() => setRequestTab('history')} className={`px-4 py-2 rounded-lg text-xs font-black uppercase transition ${requestTab === 'history' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-50 text-slate-500 hover:bg-slate-100'}`}>ประวัติใบงาน</button>
+               </div>
+
                <div className="overflow-y-auto custom-scrollbar flex-1 pr-2">
-                  {pendingRequests.filter(r => r.reqType !== 'SWAP' || r.status === 'PENDING_MANAGER').length === 0 ? (
+                  {requestTab === 'pending' ? (
+                      pendingRequests.filter(r => r.status === 'PENDING_MANAGER').length === 0 ? (
                       <div className="text-center py-10 text-slate-400 font-bold text-sm bg-slate-50 rounded-2xl border border-slate-100">ไม่มีคำขอที่รอการอนุมัติ 🎉</div>
                   ) : (
                       <div className="space-y-3">
-                          {pendingRequests.filter(r => r.reqType !== 'SWAP' || r.status === 'PENDING_MANAGER').map(req => {
+                              {pendingRequests.filter(r => r.status === 'PENDING_MANAGER').map(req => {
                               const staff = branchData.staff?.find(s => s.id === req.staffId);
                               const isSwap = req.reqType === 'SWAP';
                               let detailHtml = null;
@@ -2576,7 +2584,7 @@ export default function App() {
                                  detailHtml = (
                                    <div className="mt-2 text-xs font-bold text-slate-600 bg-indigo-50 p-2 rounded-lg border border-indigo-100">
                                      ขอสลับกะกับ <span className="text-indigo-700">{targetStaff?.name || 'Unknown'}</span> <br/>
-                                     วันที่ <span className="text-indigo-700">{req.dateMy}</span> <ArrowRightLeft className="w-3 h-3 inline mx-1"/> วันที่ <span className="text-indigo-700">{req.datePeer}</span>
+                                     วันที่ <span className="text-indigo-700">{req.dateMy}</span> <ArrowLeftRight className="w-3 h-3 inline mx-1"/> วันที่ <span className="text-indigo-700">{req.datePeer}</span>
                                    </div>
                                  );
                               } else if (req.reqType === 'EXTRA_OT') {
@@ -2615,8 +2623,8 @@ export default function App() {
                                       </div>
                                       {['EXTRA_PT', 'EXTRA_OT'].includes(req.reqType) && authRole === 'branch' ? (
                                           <div className="flex gap-2 w-full sm:w-auto">
-                                              <span className="flex-1 sm:flex-none text-xs font-bold text-amber-600 bg-amber-50 px-4 py-2 rounded-xl border border-amber-200 flex items-center justify-center whitespace-nowrap">รอผู้จัดการเขต (AM) อนุมัติ</span>
-                                              <button onClick={() => handleRejectRequest(req.id)} className="flex-1 sm:flex-none bg-red-50 text-red-500 px-4 py-2 rounded-xl text-xs font-black hover:bg-red-500 hover:text-white transition border border-red-200">ยกเลิก</button>
+                                              <span className="flex-1 sm:flex-none text-xs font-bold text-amber-600 bg-amber-50 px-4 py-2 rounded-xl border border-amber-200 flex items-center justify-center whitespace-nowrap">รอ AM อนุมัติ</span>
+                                              <button onClick={() => handleRejectRequest(req.id, 'Manager Cancelled')} className="flex-1 sm:flex-none bg-red-50 text-red-500 px-4 py-2 rounded-xl text-xs font-black hover:bg-red-500 hover:text-white transition border border-red-200">ยกเลิก</button>
                                           </div>
                                       ) : (
                                           <div className="flex gap-2 w-full sm:w-auto">
@@ -2628,6 +2636,62 @@ export default function App() {
                               );
                           })}
                       </div>
+                  )
+                  ) : (
+                      pendingRequests.filter(r => r.status === 'APPROVED' || r.status === 'REJECTED').length === 0 ? (
+                          <div className="text-center py-10 text-slate-400 font-bold text-sm bg-slate-50 rounded-2xl border border-slate-100">ยังไม่มีประวัติใบงาน</div>
+                      ) : (
+                          <div className="space-y-3">
+                              {pendingRequests.filter(r => r.status === 'APPROVED' || r.status === 'REJECTED').sort((a,b) => (b.updatedTimestamp || 0) - (a.updatedTimestamp || 0)).map(req => {
+                                  const staff = branchData.staff?.find(s => s.id === req.staffId);
+                                  const isSwap = req.reqType === 'SWAP';
+                                  let detailHtml = null;
+                                  if (isSwap) {
+                                     const targetStaff = branchData.staff?.find(s => s.id === req.targetStaffId);
+                                     detailHtml = (
+                                       <div className="mt-1 text-xs font-bold text-slate-500">
+                                         สลับกะกับ <span className="text-indigo-600">{targetStaff?.name || 'Unknown'}</span> ({req.dateMy} <ArrowLeftRight className="w-3 h-3 inline mx-1"/> {req.datePeer})
+                                       </div>
+                                     );
+                                  } else if (req.reqType === 'EXTRA_OT') {
+                                     detailHtml = (
+                                       <div className="mt-1 text-xs font-bold text-slate-500">
+                                         ขอ OT เกินโควตา: <span className="text-rose-600 font-black">{req.requestedOt} ชม.</span> (วันที่: {req.dateStr})
+                                       </div>
+                                     );
+                                  } else if (req.reqType === 'EXTRA_PT') {
+                                     detailHtml = (
+                                       <div className="mt-1 text-xs font-bold text-slate-500">
+                                         โควตาพิเศษ (Event): <span className="text-emerald-600 font-black">+{req.requestedHours.toFixed(1)} ชม.</span> (วันที่: {req.dateStr})
+                                       </div>
+                                     );
+                                  } else {
+                                     const lType = LEAVE_TYPES.find(t => t.id === req.type);
+                                     detailHtml = (
+                                       <div className="mt-1 text-xs font-bold text-slate-500">
+                                         ขอหยุดวันที่: <span className="text-indigo-600">{req.dateStr}</span> ประเภท: {lType?.label}
+                                       </div>
+                                     );
+                                  }
+                                  return (
+                                      <div key={req.id} className="bg-slate-50 border border-slate-100 p-4 rounded-2xl flex justify-between items-center gap-4">
+                                          <div>
+                                              <h4 className="font-black text-slate-700">{staff?.name || (['EXTRA_PT', 'EXTRA_OT'].includes(req.reqType) && !staff ? 'ผู้จัดการสาขา' : 'Unknown Staff')}</h4>
+                                              {detailHtml}
+                                              <p className="text-[9px] text-slate-400 mt-1">{new Date(req.updatedTimestamp || req.timestamp).toLocaleString('th-TH')}</p>
+                                          </div>
+                                          <div>
+                                              {req.status === 'APPROVED' ? (
+                                                  <span className="bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase whitespace-nowrap">อนุมัติแล้ว</span>
+                                              ) : (
+                                                  <span className="bg-rose-100 text-rose-700 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase whitespace-nowrap">ไม่อนุมัติ</span>
+                                              )}
+                                          </div>
+                                      </div>
+                                  );
+                              })}
+                          </div>
+                      )
                   )}
                </div>
              </div>
@@ -2732,6 +2796,11 @@ export default function App() {
                                                    if (activeBranchId) autoSaveSchedule(newSched);
                                                    return newSched;
                                                });
+                                               const req = pendingRequests.find(r => r.reqType === 'EXTRA_PT' && r.dateStr === activeDay.dateStr && r.status === 'APPROVED');
+                                               if (req) {
+                                                   const newList = pendingRequests.map(r => r.id === req.id ? { ...r, status: 'REJECTED', rejectReason: 'Manager Cancelled', updatedTimestamp: Date.now() } : r);
+                                                   setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'requests', activeBranchId), { list: newList });
+                                               }
                                                setShowForecastModal(false);
                                            }
                                        });
@@ -3760,6 +3829,8 @@ export default function App() {
                                         const currentShiftPreset = branchData.shiftPresets?.find(p => p.id === (data.shiftPresetId || slot?.shiftPresetId));
                                         const currentShiftName = currentShiftPreset ? currentShiftPreset.name : 'N/A';
                                         
+                                        const pendingExtraOt = pendingRequests.find(r => r.reqType === 'EXTRA_OT' && r.dateStr === selectedDateStr && r.dutyId === duty.id && r.slotIdx === idx && r.status === 'PENDING_MANAGER');
+
                                         const extraBadge = isExtra ? (data.isEventExtra ? 'EVENT EXTRA' : 'BASE EXTRA') : null;
                                         const extraColor = isExtra ? (data.isEventExtra ? 'border-amber-300 bg-amber-50/50' : 'border-indigo-300 bg-indigo-50/50') : (!data.staffId ? 'border-dashed border-rose-300 bg-rose-50 animate-pulse' : 'border-indigo-100 bg-white');
                                         const extraIconColor = isExtra ? (data.isEventExtra ? 'text-amber-500' : 'text-indigo-500') : (!data.staffId ? 'text-rose-400' : 'text-slate-400');
@@ -3797,7 +3868,11 @@ export default function App() {
                                               </select>
                                               <div className={`w-full sm:flex-1 flex flex-row sm:flex-col justify-between sm:justify-center items-center border rounded-xl bg-white transition-all px-3 py-1 ${data.otHours >= slot.maxOtHours ? 'border-indigo-500 bg-indigo-50/20' : 'border-slate-200'}`}>
                                                  <span className="text-[8px] font-black text-slate-300 uppercase sm:mb-0.5">OT</span>
-                                                 <input type="number" step="0.5" value={data.otHours} onChange={(e) => handleScheduleUpdate(selectedDateStr, duty.id, idx, 'otHours', e.target.value)} onBlur={(e) => handleOtBlur(selectedDateStr, duty.id, idx, e.target.value, slot.maxOtHours, data.staffId)} className="w-12 sm:w-full text-right sm:text-center font-black text-sm outline-none bg-transparent focus:text-indigo-600" />
+                                                 {pendingExtraOt ? (
+                                                     <span className="text-[8px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 leading-none text-center">รออนุมัติ<br/>{pendingExtraOt.requestedOt}</span>
+                                                 ) : (
+                                                     <input type="number" step="0.5" value={data.otHours} onChange={(e) => handleScheduleUpdate(selectedDateStr, duty.id, idx, 'otHours', e.target.value)} onBlur={(e) => handleOtBlur(selectedDateStr, duty.id, idx, e.target.value, slot.maxOtHours, data.staffId)} className="w-12 sm:w-full text-right sm:text-center font-black text-sm outline-none bg-transparent focus:text-indigo-600" />
+                                                 )}
                                               </div>
                                               </div>
                                            </div>
@@ -4138,7 +4213,7 @@ export default function App() {
          const isNight = stHour >= 19;
          const timeText = `${formatTimeAbbreviation(startTime)}-${formatTimeAbbreviation(endTime)}`;
          const pendingExtraOt = pendingRequests.find(r => r.reqType === 'EXTRA_OT' && r.dateStr === selectedDateStr && r.dutyId === duty.id && r.slotIdx === originalIdx && r.status === 'PENDING_MANAGER');
-         const otBadge = pendingExtraOt ? ` (รออนุมัติ ${pendingExtraOt.requestedOt} ชม.)` : (assignedData.otHours > 0 ? ` (O${assignedData.otHours})` : '');
+         const otBadge = pendingExtraOt ? <span className="text-[7px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 ml-1 whitespace-nowrap shadow-sm">รออนุมัติ {pendingExtraOt.requestedOt} ชม.</span> : (assignedData.otHours > 0 ? ` (O${assignedData.otHours})` : '');
 
          return (
             <tr key={`${duty.id}-${originalIdx}`} className={`text-center h-10 sm:h-12 border border-slate-800 ${cat.color.split(' ')[0]} ${cat.color.split(' ')[1]}`}>
@@ -4172,7 +4247,7 @@ export default function App() {
                )}
                <td className="border border-slate-800 p-2 text-left font-bold" style={{ fontSize: `${rs.fontName || rs.fontSize}px` }}>
                    <div className="flex justify-between items-center">
-                       <span>{staffName}<span className="opacity-80 ml-1 font-black">{otBadge}</span></span>
+                       <span className="flex items-center">{staffName}<span className="opacity-80 ml-1 font-black">{otBadge}</span></span>
                        {staff && <span className={`px-1.5 py-0.5 rounded font-black uppercase bg-black/10 border border-current opacity-80`} style={{ fontSize: `${(rs.fontName || rs.fontSize) * 0.8}px` }}>{staff.pos}</span>}
                    </div>
                </td>
@@ -4401,10 +4476,14 @@ export default function App() {
                                        (schedule[day.dateStr]?.leaves || []).forEach(l => l.staffId && dayUsedStaffIds.add(l.staffId));
                                        Object.values(schedule[day.dateStr]?.duties || {}).forEach(sls => sls.forEach(s => s.staffId && dayUsedStaffIds.add(s.staffId)));
 
+                                       const totalSlotsCount = Math.max(slots.length, assigned.length);
+                                       const renderSlots = Array.from({ length: totalSlotsCount });
+
                                        return (
                                            <td key={day.dateStr} className="p-2 border-r border-slate-100 align-top bg-white">
                                                <div className="space-y-2">
-                                                  {slots.map((matrixSlot, idx) => {
+                                                  {renderSlots.map((_, idx) => {
+                                                      const matrixSlot = slots[idx] || { shiftPresetId: assigned[idx]?.shiftPresetId || branchData.shiftPresets?.[0]?.id, maxOtHours: 0 };
                                                       const data = assigned[idx] || { staffId: "", otHours: 0 };
                                                      if (duty.isBackup && !data.staffId) return null; // ซ่อนกล่องว่าง หากเป็นกะสำรอง
                                                       const shiftPreset = branchData.shiftPresets?.find(p => p.id === matrixSlot.shiftPresetId);
@@ -4417,7 +4496,7 @@ export default function App() {
                                                                 <div className="flex items-center gap-0.5 flex-shrink-0">
                                                                    <span className="text-[7px] font-black text-slate-400">OT:</span>
                                                                    {pendingExtraOt ? (
-                                                                       <span className="text-[7px] font-bold text-amber-600 bg-amber-50 px-1 rounded border border-amber-200 leading-tight text-center">รออนุมัติ<br/>{pendingExtraOt.requestedOt}</span>
+                                                                       <span className="text-[7px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 leading-tight text-center">รออนุมัติ<br/>{pendingExtraOt.requestedOt}</span>
                                                                    ) : (
                                                                        <input type="number" step="0.5" value={data.otHours} onChange={(e) => handleScheduleUpdate(day.dateStr, duty.id, idx, 'otHours', e.target.value)} onBlur={(e) => handleOtBlur(day.dateStr, duty.id, idx, e.target.value, matrixSlot.maxOtHours, data.staffId)} disabled={!data.staffId} className={`w-10 h-4 text-[8px] font-black text-center rounded outline-none transition-colors border ${data.otHours > 0 ? 'bg-indigo-100 border-indigo-200 text-indigo-700' : 'bg-white border-slate-200 text-slate-600 focus:border-indigo-400'} disabled:opacity-50`} />
                                                                    )}
