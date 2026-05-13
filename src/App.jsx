@@ -4881,6 +4881,15 @@ export default function App() {
   }
 
   function renderReportView() {
+    const ptStaffData = reportData.filter(s => s.pos.includes('PT'));
+    const totalPtHours = ptStaffData.reduce((sum, s) => sum + s.workHours + s.actualOT, 0);
+    const ptRate = branchData.ptConfig?.hourlyRate || 0;
+    const estimatedPtExpense = totalPtHours * ptRate;
+    
+    const totalAllowedExpense = ptLedger.totalAllowance * ptRate;
+    const baseBudget = branchData.ptConfig?.monthlyBudget || 0;
+    const isOverAllowed = estimatedPtExpense > totalAllowedExpense;
+
     return (
        <div className="flex-1 space-y-6 sm:space-y-12 animate-in fade-in duration-500 pb-24 w-full">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0">
@@ -4944,6 +4953,57 @@ export default function App() {
                 </div>
              </div>
           </div>
+
+         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-8">
+            <div className="bg-white p-6 sm:p-8 rounded-[2rem] sm:rounded-[3rem] border border-slate-200 shadow-sm flex flex-col justify-between">
+               <div>
+                  <h3 className="text-[10px] sm:text-xs font-black text-slate-400 uppercase tracking-widest mb-1">พยากรณ์ค่าใช้จ่าย Part-Time</h3>
+                  <div className="text-3xl sm:text-5xl font-black text-emerald-600 tracking-tighter mt-2">
+                      {estimatedPtExpense.toLocaleString()} <span className="text-sm sm:text-base text-slate-500">THB</span>
+                  </div>
+                  <p className="text-[10px] sm:text-xs font-bold text-slate-400 mt-2">คำนวณจาก {totalPtHours.toFixed(1)} ชม. x {ptRate} บ./ชม.</p>
+               </div>
+            </div>
+
+            {reportFilterMode === 'month' ? (
+               <div className="bg-white p-6 sm:p-8 rounded-[2rem] sm:rounded-[3rem] border border-slate-200 shadow-sm flex flex-col justify-between">
+                  <div>
+                     <h3 className="text-[10px] sm:text-xs font-black text-slate-400 uppercase tracking-widest mb-1">งบประมาณ PT ที่ใช้งานได้</h3>
+                     <div className="text-3xl sm:text-5xl font-black text-slate-800 tracking-tighter mt-2">
+                         {totalAllowedExpense.toLocaleString(undefined, {maximumFractionDigits:0})} <span className="text-sm sm:text-base text-slate-500">THB</span>
+                     </div>
+                     <p className="text-[10px] sm:text-xs font-bold text-slate-400 mt-2">จากงบตั้งต้น {baseBudget.toLocaleString()} บ. + คืนคนลา/ขาด + อีเวนต์</p>
+                  </div>
+                  <div className={`mt-4 text-[10px] sm:text-xs font-black px-3 py-2 rounded-xl inline-block w-max ${isOverAllowed ? 'bg-rose-50 text-rose-600 border border-rose-200 shadow-sm' : 'bg-emerald-50 text-emerald-600 border border-emerald-200 shadow-sm'}`}>
+                     {isOverAllowed ? `⚠️ ใช้เกินงบไป ${(estimatedPtExpense - totalAllowedExpense).toLocaleString(undefined, {maximumFractionDigits:0})} THB` : `✨ คงเหลือ ${(totalAllowedExpense - estimatedPtExpense).toLocaleString(undefined, {maximumFractionDigits:0})} THB`}
+                  </div>
+               </div>
+            ) : (
+               <div className="bg-white p-6 sm:p-8 rounded-[2rem] sm:rounded-[3rem] border border-slate-200 shadow-sm flex flex-col justify-center items-center text-center opacity-50">
+                   <span className="text-xs font-bold text-slate-400">งบประมาณจะแสดงผล<br/>เฉพาะการกรองแบบ "รายเดือน"</span>
+               </div>
+            )}
+
+            <div className="bg-white p-6 sm:p-8 rounded-[2rem] sm:rounded-[3rem] border border-slate-200 shadow-sm flex flex-col justify-between">
+               <div>
+                  <h3 className="text-[10px] sm:text-xs font-black text-slate-400 uppercase tracking-widest mb-1">สัดส่วนกำลังคน (Manpower)</h3>
+                  <div className="flex gap-6 mt-4">
+                      <div>
+                          <div className="text-3xl sm:text-5xl font-black text-indigo-600">{reportData.filter(s => !s.pos.includes('PT')).length}</div>
+                          <p className="text-[10px] sm:text-xs font-bold text-slate-400 mt-1">Full-Time (FT)</p>
+                      </div>
+                      <div>
+                          <div className="text-3xl sm:text-5xl font-black text-orange-500">{ptStaffData.length}</div>
+                          <p className="text-[10px] sm:text-xs font-bold text-slate-400 mt-1">Part-Time (PT)</p>
+                      </div>
+                  </div>
+               </div>
+               <div className="mt-4 h-2 w-full bg-orange-100 rounded-full overflow-hidden flex">
+                   <div className="h-full bg-indigo-500 transition-all duration-1000" style={{ width: `${(reportData.filter(s => !s.pos.includes('PT')).length / (reportData.length || 1)) * 100}%` }}></div>
+               </div>
+            </div>
+         </div>
+
           <div className="bg-white rounded-[2rem] sm:rounded-[4rem] border border-slate-200 shadow-sm overflow-hidden w-full">
              <div className="p-6 sm:p-12 border-b border-slate-50 font-black text-slate-900 bg-slate-50/30 uppercase tracking-tighter text-lg sm:text-2xl"><div className="flex items-center gap-3 sm:gap-5"><BarChart3 className="w-6 h-6 sm:w-10 sm:h-10 text-indigo-500" /> Employee Workload Summary</div></div>
              <div className="overflow-x-auto custom-scrollbar">
