@@ -4151,7 +4151,7 @@ export default function App() {
                {isFirstOfDuty && (
                   <React.Fragment>
                      <td rowSpan={dutySlotCount} className="border border-slate-800 p-2 text-left leading-tight bg-white/40" style={{ fontSize: `${rs.fontJobA || rs.fontSize}px` }}>
-                        <div className="font-black text-slate-900">{duty.jobA}</div>
+                        <div className="font-black text-slate-900" dangerouslySetInnerHTML={{ __html: duty.jobA }}></div>
                         {duty.prepItems && duty.prepItems.length > 0 && (
                             <div className="mt-2 flex flex-col gap-1.5">
                                 {duty.prepItems.map(p => (
@@ -4166,7 +4166,7 @@ export default function App() {
                             </div>
                         )}
                      </td>
-                     <td rowSpan={dutySlotCount} className="border border-slate-800 p-2 text-left leading-tight opacity-80" style={{ fontSize: `${rs.fontJobB || (rs.fontSize * 0.8)}px` }}>{duty.jobB}</td>
+                     <td rowSpan={dutySlotCount} className="border border-slate-800 p-2 text-left leading-tight opacity-80" style={{ fontSize: `${rs.fontJobB || (rs.fontSize * 0.8)}px` }} dangerouslySetInnerHTML={{ __html: duty.jobB || '-' }}></td>
                      <td rowSpan={dutySlotCount} className="border border-slate-800 p-2 font-black" style={{ fontSize: `${rs.fontCount || (rs.fontSize * 1.2)}px` }}><u className="underline-offset-2">{dutySlotCount}</u></td>
                   </React.Fragment>
                )}
