@@ -2362,6 +2362,7 @@ export default function App() {
   };
 
   const handleClearSchedule = (mode = 'daily') => {
+      let newSchedToSave = null;
       setSchedule(prevSched => {
           const newSched = JSON.parse(JSON.stringify(prevSched));
           const datesToProcess = mode === 'daily' ? [selectedDateStr] : CALENDAR_DAYS.map(d => d.dateStr);
@@ -2372,9 +2373,12 @@ export default function App() {
                   });
               } 
           });
-          if (activeBranchId) autoSaveSchedule(newSched);
+          newSchedToSave = newSched;
           return newSched;
       });
+      setTimeout(() => {
+          if (activeBranchId && newSchedToSave) autoSaveSchedule(newSchedToSave);
+      }, 0);
   };
 
   const handleInspectBranch = async (branchId) => {
