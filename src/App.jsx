@@ -860,6 +860,65 @@ export default function App() {
       return { hasMorning, hasLateMorning, hasAfternoon, hasEvening, hasNight, bottomColSpan: 1 + shiftColCount + 1 };
   }, [branchData.matrix, activeDay, CURRENT_DUTY_LIST, branchData.shiftPresets]);
 
+  const dailyComputedBreaks = useMemo(() => {
+    const breaks = {};
+    const dayData = schedule[selectedDateStr];
+    if (!dayData || !dayData.duties) return breaks;
+
+    const dayConfig = CALENDAR_DAYS.find(c => c.dateStr === selectedDateStr);
+    if (!dayConfig) return breaks;
+    const dayType = dayConfig.type;
+
+    for (const dutyId in dayData.duties) {
+        if (!breaks[dutyId]) breaks[dutyId] = {};
+        const assignedSlots = dayData.duties[dutyId] || [];
+        
+        assignedSlots.forEach((assigned, idx) => {
+            if (assigned.staffId) {
+                const staff = branchData.staff?.find(s => s.id === assigned.staffId);
+                const matrixSlots = branchData.matrix?.[dayType]?.duties?.[dutyId] || [];
+                const matrixSlot = matrixSlots[idx] || { shiftPresetId: assigned.shiftPresetId || branchData.shiftPresets?.[0]?.id };
+                const shiftPreset = branchData.shiftPresets?.find(p => p.id === matrixSlot.shiftPresetId);
+
+                if (staff && shiftPreset) {
+                    const { startTime, endTime } = getShiftTimesForStaff(staff.pos, shiftPreset);
+                    
+                    if (startTime && endTime && startTime !== '??:??' && endTime !== '??:??') {
+                        const [sh, sm] = startTime.split(':').map(Number);
+                        let [eh, em] = endTime.split(':').map(Number);
+                        if (eh < sh) eh += 24;
+
+                        const grossMinutes = (eh * 60 + em) - (sh * 60 + sm);
+                        
+                        if (grossMinutes >= 480) { // 8 hours or more, gets 1hr break
+                            const midPointMinutes = (sh * 60 + sm) + (grossMinutes / 2);
+                            const breakStartMinutes = midPointMinutes - 30;
+                            const breakEndMinutes = midPointMinutes + 30;
+
+                            const format = (totalMinutes) => {
+                                const h = Math.floor(totalMinutes / 60) % 24;
+                                const m = totalMinutes % 60;
+                                return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+                            };
+                            
+                            breaks[dutyId][idx] = `${format(breakStartMinutes)}-${format(breakEndMinutes)}`;
+                        } else {
+                            breaks[dutyId][idx] = 'ไม่มีพัก';
+                        }
+                    } else {
+                        breaks[dutyId][idx] = 'N/A';
+                    }
+                } else {
+                    breaks[dutyId][idx] = 'N/A';
+                }
+            } else {
+                breaks[dutyId][idx] = '-';
+            }
+        });
+    }
+    return breaks;
+  }, [schedule, selectedDateStr, branchData, CALENDAR_DAYS]);
+
   const getBaseManHours = useCallback((dayType) => {
       let total = 0;
       ['service', 'kitchen'].forEach(dept => {
@@ -1286,8 +1345,11 @@ export default function App() {
       if (field === 'staffId') {
          if (value !== "") currentSlots[slotIndex].otHours = parseFloat(defaultOt) || 0;
          else currentSlots[slotIndex].otHours = 0;
-         // Auto-save on staff change
-         if (activeBranchId) autoSaveSchedule(newSched);
+      }
+
+      // Auto-save on staff change or break time change
+      if (field === 'staffId' || field === 'breakTime') {
+        if (activeBranchId) autoSaveSchedule(newSched);
       }
       return newSched;
     });
