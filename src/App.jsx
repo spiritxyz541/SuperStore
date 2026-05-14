@@ -2099,6 +2099,7 @@ export default function App() {
   };
 
   const handleManagerApproveRequest = async (req) => {
+      let newSchedToSave = null;
       setSchedule(prev => {
           const newSched = JSON.parse(JSON.stringify(prev));
           
@@ -2167,9 +2168,14 @@ export default function App() {
                   newSched[req.dateStr].duties[req.dutyId][req.slotIdx].otUpdated = true;
               }
           }
+          newSchedToSave = newSched;
           return newSched;
       });
       
+      if (activeBranchId && newSchedToSave) {
+          autoSaveSchedule(newSchedToSave);
+      }
+
       const newList = pendingRequests.map(r => r.id === req.id ? { ...r, status: 'APPROVED', updatedTimestamp: Date.now() } : r);
       await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'requests', activeBranchId), { list: newList });
   };
