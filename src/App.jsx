@@ -4320,21 +4320,26 @@ export default function App() {
                  let bestBreak = candidateBreaks[0] || 'N/A';
                  let minScore = Infinity;
 
-                 for (const cBreak of candidateBreaks) {
-                     let overlapCount = 0;
-                     for (const prevBreak of breakTracker[jobA]) {
-                         if (isOverlap(cBreak, prevBreak)) overlapCount++;
-                     }
-                     if (jobB !== '-' && breakTracker[jobB]) {
-                         for (const prevBreak of breakTracker[jobB]) {
+                 // เช็คก่อนว่าผู้จัดการเคยปรับแก้เวลาพักเบรคแบบ Manual ไว้หรือไม่
+                 if (item.assignedData.breakTime !== undefined) {
+                     bestBreak = item.assignedData.breakTime;
+                 } else {
+                     for (const cBreak of candidateBreaks) {
+                         let overlapCount = 0;
+                         for (const prevBreak of breakTracker[jobA]) {
                              if (isOverlap(cBreak, prevBreak)) overlapCount++;
                          }
-                     }
-                     const tcScore = getTcForSlot(cBreak, hourlyTcData);
-                     const score = (overlapCount * 1000) + tcScore;
-                     if (score < minScore) {
-                         minScore = score;
-                         bestBreak = cBreak;
+                         if (jobB !== '-' && breakTracker[jobB]) {
+                             for (const prevBreak of breakTracker[jobB]) {
+                                 if (isOverlap(cBreak, prevBreak)) overlapCount++;
+                             }
+                         }
+                         const tcScore = getTcForSlot(cBreak, hourlyTcData);
+                         const score = (overlapCount * 1000) + tcScore;
+                         if (score < minScore) {
+                             minScore = score;
+                             bestBreak = cBreak;
+                         }
                      }
                  }
 
@@ -4640,7 +4645,16 @@ export default function App() {
                {activeDayShiftVisibilities.hasAfternoon && <td className={`border border-slate-800 p-2 font-bold ${isAfternoon ? 'shadow-inner' : 'opacity-30'}`} style={{ fontSize: `${rs.fontShift || rs.fontSize}px` }}>{isAfternoon ? timeText : ''}</td>}
                {activeDayShiftVisibilities.hasEvening && <td className={`border border-slate-800 p-2 font-bold ${isEvening ? 'shadow-inner' : 'opacity-30'}`} style={{ fontSize: `${rs.fontShift || rs.fontSize}px` }}>{isEvening ? timeText : ''}</td>}
                {activeDayShiftVisibilities.hasNight && <td className={`border border-slate-800 p-2 font-bold ${isNight ? 'shadow-inner' : 'opacity-30'}`} style={{ fontSize: `${rs.fontShift || rs.fontSize}px` }}>{isNight ? timeText : ''}</td>}
-               <td className="border border-slate-800 p-2 bg-white font-black text-indigo-700 tracking-tighter whitespace-nowrap" style={{ fontSize: `${rs.fontBreak || rs.fontSize}px` }}>{slotItem.breakTime}</td>
+               <td className="border border-slate-800 p-1 bg-white font-black text-indigo-700 tracking-tighter whitespace-nowrap print:p-2">
+                   <input 
+                       type="text" 
+                       value={slotItem.breakTime || ''} 
+                       onChange={(e) => handleScheduleUpdate(selectedDateStr, duty.id, originalIdx, 'breakTime', e.target.value)} 
+                       className="w-full text-center outline-none bg-transparent hover:bg-slate-50 focus:bg-indigo-50 focus:ring-1 ring-indigo-300 rounded print:hidden"
+                       style={{ fontSize: `${rs.fontBreak || rs.fontSize}px` }}
+                   />
+                   <span className="hidden print:inline" style={{ fontSize: `${rs.fontBreak || rs.fontSize}px` }}>{slotItem.breakTime}</span>
+               </td>
             </tr>
          );
     });
