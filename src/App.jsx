@@ -224,7 +224,15 @@ function getNetWorkHours(startTime, endTime) {
     let [eh, em] = endTime.split(':').map(Number);
     if (eh < sh) eh += 24; // รองรับกะทำงานข้ามคืน
     let gross = (eh + em / 60) - (sh + sm / 60);
-    return gross >= 8 ? gross - 1 : gross; // ถ้าเวลาทำงานรวม >= 8 ชม. ให้หักพัก 1 ชม.
+    
+    if (gross >= 6) { // 6 hours or more gets a break
+        let breakHours = 1;
+        if (staffPos === 'SD' || staffPos === 'KD') {
+            breakHours = 1.5;
+        }
+        return gross - breakHours;
+    }
+    return gross; 
 }
 
 function getStaffLayer(dept, pos) {
@@ -677,7 +685,7 @@ export default function App() {
               const shiftPreset = branchData.shiftPresets?.find(p => p.id === mSlot?.shiftPresetId);
               const staffPos = staffMap[slot.staffId].pos;
               const { startTime, endTime } = getShiftTimesForStaff(staffPos, shiftPreset);
-              staffMap[slot.staffId].workHours += getNetWorkHours(startTime, endTime);
+              staffMap[slot.staffId].workHours += getNetWorkHours(startTime, endTime, staffPos);
               staffMap[slot.staffId].shifts += 1;
               staffMap[slot.staffId].actualOT += Number(slot.otHours || 0);
               staffMap[slot.staffId].plannedOT += Number(mSlot?.maxOtHours || 0);
@@ -806,7 +814,7 @@ export default function App() {
                               const mSlot = matrixSlots[idx];
                               const shiftPreset = branchData.shiftPresets?.find(p => p.id === (slot.shiftPresetId || mSlot?.shiftPresetId));
                               const times = getShiftTimesForStaff(staff.pos, shiftPreset);
-                              const shiftHrs = getNetWorkHours(times.startTime, times.endTime);
+                              const shiftHrs = getNetWorkHours(times.startTime, times.endTime, staff.pos);
                               const totalSlotHrs = shiftHrs + Number(slot.otHours || 0);
                               
                               if (!staffUsage[staff.id]) staffUsage[staff.id] = { name: staff.name, pos: staff.pos, base: 0, event: 0 };
@@ -4236,7 +4244,7 @@ export default function App() {
                                         if (staff && staff.pos.includes('PT')) {
                                             const shiftPreset = branchData.shiftPresets?.find(p => p.id === (s.shiftPresetId || branchData.shiftPresets[0].id));
                                             const times = getShiftTimesForStaff(staff.pos, shiftPreset);
-                                            const shiftHrs = getNetWorkHours(times.startTime, times.endTime);
+                                            const shiftHrs = getNetWorkHours(times.startTime, times.endTime, staff.pos);
                                             dailyEventUsed += shiftHrs + Number(s.otHours || 0);
                                         }
                                     }
@@ -5960,7 +5968,7 @@ export default function App() {
                                             const mSlot = matrixSlots[idx];
                                             const shiftPreset = bData?.shiftPresets?.find(p => p.id === (slot.shiftPresetId || mSlot?.shiftPresetId));
                                             const times = getShiftTimesForStaff(staff.pos, shiftPreset);
-                                            const shiftHrs = getNetWorkHours(times.startTime, times.endTime);
+                                            const shiftHrs = getNetWorkHours(times.startTime, times.endTime, staff.pos);
                                             totalPtHours += shiftHrs + Number(slot.otHours || 0);
                                         }
                                     }
