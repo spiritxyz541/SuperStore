@@ -4734,7 +4734,8 @@ export default function App() {
          const { cat, duty, slotItem, isFirstOfCat, catSlotCount, isFirstOfDuty, dutySlotCount, originalIdx, isFirstOfXpDna } = tr;
          const { slot, assignedData } = slotItem;
          
-         const staff = branchData.staff?.find(s => s.id === assignedData.staffId);
+         const actualStaffId = assignedData.staffId?.startsWith('COVER_BY_') ? assignedData.staffId.replace('COVER_BY_', '') : assignedData.staffId;
+         const staff = branchData.staff?.find(s => s.id === actualStaffId);
          const staffName = staff ? staff.name : '-';
          const shiftPreset = branchData.shiftPresets?.find(p => p.id === slot.shiftPresetId);
          const { startTime, endTime } = getShiftTimesForStaff(staff?.pos, shiftPreset);
@@ -4815,6 +4816,7 @@ export default function App() {
                            handleScheduleUpdate(selectedDateStr, duty.id, originalIdx, 'breakTime', undefined);
                        }}
                        rsFontSize={rs.fontBreak || rs.fontSize}
+                       staffPos={staff?.pos}
                    />
                </td>
             </tr>
