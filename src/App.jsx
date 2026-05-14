@@ -4198,6 +4198,8 @@ export default function App() {
   }
 
   function renderManagerDailyTable() {
+    const hourlyTcData = branchData.matrix?.[activeDay.type]?.hourlyTc || {};
+
     const categories = DUTY_CATEGORIES[activeDept] || [];
     let totalAssignedAll = 0;
     const rs = branchData.rosterStyle || {
@@ -4270,6 +4272,24 @@ export default function App() {
              const morningBreaksShort = ['13.30-14.30', '14.30-15.30', '15.30-16.30', '14.00-15.00', '15.00-16.00'];
              const afternoonBreaksShort = ['15.00-16.00', '16.00-17.00', '17.00-18.00', '15.30-16.30', '16.30-17.30'];
              
+             const getTcForSlot = (timeStr, tcData) => {
+                 if (!timeStr) return 999;
+                 const toMins = (t) => {
+                     if (!t) return 0;
+                     const [h, m] = t.replace('.', ':').split(':').map(Number);
+                     return (h * 60) + (m || 0);
+                 };
+                 const [startStr, endStr] = timeStr.split('-');
+                 const startMin = toMins(startStr);
+                 const endMin = toMins(endStr);
+                 let totalTc = 0;
+                 for (let h = Math.floor(startMin / 60); h < Math.ceil(endMin / 60); h++) {
+                     const hourStr = String(h).padStart(2, '0');
+                     totalTc += (tcData[hourStr] || 0);
+                 }
+                 return totalTc;
+             };
+
              const isOverlap = (t1, t2) => {
                  const toMins = (t) => {
                      const [h, m] = t.replace('.', ':').split(':').map(Number);
@@ -4297,21 +4317,23 @@ export default function App() {
                      ? (isLongHour ? morningBreaksLong : morningBreaksShort) 
                      : (isLongHour ? afternoonBreaksLong : afternoonBreaksShort);
 
-                 let bestBreak = candidateBreaks[0];
-                 let minOverlap = Infinity;
+                 let bestBreak = candidateBreaks[0] || 'N/A';
+                 let minScore = Infinity;
 
                  for (const cBreak of candidateBreaks) {
                      let overlapCount = 0;
                      for (const prevBreak of breakTracker[jobA]) {
                          if (isOverlap(cBreak, prevBreak)) overlapCount++;
                      }
-                     if (jobB !== '-') {
+                     if (jobB !== '-' && breakTracker[jobB]) {
                          for (const prevBreak of breakTracker[jobB]) {
                              if (isOverlap(cBreak, prevBreak)) overlapCount++;
                          }
                      }
-                     if (overlapCount < minOverlap) {
-                         minOverlap = overlapCount;
+                     const tcScore = getTcForSlot(cBreak, hourlyTcData);
+                     const score = (overlapCount * 1000) + tcScore;
+                     if (score < minScore) {
+                         minScore = score;
                          bestBreak = cBreak;
                      }
                  }
