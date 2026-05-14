@@ -1222,8 +1222,8 @@ export default function App() {
       const currentSlots = newSched[dateStr].duties[dutyId];
       if (!currentSlots[slotIndex]) currentSlots[slotIndex] = { staffId: "", otHours: 0 };
 
-            if (field === 'breakTime' && value === '') {
-                delete currentSlots[slotIndex].breakTime; // ถ้าผู้จัดการลบเวลาออก ให้ลบค่าทิ้งเพื่อให้ระบบคำนวณใหม่
+            if (field === 'breakTime' && value === undefined) {
+                delete currentSlots[slotIndex].breakTime; // ถ้าส่ง undefined มา (จากการกดปุ่ม X) ให้ลบทิ้งเพื่อกลับไปใช้ AI
             } else {
                 currentSlots[slotIndex][field] = value;
             }
@@ -4685,7 +4685,7 @@ export default function App() {
                {activeDayShiftVisibilities.hasAfternoon && <td className={`border border-slate-800 p-2 font-bold ${isAfternoon ? 'shadow-inner' : 'opacity-30'}`} style={{ fontSize: `${rs.fontShift || rs.fontSize}px` }}>{isAfternoon ? timeText : ''}</td>}
                {activeDayShiftVisibilities.hasEvening && <td className={`border border-slate-800 p-2 font-bold ${isEvening ? 'shadow-inner' : 'opacity-30'}`} style={{ fontSize: `${rs.fontShift || rs.fontSize}px` }}>{isEvening ? timeText : ''}</td>}
                {activeDayShiftVisibilities.hasNight && <td className={`border border-slate-800 p-2 font-bold ${isNight ? 'shadow-inner' : 'opacity-30'}`} style={{ fontSize: `${rs.fontShift || rs.fontSize}px` }}>{isNight ? timeText : ''}</td>}
-               <td className="border border-slate-800 p-1 bg-white font-black text-indigo-700 tracking-tighter whitespace-nowrap print:p-2">
+               <td className="border border-slate-800 p-1 bg-white font-black text-indigo-700 tracking-tighter whitespace-nowrap print:p-2 relative group">
                    <input 
                        type="text" 
                        value={slotItem.breakTime || ''} 
@@ -4694,6 +4694,18 @@ export default function App() {
                        className="w-full text-center outline-none bg-transparent hover:bg-slate-50 focus:bg-indigo-50 focus:ring-1 ring-indigo-300 rounded print:hidden"
                        style={{ fontSize: `${rs.fontBreak || rs.fontSize}px` }}
                    />
+                   {slotItem.assignedData.breakTime !== undefined && (
+                       <button 
+                           onClick={() => {
+                               handleScheduleUpdate(selectedDateStr, duty.id, originalIdx, 'breakTime', undefined);
+                               setSchedule(prev => { if (activeBranchId) autoSaveSchedule(prev); return prev; });
+                           }}
+                           className="absolute right-1 top-1/2 -translate-y-1/2 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition print:hidden bg-white/90 rounded-full"
+                           title="รีเซ็ตให้ AI คำนวณใหม่"
+                       >
+                           <X className="w-3 h-3" />
+                       </button>
+                   )}
                    <span className="hidden print:inline" style={{ fontSize: `${rs.fontBreak || rs.fontSize}px` }}>{slotItem.breakTime}</span>
                </td>
             </tr>
