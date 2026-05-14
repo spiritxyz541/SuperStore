@@ -4351,10 +4351,13 @@ export default function App() {
                          const mm = Math.round((val - hh) * 60);
                          return `${String(hh).padStart(2, '0')}.${String(mm).padStart(2, '0')}`;
                      };
-                     candidateBreaks.push(`${formatTime(hr)}-${formatTime(hr + breakDur)}`);
+                     candidateBreaks.push({
+                         timeStr: `${formatTime(hr)}-${formatTime(hr + breakDur)}`,
+                         driftPenalty: step * 500 // เพิ่มบทลงโทษมหาศาลเมื่อ AI พยายามเลื่อนเบรค เพื่อบังคับให้ต่อกะกันเป๊ะๆ
+                     });
                  }
 
-                 let bestBreak = candidateBreaks[0] || 'N/A';
+                 let bestBreak = candidateBreaks[0]?.timeStr || 'N/A';
                  let minScore = Infinity;
 
                  // เช็คก่อนว่าผู้จัดการเคยปรับแก้เวลาพักเบรคแบบ Manual ไว้หรือไม่
@@ -4364,18 +4367,18 @@ export default function App() {
                      for (const cBreak of candidateBreaks) {
                          let overlapCount = 0;
                          for (const prevBreak of breakTracker[jobA]) {
-                             if (isOverlap(cBreak, prevBreak)) overlapCount++;
+                             if (isOverlap(cBreak.timeStr, prevBreak)) overlapCount++;
                          }
                          if (jobB !== '-' && breakTracker[jobB]) {
                              for (const prevBreak of breakTracker[jobB]) {
-                                 if (isOverlap(cBreak, prevBreak)) overlapCount++;
+                                 if (isOverlap(cBreak.timeStr, prevBreak)) overlapCount++;
                              }
                          }
-                         const tcScore = getTcForSlot(cBreak, hourlyTcData);
-                         const score = (overlapCount * 100) + tcScore; // ยอมให้ชนกันได้บ้างเพื่อเลี่ยง Peak Hour
+                         const tcScore = getTcForSlot(cBreak.timeStr, hourlyTcData);
+                         const score = (overlapCount * 1000) + cBreak.driftPenalty + tcScore; // ล็อคให้เบรคตรงเวลาเป็นอันดับ 1, หลบการพักซ้อนทับกันเป็นอันดับ 2
                          if (score < minScore) {
                              minScore = score;
-                             bestBreak = cBreak;
+                             bestBreak = cBreak.timeStr;
                          }
                      }
                  }
