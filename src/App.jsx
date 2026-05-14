@@ -1222,7 +1222,11 @@ export default function App() {
       const currentSlots = newSched[dateStr].duties[dutyId];
       if (!currentSlots[slotIndex]) currentSlots[slotIndex] = { staffId: "", otHours: 0 };
 
-      currentSlots[slotIndex][field] = value;
+            if (field === 'breakTime' && value === '') {
+                delete currentSlots[slotIndex].breakTime; // ถ้าผู้จัดการลบเวลาออก ให้ลบค่าทิ้งเพื่อให้ระบบคำนวณใหม่
+            } else {
+                currentSlots[slotIndex][field] = value;
+            }
       currentSlots[slotIndex].otUpdated = true; 
       if (field === 'staffId') {
          if (value !== "") currentSlots[slotIndex].otHours = parseFloat(defaultOt) || 0;
@@ -4285,7 +4289,7 @@ export default function App() {
                  let totalTc = 0;
                  for (let h = Math.floor(startMin / 60); h < Math.ceil(endMin / 60); h++) {
                      const hourStr = String(h).padStart(2, '0');
-                     totalTc += (tcData[hourStr] || 0);
+                     totalTc += (parseInt(tcData[hourStr], 10) || 0); // แปลงเป็นตัวเลขป้องกันบั๊ก String ต่อกัน
                  }
                  return totalTc;
              };
@@ -4335,7 +4339,7 @@ export default function App() {
                              }
                          }
                          const tcScore = getTcForSlot(cBreak, hourlyTcData);
-                         const score = (overlapCount * 1000) + tcScore;
+                         const score = (overlapCount * 100) + tcScore; // ยอมให้ชนกันได้บ้างเพื่อเลี่ยง Peak Hour
                          if (score < minScore) {
                              minScore = score;
                              bestBreak = cBreak;
@@ -4650,6 +4654,7 @@ export default function App() {
                        type="text" 
                        value={slotItem.breakTime || ''} 
                        onChange={(e) => handleScheduleUpdate(selectedDateStr, duty.id, originalIdx, 'breakTime', e.target.value)} 
+                       onBlur={() => { setSchedule(prev => { if (activeBranchId) autoSaveSchedule(prev); return prev; }) }}
                        className="w-full text-center outline-none bg-transparent hover:bg-slate-50 focus:bg-indigo-50 focus:ring-1 ring-indigo-300 rounded print:hidden"
                        style={{ fontSize: `${rs.fontBreak || rs.fontSize}px` }}
                    />
