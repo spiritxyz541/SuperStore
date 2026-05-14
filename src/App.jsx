@@ -330,49 +330,60 @@ const StaffMultiSelector = ({ value, options, onChange, disabled, placeholder })
   );
 };
 
-const BreakTimeInput = ({ computedValue, manualValue, onSave, onReset, rsFontSize }) => {
+const BreakTimeInput = ({ computedValue, manualValue, onSave, onReset, rsFontSize, staffPos }) => {
     const displayValue = manualValue !== undefined ? manualValue : computedValue;
-    const inputRef = useRef(null);
 
-    // ซิงค์ค่าเมื่อมีการอัปเดตจากระบบ AI (แต่จะไม่กวนตอนที่กำลังโฟกัสพิมพ์อยู่)
-    useEffect(() => {
-        if (inputRef.current && document.activeElement !== inputRef.current) {
-            inputRef.current.value = displayValue || '';
-        }
-    }, [displayValue]);
+    const breakDuration = (staffPos && SHORT_HOUR_POSITIONS.includes(staffPos)) ? 60 : 90;
 
-    const handleBlur = (e) => {
-        const currentVal = e.target.value;
-        if (currentVal !== displayValue) {
-            onSave(currentVal);
+    const timeOptions = useMemo(() => {
+        const options = [];
+        for (let h = 10; h <= 20; h++) {
+            for (let m of [0, 30]) {
+                const startMinutes = h * 60 + m;
+                const endMinutes = startMinutes + breakDuration;
+                
+                const formatTime = (mins) => {
+                    const hh = Math.floor(mins / 60) % 24;
+                    const mm = mins % 60;
+                    return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+                };
+                
+                options.push(`${formatTime(startMinutes)}-${formatTime(endMinutes)}`);
+            }
         }
-    };
+        return options;
+    }, [breakDuration]);
 
-    const handleKeyDown = (e) => {
-        if (e.key === 'Enter') {
-            e.target.blur(); // เมื่อกด Enter ให้จำลองการเอาเมาส์คลิกออก เพื่อสั่ง Save
-        }
-    };
+    const isNoBreak = displayValue === 'ไม่มีพัก' || displayValue === 'N/A' || displayValue === '-';
+
+    if (isNoBreak) {
+        return (
+            <div className="w-full text-center font-bold text-slate-400" style={{ fontSize: `${rsFontSize}px` }}>
+                {displayValue}
+            </div>
+        );
+    }
 
     return (
         <div className="relative w-full h-full flex items-center justify-center group">
-            <input 
-                ref={inputRef}
-                type="text" 
-                defaultValue={displayValue || ''}
-                onBlur={handleBlur}
-                onKeyDown={handleKeyDown}
-                className="w-full text-center outline-none bg-indigo-50/80 border border-indigo-200 hover:bg-indigo-100 hover:border-indigo-300 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded py-1 print:hidden transition-all shadow-sm cursor-text z-10"
+            <select
+                value={displayValue || ''}
+                onChange={(e) => onSave(e.target.value)}
+                className="w-full text-center outline-none bg-indigo-50/80 border border-indigo-200 hover:bg-indigo-100 hover:border-indigo-300 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded py-1 print:hidden transition-all shadow-sm cursor-pointer z-10"
                 style={{ fontSize: `${rsFontSize}px` }}
-                placeholder="คลิกพิมพ์เวลา"
-                title="คลิกเพื่อพิมพ์แก้เวลา"
-            />
+                title="เลือกเวลาพัก"
+            >
+                <option value="" disabled>--:--</option>
+                {displayValue && !timeOptions.includes(displayValue) && (
+                    <option value={displayValue}>{displayValue}</option>
+                )}
+                {timeOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+            </select>
             {manualValue !== undefined && (
                 <button 
                     onMouseDown={(e) => {
                         e.preventDefault(); // ป้องกันบั๊กการแย่งโฟกัสตอนกดปุ่มรีเซ็ต
                         onReset();
-                            if (inputRef.current) inputRef.current.value = computedValue || '';
                     }}
                         className="absolute right-1 top-1/2 -translate-y-1/2 text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition print:hidden bg-white shadow-sm border border-slate-200 rounded-full p-0.5 z-20"
                     title="รีเซ็ตให้ AI คำนวณใหม่"
@@ -380,7 +391,7 @@ const BreakTimeInput = ({ computedValue, manualValue, onSave, onReset, rsFontSiz
                     <X className="w-3 h-3" />
                 </button>
             )}
-            <span className="hidden print:inline" style={{ fontSize: `${rsFontSize}px` }}>{displayValue}</span>
+            <span className="hidden print:inline font-bold" style={{ fontSize: `${rsFontSize}px` }}>{displayValue}</span>
         </div>
     );
 };
@@ -4420,6 +4431,7 @@ export default function App() {
                                                             handleScheduleUpdate(selectedDateStr, duty.id, idx, 'breakTime', undefined);
                                                         }}
                                                         rsFontSize={10}
+                                                        staffPos={branchData.staff?.find(s => s.id === (data.staffId?.startsWith('COVER_BY_') ? data.staffId.replace('COVER_BY_', '') : data.staffId))?.pos}
                                                     />
                                                 </div>
                                              </div>
