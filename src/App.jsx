@@ -951,9 +951,9 @@ export default function App() {
                             // ปัดเศษเวลาเริ่มพักให้ลงตัวที่หลัก 30 นาทีเสมอ
                             breakStartMinutes = Math.round(breakStartMinutes / 30) * 30;
                             
-                            // บังคับไม่ให้เวลาพักสิ้นสุดเกิน 17:30 (1050 นาที) เฉพาะกะที่เข้างานก่อน 12:00 (720 นาที)
-                            if (myStartTime < 720 && breakStartMinutes + breakDuration > 1050) {
-                                breakStartMinutes = 1050 - breakDuration;
+                            // บังคับไม่ให้มีใครพักตั้งแต่ 17:00 (1020 นาที) เป็นต้นไป ยกเว้นกะที่เข้างาน 15:00 (900 นาที) เป็นต้นไป
+                            if (myStartTime < 900 && breakStartMinutes + breakDuration > 1020) {
+                                breakStartMinutes = 1020 - breakDuration;
                             }
                             
                             const breakEndMinutes = breakStartMinutes + breakDuration;
