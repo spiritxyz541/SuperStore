@@ -1328,6 +1328,7 @@ export default function App() {
   };
 
   const handleScheduleUpdate = (dateStr, dutyId, slotIndex, field, value, defaultOt = 0) => {
+    let newSchedToSave = null;
     setSchedule(prev => {
       const newSched = JSON.parse(JSON.stringify(prev));
       if (!newSched[dateStr]) newSched[dateStr] = { duties: {}, leaves: [] };
@@ -1347,12 +1348,15 @@ export default function App() {
          else currentSlots[slotIndex].otHours = 0;
       }
 
-      // Auto-save on staff change or break time change
-      if (field === 'staffId' || field === 'breakTime') {
-        if (activeBranchId) autoSaveSchedule(newSched);
-      }
+      newSchedToSave = newSched;
       return newSched;
     });
+
+    setTimeout(() => {
+        if ((field === 'staffId' || field === 'breakTime') && activeBranchId && newSchedToSave) {
+            autoSaveSchedule(newSchedToSave);
+        }
+    }, 0);
   };
 
   const handleAddExtraSlot = (dateStr, dutyId, matrixSlots, isEventExtra) => {
