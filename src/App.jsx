@@ -881,6 +881,24 @@ export default function App() {
         if (!breaks[dutyId]) breaks[dutyId] = {};
         const assignedSlots = dayData.duties[dutyId] || [];
         
+        // Pre-calculate all start times for this duty to find replacements
+        const allShiftTimes = [];
+        assignedSlots.forEach((asg, idx) => {
+            if (asg.staffId) {
+                const stf = branchData.staff?.find(s => s.id === asg.staffId);
+                const matrixSlots = branchData.matrix?.[dayType]?.duties?.[dutyId] || [];
+                const matrixSlot = matrixSlots[idx] || { shiftPresetId: asg.shiftPresetId || branchData.shiftPresets?.[0]?.id };
+                const shiftPreset = branchData.shiftPresets?.find(p => p.id === matrixSlot.shiftPresetId);
+                if (stf && shiftPreset) {
+                    const { startTime } = getShiftTimesForStaff(stf.pos, shiftPreset);
+                    if (startTime && startTime !== '??:??') {
+                        const [sh, sm] = startTime.split(':').map(Number);
+                        allShiftTimes.push(sh * 60 + sm);
+                    }
+                }
+            }
+        });
+
         assignedSlots.forEach((assigned, idx) => {
             if (assigned.staffId) {
                 const staff = branchData.staff?.find(s => s.id === assigned.staffId);
@@ -905,12 +923,29 @@ export default function App() {
                                 breakDuration = 90;
                             }
 
-                            const midPointMinutes = myStartTime + (grossMinutes / 2);
-                            let breakStartMinutes = midPointMinutes - (breakDuration / 2);
+                            // Find replacement (Earliest shift that starts after me)
+                            let replacementTime = null;
+                            let minDiff = Infinity;
+                            allShiftTimes.forEach(t => {
+                                if (t > myStartTime && t < (eh * 60 + em)) {
+                                    if (t - myStartTime < minDiff) {
+                                        minDiff = t - myStartTime;
+                                        replacementTime = t;
+                                    }
+                                }
+                            });
 
-                            // บังคับรอบพักให้เริ่มต้นที่ 12:30 (750 นาที) เป็นต้นไป
-                            if (breakStartMinutes < 750) {
-                                breakStartMinutes = 750;
+                            let breakStartMinutes;
+                            if (replacementTime !== null) {
+                                breakStartMinutes = replacementTime; // พักทันทีเมื่อมีตัวแทนมาถึง
+                            } else {
+                                const midPointMinutes = myStartTime + (grossMinutes / 2);
+                                breakStartMinutes = midPointMinutes - (breakDuration / 2);
+
+                                // บังคับรอบพักให้เริ่มต้นที่ 12:30 (750 นาที) เป็นต้นไป ถ้าไม่มีคนแทน
+                                if (breakStartMinutes < 750) {
+                                    breakStartMinutes = 750;
+                                }
                             }
 
                             // ปัดเศษเวลาเริ่มพักให้ลงตัวที่หลัก 30 นาทีเสมอ
