@@ -52,7 +52,7 @@ const INACTIVITY_TIMEOUT_MS = 15 * 60 * 1000; // ตั้งเวลา Auto-l
 
 const DUTY_CATEGORIES = {
   service: [
-    { id: 'FOH_HEAD', label: 'Customer Service Head Team', color: 'bg-[#4B7A47] text-white border-white/20' },
+    { id: 'FOH_HEAD', label: '1Customer Service Head Team', color: 'bg-[#4B7A47] text-white border-white/20' },
     { id: 'FOH_STAFF', label: 'Customer Service Staff Team', color: 'bg-[#89C579] text-slate-900 border-black/20' },
     { id: 'FOH_SUPPORT', label: 'Service Support Team', color: 'bg-[#D9E1D8] text-slate-800 border-black/20' }
   ],
@@ -2373,6 +2373,7 @@ export default function App() {
                   });
               } 
           });
+          if (activeBranchId) autoSaveSchedule(newSched);
           newSchedToSave = newSched;
           return newSched;
       });
@@ -4785,7 +4786,7 @@ export default function App() {
                          {activeDayShiftVisibilities.hasAfternoon && <th className="border border-slate-800 p-2" style={{ width: `${rs.colShift}%`, backgroundColor: rs.shiftHeaderBg }}>บ่าย</th>}
                          {activeDayShiftVisibilities.hasEvening && <th className="border border-slate-800 p-2" style={{ width: `${rs.colShift}%`, backgroundColor: rs.shiftHeaderBg }}>เย็น</th>}
                          {activeDayShiftVisibilities.hasNight && <th className="border border-slate-800 p-2" style={{ width: `${rs.colShift}%`, backgroundColor: rs.shiftHeaderBg }}>ดึก(ปิด)</th>}
-                         <th className="border border-slate-800 p-2" style={{ width: `${rs.colBreak}%` }}>รอบพัก1</th>
+                         <th className="border border-slate-800 p-2" style={{ width: `${rs.colBreak}%` }}>รอบพัก</th>
                       </tr>
                    </thead>
                    <tbody>
@@ -5291,7 +5292,7 @@ export default function App() {
                             <input type="number" value={rs.colShift} onChange={(e) => handleChange('colShift', parseInt(e.target.value) || 0)} className="w-full border rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500" />
                         </div>
                         <div>
-                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">รอบพัก1</label>
+                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">รอบพัก</label>
                             <input type="number" value={rs.colBreak} onChange={(e) => handleChange('colBreak', parseInt(e.target.value) || 0)} className="w-full border rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500" />
                         </div>
                     </div>
@@ -5329,7 +5330,7 @@ export default function App() {
                             <input type="number" value={rs.fontShift} onChange={(e) => handleChange('fontShift', parseInt(e.target.value) || 10)} className="w-full border rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500" />
                         </div>
                         <div>
-                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">รอบพัก1</label>
+                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">รอบพัก</label>
                             <input type="number" value={rs.fontBreak} onChange={(e) => handleChange('fontBreak', parseInt(e.target.value) || 10)} className="w-full border rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500" />
                         </div>
                     </div>
