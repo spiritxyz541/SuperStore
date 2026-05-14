@@ -860,24 +860,47 @@ export default function App() {
       let hasMorning = false, hasLateMorning = false, hasAfternoon = false, hasEvening = false, hasNight = false;
       if (branchData.matrix && activeDay) {
           CURRENT_DUTY_LIST.forEach(duty => {
-              const slots = branchData.matrix[activeDay.type]?.duties?.[duty.id] || [];
-              slots.forEach(matrixSlot => {
-                  const shiftPreset = branchData.shiftPresets?.find(p => p.id === matrixSlot.shiftPresetId);
-                  if (!shiftPreset) return;
-                  // Use long hours as a representative time for column visibility
-                  const startTime = shiftPreset.timings.long.startTime;
+              const matrixSlots = branchData.matrix[activeDay.type]?.duties?.[duty.id] || [];
+              const checkTime = (startTime) => {
+                  if (!startTime || startTime === '??:??') return;
                   const stHour = parseInt(startTime.split(':')[0]) || 0;
                   if (stHour < 11) hasMorning = true;
                   else if (stHour === 11) hasLateMorning = true;
                   else if (stHour >= 12 && stHour < 16) hasAfternoon = true;
                   else if (stHour >= 16 && stHour < 19) hasEvening = true;
                   else if (stHour >= 19) hasNight = true;
+              };
+
+              matrixSlots.forEach(matrixSlot => {
+                  const shiftPreset = branchData.shiftPresets?.find(p => p.id === matrixSlot.shiftPresetId);
+                  if (!shiftPreset) return;
+                  checkTime(shiftPreset.timings.long.startTime);
+                  checkTime(shiftPreset.timings.short.startTime);
+              });
+
+              const assignedSlots = schedule[selectedDateStr]?.duties?.[duty.id] || [];
+              assignedSlots.forEach((assignedSlot, idx) => {
+                  const shiftPresetId = assignedSlot.shiftPresetId || matrixSlots[idx]?.shiftPresetId;
+                  const shiftPreset = branchData.shiftPresets?.find(p => p.id === shiftPresetId);
+                  if (!shiftPreset) return;
+
+                  const staffId = assignedSlot.staffId?.startsWith('COVER_BY_') ? assignedSlot.staffId.replace('COVER_BY_', '') : assignedSlot.staffId;
+                  if (staffId) {
+                      const staff = branchData.staff?.find(s => s.id === staffId);
+                      if (staff) {
+                          const { startTime } = getShiftTimesForStaff(staff.pos, shiftPreset);
+                          checkTime(startTime);
+                      }
+                  } else {
+                      checkTime(shiftPreset.timings.long.startTime);
+                      checkTime(shiftPreset.timings.short.startTime);
+                  }
               });
           });
       }
       const shiftColCount = (hasMorning ? 1 : 0) + (hasLateMorning ? 1 : 0) + (hasAfternoon ? 1 : 0) + (hasEvening ? 1 : 0) + (hasNight ? 1 : 0);
       return { hasMorning, hasLateMorning, hasAfternoon, hasEvening, hasNight, bottomColSpan: 1 + shiftColCount + 1 };
-  }, [branchData.matrix, activeDay, CURRENT_DUTY_LIST, branchData.shiftPresets]);
+  }, [branchData.matrix, branchData.staff, activeDay, CURRENT_DUTY_LIST, branchData.shiftPresets, schedule, selectedDateStr]);
 
   const dailyComputedBreaks = useMemo(() => {
     const breaks = {};
