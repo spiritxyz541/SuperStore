@@ -4240,6 +4240,24 @@ export default function App() {
                                                  )}
                                               </div>
                                               </div>
+                                             <div className="flex items-center gap-2 mt-1 pt-2 border-t border-slate-200/50">
+                                                <span className="text-[9px] font-black text-slate-400 uppercase w-12 text-right flex-shrink-0">รอบพัก :</span>
+                                                <div className="flex-1 bg-white rounded-lg">
+                                                    <BreakTimeInput 
+                                                        computedValue={dailyComputedBreaks[duty.id]?.[idx] || 'N/A'}
+                                                        manualValue={data.breakTime}
+                                                        onSave={(newVal) => {
+                                                            handleScheduleUpdate(selectedDateStr, duty.id, idx, 'breakTime', newVal);
+                                                            setSchedule(prev => { if (activeBranchId) autoSaveSchedule(prev); return prev; });
+                                                        }}
+                                                        onReset={() => {
+                                                            handleScheduleUpdate(selectedDateStr, duty.id, idx, 'breakTime', undefined);
+                                                            setSchedule(prev => { if (activeBranchId) autoSaveSchedule(prev); return prev; });
+                                                        }}
+                                                        rsFontSize={10}
+                                                    />
+                                                </div>
+                                             </div>
                                            </div>
                                         );
                                      })}
