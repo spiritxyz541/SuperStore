@@ -4339,7 +4339,7 @@ export default function App() {
                  slot,
                  assignedData: assigned[sIdx] || { staffId: "", otHours: 0 },
                  originalIdx: sIdx,
-                 breakTime: dailyComputedBreaks[duty.id]?.[sIdx] || 'N/A'
+                 breakTime: dailyComputedBreaks?.[duty.id]?.[sIdx] || 'N/A'
               };
           }).filter(item => item.assignedData.staffId !== "");
 
