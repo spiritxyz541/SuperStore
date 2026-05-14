@@ -4264,12 +4264,22 @@ export default function App() {
           }).filter(item => item.assignedData.staffId !== "");
 
           if (activeSlots.length > 0) {
-             // --- Auto Calculate Break Time (สลับเบรคใน Job เดียวกัน) ---
-             const morningBreaksLong = ['13.30-15.00', '15.00-16.30', '14.00-15.30', '14.30-16.00'];
-             const afternoonBreaksLong = ['15.00-16.30', '16.00-17.30', '14.30-16.00', '13.30-15.00'];
-             const morningBreaksShort = ['13.30-14.30', '14.30-15.30', '15.30-16.30', '14.00-15.00'];
-             const afternoonBreaksShort = ['14.30-15.30', '15.30-16.30', '16.30-17.30', '14.00-15.00'];
+             // --- Auto Calculate Break Time (สลับเบรคไม่ให้ทับซ้อนกันในหน้าที่เดียวกัน) ---
+             const morningBreaksLong = ['13.30-15.00', '14.30-16.00', '15.30-17.00', '14.00-15.30', '15.00-16.30'];
+             const afternoonBreaksLong = ['15.00-16.30', '16.00-17.30', '17.00-18.30', '15.30-17.00', '16.30-18.00'];
+             const morningBreaksShort = ['13.30-14.30', '14.30-15.30', '15.30-16.30', '14.00-15.00', '15.00-16.00'];
+             const afternoonBreaksShort = ['15.00-16.00', '16.00-17.00', '17.00-18.00', '15.30-16.30', '16.30-17.30'];
              
+             const isOverlap = (t1, t2) => {
+                 const toMins = (t) => {
+                     const [h, m] = t.replace('.', ':').split(':').map(Number);
+                     return h * 60 + (m || 0);
+                 };
+                 const [s1, e1] = t1.split('-').map(toMins);
+                 const [s2, e2] = t2.split('-').map(toMins);
+                 return s1 < e2 && s2 < e1;
+             };
+
              activeSlots.forEach(item => {
                  const staff = branchData.staff?.find(s => s.id === item.assignedData.staffId);
                  const shiftPreset = branchData.shiftPresets?.find(p => p.id === item.slot.shiftPresetId);
@@ -4280,29 +4290,35 @@ export default function App() {
                  const jobA = (duty.jobA || '-').trim();
                  const jobB = (duty.jobB || '-').trim();
                  
-                 if (!breakTracker[jobA]) breakTracker[jobA] = { mIdx: 0, aIdx: 0 };
-                 if (jobB !== '-' && !breakTracker[jobB]) breakTracker[jobB] = { mIdx: 0, aIdx: 0 };
+                 if (!breakTracker[jobA]) breakTracker[jobA] = [];
+                 if (jobB !== '-' && !breakTracker[jobB]) breakTracker[jobB] = [];
                  
-                 let bestMIdx = breakTracker[jobA].mIdx;
-                 let bestAIdx = breakTracker[jobA].aIdx;
-                 
-                 if (jobB !== '-') {
-                     bestMIdx = Math.max(bestMIdx, breakTracker[jobB].mIdx);
-                     bestAIdx = Math.max(bestAIdx, breakTracker[jobB].aIdx);
+                 const candidateBreaks = stHour < 12 
+                     ? (isLongHour ? morningBreaksLong : morningBreaksShort) 
+                     : (isLongHour ? afternoonBreaksLong : afternoonBreaksShort);
+
+                 let bestBreak = candidateBreaks[0];
+                 let minOverlap = Infinity;
+
+                 for (const cBreak of candidateBreaks) {
+                     let overlapCount = 0;
+                     for (const prevBreak of breakTracker[jobA]) {
+                         if (isOverlap(cBreak, prevBreak)) overlapCount++;
+                     }
+                     if (jobB !== '-') {
+                         for (const prevBreak of breakTracker[jobB]) {
+                             if (isOverlap(cBreak, prevBreak)) overlapCount++;
+                         }
+                     }
+                     if (overlapCount < minOverlap) {
+                         minOverlap = overlapCount;
+                         bestBreak = cBreak;
+                     }
                  }
 
-                 // เช็คกะเข้างาน: ก่อน 12:00 = กะเช้า | หลัง 12:00 = กะบ่าย
-                 if (stHour < 12) {
-                     item.breakTime = isLongHour ? morningBreaksLong[bestMIdx % morningBreaksLong.length] : morningBreaksShort[bestMIdx % morningBreaksShort.length];
-                     bestMIdx++;
-                     breakTracker[jobA].mIdx = bestMIdx;
-                     if (jobB !== '-') breakTracker[jobB].mIdx = bestMIdx;
-                 } else {
-                     item.breakTime = isLongHour ? afternoonBreaksLong[bestAIdx % afternoonBreaksLong.length] : afternoonBreaksShort[bestAIdx % afternoonBreaksShort.length];
-                     bestAIdx++;
-                     breakTracker[jobA].aIdx = bestAIdx;
-                     if (jobB !== '-') breakTracker[jobB].aIdx = bestAIdx;
-                 }
+                 item.breakTime = bestBreak;
+                 breakTracker[jobA].push(bestBreak);
+                 if (jobB !== '-') breakTracker[jobB].push(bestBreak);
              });
              // ---------------------------------------------------------
 
