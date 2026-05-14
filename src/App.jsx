@@ -4282,9 +4282,9 @@ export default function App() {
                  const startMin = toMins(startStr);
                  const endMin = toMins(endStr);
                  let totalTc = 0;
-                 for (let h = Math.floor(startMin / 60); h < Math.ceil(endMin / 60); h++) {
-                     const hourStr = String(h).padStart(2, '0');
-                     totalTc += (parseInt(tcData[hourStr], 10) || 0); // แปลงเป็นตัวเลขป้องกันบั๊ก String ต่อกัน
+                 for (let m = startMin; m < endMin; m += 30) {
+                     const hourStr = String(Math.floor(m / 60)).padStart(2, '0');
+                     totalTc += (parseInt(tcData[hourStr], 10) || 0) / 2; // คำนวณแบบสัดส่วน 30 นาที
                  }
                  return totalTc;
              };
@@ -4353,7 +4353,7 @@ export default function App() {
                      };
                      candidateBreaks.push({
                          timeStr: `${formatTime(hr)}-${formatTime(hr + breakDur)}`,
-                         driftPenalty: step * 500 // เพิ่มบทลงโทษมหาศาลเมื่อ AI พยายามเลื่อนเบรค เพื่อบังคับให้ต่อกะกันเป๊ะๆ
+                         driftPenalty: step * 10000 // ล็อคน้ำหนักมหาศาล (10000 ชนะยอด TC แน่นอน) บังคับให้เบรคทันทีที่คนกะถัดไปมาถึง
                      });
                  }
 
@@ -4375,7 +4375,7 @@ export default function App() {
                              }
                          }
                          const tcScore = getTcForSlot(cBreak.timeStr, hourlyTcData);
-                         const score = (overlapCount * 1000) + cBreak.driftPenalty + tcScore; // ล็อคให้เบรคตรงเวลาเป็นอันดับ 1, หลบการพักซ้อนทับกันเป็นอันดับ 2
+                         const score = (overlapCount * 100000) + cBreak.driftPenalty + tcScore; // ห้ามซ้อนทับ (1แสน) > ห้ามเลื่อนเวลา (1หมื่น) > หลบ Peak Hour
                          if (score < minScore) {
                              minScore = score;
                              bestBreak = cBreak.timeStr;
