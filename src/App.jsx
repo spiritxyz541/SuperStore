@@ -324,15 +324,19 @@ const StaffMultiSelector = ({ value, options, onChange, disabled, placeholder })
 
 const BreakTimeInput = ({ computedValue, manualValue, onSave, onReset, rsFontSize }) => {
     const displayValue = manualValue !== undefined ? manualValue : computedValue;
-    const [val, setVal] = useState(displayValue);
+    const inputRef = useRef(null);
 
+    // ซิงค์ค่าเมื่อมีการอัปเดตจากระบบ AI (แต่จะไม่กวนตอนที่กำลังโฟกัสพิมพ์อยู่)
     useEffect(() => {
-        setVal(displayValue);
+        if (inputRef.current && document.activeElement !== inputRef.current) {
+            inputRef.current.value = displayValue || '';
+        }
     }, [displayValue]);
 
-    const handleBlur = () => {
-        if (val !== displayValue) {
-            onSave(val);
+    const handleBlur = (e) => {
+        const currentVal = e.target.value;
+        if (currentVal !== displayValue) {
+            onSave(currentVal);
         }
     };
 
@@ -343,14 +347,14 @@ const BreakTimeInput = ({ computedValue, manualValue, onSave, onReset, rsFontSiz
     };
 
     return (
-        <React.Fragment>
+        <div className="relative w-full h-full flex items-center justify-center group">
             <input 
+                ref={inputRef}
                 type="text" 
-                value={val || ''} 
-                onChange={(e) => setVal(e.target.value)} 
+                defaultValue={displayValue || ''}
                 onBlur={handleBlur}
                 onKeyDown={handleKeyDown}
-                className="w-full text-center outline-none bg-indigo-50/80 border border-indigo-200 hover:bg-indigo-100 hover:border-indigo-300 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded py-1 print:hidden transition-all shadow-sm cursor-text"
+                className="w-full text-center outline-none bg-indigo-50/80 border border-indigo-200 hover:bg-indigo-100 hover:border-indigo-300 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded py-1 print:hidden transition-all shadow-sm cursor-text z-10"
                 style={{ fontSize: `${rsFontSize}px` }}
                 placeholder="คลิกพิมพ์เวลา"
                 title="คลิกเพื่อพิมพ์แก้เวลา"
@@ -360,15 +364,16 @@ const BreakTimeInput = ({ computedValue, manualValue, onSave, onReset, rsFontSiz
                     onMouseDown={(e) => {
                         e.preventDefault(); // ป้องกันบั๊กการแย่งโฟกัสตอนกดปุ่มรีเซ็ต
                         onReset();
+                            if (inputRef.current) inputRef.current.value = computedValue || '';
                     }}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition print:hidden bg-white shadow-sm border border-slate-200 rounded-full p-0.5"
+                        className="absolute right-1 top-1/2 -translate-y-1/2 text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition print:hidden bg-white shadow-sm border border-slate-200 rounded-full p-0.5 z-20"
                     title="รีเซ็ตให้ AI คำนวณใหม่"
                 >
                     <X className="w-3 h-3" />
                 </button>
             )}
             <span className="hidden print:inline" style={{ fontSize: `${rsFontSize}px` }}>{displayValue}</span>
-        </React.Fragment>
+        </div>
     );
 };
 
@@ -4735,7 +4740,7 @@ export default function App() {
                {activeDayShiftVisibilities.hasAfternoon && <td className={`border border-slate-800 p-2 font-bold ${isAfternoon ? 'shadow-inner' : 'opacity-30'}`} style={{ fontSize: `${rs.fontShift || rs.fontSize}px` }}>{isAfternoon ? timeText : ''}</td>}
                {activeDayShiftVisibilities.hasEvening && <td className={`border border-slate-800 p-2 font-bold ${isEvening ? 'shadow-inner' : 'opacity-30'}`} style={{ fontSize: `${rs.fontShift || rs.fontSize}px` }}>{isEvening ? timeText : ''}</td>}
                {activeDayShiftVisibilities.hasNight && <td className={`border border-slate-800 p-2 font-bold ${isNight ? 'shadow-inner' : 'opacity-30'}`} style={{ fontSize: `${rs.fontShift || rs.fontSize}px` }}>{isNight ? timeText : ''}</td>}
-               <td className="border border-slate-800 p-1.5 bg-white font-black text-indigo-700 tracking-tighter whitespace-nowrap print:p-2 relative group">
+               <td className="border border-slate-800 p-1.5 bg-white font-black text-indigo-700 tracking-tighter whitespace-nowrap print:p-2">
                    <BreakTimeInput 
                        computedValue={slotItem.breakTime}
                        manualValue={slotItem.assignedData.breakTime}
