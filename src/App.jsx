@@ -5291,7 +5291,7 @@ export default function App() {
                             <input type="number" value={rs.colShift} onChange={(e) => handleChange('colShift', parseInt(e.target.value) || 0)} className="w-full border rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500" />
                         </div>
                         <div>
-                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">รอบพัก</label>
+                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">รอบพัก1</label>
                             <input type="number" value={rs.colBreak} onChange={(e) => handleChange('colBreak', parseInt(e.target.value) || 0)} className="w-full border rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500" />
                         </div>
                     </div>
