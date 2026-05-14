@@ -227,7 +227,7 @@ function getNetWorkHours(startTime, endTime, staffPos) {
     
     if (gross >= 6) { // 6 hours or more gets a break
         let breakHours = 1;
-        if (staffPos === 'SD' || staffPos === 'KD') {
+        if (LONG_HOUR_POSITIONS.includes(staffPos)) {
             breakHours = 1.5;
         }
         return gross - breakHours;
@@ -880,6 +880,7 @@ export default function App() {
     for (const dutyId in dayData.duties) {
         if (!breaks[dutyId]) breaks[dutyId] = {};
         const assignedSlots = dayData.duties[dutyId] || [];
+        const assignedBreaks = []; // เก็บเวลาพักที่ถูกจัดไปแล้วในหน้าที่นี้เพื่อป้องกันการซ้อนทับ
         
         // Pre-calculate all start times for this duty to find replacements
         const allShiftTimes = [];
@@ -919,8 +920,8 @@ export default function App() {
                         
                         if (grossMinutes >= 360) { // ทำงาน 6 ชั่วโมงขึ้นไปได้พัก
                             let breakDuration = 60;
-                            if (staff.pos === 'SD' || staff.pos === 'KD') {
-                                breakDuration = 90;
+                            if (LONG_HOUR_POSITIONS.includes(staff.pos)) {
+                                breakDuration = 90; // พนักงานประจำพัก 1.5 ชม.
                             }
 
                             // Find replacement (Earliest shift that starts after me)
@@ -956,7 +957,39 @@ export default function App() {
                                 breakStartMinutes = 1020 - breakDuration;
                             }
                             
+                            // หลีกเลี่ยงเวลาพักซ้อนทับกันในหน้าที่เดียวกัน
+                            let idealStart = breakStartMinutes;
+                            let bestStart = idealStart;
+                            let found = false;
+                            
+                            const offsets = [0, -30, -60, -90, -120, -150, 30, 60, 90, 120];
+                            for (const offset of offsets) {
+                                let testStart = idealStart + offset;
+                                let testEnd = testStart + breakDuration;
+                                
+                                // ต้องทำงานอย่างน้อย 1 ชั่วโมงก่อนพัก
+                                if (testStart < myStartTime + 60) continue;
+                                // ถ้าเข้างานก่อน 15:00 ต้องพักเสร็จไม่เกิน 17:00
+                                if (myStartTime < 900 && testEnd > 1020) continue;
+                                
+                                let overlap = false;
+                                for (const ab of assignedBreaks) {
+                                    if (testStart < ab.end && testEnd > ab.start) {
+                                        overlap = true;
+                                        break;
+                                    }
+                                }
+                                if (!overlap) {
+                                    bestStart = testStart;
+                                    found = true;
+                                    break;
+                                }
+                            }
+                            if (!found) bestStart = idealStart;
+                            breakStartMinutes = bestStart;
+
                             const breakEndMinutes = breakStartMinutes + breakDuration;
+                            assignedBreaks.push({ start: breakStartMinutes, end: breakEndMinutes });
 
                             const format = (totalMinutes) => {
                                 const h = Math.floor(totalMinutes / 60) % 24;
