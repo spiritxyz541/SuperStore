@@ -4785,7 +4785,7 @@ export default function App() {
                          {activeDayShiftVisibilities.hasAfternoon && <th className="border border-slate-800 p-2" style={{ width: `${rs.colShift}%`, backgroundColor: rs.shiftHeaderBg }}>บ่าย</th>}
                          {activeDayShiftVisibilities.hasEvening && <th className="border border-slate-800 p-2" style={{ width: `${rs.colShift}%`, backgroundColor: rs.shiftHeaderBg }}>เย็น</th>}
                          {activeDayShiftVisibilities.hasNight && <th className="border border-slate-800 p-2" style={{ width: `${rs.colShift}%`, backgroundColor: rs.shiftHeaderBg }}>ดึก(ปิด)</th>}
-                         <th className="border border-slate-800 p-2" style={{ width: `${rs.colBreak}%` }}>รอบพัก</th>
+                         <th className="border border-slate-800 p-2" style={{ width: `${rs.colBreak}%` }}>รอบพัก1</th>
                       </tr>
                    </thead>
                    <tbody>
