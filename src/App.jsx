@@ -6251,7 +6251,7 @@ export default function App() {
              <div className="max-w-[1600px] mx-auto flex flex-col lg:flex-row items-center justify-between gap-4 lg:gap-0 w-full">
                 <div className="flex items-center justify-between w-full lg:w-auto">
                    <div className="flex items-center gap-3 sm:gap-4">
-                   <img src="https://img2.pic.in.th/gon-logo.png" alt="Logo" className="w-10 h-10 sm:w-12 sm:h-12 rounded-full shadow-md object-cover border-2 border-slate-100 bg-white transition hover:scale-105 duration-500" onError={(e) => { e.target.onerror = null; e.target.src = "https://via.placeholder.com/150?text=GON"; }} />
+                   <img src="https://img2.pic.in.th/gon-logo11111.png" alt="Logo" className="w-10 h-10 sm:w-12 sm:h-12 rounded-full shadow-md object-cover border-2 border-slate-100 bg-white transition hover:scale-105 duration-500" onError={(e) => { e.target.onerror = null; e.target.src = "https://via.placeholder.com/150?text=GON"; }} />
                    <div className="flex flex-col">
                       <span className="font-black text-lg sm:text-xl tracking-tighter uppercase leading-none">Super Store</span>
                       <div className="flex items-center gap-1.5 mt-0.5">
