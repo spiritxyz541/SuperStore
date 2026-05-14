@@ -4685,14 +4685,16 @@ export default function App() {
                {activeDayShiftVisibilities.hasAfternoon && <td className={`border border-slate-800 p-2 font-bold ${isAfternoon ? 'shadow-inner' : 'opacity-30'}`} style={{ fontSize: `${rs.fontShift || rs.fontSize}px` }}>{isAfternoon ? timeText : ''}</td>}
                {activeDayShiftVisibilities.hasEvening && <td className={`border border-slate-800 p-2 font-bold ${isEvening ? 'shadow-inner' : 'opacity-30'}`} style={{ fontSize: `${rs.fontShift || rs.fontSize}px` }}>{isEvening ? timeText : ''}</td>}
                {activeDayShiftVisibilities.hasNight && <td className={`border border-slate-800 p-2 font-bold ${isNight ? 'shadow-inner' : 'opacity-30'}`} style={{ fontSize: `${rs.fontShift || rs.fontSize}px` }}>{isNight ? timeText : ''}</td>}
-               <td className="border border-slate-800 p-1 bg-white font-black text-indigo-700 tracking-tighter whitespace-nowrap print:p-2 relative group">
+               <td className="border border-slate-800 p-1.5 bg-white font-black text-indigo-700 tracking-tighter whitespace-nowrap print:p-2 relative group">
                    <input 
                        type="text" 
                        value={slotItem.breakTime || ''} 
                        onChange={(e) => handleScheduleUpdate(selectedDateStr, duty.id, originalIdx, 'breakTime', e.target.value)} 
                        onBlur={() => { setSchedule(prev => { if (activeBranchId) autoSaveSchedule(prev); return prev; }) }}
-                       className="w-full text-center outline-none bg-transparent hover:bg-slate-50 focus:bg-indigo-50 focus:ring-1 ring-indigo-300 rounded print:hidden"
+                       className="w-full text-center outline-none bg-indigo-50/80 border border-indigo-200 hover:bg-indigo-100 hover:border-indigo-300 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded py-1 print:hidden transition-all shadow-sm cursor-text"
                        style={{ fontSize: `${rs.fontBreak || rs.fontSize}px` }}
+                       placeholder="คลิกพิมพ์เวลา"
+                       title="คลิกเพื่อพิมพ์แก้เวลา"
                    />
                    {slotItem.assignedData.breakTime !== undefined && (
                        <button 
@@ -4700,7 +4702,7 @@ export default function App() {
                                handleScheduleUpdate(selectedDateStr, duty.id, originalIdx, 'breakTime', undefined);
                                setSchedule(prev => { if (activeBranchId) autoSaveSchedule(prev); return prev; });
                            }}
-                           className="absolute right-1 top-1/2 -translate-y-1/2 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition print:hidden bg-white/90 rounded-full"
+                           className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition print:hidden bg-white shadow-sm border border-slate-200 rounded-full p-0.5"
                            title="รีเซ็ตให้ AI คำนวณใหม่"
                        >
                            <X className="w-3 h-3" />
