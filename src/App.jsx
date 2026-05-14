@@ -322,6 +322,56 @@ const StaffMultiSelector = ({ value, options, onChange, disabled, placeholder })
   );
 };
 
+const BreakTimeInput = ({ computedValue, manualValue, onSave, onReset, rsFontSize }) => {
+    const displayValue = manualValue !== undefined ? manualValue : computedValue;
+    const [val, setVal] = useState(displayValue);
+
+    useEffect(() => {
+        setVal(displayValue);
+    }, [displayValue]);
+
+    const handleBlur = () => {
+        if (val !== displayValue) {
+            onSave(val);
+        }
+    };
+
+    const handleKeyDown = (e) => {
+        if (e.key === 'Enter') {
+            e.target.blur(); // เมื่อกด Enter ให้จำลองการเอาเมาส์คลิกออก เพื่อสั่ง Save
+        }
+    };
+
+    return (
+        <React.Fragment>
+            <input 
+                type="text" 
+                value={val || ''} 
+                onChange={(e) => setVal(e.target.value)} 
+                onBlur={handleBlur}
+                onKeyDown={handleKeyDown}
+                className="w-full text-center outline-none bg-indigo-50/80 border border-indigo-200 hover:bg-indigo-100 hover:border-indigo-300 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded py-1 print:hidden transition-all shadow-sm cursor-text"
+                style={{ fontSize: `${rsFontSize}px` }}
+                placeholder="คลิกพิมพ์เวลา"
+                title="คลิกเพื่อพิมพ์แก้เวลา"
+            />
+            {manualValue !== undefined && (
+                <button 
+                    onMouseDown={(e) => {
+                        e.preventDefault(); // ป้องกันบั๊กการแย่งโฟกัสตอนกดปุ่มรีเซ็ต
+                        onReset();
+                    }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition print:hidden bg-white shadow-sm border border-slate-200 rounded-full p-0.5"
+                    title="รีเซ็ตให้ AI คำนวณใหม่"
+                >
+                    <X className="w-3 h-3" />
+                </button>
+            )}
+            <span className="hidden print:inline" style={{ fontSize: `${rsFontSize}px` }}>{displayValue}</span>
+        </React.Fragment>
+    );
+};
+
 // === UPDATED PrintMonthlyView Component ===
 // Drop-in replacement for the existing PrintMonthlyView in your codebase.
 //
@@ -4686,29 +4736,19 @@ export default function App() {
                {activeDayShiftVisibilities.hasEvening && <td className={`border border-slate-800 p-2 font-bold ${isEvening ? 'shadow-inner' : 'opacity-30'}`} style={{ fontSize: `${rs.fontShift || rs.fontSize}px` }}>{isEvening ? timeText : ''}</td>}
                {activeDayShiftVisibilities.hasNight && <td className={`border border-slate-800 p-2 font-bold ${isNight ? 'shadow-inner' : 'opacity-30'}`} style={{ fontSize: `${rs.fontShift || rs.fontSize}px` }}>{isNight ? timeText : ''}</td>}
                <td className="border border-slate-800 p-1.5 bg-white font-black text-indigo-700 tracking-tighter whitespace-nowrap print:p-2 relative group">
-                   <input 
-                       type="text" 
-                       value={slotItem.breakTime || ''} 
-                       onChange={(e) => handleScheduleUpdate(selectedDateStr, duty.id, originalIdx, 'breakTime', e.target.value)} 
-                       onBlur={() => { setSchedule(prev => { if (activeBranchId) autoSaveSchedule(prev); return prev; }) }}
-                       className="w-full text-center outline-none bg-indigo-50/80 border border-indigo-200 hover:bg-indigo-100 hover:border-indigo-300 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded py-1 print:hidden transition-all shadow-sm cursor-text"
-                       style={{ fontSize: `${rs.fontBreak || rs.fontSize}px` }}
-                       placeholder="คลิกพิมพ์เวลา"
-                       title="คลิกเพื่อพิมพ์แก้เวลา"
+                   <BreakTimeInput 
+                       computedValue={slotItem.breakTime}
+                       manualValue={slotItem.assignedData.breakTime}
+                       onSave={(newVal) => {
+                           handleScheduleUpdate(selectedDateStr, duty.id, originalIdx, 'breakTime', newVal);
+                           setSchedule(prev => { if (activeBranchId) autoSaveSchedule(prev); return prev; });
+                       }}
+                       onReset={() => {
+                           handleScheduleUpdate(selectedDateStr, duty.id, originalIdx, 'breakTime', undefined);
+                           setSchedule(prev => { if (activeBranchId) autoSaveSchedule(prev); return prev; });
+                       }}
+                       rsFontSize={rs.fontBreak || rs.fontSize}
                    />
-                   {slotItem.assignedData.breakTime !== undefined && (
-                       <button 
-                           onClick={() => {
-                               handleScheduleUpdate(selectedDateStr, duty.id, originalIdx, 'breakTime', undefined);
-                               setSchedule(prev => { if (activeBranchId) autoSaveSchedule(prev); return prev; });
-                           }}
-                           className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition print:hidden bg-white shadow-sm border border-slate-200 rounded-full p-0.5"
-                           title="รีเซ็ตให้ AI คำนวณใหม่"
-                       >
-                           <X className="w-3 h-3" />
-                       </button>
-                   )}
-                   <span className="hidden print:inline" style={{ fontSize: `${rs.fontBreak || rs.fontSize}px` }}>{slotItem.breakTime}</span>
                </td>
             </tr>
          );
