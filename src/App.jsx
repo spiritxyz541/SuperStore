@@ -4764,11 +4764,9 @@ export default function App() {
                        manualValue={slotItem.assignedData.breakTime}
                        onSave={(newVal) => {
                            handleScheduleUpdate(selectedDateStr, duty.id, originalIdx, 'breakTime', newVal);
-                           setSchedule(prev => { if (activeBranchId) autoSaveSchedule(prev); return prev; });
                        }}
                        onReset={() => {
                            handleScheduleUpdate(selectedDateStr, duty.id, originalIdx, 'breakTime', undefined);
-                           setSchedule(prev => { if (activeBranchId) autoSaveSchedule(prev); return prev; });
                        }}
                        rsFontSize={rs.fontBreak || rs.fontSize}
                    />
