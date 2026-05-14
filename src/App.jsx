@@ -218,7 +218,7 @@ function getShiftTimesForStaff(staffPos, shiftPreset) {
     return { startTime: timings.startTime, endTime: timings.endTime };
 }
 
-function getNetWorkHours(startTime, endTime) {
+function getNetWorkHours(startTime, endTime, staffPos) {
     if (!startTime || startTime === '??:??' || !endTime || endTime === '??:??') return 0;
     const [sh, sm] = startTime.split(':').map(Number);
     let [eh, em] = endTime.split(':').map(Number);
@@ -896,11 +896,17 @@ export default function App() {
                         let [eh, em] = endTime.split(':').map(Number);
                         if (eh < sh) eh += 24;
 
-                        const grossMinutes = (eh * 60 + em) - (sh * 60 + sm);
+                        const myStartTime = sh * 60 + sm;
+                        const grossMinutes = (eh * 60 + em) - myStartTime;
                         
-                        if (grossMinutes >= 480) { // 8 hours or more, gets 1hr break
-                            const midPointMinutes = (sh * 60 + sm) + (grossMinutes / 2);
-                            let breakStartMinutes = midPointMinutes - 30;
+                        if (grossMinutes >= 360) { // ทำงาน 6 ชั่วโมงขึ้นไปได้พัก
+                            let breakDuration = 60;
+                            if (staff.pos === 'SD' || staff.pos === 'KD') {
+                                breakDuration = 90;
+                            }
+
+                            const midPointMinutes = myStartTime + (grossMinutes / 2);
+                            let breakStartMinutes = midPointMinutes - (breakDuration / 2);
 
                             // บังคับรอบพักให้เริ่มต้นที่ 12:30 (750 นาที) เป็นต้นไป
                             if (breakStartMinutes < 750) {
@@ -910,7 +916,12 @@ export default function App() {
                             // ปัดเศษเวลาเริ่มพักให้ลงตัวที่หลัก 30 นาทีเสมอ
                             breakStartMinutes = Math.round(breakStartMinutes / 30) * 30;
                             
-                            const breakEndMinutes = breakStartMinutes + 60;
+                            // บังคับไม่ให้เวลาพักสิ้นสุดเกิน 17:30 (1050 นาที) เฉพาะกะที่เข้างานก่อน 12:00 (720 นาที)
+                            if (myStartTime < 720 && breakStartMinutes + breakDuration > 1050) {
+                                breakStartMinutes = 1050 - breakDuration;
+                            }
+                            
+                            const breakEndMinutes = breakStartMinutes + breakDuration;
 
                             const format = (totalMinutes) => {
                                 const h = Math.floor(totalMinutes / 60) % 24;
