@@ -52,7 +52,7 @@ const INACTIVITY_TIMEOUT_MS = 15 * 60 * 1000; // ตั้งเวลา Auto-l
 
 const DUTY_CATEGORIES = {
   service: [
-    { id: 'FOH_HEAD', label: '1Customer Service Head Team', color: 'bg-[#4B7A47] text-white border-white/20' },
+    { id: 'FOH_HEAD', label: 'Customer Service Head Team', color: 'bg-[#4B7A47] text-white border-white/20' },
     { id: 'FOH_STAFF', label: 'Customer Service Staff Team', color: 'bg-[#89C579] text-slate-900 border-black/20' },
     { id: 'FOH_SUPPORT', label: 'Service Support Team', color: 'bg-[#D9E1D8] text-slate-800 border-black/20' }
   ],
