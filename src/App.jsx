@@ -4304,13 +4304,16 @@ export default function App() {
                  const staff = branchData.staff?.find(s => s.id === item.assignedData.staffId);
                  const shiftPreset = branchData.shiftPresets?.find(p => p.id === item.slot.shiftPresetId);
                  const { startTime } = getShiftTimesForStaff(staff?.pos, shiftPreset);
-                 const stHour = parseInt(startTime?.split(':')[0]) || 0;
+                 const parts = (startTime || '00:00').split(':');
+                 const stHour = parseInt(parts[0], 10) || 0;
+                 const stMin = parseInt(parts[1], 10) || 0;
+                 const startDec = stHour + (stMin / 60); // แปลงนาทีให้เป็นจุดทศนิยม
                  const isLongHour = LONG_HOUR_POSITIONS.includes(staff?.pos);
-                 return { ...item, stHour, isLongHour };
+                 return { ...item, stHour, startDec, isLongHour };
              });
 
-             const processOrder = [...activeSlotsWithTime].sort((a, b) => a.stHour - b.stHour);
-             const dutyStartHours = processOrder.map(x => x.stHour);
+             const processOrder = [...activeSlotsWithTime].sort((a, b) => a.startDec - b.startDec);
+             const dutyStartTimes = processOrder.map(x => x.startDec);
 
              processOrder.forEach((item, index) => {
                  const targetItem = activeSlots.find(x => x.originalIdx === item.originalIdx);
@@ -4321,19 +4324,32 @@ export default function App() {
                  if (!breakTracker[jobA]) breakTracker[jobA] = [];
                  if (jobB !== '-' && !breakTracker[jobB]) breakTracker[jobB] = [];
                  
-                 let nextHour = dutyStartHours[index + 1];
-                 if (nextHour === undefined) nextHour = item.stHour + 3;
-                 if (nextHour < item.stHour + 2) nextHour = item.stHour + 2;
-                 if (nextHour > item.stHour + 5) nextHour = item.stHour + 4;
+                 let nextTime = dutyStartTimes[index + 1];
+                 
+                 // ถ้าไม่มีคนกะถัดไป หรือเป็นกะสุดท้าย ให้พักหลังจากทำงานไป 3 ชม.
+                 if (nextTime === undefined) {
+                     nextTime = item.startDec + 3.0;
+                 }
+                 
+                 // กรณีที่กะถัดไปเข้ามาเร็วเกินไป (ซ้อนกันน้อยกว่า 2 ชั่วโมง) ให้ยืดเวลาเริ่มเบรค
+                 if (nextTime < item.startDec + 2.0) {
+                     nextTime = item.startDec + 3.0;
+                 }
+                 // กรณีที่กะถัดไปมาช้ามาก ให้พักไปก่อนเลยไม่เกิน 4-5 ชั่วโมง
+                 if (nextTime > item.startDec + 5.0) {
+                     nextTime = item.startDec + 4.0;
+                 }
                  
                  const candidateBreaks = [];
                  const breakDur = item.isLongHour ? 1.5 : 1.0;
-                 for (let step = 0; step < 6; step++) { 
-                     const hr = nextHour + (step * 0.5);
+                 
+                 // ลดจำนวนสล็อตทางเลือกเหลือ 3 สล็อต (บวกลบแค่ 1 ชั่วโมง) เพื่อไม่ให้ไหลไปช่วงเย็นยุ่งๆ
+                 for (let step = 0; step < 3; step++) { 
+                     const hr = nextTime + (step * 0.5);
                      const formatTime = (val) => {
                          const hh = Math.floor(val);
-                         const mm = (val % 1) === 0.5 ? '30' : '00';
-                         return `${String(hh).padStart(2, '0')}.${mm}`;
+                         const mm = Math.round((val - hh) * 60);
+                         return `${String(hh).padStart(2, '0')}.${String(mm).padStart(2, '0')}`;
                      };
                      candidateBreaks.push(`${formatTime(hr)}-${formatTime(hr + breakDur)}`);
                  }
