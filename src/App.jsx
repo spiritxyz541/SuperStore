@@ -892,14 +892,8 @@ export default function App() {
                         
                         if (grossMinutes >= 480) { // 8 hours or more, gets 1hr break
                             const midPointMinutes = (sh * 60 + sm) + (grossMinutes / 2);
-                            let breakStartMinutes = midPointMinutes - 30;
-
-                            // บังคับรอบพักให้เริ่มต้นที่ 12:30 (750 นาที) เป็นต้นไป
-                            if (breakStartMinutes < 750) {
-                                breakStartMinutes = 750;
-                            }
-                            
-                            const breakEndMinutes = breakStartMinutes + 60;
+                            const breakStartMinutes = midPointMinutes - 30;
+                            const breakEndMinutes = midPointMinutes + 30;
 
                             const format = (totalMinutes) => {
                                 const h = Math.floor(totalMinutes / 60) % 24;
