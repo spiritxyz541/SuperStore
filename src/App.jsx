@@ -627,6 +627,7 @@ export default function App() {
 
   const [aiMessage, setAiMessage] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
+  const [newVersionAvailable, setNewVersionAvailable] = useState(null);
 
   const dateBarRef = useRef(null);
   const selectedYear = 2026;
@@ -1158,8 +1159,7 @@ export default function App() {
         const data = snap.data();
         // ระบบตรวจจับเวอร์ชัน: ถ้าระบบมีเวอร์ชันใหม่กว่า ให้บังคับเบราว์เซอร์รีเฟรช 1 ครั้งเพื่อโหลดอัปเดต
         if (data.latestVersion && data.latestVersion !== CURRENT_APP_VERSION && sessionStorage.getItem('reloadedVersion') !== data.latestVersion) {
-            sessionStorage.setItem('reloadedVersion', data.latestVersion);
-            window.location.reload();
+            setNewVersionAvailable(data.latestVersion); // เปลี่ยนเป็นเก็บ State แจ้งเตือน แทนการรีเฟรชทันที
         }
         setGlobalConfig(data);
       }
@@ -1277,6 +1277,16 @@ export default function App() {
           setHasSeenLanding(true);
       }
   }, [activeBranchId, branchData, hasSeenLanding, authRole]);
+
+  // ดักจับการเปลี่ยนเมนู (view) ถ้าระบบมีเวอร์ชันใหม่ ให้ทำการรีเฟรชอัตโนมัติอย่างปลอดภัย
+  const prevViewRef = useRef(view);
+  useEffect(() => {
+      if (prevViewRef.current !== view && newVersionAvailable) {
+          sessionStorage.setItem('reloadedVersion', newVersionAvailable);
+          window.location.reload();
+      }
+      prevViewRef.current = view;
+  }, [view, newVersionAvailable]);
 
   useEffect(() => {
     if (!branchData.staff || branchData.staff.length === 0) return;
@@ -6403,6 +6413,20 @@ export default function App() {
           th, td { border: 1px solid #000 !important; padding: 4px !important; }
         }
       `}} />
+
+      {newVersionAvailable && (
+        <div className="fixed top-0 left-0 w-full bg-amber-500 text-white z-[9999] px-4 py-2 sm:py-3 flex justify-between items-center shadow-lg animate-in slide-in-from-top">
+           <span className="text-[10px] sm:text-xs font-bold flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" /> มีอัปเดตระบบเวอร์ชันใหม่ ({newVersionAvailable}) กรุณาบันทึกงานที่ทำอยู่ให้เรียบร้อย และกดปุ่มรีเฟรช (ระบบจะอัปเดตอัตโนมัติหากคุณเปลี่ยนเมนู)
+           </span>
+           <button onClick={() => {
+               sessionStorage.setItem('reloadedVersion', newVersionAvailable);
+               window.location.reload();
+           }} className="bg-white text-amber-600 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-[10px] sm:text-xs font-black hover:bg-amber-50 active:scale-95 transition shadow-sm whitespace-nowrap ml-2">
+               รีเฟรชเดี๋ยวนี้
+           </button>
+        </div>
+      )}
 
       {renderModals()}
       {renderLandingModal()}
