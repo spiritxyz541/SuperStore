@@ -213,10 +213,21 @@ function formatTimeAbbreviation(timeStr) {
 function getShiftTimesForStaff(staffPos, shiftPreset) {
     if (!shiftPreset) return { startTime: '??:??', endTime: '??:??' };
     
-    const isLongHour = LONG_HOUR_POSITIONS.includes(staffPos);
+    const isLongHour = LONG_HOUR_POSITIONS.includes(staffPos || 'OC');
     const timings = isLongHour ? shiftPreset.timings.long : shiftPreset.timings.short;
     
     return { startTime: timings.startTime, endTime: timings.endTime };
+}
+
+function calculateOtHours(targetEndTime, baseEndTime) {
+    if (!targetEndTime || !baseEndTime || baseEndTime === '??:??') return 0;
+    const [th, tm] = targetEndTime.split(':').map(Number);
+    const [bh, bm] = baseEndTime.split(':').map(Number);
+    let tMins = th * 60 + tm;
+    let bMins = bh * 60 + bm;
+    if (tMins < bMins) tMins += 24 * 60; // รองรับกรณี OT ข้ามวัน
+    const diff = (tMins - bMins) / 60;
+    return diff > 0 ? diff : 0;
 }
 
 function getNetWorkHours(startTime, endTime, staffPos) {
@@ -701,7 +712,12 @@ export default function App() {
               staffMap[slot.staffId].workHours += getNetWorkHours(startTime, endTime, staffPos);
               staffMap[slot.staffId].shifts += 1;
               staffMap[slot.staffId].actualOT += Number(slot.otHours || 0);
-              staffMap[slot.staffId].plannedOT += Number(mSlot?.maxOtHours || 0);
+              
+              let plannedOT = Number(mSlot?.maxOtHours || 0);
+              if (mSlot?.targetEndTime) {
+                  plannedOT = calculateOtHours(mSlot.targetEndTime, endTime);
+              }
+              staffMap[slot.staffId].plannedOT += plannedOT;
             }
           });
         });
@@ -1334,17 +1350,27 @@ export default function App() {
           slots.forEach((slot, idx) => {
              if (assigned[idx] && assigned[idx].staffId) {
                 const matrixSlot = branchData.matrix[dayType]?.duties?.[duty.id]?.[idx];
-                if (matrixSlot && !assigned[idx].otUpdated && (!assigned[idx].otHours || assigned[idx].otHours === 0) && matrixSlot.maxOtHours > 0) {
-                    assigned[idx].otHours = matrixSlot.maxOtHours; 
-                    assigned[idx].otUpdated = true; 
-                    hasChanges = true;
+                if (matrixSlot && !assigned[idx].otUpdated && (!assigned[idx].otHours || assigned[idx].otHours === 0)) {
+                    let targetOT = matrixSlot.maxOtHours || 0;
+                    if (matrixSlot.targetEndTime) {
+                        const actualStaffId = assigned[idx].staffId.startsWith('COVER_BY_') ? assigned[idx].staffId.replace('COVER_BY_', '') : assigned[idx].staffId;
+                        const staff = branchData.staff?.find(s => s.id === actualStaffId);
+                        const preset = branchData.shiftPresets?.find(p => p.id === (assigned[idx].shiftPresetId || matrixSlot.shiftPresetId));
+                        const { endTime } = getShiftTimesForStaff(staff?.pos, preset);
+                        targetOT = calculateOtHours(matrixSlot.targetEndTime, endTime);
+                    }
+                    if (targetOT > 0) {
+                        assigned[idx].otHours = targetOT; 
+                        assigned[idx].otUpdated = true; 
+                        hasChanges = true;
+                    }
                 }
              }
           });
         });
     });
     if (hasChanges) setSchedule(newSched);
-  }, [schedule, branchData.matrix, CURRENT_DUTY_LIST, branchData.holidays, branchData.shiftPresets]);
+  }, [schedule, branchData.matrix, CURRENT_DUTY_LIST, branchData.holidays, branchData.shiftPresets, branchData.staff]);
 
   useEffect(() => {
       if (selectedDateStr) {
@@ -2428,7 +2454,7 @@ export default function App() {
                         );
 
                         if (potentialCandidates.length > 0) {
-                            const isOTSlot = (slot.maxOtHours || 0) > 0;
+                            const isOTSlot = slot.targetEndTime ? true : (slot.maxOtHours || 0) > 0;
                             let validCandidates = potentialCandidates;
                             
                             // Exclude HEAD team and PT from OT slots entirely
@@ -2496,8 +2522,18 @@ export default function App() {
                             dayData.duties[duty.id][slotIdx].staffId = candidate.id;
                             
                             const layer = getStaffLayer(activeDept, candidate.pos);
-                            const giveOT = !layer.id.includes('HEAD') && (slot.maxOtHours || 0) > 0;
-                            const assignedOT = giveOT ? slot.maxOtHours : 0;
+                            const preset = branchData.shiftPresets?.find(p => p.id === slot.shiftPresetId);
+                            const { endTime } = getShiftTimesForStaff(candidate.pos, preset);
+                            
+                            let assignedOT = 0;
+                            if (slot.targetEndTime) {
+                                assignedOT = calculateOtHours(slot.targetEndTime, endTime);
+                            } else {
+                                assignedOT = slot.maxOtHours || 0;
+                            }
+                            
+                            const giveOT = !layer.id.includes('HEAD') && assignedOT > 0;
+                            assignedOT = giveOT ? assignedOT : 0;
                             
                             dayData.duties[duty.id][slotIdx].otHours = assignedOT;
                             dayData.duties[duty.id][slotIdx].otUpdated = true;
@@ -4440,6 +4476,18 @@ export default function App() {
                                         const extraColor = isExtra ? (data.isEventExtra ? 'border-amber-300 bg-amber-50/50' : 'border-indigo-300 bg-indigo-50/50') : (!data.staffId ? 'border-dashed border-rose-300 bg-rose-50 animate-pulse' : 'border-indigo-100 bg-white');
                                         const extraIconColor = isExtra ? (data.isEventExtra ? 'text-amber-500' : 'text-indigo-500') : (!data.staffId ? 'text-rose-400' : 'text-slate-400');
                                         const extraTextColor = isExtra ? (data.isEventExtra ? 'text-amber-700' : 'text-indigo-700') : (!data.staffId ? 'text-rose-500' : 'text-slate-500');
+                                        
+                                        let dynMaxOt = slot.maxOtHours || 0;
+                                        if (slot.targetEndTime) {
+                                            let pPos = 'OC';
+                                            if (data.staffId) {
+                                                const sInfo = branchData.staff?.find(s => s.id === (data.staffId?.startsWith('COVER_BY_') ? data.staffId.replace('COVER_BY_', '') : data.staffId));
+                                                if (sInfo) pPos = sInfo.pos;
+                                            }
+                                            const pInfo = branchData.shiftPresets?.find(p => p.id === (data.shiftPresetId || slot.shiftPresetId));
+                                            const { endTime } = getShiftTimesForStaff(pPos, pInfo);
+                                            dynMaxOt = calculateOtHours(slot.targetEndTime, endTime);
+                                        }
 
                                         return (
                                            <div key={idx} className={`p-4 sm:p-5 rounded-[1.2rem] sm:rounded-[1.5rem] border-2 transition-all flex flex-col gap-3 shadow-sm ${extraColor}`}>
@@ -4457,12 +4505,22 @@ export default function App() {
                                                  {isExtra && ['branch', 'superadmin', 'areamanager'].includes(authRole) ? (
                                                     <button onClick={() => handleRemoveExtraSlot(selectedDateStr, duty.id, idx)} className="bg-red-100 text-red-500 hover:bg-red-500 hover:text-white px-2 py-1 rounded text-[8px] sm:text-[9px] font-black transition shadow-sm"><X className="w-3 h-3"/></button>
                                                  ) : (
-                                                    <span className={`text-[8px] sm:text-[9px] font-black px-2 py-1 rounded-full uppercase ${!data.staffId ? 'bg-rose-200/50 text-rose-600' : data.otHours >= slot.maxOtHours && slot.maxOtHours > 0 ? 'bg-indigo-600 text-white' : 'bg-indigo-50 text-indigo-500'}`}>Q: {slot.maxOtHours}H</span>
+                                                    <span className={`text-[8px] sm:text-[9px] font-black px-2 py-1 rounded-full uppercase ${!data.staffId ? 'bg-rose-200/50 text-rose-600' : data.otHours >= dynMaxOt && dynMaxOt > 0 ? 'bg-indigo-600 text-white' : 'bg-indigo-50 text-indigo-500'}`}>Q: {dynMaxOt}H</span>
                                                  )}
                                               </div>
                                               </div>
                                               <div className="flex flex-col sm:flex-row gap-2">
-                                              <select value={data.staffId} onChange={(e) => handleScheduleUpdate(selectedDateStr, duty.id, idx, 'staffId', e.target.value, slot.maxOtHours)} className={`w-full sm:flex-[3] border rounded-xl px-3 py-2 text-xs font-black outline-none shadow-sm focus:border-indigo-500 transition-colors ${!data.staffId ? 'bg-rose-100/50 border-rose-200 text-rose-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}>
+                                              <select value={data.staffId} onChange={(e) => {
+                                                  let calculatedOt = slot.maxOtHours || 0;
+                                                  if (slot.targetEndTime && e.target.value) {
+                                                      const actualId = e.target.value.startsWith('COVER_BY_') ? e.target.value.replace('COVER_BY_', '') : e.target.value;
+                                                      const selectedStaff = branchData.staff?.find(s => s.id === actualId);
+                                                      const preset = branchData.shiftPresets?.find(p => p.id === (data.shiftPresetId || slot.shiftPresetId));
+                                                      const { endTime } = getShiftTimesForStaff(selectedStaff?.pos, preset);
+                                                      calculatedOt = calculateOtHours(slot.targetEndTime, endTime);
+                                                  }
+                                                  handleScheduleUpdate(selectedDateStr, duty.id, idx, 'staffId', e.target.value, calculatedOt);
+                                              }} className={`w-full sm:flex-[3] border rounded-xl px-3 py-2 text-xs font-black outline-none shadow-sm focus:border-indigo-500 transition-colors ${!data.staffId ? 'bg-rose-100/50 border-rose-200 text-rose-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}>
                                                  <option value="">-- เลือกพนักงาน --</option>
                                                  {branchData.staff?.filter(s => s.dept === activeDept).map(s => {
                                                     const isUsed = usedStaffIds.includes(s.id) && data.staffId !== s.id;
@@ -4471,12 +4529,12 @@ export default function App() {
                                                     return (isUsed || wrongPos) ? null : <option key={s.id} value={s.id}>{s.name} ({s.pos})</option>
                                                  })}
                                               </select>
-                                              <div className={`w-full sm:flex-1 flex flex-row sm:flex-col justify-between sm:justify-center items-center border rounded-xl bg-white transition-all px-3 py-1 ${data.otHours >= slot.maxOtHours ? 'border-indigo-500 bg-indigo-50/20' : 'border-slate-200'}`}>
+                                              <div className={`w-full sm:flex-1 flex flex-row sm:flex-col justify-between sm:justify-center items-center border rounded-xl bg-white transition-all px-3 py-1 ${data.otHours >= dynMaxOt && dynMaxOt > 0 ? 'border-indigo-500 bg-indigo-50/20' : 'border-slate-200'}`}>
                                                  <span className="text-[8px] font-black text-slate-300 uppercase sm:mb-0.5">OT</span>
                                                  {pendingExtraOt ? (
                                                      <span className="text-[8px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 leading-none text-center">รออนุมัติ<br/>{pendingExtraOt.requestedOt}</span>
                                                  ) : (
-                                                     <input type="number" step="0.5" value={data.otHours} onChange={(e) => handleScheduleUpdate(selectedDateStr, duty.id, idx, 'otHours', e.target.value)} onBlur={(e) => handleOtBlur(selectedDateStr, duty.id, idx, e.target.value, slot.maxOtHours, data.staffId)} className="w-12 sm:w-full text-right sm:text-center font-black text-sm outline-none bg-transparent focus:text-indigo-600" />
+                                                     <input type="number" step="0.5" value={data.otHours} onChange={(e) => handleScheduleUpdate(selectedDateStr, duty.id, idx, 'otHours', e.target.value)} onBlur={(e) => handleOtBlur(selectedDateStr, duty.id, idx, e.target.value, dynMaxOt, data.staffId)} className="w-12 sm:w-full text-right sm:text-center font-black text-sm outline-none bg-transparent focus:text-indigo-600" />
                                                  )}
                                               </div>
                                               </div>
@@ -5132,6 +5190,19 @@ export default function App() {
                                                       const shiftPreset = branchData.shiftPresets?.find(p => p.id === matrixSlot.shiftPresetId);
                                                       const shiftName = shiftPreset ? shiftPreset.name : 'N/A';
                                                       const pendingExtraOt = pendingRequests.find(r => r.reqType === 'EXTRA_OT' && r.dateStr === day.dateStr && r.dutyId === duty.id && r.slotIdx === idx && r.status === 'PENDING_MANAGER');
+                                                      
+                                                      let dynMaxOt = matrixSlot.maxOtHours || 0;
+                                                      if (matrixSlot.targetEndTime) {
+                                                          let pPos = 'OC';
+                                                          if (data.staffId) {
+                                                              const sInfo = branchData.staff?.find(s => s.id === (data.staffId?.startsWith('COVER_BY_') ? data.staffId.replace('COVER_BY_', '') : data.staffId));
+                                                              if (sInfo) pPos = sInfo.pos;
+                                                          }
+                                                          const pInfo = branchData.shiftPresets?.find(p => p.id === (data.shiftPresetId || matrixSlot.shiftPresetId));
+                                                          const { endTime } = getShiftTimesForStaff(pPos, pInfo);
+                                                          dynMaxOt = calculateOtHours(matrixSlot.targetEndTime, endTime);
+                                                      }
+
                                                       return (
                                                           <div key={idx} className={`p-2 rounded-lg border ${!data.staffId ? 'border-dashed border-rose-300 bg-rose-50 animate-pulse shadow-sm' : data.staffId.startsWith('COVER_BY_') ? 'border-dashed border-amber-300 bg-amber-50 shadow-sm' : 'border-indigo-200 bg-indigo-50/30'}`}>
                                                              <div className="flex justify-between items-center mb-1 gap-1">
@@ -5141,11 +5212,21 @@ export default function App() {
                                                                    {pendingExtraOt ? (
                                                                        <span className="text-[7px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 leading-tight text-center">รออนุมัติ<br/>{pendingExtraOt.requestedOt}</span>
                                                                    ) : (
-                                                                       <input type="number" step="0.5" value={data.otHours} onChange={(e) => handleScheduleUpdate(day.dateStr, duty.id, idx, 'otHours', e.target.value)} onBlur={(e) => handleOtBlur(day.dateStr, duty.id, idx, e.target.value, matrixSlot.maxOtHours, data.staffId)} disabled={!data.staffId} className={`w-10 h-4 text-[8px] font-black text-center rounded outline-none transition-colors border ${data.otHours > 0 ? 'bg-indigo-100 border-indigo-200 text-indigo-700' : 'bg-white border-slate-200 text-slate-600 focus:border-indigo-400'} disabled:opacity-50`} />
+                                                                       <input type="number" step="0.5" value={data.otHours} onChange={(e) => handleScheduleUpdate(day.dateStr, duty.id, idx, 'otHours', e.target.value)} onBlur={(e) => handleOtBlur(day.dateStr, duty.id, idx, e.target.value, dynMaxOt, data.staffId)} disabled={!data.staffId} className={`w-10 h-4 text-[8px] font-black text-center rounded outline-none transition-colors border ${data.otHours > 0 ? 'bg-indigo-100 border-indigo-200 text-indigo-700' : 'bg-white border-slate-200 text-slate-600 focus:border-indigo-400'} disabled:opacity-50`} />
                                                                    )}
                                                                 </div>
                                                              </div>
-                                                             <select value={data.staffId} onChange={(e) => handleScheduleUpdate(day.dateStr, duty.id, idx, 'staffId', e.target.value, matrixSlot.maxOtHours)} className={`w-full text-[10px] font-bold bg-transparent outline-none truncate ${!data.staffId ? 'text-rose-600' : data.staffId.startsWith('COVER_BY_') ? 'text-amber-700' : 'text-slate-800'}`}>
+                                                             <select value={data.staffId} onChange={(e) => {
+                                                                  let calculatedOt = matrixSlot.maxOtHours || 0;
+                                                                  if (matrixSlot.targetEndTime && e.target.value) {
+                                                                      const actualId = e.target.value.startsWith('COVER_BY_') ? e.target.value.replace('COVER_BY_', '') : e.target.value;
+                                                                      const selectedStaff = branchData.staff?.find(s => s.id === actualId);
+                                                                      const preset = branchData.shiftPresets?.find(p => p.id === (data.shiftPresetId || matrixSlot.shiftPresetId));
+                                                                      const { endTime } = getShiftTimesForStaff(selectedStaff?.pos, preset);
+                                                                      calculatedOt = calculateOtHours(matrixSlot.targetEndTime, endTime);
+                                                                  }
+                                                                  handleScheduleUpdate(day.dateStr, duty.id, idx, 'staffId', e.target.value, calculatedOt);
+                                                              }} className={`w-full text-[10px] font-bold bg-transparent outline-none truncate ${!data.staffId ? 'text-rose-600' : data.staffId.startsWith('COVER_BY_') ? 'text-amber-700' : 'text-slate-800'}`}>
                                                                 <option value="">-- ว่าง --</option>
                                                                 {data.staffId && data.staffId.startsWith('COVER_BY_') && <option value={data.staffId}>✅ Cover: {branchData.staff?.find(s=>s.id === data.staffId.replace('COVER_BY_',''))?.name}</option>}
                                                                 {branchData.staff?.filter(s => s.dept === activeDept).map(s => {
@@ -5557,13 +5638,19 @@ export default function App() {
                                           {(branchData.shiftPresets || []).filter(p => p.isActive !== false || matrixSlot.shiftPresetId === p.id).map(p => <option key={p.id} value={p.id}>{p.name} {p.isActive === false ? '(ปิดใช้งาน)' : ''}</option>)}
                                       </select>
 
-                                      <span className="text-[8px] sm:text-[9px] font-black text-indigo-500 uppercase">MAX OT</span>
-                                      <input type="number" disabled={authRole === 'branch'} step="0.5" className="w-full border rounded-xl p-1.5 sm:p-2 text-center font-black bg-indigo-50/50 disabled:opacity-50 outline-none focus:border-indigo-500 text-[10px] sm:text-xs" value={matrixSlot.maxOtHours}
-                                          onChange={(e) => {
-                                              const nd = JSON.parse(JSON.stringify(branchData));
-                                              if (nd.matrix?.[key]?.duties?.[duty.id]?.[idx]) { nd.matrix[key].duties[duty.id][idx].maxOtHours = parseFloat(e.target.value) || 0; setBranchData(nd); }
-                                          }} 
-                                          onBlur={async () => { if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }} />
+                                      <span className="text-[8px] sm:text-[9px] font-black text-indigo-500 uppercase">เป้าเวลาเลิก (OT)</span>
+                                      <div className="flex gap-1 w-full">
+                                          <input type="time" disabled={authRole === 'branch'} className="w-full border rounded-xl p-1.5 sm:p-2 text-center font-black bg-indigo-50/50 disabled:opacity-50 outline-none focus:border-indigo-500 text-[10px] sm:text-xs" value={matrixSlot.targetEndTime || ''}
+                                              onChange={(e) => {
+                                                  const nd = JSON.parse(JSON.stringify(branchData));
+                                                  if (nd.matrix?.[key]?.duties?.[duty.id]?.[idx]) { nd.matrix[key].duties[duty.id][idx].targetEndTime = e.target.value; setBranchData(nd); }
+                                              }} 
+                                              title="ระบุเวลาเลิกงานเป้าหมาย เพื่อคำนวณ OT อัตโนมัติ"
+                                              onBlur={async () => { if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }} />
+                                          {(!matrixSlot.targetEndTime && matrixSlot.maxOtHours > 0) && (
+                                              <span className="text-[10px] font-bold text-rose-500 flex items-center justify-center w-8" title="Legacy Max OT">+{matrixSlot.maxOtHours}</span>
+                                          )}
+                                      </div>
                                   </div>
                                   {authRole === 'superadmin' && <button onClick={async () => {
                                       const nd = JSON.parse(JSON.stringify(branchData));
