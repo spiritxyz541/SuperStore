@@ -431,7 +431,7 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
     <div className="p-4 sm:p-10 bg-white animate-in fade-in w-full overflow-x-hidden flex-1">
       <div className="max-w-full mx-auto">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 sm:mb-16 print:hidden border-b pb-6 sm:pb-8 gap-4 sm:gap-0">
-          <button onClick={() => setView('manager')} className="flex items-center gap-2 sm:gap-4 text-slate-600 font-black bg-slate-100 px-6 sm:px-8 py-3 sm:py-4 rounded-xl sm:rounded-3xl hover:bg-slate-200 transition shadow-sm uppercase text-xs sm:text-sm tracking-widest w-full sm:w-auto justify-center"><ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" /> ย้อนกลับ </button>
+          <button onClick={() => { try { const sess = JSON.parse(localStorage.getItem('superstore_session')||'{}'); sess.view = 'manager'; localStorage.setItem('superstore_session', JSON.stringify(sess)); }catch(e){} window.location.reload(); }} className="flex items-center gap-2 sm:gap-4 text-slate-600 font-black bg-slate-100 px-6 sm:px-8 py-3 sm:py-4 rounded-xl sm:rounded-3xl hover:bg-slate-200 transition shadow-sm uppercase text-xs sm:text-sm tracking-widest w-full sm:w-auto justify-center"><ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" /> ย้อนกลับ </button>
           <button onClick={() => window.print()} className="bg-indigo-600 text-white px-8 sm:px-12 py-4 sm:py-5 rounded-xl sm:rounded-3xl font-black shadow-xl sm:shadow-2xl hover:bg-indigo-700 active:scale-95 transition-all flex items-center justify-center gap-3 sm:gap-4 uppercase text-xs sm:text-sm tracking-widest w-full sm:w-auto"><Printer className="w-5 h-5 sm:w-6 sm:h-6" /> สั่งพิมพ์รายงาน </button>
         </div>
         <div className="text-center mb-10 sm:mb-16 uppercase">
@@ -1423,6 +1423,20 @@ export default function App() {
     setLoginError('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
   };
 
+  const handleMenuChange = (newView, overrideBranchId = activeBranchId) => {
+      localStorage.setItem('superstore_session', JSON.stringify({ authRole, activeBranchId: overrideBranchId, view: newView, authUser }));
+      setTimeout(() => {
+          window.location.reload();
+      }, 150);
+  };
+
+  const handleBranchChange = (e) => {
+      const newBranchId = e.target.value;
+      setActiveBranchId(newBranchId);
+      localStorage.setItem('superstore_session', JSON.stringify({ authRole, activeBranchId: newBranchId, view, authUser }));
+      setTimeout(() => window.location.reload(), 150);
+  };
+
   const handleOpenInspector = () => {
       const pwd = window.prompt("กรุณาใส่รหัสผ่าน Admin เพื่อเข้าสู่ Data Inspector:");
       if (!pwd) return;
@@ -1660,6 +1674,7 @@ export default function App() {
       ['weekday', 'friday', 'weekend'].forEach(dt => { // This part might need adjustment for new shift preset logic
         if(!nd.matrix[dt].duties[newId]) nd.matrix[dt].duties[newId] = [{ shiftPresetId: 'S1', maxOtHours: 4.0 }];
       });
+      if (activeBranchId) setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd).catch(console.error);
       return nd;
     });
     setNewDutyJobA(''); setNewDutyJobB(''); setNewDutyXpDna(''); setNewDutyReqPos(['ALL']); setNewDutyIsBackup(false); setNewDutyPrepItems([]); setNewPrepName(''); setNewPrepMultiplier(''); setNewPrepUnit('กก.');
@@ -1670,6 +1685,7 @@ export default function App() {
         const nd = JSON.parse(JSON.stringify(prev));
         const idx = nd.duties[activeDept].findIndex(d => d.id === editingDutyId);
         if(idx > -1) nd.duties[activeDept][idx] = editDutyData;
+        if (activeBranchId) setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd).catch(console.error);
         return nd;
      });
      setEditingDutyId(null);
@@ -1827,7 +1843,11 @@ export default function App() {
           name: 'กะใหม่',
           timings: { long: { startTime: '10:00', endTime: '19:30' }, short: { startTime: '10:00', endTime: '19:00' } }
       };
-      setBranchData(prev => ({...prev, shiftPresets: [...(prev.shiftPresets || []), newPreset]}));
+      setBranchData(prev => {
+          const nd = {...prev, shiftPresets: [...(prev.shiftPresets || []), newPreset]};
+          if (activeBranchId) setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd).catch(console.error);
+          return nd;
+      });
   };
 
   const handleUpdateShiftPreset = (id, field, value, group = null) => {
@@ -3547,7 +3567,14 @@ export default function App() {
                 <div><span className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase ml-2 block mb-1.5 sm:mb-2">Password</span><input type="text" id="bp" className="w-full border-2 border-slate-50 bg-slate-50/50 rounded-xl sm:rounded-2xl px-4 sm:px-5 py-3 sm:py-4 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none" /></div>
                 <button onClick={() => {
                   const n = document.getElementById('bn').value; const u = document.getElementById('bu').value; const p = document.getElementById('bp').value;
-                  if(n && u && p) { setGlobalConfig(prev => ({...prev, branches: [...(prev.branches || []), {id: 'b'+Date.now(), name: n, user: u, pass: p}]})); document.getElementById('bn').value = ''; document.getElementById('bu').value = ''; document.getElementById('bp').value = ''; }
+                  if(n && u && p) { 
+                      setGlobalConfig(prev => {
+                          const nc = {...prev, branches: [...(prev.branches || []), {id: 'b'+Date.now(), name: n, user: u, pass: p}]};
+                          setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'master'), nc).catch(console.error);
+                          return nc;
+                      }); 
+                      document.getElementById('bn').value = ''; document.getElementById('bu').value = ''; document.getElementById('bp').value = ''; 
+                  }
                 }} className="w-full bg-emerald-600 text-white py-4 sm:py-5 rounded-xl sm:rounded-3xl font-black text-xs sm:text-sm hover:bg-emerald-700 shadow-xl mt-2 sm:mt-4 uppercase transition-colors">บันทึกสาขา</button>
              </div>
           </div>
@@ -3573,7 +3600,11 @@ export default function App() {
                             <button onClick={() => startEditBranch(b)} className="mt-2 text-indigo-500 text-[10px] font-bold flex items-center gap-1 hover:underline"><Edit2 className="w-3 h-3"/> แก้ไขข้อมูล</button>
                          )}
                      </div>
-                     <button onClick={() => setGlobalConfig(prev => ({...prev, branches: prev.branches.filter(x => x.id !== b.id)}))} className="text-slate-300 hover:text-red-500 transition p-2"><Trash2 className="w-5 h-5 sm:w-6 sm:h-6"/></button>
+                     <button onClick={() => setGlobalConfig(prev => {
+                         const nc = {...prev, branches: prev.branches.filter(x => x.id !== b.id)};
+                         setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'master'), nc).catch(console.error);
+                         return nc;
+                     })} className="text-slate-300 hover:text-red-500 transition p-2"><Trash2 className="w-5 h-5 sm:w-6 sm:h-6"/></button>
                   </div>
                 ))}
              </div>
@@ -3603,7 +3634,11 @@ export default function App() {
                      </div>
                      <button onClick={() => {
                          if (newAmName && newAmUser && newAmPass) {
-                             setGlobalConfig(prev => ({ ...prev, areaManagers: [...(prev.areaManagers || []), { id: 'AM'+Date.now(), name: newAmName, user: newAmUser, pass: newAmPass, branches: newAmBranches }] }));
+                             setGlobalConfig(prev => {
+                                 const nc = { ...prev, areaManagers: [...(prev.areaManagers || []), { id: 'AM'+Date.now(), name: newAmName, user: newAmUser, pass: newAmPass, branches: newAmBranches }] };
+                                 setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'master'), nc).catch(console.error);
+                                 return nc;
+                             });
                              setNewAmName(''); setNewAmUser(''); setNewAmPass(''); setNewAmBranches([]);
                          }
                      }} className="w-full bg-indigo-600 text-white py-3.5 rounded-xl font-black text-xs hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-colors uppercase tracking-widest mt-2">บันทึกผู้จัดการเขต</button>
@@ -3620,7 +3655,11 @@ export default function App() {
                                  {am.branches?.map(bId => globalConfig.branches?.find(x => x.id === bId)?.name).filter(Boolean).join(', ') || 'ไม่มีสาขา'}
                              </div>
                          </div>
-                         <button onClick={() => setGlobalConfig(prev => ({ ...prev, areaManagers: prev.areaManagers.filter(x => x.id !== am.id) }))} className="mt-4 w-full bg-red-50 text-red-500 py-2.5 rounded-xl font-black text-xs hover:bg-red-500 hover:text-white transition-colors">ลบผู้จัดการเขต</button>
+                         <button onClick={() => setGlobalConfig(prev => {
+                             const nc = { ...prev, areaManagers: prev.areaManagers.filter(x => x.id !== am.id) };
+                             setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'master'), nc).catch(console.error);
+                             return nc;
+                         })} className="mt-4 w-full bg-red-50 text-red-500 py-2.5 rounded-xl font-black text-xs hover:bg-red-500 hover:text-white transition-colors">ลบผู้จัดการเขต</button>
                      </div>
                  ))}
              </div>
@@ -3844,7 +3883,11 @@ export default function App() {
                               setConfirmModal({ message: `เพิ่มพนักงานไม่ได้ เนื่องจากกลุ่ม ${isPT ? 'Part-Time' : layer.label} เต็มแล้ว (รับได้สูงสุด ${limit} คน)` });
                               return;
                           }
-                          setBranchData(p => ({...p, staff: [...(p.staff || []), {id: 's' + Date.now(), empId: newStaffEmpId.trim(), name: newStaffName.trim(), dept: newStaffDept, pos: newStaffPos, regularDayOff: newStaffDayOff === '' ? null : parseInt(newStaffDayOff), startDate: newStaffStartDate || null}]})); 
+                          setBranchData(p => {
+                              const nd = {...p, staff: [...(p.staff || []), {id: 's' + Date.now(), empId: newStaffEmpId.trim(), name: newStaffName.trim(), dept: newStaffDept, pos: newStaffPos, regularDayOff: newStaffDayOff === '' ? null : parseInt(newStaffDayOff), startDate: newStaffStartDate || null}]};
+                              if (activeBranchId) setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd).catch(console.error);
+                              return nd;
+                          }); 
                           setNewStaffName(''); setNewStaffEmpId(''); setNewStaffDayOff(''); setNewStaffStartDate('');
                       } 
                   }} className="w-full xl:w-auto bg-slate-900 text-white px-6 sm:px-8 py-3 rounded-xl sm:rounded-2xl font-black text-xs hover:bg-indigo-600 transition uppercase flex items-center justify-center"><UserPlus className="w-4 h-4 sm:w-5 sm:h-5 mr-0 sm:mr-0"/><span className="xl:hidden ml-2">เพิ่มพนักงาน</span></button>
@@ -3921,7 +3964,11 @@ export default function App() {
                                <button onClick={() => startEditStaff(s)} className="text-slate-300 hover:text-indigo-500"><Edit2 className="w-3 h-3"/></button>
                             </div>
                          </div>
-                         <button onClick={() => setBranchData(p=>({...p, staff: p.staff.filter(x=>x.id!==s.id)}))} className="text-slate-300 hover:text-red-500 transition p-2"><Trash2 className="w-4 h-4 sm:w-5 sm:h-5"/></button>
+                         <button onClick={() => setBranchData(p => {
+                             const nd = {...p, staff: p.staff.filter(x=>x.id!==s.id)};
+                             if (activeBranchId) setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd).catch(console.error);
+                             return nd;
+                         })} className="text-slate-300 hover:text-red-500 transition p-2"><Trash2 className="w-4 h-4 sm:w-5 sm:h-5"/></button>
                        </React.Fragment>
                     )}
                  </div>
@@ -4105,7 +4152,16 @@ export default function App() {
                  const isHoliday = branchData.holidays?.includes?.(d.dateStr);
                  return (
                    <button 
-                     key={d.dateStr} disabled={authRole === 'branch'} onClick={() => { if(authRole === 'superadmin') setBranchData(p=>({...p, holidays: isHoliday ? p.holidays.filter(x=>x!==d.dateStr) : [...(p.holidays || []), d.dateStr]})) }} 
+                     key={d.dateStr} disabled={authRole === 'branch'} onClick={() => { 
+                         if(authRole === 'superadmin') {
+                             setBranchData(p => {
+                                 const isHol = p.holidays?.includes?.(d.dateStr);
+                                 const nd = {...p, holidays: isHol ? p.holidays.filter(x=>x!==d.dateStr) : [...(p.holidays || []), d.dateStr]};
+                                 if (activeBranchId) setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd).catch(console.error);
+                                 return nd;
+                             });
+                         }
+                     }} 
                      className={`w-full aspect-square rounded-[0.8rem] sm:rounded-[1.5rem] text-[10px] sm:text-[12px] font-black transition-all border-2 flex items-center justify-center ${isHoliday ? 'bg-red-500 text-white border-red-600 shadow-lg sm:shadow-xl' : 'bg-slate-50 text-slate-400 border-transparent hover:bg-slate-100'} ${authRole === 'branch' ? 'cursor-not-allowed opacity-80' : ''}`}
                    >{d.dayNum}</button>
                  );
@@ -5059,7 +5115,7 @@ export default function App() {
                    <button onClick={() => setConfirmModal({ message: 'ยืนยันการล้างข้อมูลกะงานของ "ทั้งเดือนนี้" ใช่หรือไม่?', action: () => handleClearSchedule('monthly') })} className="bg-white border-2 border-red-100 text-red-500 hover:bg-red-500 hover:text-white hover:border-red-500 px-4 py-2 sm:py-3 rounded-xl flex justify-center items-center shadow-sm active:scale-95 transition-all">
                       <Eraser className="w-4 h-4" />
                    </button>
-                   <button onClick={() => setView('print')} className="flex-1 sm:flex-none bg-white text-slate-900 border border-slate-200 px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-black flex justify-center items-center gap-2 hover:bg-slate-50 shadow-sm active:scale-95 transition-all text-[10px] sm:text-xs uppercase tracking-widest">
+                   <button onClick={() => handleMenuChange('print')} className="flex-1 sm:flex-none bg-white text-slate-900 border border-slate-200 px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-black flex justify-center items-center gap-2 hover:bg-slate-50 shadow-sm active:scale-95 transition-all text-[10px] sm:text-xs uppercase tracking-widest">
                       <Printer className="w-4 h-4" /> ไปหน้าพิมพ์
                    </button>
                    <button onClick={handleExportMonthlyRoster} className="flex-1 sm:flex-none bg-green-600 hover:bg-green-700 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-black flex justify-center items-center gap-2 shadow-md active:scale-95 transition-all text-[10px] sm:text-xs uppercase tracking-widest">
@@ -6240,8 +6296,8 @@ export default function App() {
                                 </div>
                             </div>
                             <div className="w-full xl:w-auto flex flex-col sm:flex-row xl:flex-col gap-3">
-                                <button onClick={() => { setActiveBranchId(bId); setView('report'); }} className="flex-1 bg-indigo-50 text-indigo-600 px-8 py-4 rounded-xl font-black text-xs hover:bg-indigo-100 transition shadow-sm whitespace-nowrap text-center uppercase tracking-widest border border-indigo-100">ดูรายงานฉบับเต็ม</button>
-                                <button onClick={() => { setActiveBranchId(bId); setView('manager'); }} className="flex-1 bg-slate-900 text-white px-8 py-4 rounded-xl font-black text-xs hover:bg-black transition shadow-lg whitespace-nowrap text-center uppercase tracking-widest">จัดการตารางกะสาขานี้</button>
+                                <button onClick={() => handleMenuChange('report', bId)} className="flex-1 bg-indigo-50 text-indigo-600 px-8 py-4 rounded-xl font-black text-xs hover:bg-indigo-100 transition shadow-sm whitespace-nowrap text-center uppercase tracking-widest border border-indigo-100">ดูรายงานฉบับเต็ม</button>
+                                <button onClick={() => handleMenuChange('manager', bId)} className="flex-1 bg-slate-900 text-white px-8 py-4 rounded-xl font-black text-xs hover:bg-black transition shadow-lg whitespace-nowrap text-center uppercase tracking-widest">จัดการตารางกะสาขานี้</button>
                             </div>
                           </div>
                           
@@ -6534,7 +6590,7 @@ export default function App() {
                    {['superadmin', 'areamanager'].includes(authRole) && (
                       <div className="hidden sm:flex items-center bg-slate-100 rounded-xl p-1 ml-2 sm:ml-4 border border-slate-200 shadow-inner">
                          <ArrowLeftRight className="w-3 h-3 sm:w-4 sm:h-4 text-slate-400 mx-2 sm:mx-3" />
-                         <select value={activeBranchId || ''} onChange={(e) => setActiveBranchId(e.target.value)} className="bg-transparent text-[9px] sm:text-[11px] font-black outline-none py-1 sm:py-2 pr-2 sm:pr-4 text-indigo-600 cursor-pointer uppercase max-w-[120px] sm:max-w-none">
+                         <select value={activeBranchId || ''} onChange={handleBranchChange} className="bg-transparent text-[9px] sm:text-[11px] font-black outline-none py-1 sm:py-2 pr-2 sm:pr-4 text-indigo-600 cursor-pointer uppercase max-w-[120px] sm:max-w-none">
                               <option value="">-- SELECT BRANCH --</option>
                               {globalConfig.branches?.filter(b => authRole === 'superadmin' || (globalConfig.areaManagers?.find(a => a.user === authUser)?.branches || []).includes(b.id)).map(b => <option key={b.id} value={b.id}>{b.name.substring(0,40).toUpperCase()}</option>)}
                          </select>
@@ -6552,7 +6608,7 @@ export default function App() {
                           <Bell className="w-5 h-5 text-slate-600" />
                           {pendingRequests.some(r => r.status === 'PENDING_MANAGER') && <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>}
                       </button>
-                      <button onClick={() => {setAuthRole('guest'); setView('manager');}} className="text-slate-400 p-2 bg-slate-100 rounded-lg"><LogIn className="w-4 h-4 rotate-180" /></button>
+                      <button onClick={() => { localStorage.removeItem('superstore_session'); window.location.reload(); }} className="text-slate-400 p-2 bg-slate-100 rounded-lg"><LogIn className="w-4 h-4 rotate-180" /></button>
                    </div>
                 </div>
                 <div className="flex items-center gap-2 sm:gap-5 w-full lg:w-auto overflow-x-auto custom-scrollbar pb-1 lg:pb-0 mt-4 lg:mt-0">
@@ -6567,13 +6623,13 @@ export default function App() {
                       </select>
                    </div>
                    <div className="flex-shrink-0 flex gap-1 sm:gap-2 bg-slate-100 p-1 rounded-xl sm:rounded-2xl border border-slate-200 font-black text-[9px] sm:text-[10px]">
-                      {authRole === 'areamanager' && <button onClick={() => setView('area_dashboard')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'area_dashboard' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>ภาพรวมเขต (Dashboard)</button>}
-                      <button onClick={() => setView('manager')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'manager' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>จัดตารางงาน</button>
-                      <button onClick={() => setView('head_team')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'head_team' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>จัดบทบาทประจำวัน</button>
-                      <button onClick={() => setView('report')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'report' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>รายงาน</button>
-                      <button onClick={() => setView('admin')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'admin' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>ตั้งค่า</button>
-                      <button onClick={() => setView('guide')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'guide' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>คู่มือ</button>
-                      {authRole === 'superadmin' && <button onClick={() => setView('branches')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'branches' ? 'bg-white text-emerald-600 shadow-sm border border-emerald-50' : 'text-slate-500'}`}>BRANCHES</button>}
+                      {authRole === 'areamanager' && <button onClick={() => handleMenuChange('area_dashboard')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'area_dashboard' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>ภาพรวมเขต (Dashboard)</button>}
+                      <button onClick={() => handleMenuChange('manager')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'manager' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>จัดตารางงาน</button>
+                      <button onClick={() => handleMenuChange('head_team')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'head_team' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>จัดบทบาทประจำวัน</button>
+                      <button onClick={() => handleMenuChange('report')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'report' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>รายงาน</button>
+                      <button onClick={() => handleMenuChange('admin')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'admin' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>ตั้งค่า</button>
+                      <button onClick={() => handleMenuChange('guide')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'guide' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>คู่มือ</button>
+                      {authRole === 'superadmin' && <button onClick={() => handleMenuChange('branches')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'branches' ? 'bg-white text-emerald-600 shadow-sm border border-emerald-50' : 'text-slate-500'}`}>BRANCHES</button>}
                    </div>
                    <div className="hidden lg:flex flex-shrink-0 items-center gap-3 ml-2 pl-5 border-l border-slate-200">
                       <button onClick={handleGlobalSave} disabled={saveStatus === 'saving'} className="bg-indigo-600 text-white px-4 py-2.5 rounded-2xl font-black text-xs hover:bg-indigo-700 active:scale-95 transition flex items-center gap-2 w-32 justify-center">
@@ -6581,7 +6637,7 @@ export default function App() {
                          <span className="ml-1">{saveStatus === 'saving' ? 'กำลังบันทึก...' : 'บันทึกทั้งหมด'}</span>
                       </button>
                       {saveStatus === 'error' && <div className="text-red-500 text-xs font-bold ml-2">บันทึกไม่สำเร็จ กรุณาลองใหม่</div>}
-                      <button onClick={() => {setAuthRole('guest'); setView('manager');}} className="text-slate-400 hover:text-red-500 transition"><LogIn className="w-6 h-6 rotate-180" /></button>
+                      <button onClick={() => { localStorage.removeItem('superstore_session'); window.location.reload(); }} className="text-slate-400 hover:text-red-500 transition"><LogIn className="w-6 h-6 rotate-180" /></button>
                    </div>
                 </div>
              </div>
