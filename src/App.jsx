@@ -32,6 +32,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const appId = "staffsync-v8-stable-prod-final"; 
+const CURRENT_APP_VERSION = "15.7.0"; // เปลี่ยนเลขเวอร์ชันที่นี่ทุกครั้งที่คุณอัปเดตโค้ด
 
 // --- Constants & Layers ---
 const POSITIONS = {
@@ -1153,8 +1154,16 @@ export default function App() {
   useEffect(() => {
     if (!user) return;
     const unsub = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'master'), (snap) => {
-      if (snap.exists()) setGlobalConfig(snap.data());
-      else setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'master'), { admins: [{ user: 'admin', pass: 'superstore' }], branches: [] });
+      if (snap.exists()) {
+        const data = snap.data();
+        // ระบบตรวจจับเวอร์ชัน: ถ้าระบบมีเวอร์ชันใหม่กว่า ให้บังคับเบราว์เซอร์รีเฟรช 1 ครั้งเพื่อโหลดอัปเดต
+        if (data.latestVersion && data.latestVersion !== CURRENT_APP_VERSION && sessionStorage.getItem('reloadedVersion') !== data.latestVersion) {
+            sessionStorage.setItem('reloadedVersion', data.latestVersion);
+            window.location.reload();
+        }
+        setGlobalConfig(data);
+      }
+      else setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'master'), { admins: [{ user: 'admin', pass: 'superstore' }], branches: [], latestVersion: CURRENT_APP_VERSION });
       setLoading(false); setIsTimeout(false);
     }, (err) => { setLoadError(err.message); setLoading(false); });
     
@@ -3467,6 +3476,20 @@ export default function App() {
                <h2 className="text-2xl sm:text-4xl font-black text-slate-800 tracking-tighter uppercase">Global Admin</h2>
                <p className="text-slate-400 text-xs sm:text-sm font-bold uppercase tracking-widest mt-1">จัดการรายชื่อสาขาและสิทธิ์เข้าระบบ</p>
             </div>
+          </div>
+          <div className="flex flex-col items-start sm:items-end gap-2 mt-4 sm:mt-0">
+             <div className="text-[10px] sm:text-xs font-bold text-slate-400 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">Current App Version: <span className="font-black text-slate-700">{CURRENT_APP_VERSION}</span></div>
+             <button onClick={async () => {
+                 const newVer = window.prompt("กรอกเลขเวอร์ชันใหม่ (เช่น 15.7.1) เพื่อบังคับให้ผู้ใช้ทุกคนรีเฟรชระบบ:\n*คุณต้องเปลี่ยนเลข CURRENT_APP_VERSION ในโค้ดและ Deploy ก่อนกดปุ่มนี้*", CURRENT_APP_VERSION);
+                 if (newVer && newVer !== CURRENT_APP_VERSION) {
+                     const newConfig = { ...globalConfig, latestVersion: newVer };
+                     setGlobalConfig(newConfig);
+                     await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'master'), newConfig);
+                     setConfirmModal({ message: 'สั่งบังคับรีเฟรชผู้ใช้งานทุกคนเรียบร้อยแล้ว!' });
+                 }
+             }} className="bg-amber-100 text-amber-600 hover:bg-amber-500 hover:text-white px-4 py-2.5 rounded-xl text-[10px] sm:text-xs font-black shadow-sm transition-all border border-amber-200">
+                🔄 สั่งรีเฟรชผู้ใช้งานทุกคน (Force Reload)
+             </button>
           </div>
        </div>
        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-10">
