@@ -601,6 +601,7 @@ export default function App() {
   const [editPrepMultiplier, setEditPrepMultiplier] = useState('');
   const [editPrepUnit, setEditPrepUnit] = useState('กก.');
   const [editPrepTarget, setEditPrepTarget] = useState('ALL');
+  const [editingPrepItemId, setEditingPrepItemId] = useState(null);
   const [editPrepMode, setEditPrepMode] = useState('TC');
   const [editingDutyId, setEditingDutyId] = useState(null);
   const [editDutyData, setEditDutyData] = useState({});
@@ -4060,30 +4061,64 @@ export default function App() {
                                 <input type="text" placeholder="หน่วย" value={editPrepUnit} onChange={e=>setEditPrepUnit(e.target.value)} className="flex-1 border border-slate-200 rounded-lg px-2 py-1.5 text-[10px] font-bold outline-none focus:border-amber-500" />
                                 <select value={editPrepTarget} onChange={e=>setEditPrepTarget(e.target.value)} className="flex-1 border border-slate-200 rounded-lg px-2 py-1.5 text-[10px] font-bold outline-none focus:border-amber-500 bg-white">
                                     <option value="ALL">ทุกกะ</option>
-                                    {(() => {
+                                    {useMemo(() => {
                                         const names = new Set();
                                         ['weekday', 'friday', 'weekend'].forEach(dt => {
                                             const pg = branchData.matrix?.[dt]?.prepGoals;
                                             if (Array.isArray(pg)) pg.forEach(g => names.add(g.name));
                                             else { names.add('กะเช้า'); names.add('กะบ่าย'); }
                                         });
-                                        return Array.from(names).map(name => <option key={name} value={name}>{name}</option>);
-                                    })()}
+                                        return Array.from(names).map(name => <option key={name} value={name}>{name}</option>)
+                                    }, [branchData.matrix])}
                                 </select>
-                                <button onClick={() => { if(editPrepName && editPrepMultiplier) { setEditDutyData({...editDutyData, prepItems: [...(editDutyData.prepItems || []), { id: 'P'+Date.now(), name: editPrepName, multiplier: parseFloat(editPrepMultiplier)||0, unit: editPrepUnit, target: editPrepTarget, mode: editPrepMode }]}); setEditPrepName(''); setEditPrepMultiplier(''); setEditPrepTarget('ALL'); setEditPrepMode('TC'); } }} className="bg-amber-500 hover:bg-amber-600 text-white px-2 py-1.5 rounded-lg text-[10px] font-black shadow-sm transition">เพิ่ม</button>
+                                <button onClick={() => {
+                                    if (!editPrepName.trim() || !editPrepMultiplier) return;
+                                    const newPrepData = { name: editPrepName.trim(), multiplier: parseFloat(editPrepMultiplier) || 0, unit: editPrepUnit, target: editPrepTarget, mode: editPrepMode };
+                                    if (editingPrepItemId) {
+                                        setEditDutyData(prev => ({ ...prev, prepItems: prev.prepItems.map(p => p.id === editingPrepItemId ? { ...p, ...newPrepData } : p) }));
+                                    } else {
+                                        setEditDutyData(prev => ({ ...prev, prepItems: [...(prev.prepItems || []), { id: 'P' + Date.now(), ...newPrepData }] }));
+                                    }
+                                    setEditingPrepItemId(null); setEditPrepName(''); setEditPrepMultiplier(''); setEditPrepUnit('กก.'); setEditPrepTarget('ALL'); setEditPrepMode('TC');
+                                }} className={`px-3 py-1.5 rounded-lg text-[10px] font-black shadow-sm transition text-white ${editingPrepItemId ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-amber-500 hover:bg-amber-600'}`}>
+                                    {editingPrepItemId ? 'บันทึก' : 'เพิ่ม'}
+                                </button>
+                                {editingPrepItemId && (
+                                    <button onClick={() => { setEditingPrepItemId(null); setEditPrepName(''); setEditPrepMultiplier(''); setEditPrepUnit('กก.'); setEditPrepTarget('ALL'); setEditPrepMode('TC'); }} className="bg-slate-100 hover:bg-slate-200 text-slate-500 p-2 rounded-lg text-[10px] font-black shadow-sm transition"><X className="w-3 h-3"/></button>
+                                )}
                             </div>
                             {(editDutyData.prepItems || []).length > 0 && (
                                 <div className="flex flex-wrap gap-2 mt-1">
                                     {(editDutyData.prepItems || []).map(p => {
                                         let targetName = 'ทุกกะ';
                                         if (p.target && p.target !== 'ALL') {
-                                            targetName = `เฉพาะ ${p.target === 'prep_1' ? 'กะเช้า' : p.target === 'prep_2' ? 'กะบ่าย' : p.target}`;
+                                            targetName = p.target;
                                         }
                                         let modeText = p.mode === 'TABLE' ? '/โต๊ะ' : p.mode === 'STATIC' ? '' : '/TC';
                                         return (
-                                        <div key={p.id} className="bg-white text-amber-700 px-2 py-1 rounded border border-amber-200 text-[9px] font-black flex items-center gap-1 shadow-sm">
-                                            {p.name} : {p.multiplier} {p.unit}{modeText} {p.target && p.target !== 'ALL' ? `(${targetName})` : ''}
-                                            <button onClick={() => setEditDutyData({...editDutyData, prepItems: editDutyData.prepItems.filter(x => x.id !== p.id)})} className="text-amber-500 hover:text-red-500 ml-1"><X className="w-2 h-2"/></button>
+                                        <div key={p.id} className={`bg-white text-amber-700 px-2 py-1 rounded border text-[9px] font-black flex items-center gap-1.5 shadow-sm transition-colors ${editingPrepItemId === p.id ? 'border-emerald-400 ring-2 ring-emerald-100' : 'border-amber-200'}`}>
+                                            <span>{p.name} : {p.multiplier} {p.unit}{modeText} {p.target && p.target !== 'ALL' ? `(${targetName})` : ''}</span>
+                                            <div className="flex items-center gap-0.5 ml-1">
+                                                <button onClick={() => {
+                                                    if (editingPrepItemId === p.id) {
+                                                        setEditingPrepItemId(null); setEditPrepName(''); setEditPrepMultiplier(''); setEditPrepUnit('กก.'); setEditPrepTarget('ALL'); setEditPrepMode('TC');
+                                                    } else {
+                                                        setEditingPrepItemId(p.id);
+                                                        setEditPrepName(p.name);
+                                                        setEditPrepMultiplier(p.multiplier);
+                                                        setEditPrepUnit(p.unit);
+                                                        setEditPrepTarget(p.target || 'ALL');
+                                                        setEditPrepMode(p.mode || 'TC');
+                                                    }
+                                                }} className="text-amber-500 hover:text-indigo-500">
+                                                    {editingPrepItemId === p.id ? <X className="w-3 h-3 text-red-500"/> : <Edit2 className="w-3 h-3"/>}
+                                                </button>
+                                                <button onClick={() => {
+                                                    setConfirmModal({ message: `คุณต้องการลบรายการ "${p.name}" ใช่หรือไม่?`, action: () => {
+                                                        setEditDutyData(prev => ({ ...prev, prepItems: prev.prepItems.filter(x => x.id !== p.id) }));
+                                                    }});
+                                                }} className="text-amber-500 hover:text-red-500"><Trash2 className="w-3 h-3"/></button>
+                                            </div>
                                         </div>
                                     )})}
                                 </div>
