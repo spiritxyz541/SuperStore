@@ -4061,15 +4061,15 @@ export default function App() {
                                 <input type="text" placeholder="หน่วย" value={editPrepUnit} onChange={e=>setEditPrepUnit(e.target.value)} className="flex-1 border border-slate-200 rounded-lg px-2 py-1.5 text-[10px] font-bold outline-none focus:border-amber-500" />
                                 <select value={editPrepTarget} onChange={e=>setEditPrepTarget(e.target.value)} className="flex-1 border border-slate-200 rounded-lg px-2 py-1.5 text-[10px] font-bold outline-none focus:border-amber-500 bg-white">
                                     <option value="ALL">ทุกกะ</option>
-                                    {useMemo(() => {
+                                    {(() => {
                                         const names = new Set();
                                         ['weekday', 'friday', 'weekend'].forEach(dt => {
                                             const pg = branchData.matrix?.[dt]?.prepGoals;
                                             if (Array.isArray(pg)) pg.forEach(g => names.add(g.name));
                                             else { names.add('กะเช้า'); names.add('กะบ่าย'); }
                                         });
-                                        return Array.from(names).map(name => <option key={name} value={name}>{name}</option>)
-                                    }, [branchData.matrix])}
+                                        return Array.from(names).map(name => <option key={name} value={name}>{name}</option>);
+                                    })()}
                                 </select>
                                 <button onClick={() => {
                                     if (!editPrepName.trim() || !editPrepMultiplier) return;
