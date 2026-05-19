@@ -573,6 +573,7 @@ export default function App() {
   const [forecastReason, setForecastReason] = useState('');
   const [forecastEvidence, setForecastEvidence] = useState('');
   const [showPtLedgerDetails, setShowPtLedgerDetails] = useState(false);
+  const [showOtLedgerDetails, setShowOtLedgerDetails] = useState(false);
   
   const [newAmName, setNewAmName] = useState('');
   const [newAmUser, setNewAmUser] = useState('');
@@ -887,6 +888,66 @@ export default function App() {
       const usagePercent = totalAllowance > 0 ? (usedHours / totalAllowance) * 100 : 0;
       return { baseAllowance, leaveRefunds, vacancyCompensations, baseTotalAllowance, eventExtras, totalAllowance, usedHours, usedBaseHours, usedEventHours, dailyEventQuota, dailyEventUsed, usagePercent, staffUsage, dailyUsage, dailyAllowance };
   }, [schedule, branchData, selectedMonth, selectedYear, selectedDateStr, CALENDAR_DAYS]);
+
+  const otLedger = useMemo(() => {
+      let totalOtHours = 0;
+      let dailyOtUsed = {};
+      let staffOtUsage = {};
+      const staffMap = {};
+      (branchData.staff || []).forEach(s => staffMap[s.id] = s);
+
+      Object.keys(schedule).forEach(dateStr => {
+          const [yStr, mStr] = dateStr.split('-');
+          if (parseInt(mStr, 10) - 1 !== selectedMonth || parseInt(yStr, 10) !== selectedYear) return;
+          
+          const dayData = schedule[dateStr];
+          if (dayData.duties) {
+              Object.keys(dayData.duties).forEach(dutyId => {
+                  const slots = dayData.duties[dutyId] || [];
+                  slots.forEach(slot => {
+                      if (slot.staffId && slot.otHours > 0) {
+                          const actualId = slot.staffId.startsWith('COVER_BY_') ? slot.staffId.replace('COVER_BY_', '') : slot.staffId;
+                          const staff = staffMap[actualId];
+                          if (staff && !staff.pos.includes('PT')) { 
+                              const ot = Number(slot.otHours);
+                              totalOtHours += ot;
+                              dailyOtUsed[dateStr] = (dailyOtUsed[dateStr] || 0) + ot;
+                              if (!staffOtUsage[staff.id]) staffOtUsage[staff.id] = { name: staff.name, pos: staff.pos, ot: 0 };
+                              staffOtUsage[staff.id].ot += ot;
+                          }
+                      }
+                  });
+              });
+          }
+      });
+
+      // คำนวณโควตาจาก โครงสร้างกะงาน (Matrix) ของเดือนที่กำลังเลือกอยู่
+      let dynamicBudgetHours = 0;
+      if (branchData.matrix && CALENDAR_DAYS && CALENDAR_DAYS.length > 0) {
+          CALENDAR_DAYS.forEach(day => {
+              const dayType = day.type;
+              ['service', 'kitchen'].forEach(dept => {
+                  (branchData.duties?.[dept] || []).forEach(duty => {
+                      const matrixSlots = branchData.matrix?.[dayType]?.duties?.[duty.id] || [];
+                      matrixSlots.forEach(mSlot => {
+                          let ot = Number(mSlot.maxOtHours || 0);
+                          if (mSlot.targetEndTime) {
+                              const preset = branchData.shiftPresets?.find(p => p.id === mSlot.shiftPresetId) || branchData.shiftPresets?.[0];
+                              const { endTime } = getShiftTimesForStaff('OC', preset);
+                              ot = calculateOtHours(mSlot.targetEndTime, endTime);
+                          }
+                          dynamicBudgetHours += ot;
+                      });
+                  });
+              });
+          });
+      }
+
+      const budgetHours = dynamicBudgetHours;
+      const usagePercent = budgetHours > 0 ? (totalOtHours / budgetHours) * 100 : (totalOtHours > 0 ? 100 : 0);
+      
+      return { totalOtHours, budgetHours, usagePercent, dailyOtUsed, staffOtUsage };
+  }, [schedule, branchData, selectedMonth, selectedYear, CALENDAR_DAYS]);
 
   const activeDayShiftVisibilities = useMemo(() => {
       let hasMorning = false, hasLateMorning = false, hasAfternoon = false, hasEvening = false, hasNight = false;
@@ -1705,6 +1766,28 @@ export default function App() {
       const parsedValue = parseFloat(value) || 0;
       setBranchData(prev => {
           const nd = { ...prev, ptConfig: { ...(prev.ptConfig || { monthlyBudget: 0, hourlyRate: 50 }), [field]: parsedValue } };
+          setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd).catch(console.error);
+          return nd;
+      });
+  };
+
+  const handleUpdateOtConfig = (field, value) => {
+      setBranchData(prev => {
+          return {
+              ...prev,
+              otConfig: {
+                  ...(prev.otConfig || { monthlyBudgetHours: '' }),
+                  [field]: value
+              }
+          };
+      });
+  };
+
+  const handleSaveOtConfig = async (field, value) => {
+      if (!activeBranchId) return;
+      const parsedValue = parseFloat(value) || 0;
+      setBranchData(prev => {
+          const nd = { ...prev, otConfig: { ...(prev.otConfig || { monthlyBudgetHours: 0 }), [field]: parsedValue } };
           setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd).catch(console.error);
           return nd;
       });
@@ -3493,6 +3576,44 @@ export default function App() {
              </div>
           </div>
         )}
+        {showOtLedgerDetails && (
+          <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300 font-sans">
+             <div className="bg-white rounded-[2rem] p-6 sm:p-8 max-w-2xl w-full shadow-2xl relative flex flex-col gap-4 animate-in zoom-in-95 max-h-[85vh]">
+                <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                   <h3 className="text-xl font-black text-slate-800 uppercase tracking-tighter flex items-center gap-2"><BarChart3 className="w-6 h-6 text-indigo-500"/> รายละเอียดการใช้ชั่วโมง OT (FT)</h3>
+                   <button onClick={() => setShowOtLedgerDetails(false)} className="text-slate-400 hover:bg-slate-100 p-2 rounded-full transition"><X className="w-5 h-5"/></button>
+                </div>
+                
+                <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-6">
+                    <div>
+                        <h4 className="font-black text-slate-700 text-sm mb-3 uppercase tracking-widest border-b border-slate-100 pb-2">สรุปชั่วโมงตามรายบุคคล (Full-Time OT)</h4>
+                        {Object.keys(otLedger.staffOtUsage || {}).length === 0 ? (
+                            <div className="text-center text-xs text-slate-400 font-bold py-4">ยังไม่มีการให้ OT ในเดือนนี้</div>
+                        ) : (
+                            <table className="w-full text-xs text-left border-collapse">
+                                <thead>
+                                    <tr className="bg-slate-50 text-slate-500">
+                                        <th className="p-2 border-b border-slate-200 font-black">ชื่อพนักงาน</th>
+                                        <th className="p-2 border-b border-slate-200 font-black text-center">ตำแหน่ง</th>
+                                        <th className="p-2 border-b border-slate-200 font-black text-center text-indigo-600">รวม OT (ชม.)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {Object.values(otLedger.staffOtUsage).sort((a,b) => b.ot - a.ot).map((s, idx) => (
+                                        <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                                            <td className="p-2 font-bold text-slate-700">{s.name}</td>
+                                            <td className="p-2 text-center"><span className="bg-slate-100 px-2 py-0.5 rounded text-[9px] font-black text-slate-600">{s.pos}</span></td>
+                                            <td className="p-2 text-center font-black text-indigo-600">{s.ot.toFixed(1)}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
+                    </div>
+                </div>
+             </div>
+          </div>
+        )}
         {showDataInspector && renderDataInspectorModal()}
       </React.Fragment>
     );
@@ -4356,7 +4477,7 @@ export default function App() {
 
        <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm w-full mt-6 sm:mt-10 print:hidden">
            <h2 className="text-lg sm:text-xl font-black text-slate-800 mb-6 sm:mb-8 flex items-center gap-2 sm:gap-4 uppercase tracking-tighter"><TrendingUp className="w-6 h-6 sm:w-7 sm:h-7 text-emerald-500" /> ข้อมูลสาขาและงบประมาณ (Branch Configs)</h2>
-           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">จำนวนโต๊ะ (Total Tables)</label>
                  <input type="number" inputMode="numeric" disabled={authRole !== 'superadmin'} value={branchData.totalTables || ''} onChange={(e) => setBranchData(prev => ({...prev, totalTables: parseInt(e.target.value) || 0}))} onBlur={async () => { if(activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" placeholder="เช่น 30" />
@@ -4376,6 +4497,11 @@ export default function App() {
               <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">อัตราทดแทน (ครัว) ชม./คน/วัน</label>
                  <input type="text" inputMode="numeric" disabled={authRole !== 'superadmin'} value={branchData.ptConfig?.compHoursPerDayKitchen === 0 ? '' : (branchData.ptConfig?.compHoursPerDayKitchen ?? 8)} onChange={(e) => handleUpdatePtConfig('compHoursPerDayKitchen', e.target.value.replace(/[^0-9.]/g, ''))} onBlur={(e) => handleSavePtConfig('compHoursPerDayKitchen', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-orange-600 disabled:opacity-70 disabled:bg-white" placeholder="ค่าเริ่มต้น 8" />
+              </div>
+              <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100 relative overflow-hidden">
+                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">โควตา OT รายเดือน (FT) (ชม.)</label>
+                 <input type="text" disabled value={otLedger.budgetHours.toFixed(1)} className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-black outline-none bg-slate-100 text-rose-600" />
+                 <span className="absolute top-4 right-4 text-[8px] font-bold bg-indigo-100 text-indigo-600 px-2 py-1 rounded uppercase tracking-widest">Auto from CYCLE</span>
               </div>
            </div>
            <p className="text-[10px] text-slate-400 font-bold mt-4">* ระบบจะนำยอดเงินมาหารเป็นชั่วโมงโควตาตั้งต้น สำหรับบริหารจัดการ Part-Time ในกระเป๋าชั่วโมง (PT Ledger)</p>
@@ -6251,7 +6377,7 @@ export default function App() {
       if (eventUsagePercent >= 100) eventColor = 'bg-red-500';
 
       return (
-          <div className="bg-white p-5 sm:p-6 rounded-[2rem] border border-slate-200 shadow-sm mb-6 print:hidden w-full flex flex-col gap-4 animate-in fade-in duration-500">
+          <div className="bg-white p-5 sm:p-6 rounded-[2rem] border border-slate-200 shadow-sm print:hidden w-full flex-1 flex flex-col justify-between gap-4 animate-in fade-in duration-500 min-h-[200px]">
               <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
                   <div>
                       <h3 className="text-base sm:text-lg font-black text-slate-800 uppercase tracking-tighter flex items-center gap-2"><TrendingUp className="w-5 h-5 text-emerald-500" /> กระเป๋าชั่วโมง PT</h3>
@@ -6283,6 +6409,42 @@ export default function App() {
               <div className="flex justify-between items-center mt-1">
                   <button onClick={() => setShowPtLedgerDetails(true)} className="text-[10px] sm:text-xs font-bold text-indigo-500 hover:text-indigo-700 underline flex items-center gap-1"><BarChart3 className="w-3 h-3"/> ดูรายละเอียดการใช้ PT</button>
                   {ptLedger.usedHours > ptLedger.totalAllowance && <p className="text-[10px] sm:text-xs font-black text-red-500 uppercase animate-pulse">⚠️ โควตาเกินกำหนด กรุณาตรวจสอบ</p>}
+              </div>
+          </div>
+      );
+  }
+
+  function renderOtLedgerWidget() {
+      if (otLedger.budgetHours === 0 && otLedger.totalOtHours === 0) return null;
+
+      const usedOt = otLedger.totalOtHours;
+      const budget = otLedger.budgetHours;
+      const usagePercent = otLedger.usagePercent;
+
+      let barColor = 'bg-indigo-500';
+      if (usagePercent >= 100) barColor = 'bg-red-500';
+      else if (usagePercent >= 80) barColor = 'bg-amber-500';
+
+      return (
+          <div className="bg-white p-5 sm:p-6 rounded-[2rem] border border-slate-200 shadow-sm print:hidden w-full flex-1 flex flex-col justify-between gap-4 animate-in fade-in duration-500 min-h-[200px]">
+              <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+                  <div>
+                      <h3 className="text-base sm:text-lg font-black text-slate-800 uppercase tracking-tighter flex items-center gap-2"><Clock className="w-5 h-5 text-indigo-500" /> กระเป๋าชั่วโมง OT (FT)</h3>
+                      <p className="text-[10px] sm:text-xs font-bold text-slate-500 mt-1">ยอดรวม OT ที่ใช้ไป: <span className="text-slate-800">{usedOt.toFixed(1)} / {budget.toFixed(1)} ชม.</span></p>
+                  </div>
+              </div>
+              
+              <div className="bg-slate-50 p-3 sm:p-4 rounded-xl border border-slate-100 flex flex-col gap-2 mt-auto">
+                  <div className="flex justify-between items-end">
+                      <span className="text-[10px] sm:text-xs font-black text-slate-500 uppercase">โควตา OT ทั้งเดือน</span>
+                      <span className="text-sm font-black text-slate-800">{usedOt.toFixed(1)} <span className="text-[10px] text-slate-400">/ {budget.toFixed(1)} ชม.</span></span>
+                  </div>
+                  <div className="h-2.5 sm:h-3 w-full bg-slate-200 rounded-full overflow-hidden"><div className={`h-full ${barColor} transition-all duration-500 rounded-full`} style={{ width: `${Math.min(usagePercent, 100)}%` }}></div></div>
+              </div>
+
+              <div className="flex justify-between items-center mt-1">
+                  <button onClick={() => setShowOtLedgerDetails(true)} className="text-[10px] sm:text-xs font-bold text-indigo-500 hover:text-indigo-700 underline flex items-center gap-1"><BarChart3 className="w-3 h-3"/> ดูรายละเอียดการใช้ OT</button>
+                  {usedOt > budget && <p className="text-[10px] sm:text-xs font-black text-red-500 uppercase animate-pulse">⚠️ โควตา OT เกินกำหนด</p>}
               </div>
           </div>
       );
@@ -6632,7 +6794,10 @@ export default function App() {
   } else if (view === 'manager') {
     mainContent = (
        <div className="flex flex-col w-full gap-0">
-          {renderPtLedgerWidget()}
+          <div className="flex flex-col lg:flex-row gap-4 w-full mb-6 print:hidden">
+              {renderPtLedgerWidget()}
+              {renderOtLedgerWidget()}
+          </div>
           {managerViewMode === 'daily' && renderManagerDailyCards()}
           {managerViewMode === 'monthly' && renderManagerMonthly()}
        </div>
