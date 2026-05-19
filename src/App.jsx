@@ -1655,8 +1655,7 @@ export default function App() {
             }
       currentSlots[slotIndex].otUpdated = true; 
       if (field === 'staffId') {
-         if (value !== "") currentSlots[slotIndex].otHours = parseFloat(defaultOt) || 0;
-         else currentSlots[slotIndex].otHours = 0;
+         currentSlots[slotIndex].otHours = parseFloat(defaultOt) || 0;
       }
 
       newSchedToSave = newSched;
@@ -4886,11 +4885,11 @@ export default function App() {
                                               <div className="flex flex-col sm:flex-row gap-2">
                                               <select value={data.staffId} onChange={(e) => {
                                                   let calculatedOt = slot.maxOtHours || 0;
-                                                  if (slot.targetEndTime && e.target.value) {
+                                                  if (slot.targetEndTime) {
                                                       const actualId = e.target.value.startsWith('COVER_BY_') ? e.target.value.replace('COVER_BY_', '') : e.target.value;
                                                       const selectedStaff = branchData.staff?.find(s => s.id === actualId);
                                                       const preset = branchData.shiftPresets?.find(p => p.id === (data.shiftPresetId || slot.shiftPresetId));
-                                                      const { endTime } = getShiftTimesForStaff(selectedStaff?.pos, preset);
+                                                      const { endTime } = getShiftTimesForStaff(selectedStaff?.pos || 'OC', preset);
                                                       calculatedOt = calculateOtHours(slot.targetEndTime, endTime);
                                                   }
                                                   handleScheduleUpdate(selectedDateStr, duty.id, idx, 'staffId', e.target.value, calculatedOt);
@@ -4903,12 +4902,12 @@ export default function App() {
                                                     return (isUsed || wrongPos) ? null : <option key={s.id} value={s.id}>{s.name} ({s.pos})</option>
                                                  })}
                                               </select>
-                                              <div className={`w-full sm:flex-1 flex flex-row sm:flex-col justify-between sm:justify-center items-center border rounded-xl bg-white transition-all px-3 py-1 ${data.otHours >= dynMaxOt && dynMaxOt > 0 ? 'border-indigo-500 bg-indigo-50/20' : 'border-slate-200'}`}>
+                                              <div className={`w-full sm:flex-1 flex flex-row sm:flex-col justify-between sm:justify-center items-center border rounded-xl bg-white transition-all px-3 py-1 ${((data.otHours === 0 && !data.otUpdated && dynMaxOt > 0) ? dynMaxOt : data.otHours) >= dynMaxOt && dynMaxOt > 0 ? 'border-indigo-500 bg-indigo-50/20' : 'border-slate-200'}`}>
                                                  <span className="text-[8px] font-black text-slate-300 uppercase sm:mb-0.5">OT</span>
                                                  {pendingExtraOt ? (
                                                      <span className="text-[8px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 leading-none text-center">รออนุมัติ<br/>{pendingExtraOt.requestedOt}</span>
                                                  ) : (
-                                                     <input type="number" step="0.5" value={data.otHours} onChange={(e) => handleScheduleUpdate(selectedDateStr, duty.id, idx, 'otHours', e.target.value)} onBlur={(e) => handleOtBlur(selectedDateStr, duty.id, idx, e.target.value, dynMaxOt, data.staffId)} className="w-12 sm:w-full text-right sm:text-center font-black text-sm outline-none bg-transparent focus:text-indigo-600" />
+                                                     <input type="number" step="0.5" value={(data.otHours === 0 && !data.otUpdated && dynMaxOt > 0) ? dynMaxOt : data.otHours} onChange={(e) => handleScheduleUpdate(selectedDateStr, duty.id, idx, 'otHours', e.target.value)} onBlur={(e) => handleOtBlur(selectedDateStr, duty.id, idx, e.target.value, dynMaxOt, data.staffId)} className="w-12 sm:w-full text-right sm:text-center font-black text-sm outline-none bg-transparent focus:text-indigo-600" />
                                                  )}
                                               </div>
                                               </div>
@@ -5586,17 +5585,17 @@ export default function App() {
                                                                    {pendingExtraOt ? (
                                                                        <span className="text-[7px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 leading-tight text-center">รออนุมัติ<br/>{pendingExtraOt.requestedOt}</span>
                                                                    ) : (
-                                                                       <input type="number" step="0.5" value={data.otHours} onChange={(e) => handleScheduleUpdate(day.dateStr, duty.id, idx, 'otHours', e.target.value)} onBlur={(e) => handleOtBlur(day.dateStr, duty.id, idx, e.target.value, dynMaxOt, data.staffId)} disabled={!data.staffId} className={`w-10 h-4 text-[8px] font-black text-center rounded outline-none transition-colors border ${data.otHours > 0 ? 'bg-indigo-100 border-indigo-200 text-indigo-700' : 'bg-white border-slate-200 text-slate-600 focus:border-indigo-400'} disabled:opacity-50`} />
+                                                                       <input type="number" step="0.5" value={(data.otHours === 0 && !data.otUpdated && dynMaxOt > 0) ? dynMaxOt : data.otHours} onChange={(e) => handleScheduleUpdate(day.dateStr, duty.id, idx, 'otHours', e.target.value)} onBlur={(e) => handleOtBlur(day.dateStr, duty.id, idx, e.target.value, dynMaxOt, data.staffId)} disabled={!data.staffId} className={`w-10 h-4 text-[8px] font-black text-center rounded outline-none transition-colors border ${((data.otHours === 0 && !data.otUpdated && dynMaxOt > 0) ? dynMaxOt : data.otHours) > 0 ? 'bg-indigo-100 border-indigo-200 text-indigo-700' : 'bg-white border-slate-200 text-slate-600 focus:border-indigo-400'} disabled:opacity-50`} />
                                                                    )}
                                                                 </div>
                                                              </div>
                                                              <select value={data.staffId} onChange={(e) => {
                                                                   let calculatedOt = matrixSlot.maxOtHours || 0;
-                                                                  if (matrixSlot.targetEndTime && e.target.value) {
+                                                                  if (matrixSlot.targetEndTime) {
                                                                       const actualId = e.target.value.startsWith('COVER_BY_') ? e.target.value.replace('COVER_BY_', '') : e.target.value;
                                                                       const selectedStaff = branchData.staff?.find(s => s.id === actualId);
                                                                       const preset = branchData.shiftPresets?.find(p => p.id === (data.shiftPresetId || matrixSlot.shiftPresetId));
-                                                                      const { endTime } = getShiftTimesForStaff(selectedStaff?.pos, preset);
+                                                                      const { endTime } = getShiftTimesForStaff(selectedStaff?.pos || 'OC', preset);
                                                                       calculatedOt = calculateOtHours(matrixSlot.targetEndTime, endTime);
                                                                   }
                                                                   handleScheduleUpdate(day.dateStr, duty.id, idx, 'staffId', e.target.value, calculatedOt);
