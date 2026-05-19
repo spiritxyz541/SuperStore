@@ -32,7 +32,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const appId = "staffsync-v8-stable-prod-final"; 
-const CURRENT_APP_VERSION = "15.8.0"; // เปลี่ยนเลขเวอร์ชันที่นี่ทุกครั้งที่คุณอัปเดตโค้ด
+const CURRENT_APP_VERSION = "15.7.1"; // เปลี่ยนเลขเวอร์ชันที่นี่ทุกครั้งที่คุณอัปเดตโค้ด
 
 // --- Constants & Layers ---
 const POSITIONS = {
@@ -1375,7 +1375,6 @@ export default function App() {
                 });
             });
         }
-        if (!data.layout) data.layout = { zones: [], tables: [] };
         setBranchData(data);
       } else { setBranchData({ staff: [], holidays: [], duties: { service: DEFAULT_SERVICE_DUTIES, kitchen: DEFAULT_KITCHEN_DUTIES }, matrix: generateDefaultMatrix(), shiftPresets: DEFAULT_SHIFT_PRESETS, templates: [] }); }
     });
@@ -6892,143 +6891,6 @@ export default function App() {
     );
   }
 
-  function renderLayoutBuilder() {
-      const layout = branchData.layout || { zones: [], tables: [] };
-      const canvasRef = useRef(null);
-      const [editingId, setEditingId] = useState(null);
-
-      const handleDragStart = (e, id, type) => {
-          e.dataTransfer.setData('id', id);
-          e.dataTransfer.setData('type', type);
-          e.dataTransfer.effectAllowed = 'move';
-          const rect = e.target.getBoundingClientRect();
-          e.dataTransfer.setData('offsetX', e.clientX - rect.left);
-          e.dataTransfer.setData('offsetY', e.clientY - rect.top);
-      };
-
-      const handleDrop = (e) => {
-          e.preventDefault();
-          const id = e.dataTransfer.getData('id');
-          const type = e.dataTransfer.getData('type');
-          if (!id || !type) return;
-
-          const rect = canvasRef.current.getBoundingClientRect();
-          const offsetX = parseFloat(e.dataTransfer.getData('offsetX')) || 0;
-          const offsetY = parseFloat(e.dataTransfer.getData('offsetY')) || 0;
-
-          let x = ((e.clientX - rect.left - offsetX) / rect.width) * 100;
-          let y = ((e.clientY - rect.top - offsetY) / rect.height) * 100;
-
-          x = Math.max(0, Math.min(x, 95));
-          y = Math.max(0, Math.min(y, 95));
-
-          const nd = JSON.parse(JSON.stringify(branchData));
-          if (!nd.layout) nd.layout = { zones: [], tables: [] };
-
-          if (type === 'table') {
-              const idx = nd.layout.tables.findIndex(t => t.id === id);
-              if (idx > -1) { nd.layout.tables[idx].x = x; nd.layout.tables[idx].y = y; }
-          } else if (type === 'zone') {
-              const idx = nd.layout.zones.findIndex(z => z.id === id);
-              if (idx > -1) { nd.layout.zones[idx].x = x; nd.layout.zones[idx].y = y; }
-          }
-          setBranchData(nd);
-          if (activeBranchId) setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd).catch(console.error);
-      };
-
-      const updateItem = (type, id, field, value) => {
-         const nd = JSON.parse(JSON.stringify(branchData));
-         if (!nd.layout) nd.layout = { zones: [], tables: [] };
-         if (type === 'table') {
-             const idx = nd.layout.tables.findIndex(t => t.id === id);
-             if(idx > -1) nd.layout.tables[idx][field] = value;
-         } else {
-             const idx = nd.layout.zones.findIndex(z => z.id === id);
-             if(idx > -1) nd.layout.zones[idx][field] = value;
-         }
-         setBranchData(nd);
-         if (activeBranchId) setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd).catch(console.error);
-      };
-
-      const deleteItem = (type, id) => {
-         const nd = JSON.parse(JSON.stringify(branchData));
-         if (!nd.layout) nd.layout = { zones: [], tables: [] };
-         if (type === 'table') nd.layout.tables = nd.layout.tables.filter(t => t.id !== id);
-         if (type === 'zone') nd.layout.zones = nd.layout.zones.filter(z => z.id !== id);
-         setBranchData(nd);
-         if (activeBranchId) setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd).catch(console.error);
-      };
-
-      return (
-          <div className="flex-1 space-y-6 sm:space-y-8 animate-in fade-in duration-500 w-full">
-              <div className="bg-white rounded-[2rem] p-6 sm:p-8 border border-slate-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                  <div>
-                      <h2 className="text-2xl font-black text-slate-800 uppercase flex items-center gap-3"><LayoutDashboard className="w-6 h-6 text-emerald-500"/> Layout Builder (Beta)</h2>
-                      <p className="text-xs font-bold text-slate-400 mt-1">ออกแบบแผนผังร้านค้า ลากวางโต๊ะและโซนต่างๆ เพื่อใช้ในการจัดคนลงจุดในอนาคต</p>
-                  </div>
-                  <div className="flex gap-2">
-                      <button onClick={() => {
-                          const nd = JSON.parse(JSON.stringify(branchData));
-                          if (!nd.layout) nd.layout = { zones: [], tables: [] };
-                          nd.layout.zones.push({ id: 'Z' + Date.now(), label: 'โซนใหม่', x: 10, y: 10, w: 30, h: 30, color: 'bg-indigo-100/40 border-indigo-300 text-indigo-700' });
-                          setBranchData(nd);
-                      }} className="bg-indigo-50 text-indigo-600 px-4 py-2.5 rounded-xl text-xs font-black shadow-sm flex items-center gap-2 hover:bg-indigo-100 transition"><Plus className="w-4 h-4"/> เพิ่มโซน (Zone)</button>
-                      
-                      <button onClick={() => {
-                          const nd = JSON.parse(JSON.stringify(branchData));
-                          if (!nd.layout) nd.layout = { zones: [], tables: [] };
-                          nd.layout.tables.push({ id: 'T' + Date.now(), label: String(nd.layout.tables.length + 1), x: 50, y: 50, type: 'square' });
-                          setBranchData(nd);
-                      }} className="bg-emerald-50 text-emerald-600 px-4 py-2.5 rounded-xl text-xs font-black shadow-sm flex items-center gap-2 hover:bg-emerald-100 transition"><Plus className="w-4 h-4"/> เพิ่มโต๊ะ (Table)</button>
-                  </div>
-              </div>
-
-              <div className="bg-slate-200 p-4 sm:p-6 rounded-[2rem] border border-slate-300 shadow-inner w-full overflow-x-auto">
-                  <div 
-                      ref={canvasRef}
-                      onDragOver={e => e.preventDefault()}
-                      onDrop={handleDrop}
-                      className="relative min-w-[800px] aspect-[16/9] bg-white rounded-2xl shadow-sm border-2 border-slate-300 overflow-hidden select-none"
-                      style={{ backgroundImage: 'radial-gradient(#cbd5e1 1px, transparent 1px)', backgroundSize: '20px 20px' }}
-                  >
-                      {layout.zones.map(z => (
-                          <div key={z.id} draggable onDragStart={(e) => handleDragStart(e, z.id, 'zone')} className={`absolute border-2 border-dashed rounded-2xl flex flex-col items-center justify-center cursor-move transition-shadow hover:shadow-lg ${z.color}`} style={{ left: `${z.x}%`, top: `${z.y}%`, width: `${z.w}%`, height: `${z.h}%` }}>
-                              {editingId === z.id ? (
-                                  <input type="text" autoFocus value={z.label} onChange={e => updateItem('zone', z.id, 'label', e.target.value)} onBlur={() => setEditingId(null)} className="bg-white/80 border border-slate-300 rounded px-2 py-1 text-xs font-black text-center w-3/4 outline-none" />
-                              ) : (
-                                  <span onDoubleClick={() => setEditingId(z.id)} className="font-black text-lg uppercase tracking-widest opacity-60 pointer-events-none">{z.label}</span>
-                              )}
-                              <div className="absolute top-2 right-2 flex gap-1 bg-white/90 p-1 rounded-lg opacity-0 hover:opacity-100 transition-opacity shadow-sm z-50">
-                                  <button onClick={() => updateItem('zone', z.id, 'w', Math.min(100, z.w + 5))} className="text-slate-600 hover:text-indigo-600 font-black px-1 text-[10px]" title="ขยายความกว้าง">+W</button>
-                                  <button onClick={() => updateItem('zone', z.id, 'w', Math.max(10, z.w - 5))} className="text-slate-600 hover:text-indigo-600 font-black px-1 text-[10px]" title="ลดความกว้าง">-W</button>
-                                  <button onClick={() => updateItem('zone', z.id, 'h', Math.min(100, z.h + 5))} className="text-slate-600 hover:text-indigo-600 font-black px-1 text-[10px]" title="ขยายความสูง">+H</button>
-                                  <button onClick={() => updateItem('zone', z.id, 'h', Math.max(10, z.h - 5))} className="text-slate-600 hover:text-indigo-600 font-black px-1 text-[10px]" title="ลดความสูง">-H</button>
-                                  <div className="w-px bg-slate-300 mx-1"></div>
-                                  <button onClick={() => deleteItem('zone', z.id)} className="text-red-500 hover:text-red-700 font-black px-1"><Trash2 className="w-3 h-3"/></button>
-                              </div>
-                          </div>
-                      ))}
-
-                      {layout.tables.map(t => (
-                          <div key={t.id} draggable onDragStart={(e) => handleDragStart(e, t.id, 'table')} className={`absolute bg-white border-2 border-slate-800 shadow-md flex items-center justify-center cursor-move hover:ring-4 hover:ring-emerald-200 transition-shadow ${t.type === 'circle' ? 'rounded-full' : 'rounded-lg'}`} style={{ left: `${t.x}%`, top: `${t.y}%`, width: '40px', height: '40px', transform: 'translate(-50%, -50%)' }}>
-                              {editingId === t.id ? (
-                                  <input type="text" autoFocus value={t.label} onChange={e => updateItem('table', t.id, 'label', e.target.value)} onBlur={() => setEditingId(null)} className="w-full h-full text-center text-[10px] font-black outline-none bg-transparent" />
-                              ) : (
-                                  <span onDoubleClick={() => setEditingId(t.id)} className="font-black text-slate-800 text-[10px] pointer-events-none">{t.label}</span>
-                              )}
-                              <div className="absolute -top-8 left-1/2 -translate-x-1/2 flex gap-1 bg-slate-800 p-1 rounded-lg opacity-0 hover:opacity-100 transition-opacity shadow-xl z-50">
-                                  <button onClick={() => updateItem('table', t.id, 'type', t.type === 'square' ? 'circle' : 'square')} className="text-white hover:text-emerald-300 text-[9px] font-bold px-2 whitespace-nowrap">เปลี่ยนทรง</button>
-                                  <button onClick={() => deleteItem('table', t.id)} className="text-red-400 hover:text-red-300 px-1"><Trash2 className="w-3 h-3"/></button>
-                              </div>
-                          </div>
-                      ))}
-                  </div>
-                  <p className="text-center text-[10px] font-bold text-slate-500 mt-4 uppercase tracking-widest">* คลิกค้างแล้วลากเพื่อเปลี่ยนตำแหน่ง | ดับเบิลคลิกเพื่อแก้ชื่อ | โฮเวอร์เอาเมาส์ชี้เพื่อดูเครื่องมือปรับแต่ง</p>
-              </div>
-          </div>
-      );
-  }
-
   let mainContent = null;
   if (view === 'area_dashboard') {
     mainContent = renderAreaDashboard();
@@ -7053,8 +6915,6 @@ export default function App() {
     mainContent = renderReportView();
   } else if (view === 'guide') {
     mainContent = renderGuideView();
-  } else if (view === 'layout_builder') {
-    mainContent = activeBranchId ? renderLayoutBuilder() : renderEmptyBranchAdmin();
   } else if (view === 'print') {
     mainContent = <PrintMonthlyView CALENDAR_DAYS={CALENDAR_DAYS} branchData={branchData} globalConfig={globalConfig} activeBranchId={activeBranchId} THAI_MONTHS={THAI_MONTHS} selectedMonth={selectedMonth} getStaffDayInfo={getStaffDayInfo} setView={setView} activeDept={activeDept} CURRENT_DUTY_LIST={CURRENT_DUTY_LIST} schedule={schedule} handleToggleLeave={handleToggleLeave} LEAVE_TYPES={LEAVE_TYPES} />;
   }
@@ -7166,7 +7026,6 @@ export default function App() {
                       <button onClick={() => handleMenuChange('report')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'report' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>รายงาน</button>
                       <button onClick={() => handleMenuChange('admin')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'admin' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>ตั้งค่า</button>
                       <button onClick={() => handleMenuChange('guide')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'guide' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>คู่มือ</button>
-                      <button onClick={() => handleMenuChange('layout_builder')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'layout_builder' ? 'bg-white text-emerald-600 shadow-sm border border-emerald-50' : 'text-slate-500'}`}>ผังร้าน (BETA)</button>
                       {authRole === 'superadmin' && <button onClick={() => handleMenuChange('branches')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'branches' ? 'bg-white text-emerald-600 shadow-sm border border-emerald-50' : 'text-slate-500'}`}>BRANCHES</button>}
                    </div>
                    <div className="hidden lg:flex flex-shrink-0 items-center gap-3 ml-2 pl-5 border-l border-slate-200">
