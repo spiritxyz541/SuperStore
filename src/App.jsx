@@ -524,7 +524,16 @@ export default function App() {
   const lastActivityRef = useRef(Date.now());
   
   const [authRole, setAuthRole] = useState(() => {
-      try { const saved = localStorage.getItem('superstore_session'); if (saved) return JSON.parse(saved).authRole || 'guest'; } catch(e){} return 'guest';
+      try { 
+          const savedActivity = localStorage.getItem('superstore_lastActivity');
+          if (savedActivity && (Date.now() - parseInt(savedActivity) > INACTIVITY_TIMEOUT_MS)) {
+              sessionStorage.setItem('superstore_showTimeoutModal', 'true');
+              localStorage.removeItem('superstore_session');
+              return 'guest';
+          }
+          const saved = localStorage.getItem('superstore_session'); if (saved) return JSON.parse(saved).authRole || 'guest'; 
+      } catch(e){} 
+      return 'guest';
   }); 
   const [authUser, setAuthUser] = useState(() => {
       try { const saved = localStorage.getItem('superstore_session'); if (saved) return JSON.parse(saved).authUser || null; } catch(e){} return null;
@@ -628,7 +637,9 @@ export default function App() {
   const [zoomedImage, setZoomedImage] = useState(null);
 
   // Landing Page States
-  const [hasSeenLanding, setHasSeenLanding] = useState(false);
+  const [hasSeenLanding, setHasSeenLanding] = useState(() => {
+      return sessionStorage.getItem('superstore_hasSeenLanding') === 'true';
+  });
   const [showLanding, setShowLanding] = useState(false);
   const [landingIndex, setLandingIndex] = useState(0);
   const [newAnnTitle, setNewAnnTitle] = useState('');
@@ -1125,25 +1136,54 @@ export default function App() {
   }, [schedule, CALENDAR_DAYS, branchData.matrix, branchData.staff, branchData.shiftPresets]);
 
   // === EFFECTS ===
+  // ดักจับกรณีโหลดหน้าเว็บใหม่ แล้วพบว่าหมดอายุ (Session โดนล้างไปแล้วจาก useState)
+  useEffect(() => {
+      if (sessionStorage.getItem('superstore_showTimeoutModal') === 'true') {
+          sessionStorage.removeItem('superstore_showTimeoutModal');
+          setConfirmModal({ message: 'ระบบได้ทำการออกจากระบบอัตโนมัติ เนื่องจากไม่ได้เปิดใช้งานหรือทิ้งไว้นานเกินเวลาที่กำหนด เพื่อความปลอดภัย' });
+      }
+  }, []);
+
   // ระบบ Auto Logout เมื่อไม่มีการใช้งานเกินเวลาที่กำหนด
   useEffect(() => {
     if (authRole === 'guest') return;
 
-    const updateActivity = () => { lastActivityRef.current = Date.now(); };
+    const updateActivity = () => { 
+        const now = Date.now();
+        lastActivityRef.current = now; 
+        localStorage.setItem('superstore_lastActivity', now.toString());
+    };
+    
+    updateActivity();
+
+    let throttleTimer = null;
+    const throttledUpdateActivity = () => {
+        if (!throttleTimer) {
+            throttleTimer = setTimeout(() => { updateActivity(); throttleTimer = null; }, 1000);
+        }
+    };
+
     // ตรวจจับการขยับเมาส์, เลื่อนจอ, พิมพ์คีย์บอร์ด, หรือแตะหน้าจอ (มือถือ)
     const events = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart'];
     
-    events.forEach(e => window.addEventListener(e, updateActivity));
+    events.forEach(e => window.addEventListener(e, throttledUpdateActivity));
 
     const intervalId = setInterval(() => {
-      if (Date.now() - lastActivityRef.current > INACTIVITY_TIMEOUT_MS) {
+      const storedActivity = parseInt(localStorage.getItem('superstore_lastActivity') || '0');
+      const maxActivity = Math.max(lastActivityRef.current, storedActivity);
+
+      if (Date.now() - maxActivity > INACTIVITY_TIMEOUT_MS) {
         setAuthRole('guest');
         setView('manager');
         setConfirmModal({ message: 'ระบบได้ทำการออกจากระบบอัตโนมัติ เนื่องจากไม่มีการใช้งานเกิน 15 นาที เพื่อความปลอดภัย' });
       }
     }, 60000); // เช็คทุกๆ 1 นาที
 
-    return () => { events.forEach(e => window.removeEventListener(e, updateActivity)); clearInterval(intervalId); };
+    return () => { 
+        events.forEach(e => window.removeEventListener(e, throttledUpdateActivity)); 
+        clearInterval(intervalId); 
+        if (throttleTimer) clearTimeout(throttleTimer);
+    };
   }, [authRole]);
 
   // Persist Auth Session to LocalStorage
@@ -1273,8 +1313,13 @@ export default function App() {
   }, [user, activeBranchId]);
 
   // Reset Landing Page view when branch changes
+  const prevBranchRef = useRef(activeBranchId);
   useEffect(() => {
-      setHasSeenLanding(false);
+      if (prevBranchRef.current !== activeBranchId) {
+          setHasSeenLanding(false);
+          sessionStorage.removeItem('superstore_hasSeenLanding');
+      }
+      prevBranchRef.current = activeBranchId;
   }, [activeBranchId]);
 
   // Trigger Landing Page
@@ -1292,6 +1337,7 @@ export default function App() {
               setShowLanding(true); setLandingIndex(0);
           }
           setHasSeenLanding(true);
+          sessionStorage.setItem('superstore_hasSeenLanding', 'true');
       }
   }, [activeBranchId, branchData, hasSeenLanding, authRole]);
 
@@ -1414,13 +1460,13 @@ export default function App() {
     e.preventDefault();
     setLoginError('');
     const admin = globalConfig.admins?.find(a => a.user === userInput && a.pass === passInput);
-    if (admin) { setAuthRole('superadmin'); setAuthUser(userInput); if (globalConfig.branches?.length > 0) setActiveBranchId(globalConfig.branches[0].id); setView('manager'); setHasSeenLanding(false); return; }
+    if (admin) { setAuthRole('superadmin'); setAuthUser(userInput); if (globalConfig.branches?.length > 0) setActiveBranchId(globalConfig.branches[0].id); setView('manager'); setHasSeenLanding(false); sessionStorage.removeItem('superstore_hasSeenLanding'); return; }
     
     const am = globalConfig.areaManagers?.find(a => a.user === userInput && a.pass === passInput);
-    if (am) { setAuthRole('areamanager'); setAuthUser(userInput); setActiveBranchId(am.branches[0] || null); setView('area_dashboard'); setHasSeenLanding(false); return; }
+    if (am) { setAuthRole('areamanager'); setAuthUser(userInput); setActiveBranchId(am.branches[0] || null); setView('area_dashboard'); setHasSeenLanding(false); sessionStorage.removeItem('superstore_hasSeenLanding'); return; }
 
     const branch = globalConfig.branches?.find(b => b.user === userInput && b.pass === passInput);
-    if (branch) { setAuthRole('branch'); setAuthUser(userInput); setActiveBranchId(branch.id); setView('manager'); setHasSeenLanding(false); return; }
+    if (branch) { setAuthRole('branch'); setAuthUser(userInput); setActiveBranchId(branch.id); setView('manager'); setHasSeenLanding(false); sessionStorage.removeItem('superstore_hasSeenLanding'); return; }
     setLoginError('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
   };
 
