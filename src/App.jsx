@@ -182,8 +182,8 @@ function generateDefaultMatrix(svc = DEFAULT_SERVICE_DUTIES, ktn = DEFAULT_KITCH
   const m = {};
   ['weekday', 'friday', 'weekend'].forEach(dt => {
     m[dt] = { duties: {} };
-    svc.forEach(d => m[dt].duties[d.id] = [{ shiftPresetId: 'S1', maxOtHours: 4.0 }]);
-    ktn.forEach(k => m[dt].duties[k.id] = [{ shiftPresetId: 'S3', maxOtHours: 4.0 }]);
+    svc.forEach(d => m[dt].duties[d.id] = [{ shiftPresetId: 'S1', maxOtHours: 0 }]);
+    ktn.forEach(k => m[dt].duties[k.id] = [{ shiftPresetId: 'S3', maxOtHours: 0 }]);
   });
   return m;
 }
@@ -1347,7 +1347,7 @@ export default function App() {
                         Object.keys(data.matrix[dt].duties).forEach(dutyId => {
                             data.matrix[dt].duties[dutyId] = data.matrix[dt].duties[dutyId].map(oldSlot => {
                                 const defaultShift = (dutyId.startsWith('K') ? 'S3' : 'S1');
-                                return { shiftPresetId: data.shiftPresets?.find(p => p.name.includes('เช้า'))?.id || defaultShift, maxOtHours: oldSlot.maxOtHours || 4.0 };
+                                    return { shiftPresetId: data.shiftPresets?.find(p => p.name.includes('เช้า'))?.id || defaultShift, maxOtHours: oldSlot.maxOtHours || 0 };
                             });
                         });
                     }
@@ -1361,7 +1361,7 @@ export default function App() {
                     (data.duties[dept] || []).forEach(duty => {
                         if (!data.matrix[dt].duties[duty.id]) {
                             const defaultShift = dept === 'service' ? 'S1' : 'S3';
-                            data.matrix[dt].duties[duty.id] = [{ shiftPresetId: defaultShift, maxOtHours: 4.0 }];
+                                data.matrix[dt].duties[duty.id] = [{ shiftPresetId: defaultShift, maxOtHours: 0 }];
                         }
                     });
                 });
@@ -1808,7 +1808,7 @@ export default function App() {
       nd.duties[activeDept].push(newDuty);
       if(!nd.matrix) nd.matrix = generateDefaultMatrix();
       ['weekday', 'friday', 'weekend'].forEach(dt => { // This part might need adjustment for new shift preset logic
-        if(!nd.matrix[dt].duties[newId]) nd.matrix[dt].duties[newId] = [{ shiftPresetId: 'S1', maxOtHours: 4.0 }];
+        if(!nd.matrix[dt].duties[newId]) nd.matrix[dt].duties[newId] = [{ shiftPresetId: 'S1', maxOtHours: 0 }];
       });
       if (activeBranchId) setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd).catch(console.error);
       return nd;
@@ -6034,7 +6034,7 @@ export default function App() {
                                const nd = JSON.parse(JSON.stringify(branchData)); 
                                if(!nd.matrix[key].duties[duty.id]) nd.matrix[key].duties[duty.id] = []; 
                                const defaultPresetId = branchData.shiftPresets?.[0]?.id || 'S1';
-                               nd.matrix[key].duties[duty.id].push({shiftPresetId: defaultPresetId, maxOtHours:4.0}); 
+                              nd.matrix[key].duties[duty.id].push({shiftPresetId: defaultPresetId, maxOtHours: 0}); 
                                setBranchData(nd); 
                                if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd); 
                            }} className="bg-slate-50 border-2 border-dashed border-slate-200 px-4 sm:px-6 py-3 sm:py-4 rounded-[1.5rem] sm:rounded-[2.2rem] text-[9px] sm:text-[11px] font-black text-slate-400 hover:border-indigo-500 transition self-stretch sm:self-center">+ SLOT</button>}
