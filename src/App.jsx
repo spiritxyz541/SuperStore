@@ -5991,7 +5991,7 @@ export default function App() {
                                                   let val = e.target.value.replace('.', ':').replace(/[^0-9:]/g, '');
                                                   if (val.length > 5) val = val.substring(0, 5);
                                                   const nd = JSON.parse(JSON.stringify(branchData));
-                                                  if (nd.matrix?.[key]?.duties?.[duty.id]?.[idx]) { nd.matrix[key].duties[duty.id][idx].targetEndTime = val; setBranchData(nd); }
+                                                  if (nd.matrix?.[key]?.duties?.[duty.id]?.[idx]) { nd.matrix[key].duties[duty.id][idx].targetEndTime = val; nd.matrix[key].duties[duty.id][idx].maxOtHours = 0; setBranchData(nd); }
                                               }} 
                                               title="ระบุเวลาเลิกงานเป้าหมาย (เช่น 22:30) เพื่อคำนวณ OT อัตโนมัติ"
                                               onBlur={async (e) => {
@@ -6001,12 +6001,19 @@ export default function App() {
                                                       val = val.padStart(4, '0');
                                                       val = val.substring(0, 2) + ':' + val.substring(2, 4);
                                                       const nd = JSON.parse(JSON.stringify(branchData));
-                                                      if (nd.matrix?.[key]?.duties?.[duty.id]?.[idx]) { nd.matrix[key].duties[duty.id][idx].targetEndTime = val; setBranchData(nd); finalNd = nd; }
+                                                      if (nd.matrix?.[key]?.duties?.[duty.id]?.[idx]) { nd.matrix[key].duties[duty.id][idx].targetEndTime = val; nd.matrix[key].duties[duty.id][idx].maxOtHours = 0; setBranchData(nd); finalNd = nd; }
                                                   }
                                                   if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), finalNd);
                                               }} />
                                           {(!matrixSlot.targetEndTime && matrixSlot.maxOtHours > 0) && (
-                                              <span className="text-[10px] font-bold text-rose-500 flex items-center justify-center w-8" title="Legacy Max OT">+{matrixSlot.maxOtHours}</span>
+                                              <button onClick={async () => {
+                                                  const nd = JSON.parse(JSON.stringify(branchData));
+                                                  nd.matrix[key].duties[duty.id][idx].maxOtHours = 0;
+                                                  setBranchData(nd);
+                                                  if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd);
+                                              }} className="text-[9px] font-bold text-white bg-rose-500 hover:bg-rose-600 rounded px-1.5 py-1 flex flex-shrink-0 items-center justify-center cursor-pointer transition-colors shadow-sm" title="คลิกเพื่อลบ OT เก่าที่ค้างอยู่">
+                                                  ลบ {matrixSlot.maxOtHours}H
+                                              </button>
                                           )}
                                       </div>
                                   </div>
