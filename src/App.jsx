@@ -32,7 +32,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const appId = "staffsync-v8-stable-prod-final"; 
-const CURRENT_APP_VERSION = "15.7.0"; // เปลี่ยนเลขเวอร์ชันที่นี่ทุกครั้งที่คุณอัปเดตโค้ด
+const CURRENT_APP_VERSION = "15.7.1"; // เปลี่ยนเลขเวอร์ชันที่นี่ทุกครั้งที่คุณอัปเดตโค้ด
 
 // --- Constants & Layers ---
 const POSITIONS = {
@@ -928,17 +928,25 @@ export default function App() {
           CALENDAR_DAYS.forEach(day => {
               let dayBudget = 0;
               const dayType = day.type;
+              const dayData = schedule[day.dateStr] || { duties: {} };
               ['service', 'kitchen'].forEach(dept => {
                   (branchData.duties?.[dept] || []).forEach(duty => {
                       const matrixSlots = branchData.matrix?.[dayType]?.duties?.[duty.id] || [];
-                      matrixSlots.forEach(mSlot => {
-                          let ot = Number(mSlot.maxOtHours || 0);
-                          if (mSlot.targetEndTime) {
-                              const preset = branchData.shiftPresets?.find(p => p.id === mSlot.shiftPresetId) || branchData.shiftPresets?.[0];
-                              const { endTime } = getShiftTimesForStaff('OC', preset);
-                              ot = calculateOtHours(mSlot.targetEndTime, endTime);
+                      const assignedSlots = dayData.duties?.[duty.id] || [];
+                      matrixSlots.forEach((mSlot, idx) => {
+                          const assigned = assignedSlots[idx];
+                          // โควตาจะถูกคิดก็ต่อเมื่อมีการจัดพนักงานลงกะนี้เท่านั้น
+                          if (assigned && assigned.staffId) {
+                              let ot = Number(mSlot.maxOtHours || 0);
+                              if (mSlot.targetEndTime) {
+                                  const actualStaffId = assigned.staffId.startsWith('COVER_BY_') ? assigned.staffId.replace('COVER_BY_', '') : assigned.staffId;
+                                  const staff = branchData.staff?.find(s => s.id === actualStaffId);
+                                  const preset = branchData.shiftPresets?.find(p => p.id === (assigned.shiftPresetId || mSlot.shiftPresetId)) || branchData.shiftPresets?.[0];
+                                  const { endTime } = getShiftTimesForStaff(staff?.pos || 'OC', preset);
+                                  ot = calculateOtHours(mSlot.targetEndTime, endTime);
+                              }
+                              dayBudget += ot;
                           }
-                          dayBudget += ot;
                       });
                   });
               });
@@ -5986,7 +5994,8 @@ export default function App() {
 
                                       <span className="text-[8px] sm:text-[9px] font-black text-indigo-500 uppercase">เป้าเวลาเลิก (OT)</span>
                                       <div className="flex gap-1 w-full">
-                                          <input type="text" placeholder="HH:MM" disabled={authRole === 'branch'} className="w-full border rounded-xl p-1.5 sm:p-2 text-center font-black bg-indigo-50/50 disabled:opacity-50 outline-none focus:border-indigo-500 text-[10px] sm:text-xs" value={matrixSlot.targetEndTime || ''}
+                                          <div className="relative w-full flex items-center">
+                                              <input type="text" placeholder="HH:MM" disabled={authRole === 'branch'} className="w-full border rounded-xl p-1.5 sm:p-2 text-center font-black bg-indigo-50/50 disabled:opacity-50 outline-none focus:border-indigo-500 text-[10px] sm:text-xs pr-7" value={matrixSlot.targetEndTime || ''}
                                               onChange={(e) => {
                                                   let val = e.target.value.replace('.', ':').replace(/[^0-9:]/g, '');
                                                   if (val.length > 5) val = val.substring(0, 5);
@@ -5996,15 +6005,35 @@ export default function App() {
                                               title="ระบุเวลาเลิกงานเป้าหมาย (เช่น 22:30) เพื่อคำนวณ OT อัตโนมัติ"
                                               onBlur={async (e) => {
                                                   let val = e.target.value;
-                                                  let finalNd = branchData;
                                                   if (val && !val.includes(':') && val.length >= 3 && val.length <= 4) {
                                                       val = val.padStart(4, '0');
                                                       val = val.substring(0, 2) + ':' + val.substring(2, 4);
-                                                      const nd = JSON.parse(JSON.stringify(branchData));
-                                                      if (nd.matrix?.[key]?.duties?.[duty.id]?.[idx]) { nd.matrix[key].duties[duty.id][idx].targetEndTime = val; nd.matrix[key].duties[duty.id][idx].maxOtHours = 0; setBranchData(nd); finalNd = nd; }
                                                   }
-                                                  if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), finalNd);
+                                                  setBranchData(prev => {
+                                                      const nd = JSON.parse(JSON.stringify(prev));
+                                                      if (nd.matrix?.[key]?.duties?.[duty.id]?.[idx]) { 
+                                                          nd.matrix[key].duties[duty.id][idx].targetEndTime = val; 
+                                                          nd.matrix[key].duties[duty.id][idx].maxOtHours = 0; 
+                                                      }
+                                                      if (activeBranchId) setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd).catch(console.error);
+                                                      return nd;
+                                                  });
                                               }} />
+                                              {(() => {
+                                                  if (!matrixSlot.targetEndTime || !matrixSlot.targetEndTime.includes(':')) return null;
+                                                  let previewOt = 0;
+                                                  const previewPreset = branchData.shiftPresets?.find(p => p.id === matrixSlot.shiftPresetId) || branchData.shiftPresets?.[0];
+                                                  if (previewPreset) {
+                                                      const { endTime: previewEndTime } = getShiftTimesForStaff('OC', previewPreset);
+                                                      previewOt = calculateOtHours(matrixSlot.targetEndTime, previewEndTime);
+                                                  }
+                                                  return (
+                                                      <span className={`absolute right-2 text-[9px] font-black ${previewOt > 0 ? 'text-rose-500' : 'text-slate-400'}`} title={`ชั่วโมง OT สุทธิ: ${previewOt}H`}>
+                                                          {previewOt > 0 ? `+${previewOt}H` : '0H'}
+                                                      </span>
+                                                  );
+                                              })()}
+                                          </div>
                                           {(!matrixSlot.targetEndTime && matrixSlot.maxOtHours > 0) && (
                                               <button onClick={async () => {
                                                   const nd = JSON.parse(JSON.stringify(branchData));
