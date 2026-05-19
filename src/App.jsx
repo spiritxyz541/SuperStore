@@ -923,8 +923,10 @@ export default function App() {
 
       // คำนวณโควตาจาก โครงสร้างกะงาน (Matrix) ของเดือนที่กำลังเลือกอยู่
       let dynamicBudgetHours = 0;
+      let dailyOtBudget = {};
       if (branchData.matrix && CALENDAR_DAYS && CALENDAR_DAYS.length > 0) {
           CALENDAR_DAYS.forEach(day => {
+              let dayBudget = 0;
               const dayType = day.type;
               ['service', 'kitchen'].forEach(dept => {
                   (branchData.duties?.[dept] || []).forEach(duty => {
@@ -936,17 +938,19 @@ export default function App() {
                               const { endTime } = getShiftTimesForStaff('OC', preset);
                               ot = calculateOtHours(mSlot.targetEndTime, endTime);
                           }
-                          dynamicBudgetHours += ot;
+                          dayBudget += ot;
                       });
                   });
               });
+              dailyOtBudget[day.dateStr] = dayBudget;
+              dynamicBudgetHours += dayBudget;
           });
       }
 
       const budgetHours = dynamicBudgetHours;
       const usagePercent = budgetHours > 0 ? (totalOtHours / budgetHours) * 100 : (totalOtHours > 0 ? 100 : 0);
       
-      return { totalOtHours, budgetHours, usagePercent, dailyOtUsed, staffOtUsage };
+      return { totalOtHours, budgetHours, usagePercent, dailyOtUsed, staffOtUsage, dailyOtBudget };
   }, [schedule, branchData, selectedMonth, selectedYear, CALENDAR_DAYS]);
 
   const activeDayShiftVisibilities = useMemo(() => {
@@ -3609,6 +3613,43 @@ export default function App() {
                                 </tbody>
                             </table>
                         )}
+                    </div>
+                    <div>
+                        <h4 className="font-black text-slate-700 text-sm mb-3 uppercase tracking-widest border-b border-slate-100 pb-2">สรุปโควตาและการใช้งานรายวัน (Daily Quota vs Usage)</h4>
+                        <table className="w-full text-xs text-left border-collapse">
+                            <thead>
+                                <tr className="bg-slate-50 text-slate-500">
+                                    <th className="p-2 border-b border-slate-200 font-black text-center w-12">วันที่</th>
+                                    <th className="p-2 border-b border-slate-200 font-black text-center">โควตารวม (H)</th>
+                                    <th className="p-2 border-b border-slate-200 font-black text-center">ใช้ไป (H)</th>
+                                    <th className="p-2 border-b border-slate-200 font-black text-center">คงเหลือ (H)</th>
+                                    <th className="p-2 border-b border-slate-200 font-black text-center w-20">สถานะ</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {CALENDAR_DAYS.map(day => {
+                                    const dateStr = day.dateStr;
+                                    const u = otLedger.dailyOtUsed[dateStr] || 0;
+                                    const b = otLedger.dailyOtBudget?.[dateStr] || 0;
+                                    const diff = b - u;
+                                    const isOver = diff < 0 && u > 0;
+                                    
+                                    return (
+                                        <tr key={dateStr} className={`border-b border-slate-100 hover:bg-slate-50 transition-colors ${isOver ? 'bg-rose-50/30' : ''}`}>
+                                            <td className="p-2 font-bold text-slate-700 text-center">{day.dayNum}</td>
+                                            <td className="p-2 text-center font-black text-slate-700">{b.toFixed(1)}</td>
+                                            <td className="p-2 text-center font-black text-indigo-600">{u.toFixed(1)}</td>
+                                            <td className={`p-2 text-center font-black ${isOver ? 'text-red-500' : 'text-emerald-500'}`}>
+                                                {diff > 0 ? '+' : ''}{diff.toFixed(1)}
+                                            </td>
+                                            <td className="p-2 text-center">
+                                                {isOver ? <span className="bg-red-100 text-red-600 px-2 py-0.5 rounded text-[9px] font-black shadow-sm">เกินโควตา</span> : <span className="bg-emerald-100 text-emerald-600 px-2 py-0.5 rounded text-[9px] font-black">ปกติ</span>}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
              </div>
