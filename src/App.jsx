@@ -6013,9 +6013,9 @@ export default function App() {
                                       </select>
 
                                       <span className="text-[8px] sm:text-[9px] font-black text-indigo-500 uppercase">เป้าเวลาเลิก (OT)</span>
-                                      <div className="flex gap-1 w-full">
-                                          <div className="relative w-full flex items-center">
-                                              <input type="text" placeholder="HH:MM" disabled={authRole === 'branch'} className="w-full border rounded-xl p-1.5 sm:p-2 text-left pl-2 sm:pl-3 pr-10 font-black bg-indigo-50/50 disabled:opacity-50 outline-none focus:border-indigo-500 text-[10px] sm:text-xs" value={matrixSlot.targetEndTime || ''}
+                                      <div className="flex flex-col gap-1 w-full">
+                                          <div className="flex gap-1 w-full">
+                                              <input type="text" placeholder="HH:MM" disabled={authRole === 'branch'} className="w-full border rounded-xl p-1.5 sm:p-2 text-center font-black bg-indigo-50/50 disabled:opacity-50 outline-none focus:border-indigo-500 text-[10px] sm:text-xs" value={matrixSlot.targetEndTime || ''}
                                               onChange={(e) => {
                                                   let val = e.target.value.replace('.', ':').replace(/[^0-9:]/g, '');
                                                   if (val.length > 5) val = val.substring(0, 5);
@@ -6039,21 +6039,6 @@ export default function App() {
                                                       return nd;
                                                   });
                                               }} />
-                                              {(() => {
-                                                  if (!matrixSlot.targetEndTime || !matrixSlot.targetEndTime.includes(':')) return null;
-                                                  let previewOt = 0;
-                                                  const previewPreset = branchData.shiftPresets?.find(p => p.id === matrixSlot.shiftPresetId) || branchData.shiftPresets?.[0];
-                                                  if (previewPreset) {
-                                                      const { endTime: previewEndTime } = getShiftTimesForStaff('OC', previewPreset);
-                                                      previewOt = calculateOtHours(matrixSlot.targetEndTime, previewEndTime);
-                                                  }
-                                                  return (
-                                                      <span className={`absolute right-1 sm:right-1.5 text-[8px] sm:text-[9px] font-black bg-white/90 px-1.5 py-0.5 rounded shadow-sm ${previewOt > 0 ? 'text-rose-500' : 'text-slate-400'}`} title={`ชั่วโมง OT สุทธิ: ${previewOt}H`}>
-                                                          {previewOt > 0 ? `+${previewOt}H` : '0H'}
-                                                      </span>
-                                                  );
-                                              })()}
-                                          </div>
                                           {(!matrixSlot.targetEndTime && matrixSlot.maxOtHours > 0) && (
                                               <button onClick={async () => {
                                                   const nd = JSON.parse(JSON.stringify(branchData));
@@ -6064,6 +6049,21 @@ export default function App() {
                                                   ลบ {matrixSlot.maxOtHours}H
                                               </button>
                                           )}
+                                          </div>
+                                          {(() => {
+                                              if (!matrixSlot.targetEndTime || !matrixSlot.targetEndTime.includes(':')) return null;
+                                              let previewOt = 0;
+                                              const previewPreset = branchData.shiftPresets?.find(p => p.id === matrixSlot.shiftPresetId) || branchData.shiftPresets?.[0];
+                                              if (previewPreset) {
+                                                  const { endTime: previewEndTime } = getShiftTimesForStaff('OC', previewPreset);
+                                                  previewOt = calculateOtHours(matrixSlot.targetEndTime, previewEndTime);
+                                              }
+                                              return (
+                                                  <div className={`text-[8px] sm:text-[9px] font-black bg-white px-2 py-1.5 rounded-lg shadow-sm border text-center mt-1 ${previewOt > 0 ? 'text-rose-500 border-rose-200' : 'text-slate-400 border-slate-200'}`} title={`ชั่วโมง OT สุทธิ: ${previewOt}H`}>
+                                                      ชั่วโมง OT: {previewOt > 0 ? `+${previewOt}H` : '0H'}
+                                                  </div>
+                                              );
+                                          })()}
                                       </div>
                                   </div>
                                   {authRole === 'superadmin' && <button onClick={async () => {
