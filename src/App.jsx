@@ -5995,7 +5995,7 @@ export default function App() {
                                       <span className="text-[8px] sm:text-[9px] font-black text-indigo-500 uppercase">เป้าเวลาเลิก (OT)</span>
                                       <div className="flex gap-1 w-full">
                                           <div className="relative w-full flex items-center">
-                                              <input type="text" placeholder="HH:MM" disabled={authRole === 'branch'} className="w-full border rounded-xl p-1.5 sm:p-2 text-center font-black bg-indigo-50/50 disabled:opacity-50 outline-none focus:border-indigo-500 text-[10px] sm:text-xs pr-7" value={matrixSlot.targetEndTime || ''}
+                                              <input type="text" placeholder="HH:MM" disabled={authRole === 'branch'} className="w-full border rounded-xl p-1.5 sm:p-2 text-left pl-2 sm:pl-3 pr-10 font-black bg-indigo-50/50 disabled:opacity-50 outline-none focus:border-indigo-500 text-[10px] sm:text-xs" value={matrixSlot.targetEndTime || ''}
                                               onChange={(e) => {
                                                   let val = e.target.value.replace('.', ':').replace(/[^0-9:]/g, '');
                                                   if (val.length > 5) val = val.substring(0, 5);
@@ -6028,7 +6028,7 @@ export default function App() {
                                                       previewOt = calculateOtHours(matrixSlot.targetEndTime, previewEndTime);
                                                   }
                                                   return (
-                                                      <span className={`absolute right-2 text-[9px] font-black ${previewOt > 0 ? 'text-rose-500' : 'text-slate-400'}`} title={`ชั่วโมง OT สุทธิ: ${previewOt}H`}>
+                                                      <span className={`absolute right-1 sm:right-1.5 text-[8px] sm:text-[9px] font-black bg-white/90 px-1.5 py-0.5 rounded shadow-sm ${previewOt > 0 ? 'text-rose-500' : 'text-slate-400'}`} title={`ชั่วโมง OT สุทธิ: ${previewOt}H`}>
                                                           {previewOt > 0 ? `+${previewOt}H` : '0H'}
                                                       </span>
                                                   );
