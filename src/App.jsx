@@ -5986,13 +5986,25 @@ export default function App() {
 
                                       <span className="text-[8px] sm:text-[9px] font-black text-indigo-500 uppercase">เป้าเวลาเลิก (OT)</span>
                                       <div className="flex gap-1 w-full">
-                                          <input type="time" disabled={authRole === 'branch'} className="w-full border rounded-xl p-1.5 sm:p-2 text-center font-black bg-indigo-50/50 disabled:opacity-50 outline-none focus:border-indigo-500 text-[10px] sm:text-xs" value={matrixSlot.targetEndTime || ''}
+                                          <input type="text" placeholder="HH:MM" disabled={authRole === 'branch'} className="w-full border rounded-xl p-1.5 sm:p-2 text-center font-black bg-indigo-50/50 disabled:opacity-50 outline-none focus:border-indigo-500 text-[10px] sm:text-xs" value={matrixSlot.targetEndTime || ''}
                                               onChange={(e) => {
+                                                  let val = e.target.value.replace('.', ':').replace(/[^0-9:]/g, '');
+                                                  if (val.length > 5) val = val.substring(0, 5);
                                                   const nd = JSON.parse(JSON.stringify(branchData));
-                                                  if (nd.matrix?.[key]?.duties?.[duty.id]?.[idx]) { nd.matrix[key].duties[duty.id][idx].targetEndTime = e.target.value; setBranchData(nd); }
+                                                  if (nd.matrix?.[key]?.duties?.[duty.id]?.[idx]) { nd.matrix[key].duties[duty.id][idx].targetEndTime = val; setBranchData(nd); }
                                               }} 
-                                              title="ระบุเวลาเลิกงานเป้าหมาย เพื่อคำนวณ OT อัตโนมัติ"
-                                              onBlur={async () => { if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }} />
+                                              title="ระบุเวลาเลิกงานเป้าหมาย (เช่น 22:30) เพื่อคำนวณ OT อัตโนมัติ"
+                                              onBlur={async (e) => {
+                                                  let val = e.target.value;
+                                                  let finalNd = branchData;
+                                                  if (val && !val.includes(':') && val.length >= 3 && val.length <= 4) {
+                                                      val = val.padStart(4, '0');
+                                                      val = val.substring(0, 2) + ':' + val.substring(2, 4);
+                                                      const nd = JSON.parse(JSON.stringify(branchData));
+                                                      if (nd.matrix?.[key]?.duties?.[duty.id]?.[idx]) { nd.matrix[key].duties[duty.id][idx].targetEndTime = val; setBranchData(nd); finalNd = nd; }
+                                                  }
+                                                  if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), finalNd);
+                                              }} />
                                           {(!matrixSlot.targetEndTime && matrixSlot.maxOtHours > 0) && (
                                               <span className="text-[10px] font-bold text-rose-500 flex items-center justify-center w-8" title="Legacy Max OT">+{matrixSlot.maxOtHours}</span>
                                           )}
