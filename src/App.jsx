@@ -595,6 +595,8 @@ export default function App() {
   const [editStaffData, setEditStaffData] = useState({});
   const [editingBranchId, setEditingBranchId] = useState(null);
   const [editBranchData, setEditBranchData] = useState({});
+  const [editingAmId, setEditingAmId] = useState(null);
+  const [editAmData, setEditAmData] = useState({});
 
   const [newDutyJobA, setNewDutyJobA] = useState('');
   const [newDutyJobB, setNewDutyJobB] = useState('');
@@ -1769,6 +1771,15 @@ export default function App() {
   const saveEditStaff = () => { setBranchData(prev => ({ ...prev, staff: prev.staff.map(s => s.id === editingStaffId ? editStaffData : s) })); setEditingStaffId(null); };
   const startEditBranch = (branch) => { setEditingBranchId(branch.id); setEditBranchData({ ...branch }); };
   const saveEditBranch = () => { setGlobalConfig(prev => ({ ...prev, branches: prev.branches.map(b => b.id === editingBranchId ? editBranchData : b) })); setEditingBranchId(null); };
+  const startEditAm = (am) => { setEditingAmId(am.id); setEditAmData({ ...am }); };
+  const saveEditAm = () => { 
+      setGlobalConfig(prev => {
+          const nc = { ...prev, areaManagers: prev.areaManagers.map(a => a.id === editingAmId ? editAmData : a) };
+          setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'master'), nc).catch(console.error);
+          return nc;
+      }); 
+      setEditingAmId(null); 
+  };
 
   const handleUpdateDayOffLimit = async (dayId, limit) => {
       const newLimit = limit === '' ? 99 : parseInt(limit);
@@ -3694,19 +3705,50 @@ export default function App() {
              <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 h-fit">
                  {(globalConfig.areaManagers || []).map(am => (
                      <div key={am.id} className="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm flex flex-col justify-between hover:border-indigo-200 transition-colors">
-                         <div>
-                             <h4 className="font-black text-slate-800 text-lg flex items-center gap-2"><UserCircle className="w-5 h-5 text-indigo-500"/> {am.name}</h4>
-                             <p className="text-[10px] font-bold text-slate-500 uppercase mt-2 bg-slate-50 px-2 py-1 rounded inline-block border border-slate-100">USER: {am.user} | PWD: {am.pass}</p>
-                             <div className="mt-4 bg-slate-50 p-3 rounded-xl border border-slate-100 text-[10px] text-slate-600 font-bold max-h-24 overflow-y-auto custom-scrollbar leading-relaxed">
-                                 <span className="text-indigo-500 block mb-1">สาขาที่ดูแล ({am.branches?.length || 0}):</span>
-                                 {am.branches?.map(bId => globalConfig.branches?.find(x => x.id === bId)?.name).filter(Boolean).join(', ') || 'ไม่มีสาขา'}
+                         {editingAmId === am.id ? (
+                             <div className="space-y-3">
+                                 <input type="text" placeholder="Name" value={editAmData.name || ''} onChange={e => setEditAmData({...editAmData, name: e.target.value})} className="w-full border rounded-lg px-2 py-2 text-xs font-bold outline-none focus:border-indigo-500"/>
+                                 <input type="text" placeholder="User" value={editAmData.user || ''} onChange={e => setEditAmData({...editAmData, user: e.target.value})} className="w-full border rounded-lg px-2 py-2 text-xs font-bold outline-none focus:border-indigo-500"/>
+                                 <input type="text" placeholder="Pass" value={editAmData.pass || ''} onChange={e => setEditAmData({...editAmData, pass: e.target.value})} className="w-full border rounded-lg px-2 py-2 text-xs font-bold outline-none focus:border-indigo-500"/>
+                                 <div className="bg-white border border-slate-200 rounded-xl p-3 max-h-32 overflow-y-auto custom-scrollbar">
+                                     <div className="text-[10px] font-black text-slate-400 mb-2 uppercase tracking-widest">เลือกสาขาที่ดูแล:</div>
+                                     {globalConfig.branches?.map(b => (
+                                         <label key={b.id} className="flex items-center gap-2 mb-2 cursor-pointer hover:bg-slate-50 p-1 rounded transition">
+                                             <input type="checkbox" checked={(editAmData.branches || []).includes(b.id)} onChange={e => {
+                                                 const newBranches = e.target.checked 
+                                                     ? [...(editAmData.branches || []), b.id] 
+                                                     : (editAmData.branches || []).filter(id => id !== b.id);
+                                                 setEditAmData({...editAmData, branches: newBranches});
+                                             }} className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300" />
+                                             <span className="text-[10px] sm:text-xs font-bold text-slate-700 truncate">{b.name}</span>
+                                         </label>
+                                     ))}
+                                 </div>
+                                 <div className="flex gap-2 mt-2">
+                                     <button onClick={saveEditAm} className="flex-1 bg-green-500 text-white px-3 py-2 rounded-lg text-xs font-black shadow-sm flex items-center justify-center gap-1"><Check className="w-4 h-4"/> บันทึก</button>
+                                     <button onClick={() => setEditingAmId(null)} className="flex-1 bg-slate-200 text-slate-600 px-3 py-2 rounded-lg text-xs font-black shadow-sm flex items-center justify-center gap-1"><X className="w-4 h-4"/> ยกเลิก</button>
+                                 </div>
                              </div>
-                         </div>
-                         <button onClick={() => setGlobalConfig(prev => {
-                             const nc = { ...prev, areaManagers: prev.areaManagers.filter(x => x.id !== am.id) };
-                             setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'master'), nc).catch(console.error);
-                             return nc;
-                         })} className="mt-4 w-full bg-red-50 text-red-500 py-2.5 rounded-xl font-black text-xs hover:bg-red-500 hover:text-white transition-colors">ลบผู้จัดการเขต</button>
+                         ) : (
+                             <React.Fragment>
+                                 <div>
+                                     <div className="flex justify-between items-start">
+                                         <h4 className="font-black text-slate-800 text-lg flex items-center gap-2"><UserCircle className="w-5 h-5 text-indigo-500"/> {am.name}</h4>
+                                         <button onClick={() => startEditAm(am)} className="text-indigo-500 hover:text-indigo-700 p-1"><Edit2 className="w-4 h-4"/></button>
+                                     </div>
+                                     <p className="text-[10px] font-bold text-slate-500 uppercase mt-2 bg-slate-50 px-2 py-1 rounded inline-block border border-slate-100">USER: {am.user} | PWD: {am.pass}</p>
+                                     <div className="mt-4 bg-slate-50 p-3 rounded-xl border border-slate-100 text-[10px] text-slate-600 font-bold max-h-24 overflow-y-auto custom-scrollbar leading-relaxed">
+                                         <span className="text-indigo-500 block mb-1">สาขาที่ดูแล ({am.branches?.length || 0}):</span>
+                                         {am.branches?.map(bId => globalConfig.branches?.find(x => x.id === bId)?.name).filter(Boolean).join(', ') || 'ไม่มีสาขา'}
+                                     </div>
+                                 </div>
+                                 <button onClick={() => setGlobalConfig(prev => {
+                                     const nc = { ...prev, areaManagers: prev.areaManagers.filter(x => x.id !== am.id) };
+                                     setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'master'), nc).catch(console.error);
+                                     return nc;
+                                 })} className="mt-4 w-full bg-red-50 text-red-500 py-2.5 rounded-xl font-black text-xs hover:bg-red-500 hover:text-white transition-colors">ลบผู้จัดการเขต</button>
+                             </React.Fragment>
+                         )}
                      </div>
                  ))}
              </div>
