@@ -1947,25 +1947,45 @@ export default function App() {
       const nd = JSON.parse(JSON.stringify(branchData));
       const limits = nd.dayOffLimits; // Now { service: {...}, kitchen: {...} }
       const counts = { service: {}, kitchen: {} };
+      
+      const teamCounts = { service: {}, kitchen: {} };
+      DUTY_CATEGORIES.service.forEach(cat => teamCounts.service[cat.id] = {0:0, 1:0, 2:0, 3:0, 4:0, 5:0, 6:0});
+      DUTY_CATEGORIES.kitchen.forEach(cat => teamCounts.kitchen[cat.id] = {0:0, 1:0, 2:0, 3:0, 4:0, 5:0, 6:0});
+
       (nd.staff || []).forEach(s => {
-          if (s.regularDayOff !== null && s.regularDayOff !== undefined) {
+          if (s.regularDayOff !== null && s.regularDayOff !== undefined && s.isActive !== false) {
               const dept = s.dept || 'service';
               counts[dept][s.regularDayOff] = (counts[dept][s.regularDayOff] || 0) + 1;
+              const layer = getStaffLayer(dept, s.pos);
+              if (teamCounts[dept][layer.id]) {
+                  teamCounts[dept][layer.id][s.regularDayOff]++;
+              }
           }
       });
       let changed = false;
-      (nd.staff || []).forEach(s => {
+      (nd.staff || []).filter(s => s.isActive !== false).forEach(s => {
           if (s.regularDayOff === null || s.regularDayOff === undefined || s.regularDayOff === '') {
               const dept = s.dept || 'service';
               const deptLimits = limits[dept];
               const deptCounts = counts[dept];
+              const layer = getStaffLayer(dept, s.pos);
+              const layerCounts = teamCounts[dept][layer.id];
+              
               const daysOrder = [1, 2, 3, 4, 5, 6, 0];
-              for (let dayId of daysOrder) {
-                  if ((deptCounts[dayId] || 0) < deptLimits[dayId]) {
-                      s.regularDayOff = dayId;
-                      deptCounts[dayId] = (deptCounts[dayId] || 0) + 1;
-                      changed = true; break;
-                  }
+              let validDays = daysOrder.filter(dayId => (deptCounts[dayId] || 0) < deptLimits[dayId]);
+              
+              if (validDays.length > 0) {
+                  validDays.sort((a, b) => {
+                      const teamDiff = (layerCounts[a] || 0) - (layerCounts[b] || 0);
+                      if (teamDiff !== 0) return teamDiff;
+                      return (deptCounts[a] || 0) - (deptCounts[b] || 0);
+                  });
+                  
+                  const bestDay = validDays[0];
+                  s.regularDayOff = bestDay;
+                  deptCounts[bestDay] = (deptCounts[bestDay] || 0) + 1;
+                  layerCounts[bestDay] = (layerCounts[bestDay] || 0) + 1;
+                  changed = true;
               }
           }
       });
