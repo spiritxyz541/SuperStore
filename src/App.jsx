@@ -552,9 +552,15 @@ export default function App() {
   const [view, setView] = useState(() => {
       try { const saved = localStorage.getItem('superstore_session'); if (saved) return JSON.parse(saved).view || 'manager'; } catch(e){} return 'manager';
   }); 
-  const [dailyViewMode, setDailyViewMode] = useState('roster'); 
-  const [activeDept, setActiveDept] = useState('service'); 
-  const [managerViewMode, setManagerViewMode] = useState('daily'); 
+  const [dailyViewMode, setDailyViewMode] = useState('roster');
+  const [activeDept, setActiveDept] = useState(() => {
+      try { const saved = sessionStorage.getItem('superstore_activeDept'); if (saved) return saved; } catch(e){}
+      return 'service';
+  }); 
+  const [managerViewMode, setManagerViewMode] = useState(() => {
+      try { const saved = sessionStorage.getItem('superstore_managerViewMode'); if (saved) return saved; } catch(e){}
+      return 'daily';
+  }); 
 
   const [globalConfig, setGlobalConfig] = useState({ admins: [{ user: 'admin', pass: 'superstore' }], branches: [] });
   const [globalTemplates, setGlobalTemplates] = useState([]);
@@ -562,8 +568,16 @@ export default function App() {
   const [schedule, setSchedule] = useState({});
   const [pendingRequests, setPendingRequests] = useState([]); 
   
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
-  const [selectedDateStr, setSelectedDateStr] = useState(`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`);
+  const [selectedDateStr, setSelectedDateStr] = useState(() => {
+      try { const saved = sessionStorage.getItem('superstore_selectedDate'); if (saved) return saved; } catch(e){}
+      const today = new Date();
+      return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  });
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+      try { const saved = sessionStorage.getItem('superstore_selectedDate'); if (saved) return parseInt(saved.split('-')[1], 10) - 1; } catch(e){}
+      return new Date().getMonth();
+  });
+  
   const [saveStatus, setSaveStatus] = useState(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [confirmModal, setConfirmModal] = useState(null);
@@ -1503,7 +1517,16 @@ export default function App() {
   }, [schedule, branchData.matrix, CURRENT_DUTY_LIST, branchData.holidays, branchData.shiftPresets, branchData.staff]);
 
   useEffect(() => {
+      sessionStorage.setItem('superstore_activeDept', activeDept);
+  }, [activeDept]);
+
+  useEffect(() => {
+      sessionStorage.setItem('superstore_managerViewMode', managerViewMode);
+  }, [managerViewMode]);
+
+  useEffect(() => {
       if (selectedDateStr) {
+          sessionStorage.setItem('superstore_selectedDate', selectedDateStr);
           const dateMonth = parseInt(selectedDateStr.split('-')[1], 10) - 1;
           if (dateMonth !== selectedMonth) {
               setSelectedMonth(dateMonth);
