@@ -699,8 +699,8 @@ export default function App() {
   }, [schedule, selectedDateStr]);
 
   const unassignedStaffDaily = useMemo(() => {
-    return branchData.staff?.filter(s => s.dept === activeDept && !usedStaffIds.includes(s.id)) || [];
-  }, [branchData.staff, activeDept, usedStaffIds]);
+    return branchData.staff?.filter(s => s.dept === activeDept && !usedStaffIds.includes(s.id) && isStaffActiveOnDate(s, selectedDateStr)) || [];
+  }, [branchData.staff, activeDept, usedStaffIds, selectedDateStr]);
 
   const reportData = useMemo(() => {
     const staffMap = {};
@@ -1445,7 +1445,7 @@ export default function App() {
         const dateObj = new Date(y, m - 1, d);
         const dayOfWeek = dateObj.getDay();
         const isHoliday = branchData.holidays?.includes?.(selectedDateStr);
-        const regularOffStaff = isHoliday ? [] : branchData.staff.filter(s => s.regularDayOff === dayOfWeek);
+        const regularOffStaff = isHoliday ? [] : branchData.staff.filter(s => s.regularDayOff === dayOfWeek && isStaffActiveOnDate(s, selectedDateStr));
         const newSched = { ...prev };
         if (!newSched[selectedDateStr]) newSched[selectedDateStr] = { duties: {}, leaves: [] };
         const currentLeaves = newSched[selectedDateStr].leaves || [];
@@ -2581,7 +2581,7 @@ export default function App() {
                 
                 const manuallyOnLeaveIds = new Set((dayData.leaves || []).map(l => l.staffId));
                 const isHoliday = branchData.holidays?.includes?.(dateStr);
-                const regularOffStaff = isHoliday ? [] : branchData.staff?.filter(s => s.regularDayOff === dayOfWeek) || [];
+                const regularOffStaff = isHoliday ? [] : branchData.staff?.filter(s => s.regularDayOff === dayOfWeek && isStaffActiveOnDate(s, dateStr)) || [];
                 
                 let finalLeaves = [...(dayData.leaves || [])];
                 regularOffStaff.forEach(staff => {
@@ -2638,7 +2638,7 @@ export default function App() {
 
                 // 4. Get available staff, sorted by rank (highest first)
                 const availableStaff = (branchData.staff || [])
-                    .filter(s => s.dept === activeDept && !onLeaveIds.has(s.id))
+                    .filter(s => s.dept === activeDept && !onLeaveIds.has(s.id) && isStaffActiveOnDate(s, dateStr))
                     .sort((a, b) => {
                         const posList = POSITIONS[activeDept] || [];
                         const rankA = posList.indexOf(a.pos);
@@ -4743,6 +4743,7 @@ export default function App() {
                 const selectedStaffIds = (schedule[selectedDateStr]?.leaves || []).filter(l => l.type === lt.id).map(l => l.staffId);
                 const staffOptions = branchData.staff?.filter(s => { 
                     if (s.dept !== activeDept) return false; 
+                    if (!isStaffActiveOnDate(s, selectedDateStr)) return false;
                     if (s.pos.includes('PT') && !['OFF', 'SWAP_OFF', 'SL_UNPAID', 'PL_UNPAID'].includes(lt.id)) return false;
                     return !(usedStaffIds.includes(s.id) && !selectedStaffIds.includes(s.id)); 
                 }) || [];
@@ -4919,7 +4920,7 @@ export default function App() {
                                                   handleScheduleUpdate(selectedDateStr, duty.id, idx, 'staffId', e.target.value, calculatedOt);
                                               }} className={`w-full sm:flex-[3] border rounded-xl px-3 py-2 text-xs font-black outline-none shadow-sm focus:border-indigo-500 transition-colors ${!data.staffId ? 'bg-rose-100/50 border-rose-200 text-rose-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}>
                                                  <option value="">-- เลือกพนักงาน --</option>
-                                                 {branchData.staff?.filter(s => s.dept === activeDept).map(s => {
+                                                 {branchData.staff?.filter(s => s.dept === activeDept && isStaffActiveOnDate(s, selectedDateStr)).map(s => {
                                                     const isUsed = usedStaffIds.includes(s.id) && data.staffId !== s.id;
                                                     const wrongPos = !checkPositionEligibility(s.pos, reqArr, activeDept) && data.staffId !== s.id;
                                                     if (isExtra && !s.pos.includes('PT')) return null;
@@ -5476,6 +5477,7 @@ export default function App() {
                       const selectedStaffIds = (schedule[selectedDateStr]?.leaves || []).filter(l => l.type === lt.id).map(l => l.staffId);
                       const staffOptions = branchData.staff?.filter(s => { 
                           if (s.dept !== activeDept) return false; 
+                          if (!isStaffActiveOnDate(s, selectedDateStr)) return false;
                           if (s.pos.includes('PT') && !['OFF', 'SWAP_OFF', 'SL_UNPAID', 'PL_UNPAID'].includes(lt.id)) return false;
                           return !(usedStaffIds.includes(s.id) && !selectedStaffIds.includes(s.id)); 
                       }) || [];
@@ -5504,7 +5506,7 @@ export default function App() {
                          const dayUsedStaffIds = new Set();
                          (schedule[day.dateStr]?.leaves || []).forEach(l => l.staffId && dayUsedStaffIds.add(l.staffId));
                          Object.values(schedule[day.dateStr]?.duties || {}).forEach(sls => sls.forEach(s => s.staffId && dayUsedStaffIds.add(s.staffId)));
-                         const unassignedStaff = branchData.staff?.filter(s => s.dept === activeDept && !dayUsedStaffIds.has(s.id)) || [];
+                         const unassignedStaff = branchData.staff?.filter(s => s.dept === activeDept && !dayUsedStaffIds.has(s.id) && isStaffActiveOnDate(s, day.dateStr)) || [];
                          const unassignedFTCount = unassignedStaff.filter(s => !s.pos.includes('PT')).length;
                          const unassignedPTCount = unassignedStaff.filter(s => s.pos.includes('PT')).length;
                          
