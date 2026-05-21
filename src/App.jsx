@@ -2597,20 +2597,33 @@ export default function App() {
                 const onLeaveIds = new Set(finalLeaves.map(l => l.staffId));
                 const workingStaffIds = new Set(); 
 
-                // 3. Sort duties by priority: HEAD > STAFF > SUPPORT, then by highest required position
+                // 3. Prepare all slots to assign and sort them
                 const dutyPriority = { 'HEAD': 1, 'STAFF': 2, 'SUPPORT': 3 };
-                const sortedDuties = [...CURRENT_DUTY_LIST].sort((a, b) => {
-                    // Priority 0: Primary Duties first, Backup Duties last
-                    const aBackup = a.isBackup ? 1 : 0;
-                    const bBackup = b.isBackup ? 1 : 0;
+                const allSlotsToAssign = [];
+                
+                CURRENT_DUTY_LIST.forEach(duty => {
+                    const slots = branchData.matrix?.[dayType]?.duties?.[duty.id] || [];
+                    slots.forEach((slot, slotIdx) => {
+                        allSlotsToAssign.push({ duty, slot, slotIdx });
+                    });
+                });
+                
+                allSlotsToAssign.sort((a, b) => {
+                    // Priority 0: Slots with OT first
+                    const aIsOT = a.slot.targetEndTime ? true : (a.slot.maxOtHours || 0) > 0;
+                    const bIsOT = b.slot.targetEndTime ? true : (b.slot.maxOtHours || 0) > 0;
+                    if (aIsOT !== bIsOT) return aIsOT ? -1 : 1;
+
+                    // Priority 1: Primary Duties first, Backup Duties last
+                    const aBackup = a.duty.isBackup ? 1 : 0;
+                    const bBackup = b.duty.isBackup ? 1 : 0;
                     if (aBackup !== bBackup) return aBackup - bBackup;
 
                     const getCat = (catStr) => (catStr || '').split('_')[1] || 'OTHER';
-                    const priorityA = dutyPriority[getCat(a.category)] || 99;
-                    const priorityB = dutyPriority[getCat(b.category)] || 99;
+                    const priorityA = dutyPriority[getCat(a.duty.category)] || 99;
+                    const priorityB = dutyPriority[getCat(b.duty.category)] || 99;
                     if (priorityA !== priorityB) return priorityA - priorityB;
 
-                    // Secondary sort: prioritize duties that require higher-ranked staff
                     const getHighestRank = (reqPosArr) => {
                         if (!reqPosArr || reqPosArr.length === 0 || reqPosArr.includes('ALL')) return 999;
                         const posList = POSITIONS[activeDept] || [];
@@ -2618,8 +2631,8 @@ export default function App() {
                         return ranks.length > 0 ? Math.min(...ranks) : 999;
                     };
 
-                    const rankA = getHighestRank(a.reqPos);
-                    const rankB = getHighestRank(b.reqPos);
+                    const rankA = getHighestRank(a.duty.reqPos);
+                    const rankB = getHighestRank(b.duty.reqPos);
                     return rankA - rankB;
                 });
 
@@ -2633,16 +2646,14 @@ export default function App() {
                         return (rankA === -1 ? 999 : rankA) - (rankB === -1 ? 999 : rankB);
                     });
 
-                // 5. Iterate through sorted duties and assign the best available staff
-                sortedDuties.forEach(duty => {
-                    const slots = branchData.matrix?.[dayType]?.duties?.[duty.id] || [];
+                // 5. Iterate through sorted slots and assign the best available staff
+                allSlotsToAssign.forEach(({ duty, slot, slotIdx }) => {
                     if (!dayData.duties[duty.id]) dayData.duties[duty.id] = [];
 
-                    slots.forEach((slot, slotIdx) => {
-                        if (!dayData.duties[duty.id][slotIdx]) {
-                            dayData.duties[duty.id][slotIdx] = { staffId: "", otHours: 0 };
-                        }
-                        if (dayData.duties[duty.id][slotIdx].staffId) return; 
+                    if (!dayData.duties[duty.id][slotIdx]) {
+                        dayData.duties[duty.id][slotIdx] = { staffId: "", otHours: 0 };
+                    }
+                    if (dayData.duties[duty.id][slotIdx].staffId) return; 
 
                         const reqArr = Array.isArray(duty.reqPos) ? duty.reqPos : [duty.reqPos || 'ALL'];
                         
@@ -2752,7 +2763,6 @@ export default function App() {
                             if (!staffDutyCounts[candidate.id]) staffDutyCounts[candidate.id] = {};
                             staffDutyCounts[candidate.id][duty.category] = (staffDutyCounts[candidate.id][duty.category] || 0) + 1;
                         }
-                    });
                 });
             });
             setAiLoading(false);
