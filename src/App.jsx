@@ -5106,6 +5106,26 @@ export default function App() {
         xpDnaRowSpans[currentXpDnaStartIdx] = allTrs.length - currentXpDnaStartIdx;
     }
 
+    const dayUsedStaffIds = new Set();
+    (schedule[selectedDateStr]?.leaves || []).forEach(l => l.staffId && dayUsedStaffIds.add(l.staffId));
+    Object.values(schedule[selectedDateStr]?.duties || {}).forEach(sls => sls.forEach(s => s && s.staffId && dayUsedStaffIds.add(s.staffId)));
+    const unassignedStaff = branchData.staff?.filter(s => s.dept === activeDept && !dayUsedStaffIds.has(s.id) && isStaffActiveOnDate(s, selectedDateStr)) || [];
+    const unassignedFTCount = unassignedStaff.filter(s => !s.pos.includes('PT')).length;
+    const unassignedPTCount = unassignedStaff.filter(s => s.pos.includes('PT')).length;
+    
+    let emptySlotCount = 0;
+    let backupUsedCount = 0;
+    CURRENT_DUTY_LIST.forEach(duty => {
+        const slots = branchData.matrix?.[activeDay.type]?.duties?.[duty.id] || [];
+        const assigned = schedule[selectedDateStr]?.duties?.[duty.id] || [];
+        
+        if (duty.isBackup) {
+            assigned.forEach(a => { if (a && a.staffId) backupUsedCount++; });
+        } else {
+            slots.forEach((_, idx) => { if (!assigned[idx] || !assigned[idx].staffId) emptySlotCount++; });
+        }
+    });
+
     const renderHeadcountChart = () => {
         const timeToMinutes = (tStr) => {
             if (!tStr || tStr === '??:??' || tStr === '??.??') return -1;
@@ -5382,9 +5402,20 @@ export default function App() {
              <div className="p-6 sm:p-8 bg-slate-50 border-b border-slate-100 flex justify-between items-center print:hidden flex-wrap gap-4">
                 <div className="flex flex-col">
                    <h2 className="text-xl sm:text-2xl font-black text-slate-900 uppercase tracking-tighter">{dailyViewMode === 'prep' ? 'Prep Checklist' : 'Duty Roster Chart'}: {new Date(selectedDateStr).toLocaleDateString('th-TH', { day: 'numeric', month: 'long' })}</h2>
-                   <div className="text-xs font-bold text-indigo-600 uppercase tracking-widest mt-1">{activeDept.toUpperCase()} DEPT</div>
+                   <div className="flex flex-wrap items-center gap-2 mt-2">
+                       <div className="text-xs font-bold text-indigo-600 uppercase tracking-widest mr-2">{activeDept.toUpperCase()} DEPT</div>
+                       <span className={`text-[9px] font-black px-2 py-0.5 rounded-md border ${unassignedFTCount > 0 ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200'}`}>ประจำว่าง {unassignedFTCount}</span>
+                       <span className={`text-[9px] font-black px-2 py-0.5 rounded-md border ${unassignedPTCount > 0 ? 'bg-orange-50 text-orange-600 border-orange-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200'}`}>PTว่าง {unassignedPTCount}</span>
+                       <span className={`text-[9px] font-black px-2 py-0.5 rounded-md border ${emptySlotCount > 0 ? 'bg-rose-50 text-rose-600 border-rose-200' : 'bg-indigo-50 text-indigo-600 border-indigo-200'}`}>กะว่าง {emptySlotCount}</span>
+                       <span className={`text-[9px] font-black px-2 py-0.5 rounded-md border ${backupUsedCount > 0 ? 'bg-sky-50 text-sky-600 border-sky-200' : 'bg-slate-50 text-slate-500 border-slate-200'}`}>ใช้กะสำรอง {backupUsedCount}</span>
+                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+                   {(view === 'manager' || view === 'head_team') && (
+                       <button onClick={() => handleAutoAssign('daily')} disabled={aiLoading} className="flex-1 sm:flex-none justify-center bg-indigo-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-black flex items-center gap-2 hover:bg-indigo-700 shadow-sm active:scale-95 transition-all text-[10px] sm:text-xs uppercase tracking-widest">
+                          {aiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />} จัดกะอัตโนมัติ
+                       </button>
+                   )}
                    <div className="bg-slate-200 p-1.5 rounded-xl flex gap-1 w-full sm:w-auto">
                       <button onClick={() => setDailyViewMode('roster')} className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-[10px] sm:text-xs font-black transition-all ${dailyViewMode === 'roster' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>ตารางกะงาน</button>
                       <button onClick={() => setDailyViewMode('headcount')} className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-[10px] sm:text-xs font-black transition-all ${dailyViewMode === 'headcount' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>สรุปกำลังคน</button>
