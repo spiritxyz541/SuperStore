@@ -178,6 +178,14 @@ function checkPositionEligibility(staffPos, reqPosArr, dept) {
   });
 }
 
+function isStaffActiveOnDate(staff, dateStr) {
+    if (!staff) return false;
+    if (staff.isActive === false && !staff.resignDate) return false;
+    if (staff.startDate && staff.startDate > dateStr) return false;
+    if (staff.resignDate && staff.resignDate < dateStr) return false;
+    return true;
+}
+
 function generateDefaultMatrix(svc = DEFAULT_SERVICE_DUTIES, ktn = DEFAULT_KITCHEN_DUTIES) {
   const m = {};
   ['weekday', 'friday', 'weekend'].forEach(dt => {
