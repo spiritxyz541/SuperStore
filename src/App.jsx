@@ -2657,13 +2657,17 @@ export default function App() {
                             const isOTSlot = slot.targetEndTime ? true : (slot.maxOtHours || 0) > 0;
                             let validCandidates = potentialCandidates;
                             
-                            // Exclude HEAD team and PT from OT slots entirely
                             if (isOTSlot) {
-                                validCandidates = potentialCandidates.filter(p => {
+                                // ให้สิทธิ์พนักงานที่ไม่ใช่ HEAD และไม่ใช่ PT ก่อนสำหรับกะที่มี OT
+                                const preferredCandidates = potentialCandidates.filter(p => {
                                     const layer = getStaffLayer(activeDept, p.pos);
                                     const isPT = p.pos.includes('PT');
                                     return !layer.id.includes('HEAD') && !isPT;
                                 });
+                                // หากมีคนที่เหมาะสม ให้ใช้กลุ่มนี้ แต่ถ้าไม่มี (เช่นถูกจัดไปหมดแล้ว) ให้ยอมใช้ PT/HEAD แทนการปล่อยกะว่าง
+                                if (preferredCandidates.length > 0) {
+                                    validCandidates = preferredCandidates;
+                                }
                             }
                             
                             if (validCandidates.length > 0) {
