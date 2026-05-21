@@ -2658,13 +2658,15 @@ export default function App() {
                             let validCandidates = potentialCandidates;
                             
                             if (isOTSlot) {
-                                // ให้สิทธิ์พนักงานที่ไม่ใช่ HEAD และไม่ใช่ PT ก่อนสำหรับกะที่มี OT
-                                const preferredCandidates = potentialCandidates.filter(p => {
+                                // ตัด PT ออกจากกะที่มี OT อย่างเด็ดขาด
+                                validCandidates = potentialCandidates.filter(p => !p.pos.includes('PT'));
+
+                                // ให้สิทธิ์พนักงานที่ไม่ใช่ HEAD ก่อนสำหรับกะที่มี OT
+                                const preferredCandidates = validCandidates.filter(p => {
                                     const layer = getStaffLayer(activeDept, p.pos);
-                                    const isPT = p.pos.includes('PT');
-                                    return !layer.id.includes('HEAD') && !isPT;
+                                    return !layer.id.includes('HEAD');
                                 });
-                                // หากมีคนที่เหมาะสม ให้ใช้กลุ่มนี้ แต่ถ้าไม่มี (เช่นถูกจัดไปหมดแล้ว) ให้ยอมใช้ PT/HEAD แทนการปล่อยกะว่าง
+                                // หากมีคนที่เหมาะสม ให้ใช้กลุ่มนี้ แต่ถ้าไม่มี ให้ยอมใช้ HEAD แทน (แต่ PT ถูกตัดออกไปแล้ว)
                                 if (preferredCandidates.length > 0) {
                                     validCandidates = preferredCandidates;
                                 }
