@@ -708,7 +708,7 @@ export default function App() {
     if (!dayData) return [];
     const ids = new Set();
     if (dayData.leaves) dayData.leaves.forEach(l => l.staffId && ids.add(l.staffId));
-    if (dayData.duties) Object.values(dayData.duties).forEach(slots => { slots.forEach(s => s.staffId && ids.add(s.staffId)); });
+    if (dayData.duties) Object.values(dayData.duties).forEach(slots => { slots.forEach(s => s && s.staffId && ids.add(s.staffId)); });
     return Array.from(ids);
   }, [schedule, selectedDateStr]);
 
@@ -741,7 +741,7 @@ export default function App() {
           const slots = dayData.duties[dutyId] || [];
           const matrixSlots = branchData.matrix?.[dayType]?.duties?.[dutyId] || [];
           slots.forEach((slot, idx) => {
-            if (slot.staffId && staffMap[slot.staffId]) {
+            if (slot && slot.staffId && staffMap[slot.staffId]) {
               const mSlot = matrixSlots[idx];
               const shiftPreset = branchData.shiftPresets?.find(p => p.id === mSlot?.shiftPresetId);
               const staffPos = staffMap[slot.staffId].pos;
@@ -871,7 +871,7 @@ export default function App() {
                   const slots = dayData.duties[dutyId] || [];
                   const matrixSlots = branchData.matrix?.[dayType]?.duties?.[dutyId] || [];
                   slots.forEach((slot, idx) => {
-                      if (slot.staffId) {
+                      if (slot && slot.staffId) {
                           const isOTCover = slot.staffId.startsWith('COVER_BY_');
                           const actualStaffId = isOTCover ? slot.staffId.replace('COVER_BY_', '') : slot.staffId;
                           const staff = staffMap[actualStaffId];
@@ -927,7 +927,7 @@ export default function App() {
               Object.keys(dayData.duties).forEach(dutyId => {
                   const slots = dayData.duties[dutyId] || [];
                   slots.forEach(slot => {
-                      if (slot.staffId && slot.otHours > 0) {
+                      if (slot && slot.staffId && slot.otHours > 0) {
                           const actualId = slot.staffId.startsWith('COVER_BY_') ? slot.staffId.replace('COVER_BY_', '') : slot.staffId;
                           const staff = staffMap[actualId];
                           if (staff && !staff.pos.includes('PT')) { 
@@ -1007,11 +1007,11 @@ export default function App() {
 
               const assignedSlots = schedule[selectedDateStr]?.duties?.[duty.id] || [];
               assignedSlots.forEach((assignedSlot, idx) => {
-                  const shiftPresetId = assignedSlot.shiftPresetId || matrixSlots[idx]?.shiftPresetId;
+                  const shiftPresetId = assignedSlot?.shiftPresetId || matrixSlots[idx]?.shiftPresetId;
                   const shiftPreset = branchData.shiftPresets?.find(p => p.id === shiftPresetId);
                   if (!shiftPreset) return;
 
-                  const staffId = assignedSlot.staffId?.startsWith('COVER_BY_') ? assignedSlot.staffId.replace('COVER_BY_', '') : assignedSlot.staffId;
+                  const staffId = assignedSlot?.staffId?.startsWith('COVER_BY_') ? assignedSlot.staffId.replace('COVER_BY_', '') : assignedSlot?.staffId;
                   if (staffId) {
                       const staff = branchData.staff?.find(s => s.id === staffId);
                       if (staff) {
@@ -1046,7 +1046,7 @@ export default function App() {
         // Pre-calculate all start times for this duty to find replacements
         const allShiftTimes = [];
         assignedSlots.forEach((asg, idx) => {
-            if (asg.staffId) {
+            if (asg && asg.staffId) {
                 const stf = branchData.staff?.find(s => s.id === asg.staffId);
                 const matrixSlots = branchData.matrix?.[dayType]?.duties?.[dutyId] || [];
                 const matrixSlot = matrixSlots[idx] || { shiftPresetId: asg.shiftPresetId || branchData.shiftPresets?.[0]?.id };
@@ -1062,7 +1062,7 @@ export default function App() {
         });
 
         assignedSlots.forEach((assigned, idx) => {
-            if (assigned.staffId) {
+            if (assigned && assigned.staffId) {
                 const staff = branchData.staff?.find(s => s.id === assigned.staffId);
                 const matrixSlots = branchData.matrix?.[dayType]?.duties?.[dutyId] || [];
                 const matrixSlot = matrixSlots[idx] || { shiftPresetId: assigned.shiftPresetId || branchData.shiftPresets?.[0]?.id };
@@ -1205,7 +1205,7 @@ export default function App() {
     }
     for (const d of currentDutyList) {
       const slots = dayData.duties?.[d.id] || [];
-      const sIdx = slots.findIndex(s => s.staffId === staffId);
+      const sIdx = slots.findIndex(s => s && s.staffId === staffId);
       if (sIdx !== -1) {
         const dayConfig = CALENDAR_DAYS.find(c => c.dateStr === dateStr);
         const dayType = dayConfig ? dayConfig.type : 'weekday';
@@ -1465,7 +1465,7 @@ export default function App() {
         const currentLeaves = newSched[selectedDateStr].leaves || [];
         const currentDuties = newSched[selectedDateStr].duties || {};
         const workingStaffIds = new Set();
-        Object.values(currentDuties).forEach(slots => { slots.forEach(slot => { if(slot.staffId) workingStaffIds.add(slot.staffId); }); });
+        Object.values(currentDuties).forEach(slots => { slots.forEach(slot => { if(slot && slot.staffId) workingStaffIds.add(slot.staffId); }); });
         let updatedLeaves = [...currentLeaves];
         regularOffStaff.forEach(staff => {
             if (!updatedLeaves.some(l => l.staffId === staff.id) && !workingStaffIds.has(staff.id)) { updatedLeaves.push({ staffId: staff.id, type: 'OFF' }); }
@@ -1749,7 +1749,7 @@ export default function App() {
         if (newSched[dateStr].duties) {
             Object.values(newSched[dateStr].duties).forEach(slots => {
                 slots.forEach(slot => {
-                    if (selectedStaffIds.includes(slot.staffId)) {
+                    if (slot && selectedStaffIds.includes(slot.staffId)) {
                         slot.staffId = "";
                         slot.otHours = 0;
                     }
@@ -1778,7 +1778,7 @@ export default function App() {
               if (newSched[dateStr].duties) {
                   Object.values(newSched[dateStr].duties).forEach(slots => {
                       slots.forEach(slot => {
-                          if (slot.staffId === staffId) {
+                          if (slot && slot.staffId === staffId) {
                               slot.staffId = "";
                               slot.otHours = 0;
                           }
@@ -2217,7 +2217,7 @@ export default function App() {
           let dutyTxt = `🔥 ${duty.jobA}\n`;
           let hasAssigned = false;
           assigned.forEach((data, idx) => {
-             if(data.staffId) {
+             if(data && data.staffId) {
                hasAssigned = true; svcHasStaff = true;
                const staff = branchData.staff?.find(s=>s.id===data.staffId);
                const slot = slots[idx];
@@ -2238,7 +2238,7 @@ export default function App() {
           let dutyTxt = `🔪 ${duty.jobA}\n`;
           let hasAssigned = false;
           assigned.forEach((data, idx) => {
-             if(data.staffId) {
+             if(data && data.staffId) {
                hasAssigned = true; kitHasStaff = true;
                const staff = branchData.staff?.find(s=>s.id===data.staffId);
                const slot = slots[idx];
@@ -2410,7 +2410,7 @@ export default function App() {
                   if (!newSched[dateStr]) return;
                   if (newSched[dateStr].duties) {
                       Object.values(newSched[dateStr].duties).forEach(slots => {
-                          slots.forEach(slot => { if (slot.staffId === oldId) slot.staffId = newId; });
+                          slots.forEach(slot => { if (slot && slot.staffId === oldId) slot.staffId = newId; });
                       });
                   }
                   if (newSched[dateStr].leaves) {
@@ -2424,10 +2424,10 @@ export default function App() {
                       if (newSched[d1].duties) {
                           Object.values(newSched[d1].duties).forEach(slots => {
                               slots.forEach(slot => {
-                                  if (slot.staffId === id1) slot.staffId = "TEMP_SWAP";
-                                  else if (slot.staffId === id2) slot.staffId = id1;
+                                  if (slot && slot.staffId === id1) slot.staffId = "TEMP_SWAP";
+                                  else if (slot && slot.staffId === id2) slot.staffId = id1;
                               });
-                              slots.forEach(slot => { if (slot.staffId === "TEMP_SWAP") slot.staffId = id2; });
+                              slots.forEach(slot => { if (slot && slot.staffId === "TEMP_SWAP") slot.staffId = id2; });
                           });
                       }
                       if (newSched[d1].leaves) {
@@ -2499,7 +2499,7 @@ export default function App() {
           const assignedSlots = dayData.duties[dutyId] || [];
           const matrixSlots = branchData.matrix?.[dayType]?.duties?.[dutyId] || [];
           assignedSlots.forEach((assigned, idx) => {
-            if (assigned.staffId) {
+            if (assigned && assigned.staffId) {
               const staff = branchData.staff?.find(s => s.id === assigned.staffId);
               const mSlot = matrixSlots[idx];
               const shiftPreset = branchData.shiftPresets?.find(p => p.id === mSlot?.shiftPresetId);
@@ -2575,7 +2575,7 @@ export default function App() {
                         const dObj = CURRENT_DUTY_LIST.find(x => x.id === dutyId);
                         const dCat = dObj ? dObj.category : 'OTHER';
                         slots.forEach(s => {
-                            if (s.staffId) {
+                            if (s && s.staffId) {
                                 staffOTCount[s.staffId] += (s.otHours || 0);
                                 if (!staffDutyCounts[s.staffId]) staffDutyCounts[s.staffId] = {};
                                 staffDutyCounts[s.staffId][dCat] = (staffDutyCounts[s.staffId][dCat] || 0) + 1;
@@ -3167,7 +3167,7 @@ export default function App() {
                                    </thead>
                                    <tbody>
                                       {Object.keys(inspectedData.schedule?.records || {}).length ? Object.entries(inspectedData.schedule.records).sort(([a],[b])=>a.localeCompare(b)).map(([date, data]) => {
-                                          const assignedCount = Object.values(data.duties || {}).flat().filter(s => s.staffId).length;
+                                          const assignedCount = Object.values(data.duties || {}).flat().filter(s => s && s.staffId).length;
                                           const leaveCount = data.leaves?.length || 0;
                                           return (
                                           <tr key={date} className="hover:bg-slate-800/50 transition-colors">
@@ -4848,7 +4848,7 @@ export default function App() {
                             let dailyEventUsed = 0;
                             Object.values(schedule[selectedDateStr]?.duties || {}).forEach(dutySlots => {
                                 dutySlots.forEach(s => {
-                                    if (s.isEventExtra && s.staffId) {
+                                        if (s && s.isEventExtra && s.staffId) {
                                         const staff = branchData.staff?.find(x => x.id === s.staffId);
                                         if (staff && staff.pos.includes('PT')) {
                                             const shiftPreset = branchData.shiftPresets?.find(p => p.id === (s.shiftPresetId || branchData.shiftPresets[0].id));
@@ -5528,7 +5528,7 @@ export default function App() {
                       {CALENDAR_DAYS.map(day => {
                          const dayUsedStaffIds = new Set();
                          (schedule[day.dateStr]?.leaves || []).forEach(l => l.staffId && dayUsedStaffIds.add(l.staffId));
-                         Object.values(schedule[day.dateStr]?.duties || {}).forEach(sls => sls.forEach(s => s.staffId && dayUsedStaffIds.add(s.staffId)));
+                         Object.values(schedule[day.dateStr]?.duties || {}).forEach(sls => sls.forEach(s => s && s.staffId && dayUsedStaffIds.add(s.staffId)));
                          const unassignedStaff = branchData.staff?.filter(s => s.dept === activeDept && !dayUsedStaffIds.has(s.id) && isStaffActiveOnDate(s, day.dateStr)) || [];
                          const unassignedFTCount = unassignedStaff.filter(s => !s.pos.includes('PT')).length;
                          const unassignedPTCount = unassignedStaff.filter(s => s.pos.includes('PT')).length;
@@ -5597,7 +5597,7 @@ export default function App() {
                                        const assigned = schedule[day.dateStr]?.duties?.[duty.id] || [];
                                        const dayUsedStaffIds = new Set();
                                        (schedule[day.dateStr]?.leaves || []).forEach(l => l.staffId && dayUsedStaffIds.add(l.staffId));
-                                       Object.values(schedule[day.dateStr]?.duties || {}).forEach(sls => sls.forEach(s => s.staffId && dayUsedStaffIds.add(s.staffId)));
+                                       Object.values(schedule[day.dateStr]?.duties || {}).forEach(sls => sls.forEach(s => s && s.staffId && dayUsedStaffIds.add(s.staffId)));
 
                                        const totalSlotsCount = Math.max(slots.length, assigned.length);
                                        const renderSlots = Array.from({ length: totalSlotsCount });
