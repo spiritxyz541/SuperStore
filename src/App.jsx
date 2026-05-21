@@ -5602,7 +5602,7 @@ export default function App() {
                                                               }} className={`w-full text-[10px] font-bold bg-transparent outline-none truncate ${!data.staffId ? 'text-rose-600' : data.staffId.startsWith('COVER_BY_') ? 'text-amber-700' : 'text-slate-800'}`}>
                                                                 <option value="">-- ว่าง --</option>
                                                                 {data.staffId && data.staffId.startsWith('COVER_BY_') && <option value={data.staffId}>✅ Cover: {branchData.staff?.find(s=>s.id === data.staffId.replace('COVER_BY_',''))?.name}</option>}
-                                                                {branchData.staff?.filter(s => s.dept === activeDept).map(s => {
+                                                                {branchData.staff?.filter(s => s.dept === activeDept && isStaffActiveOnDate(s, day.dateStr)).map(s => {
                                                                    const isUsed = dayUsedStaffIds.has(s.id) && data.staffId !== s.id;
                                                                    const wrongPos = !checkPositionEligibility(s.pos, reqArr, activeDept) && data.staffId !== s.id;
                                                                    return (isUsed || wrongPos) ? null : <option key={s.id} value={s.id}>{s.name}</option>
