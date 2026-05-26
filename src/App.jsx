@@ -188,7 +188,7 @@ function isStaffActiveOnDate(staff, dateStr) {
 
 function generateDefaultMatrix(svc = DEFAULT_SERVICE_DUTIES, ktn = DEFAULT_KITCHEN_DUTIES) {
   const m = {};
-  ['weekday', 'friday', 'weekend'].forEach(dt => {
+  ['weekday', 'friday', 'saturday', 'sunday'].forEach(dt => {
     m[dt] = { duties: {} };
     svc.forEach(d => m[dt].duties[d.id] = [{ shiftPresetId: 'S1', maxOtHours: 0 }]);
     ktn.forEach(k => m[dt].duties[k.id] = [{ shiftPresetId: 'S3', maxOtHours: 0 }]);
@@ -196,15 +196,24 @@ function generateDefaultMatrix(svc = DEFAULT_SERVICE_DUTIES, ktn = DEFAULT_KITCH
   return m;
 }
 
-function getDaysInMonth(year, month, holidays = []) {
+function getDayType(dateStr, holidays = [], holidayCycles = {}) {
+    const [yStr, mStr, dStr] = dateStr.split('-');
+    const dateObj = new Date(parseInt(yStr), parseInt(mStr) - 1, parseInt(dStr));
+    const dOW = dateObj.getDay();
+    // ถ้าเป็นวันหยุดนักขัตฤกษ์ ให้อิงตามที่ตั้งค่าไว้ (ค่าเริ่มต้นคือวันเสาร์)
+    if (holidays?.includes?.(dateStr)) return holidayCycles?.[dateStr] || 'saturday';
+    if (dOW === 0) return 'sunday';
+    if (dOW === 6) return 'saturday';
+    if (dOW === 5) return 'friday';
+    return 'weekday';
+}
+
+function getDaysInMonth(year, month, holidays = [], holidayCycles = {}) {
   const days = [];
   const date = new Date(year, month, 1);
   while (date.getMonth() === month) {
     const ds = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-    const dOW = date.getDay();
-    let type = 'weekday';
-    if (holidays?.includes?.(ds) || dOW === 0 || dOW === 6) type = 'weekend';
-    else if (dOW === 5) type = 'friday';
+    const type = getDayType(ds, holidays, holidayCycles);
     days.push({ dateStr: ds, dayNum: date.getDate(), dayLabel: date.toLocaleDateString('th-TH', { weekday: 'short' }), type });
     date.setDate(date.getDate() + 1);
   }
@@ -700,7 +709,7 @@ export default function App() {
     }));
   }, [activeDept, branchData.duties]);
 
-  const CALENDAR_DAYS = useMemo(() => getDaysInMonth(selectedYear, selectedMonth, branchData.holidays || []), [selectedMonth, selectedYear, branchData.holidays]);
+  const CALENDAR_DAYS = useMemo(() => getDaysInMonth(selectedYear, selectedMonth, branchData.holidays || [], branchData.holidayCycles || {}), [selectedMonth, selectedYear, branchData.holidays, branchData.holidayCycles]);
   const activeDay = useMemo(() => CALENDAR_DAYS.find(d => d.dateStr === selectedDateStr) || CALENDAR_DAYS[0], [selectedDateStr, CALENDAR_DAYS]);
 
   const usedStaffIds = useMemo(() => {
@@ -730,11 +739,7 @@ export default function App() {
           if (dateStr < reportFilterStart || dateStr > reportFilterEnd) return;
       }
       const dayData = schedule[dateStr];
-      const dateObj = new Date(parseInt(dateStr.split('-')[0]), parseInt(dateStr.split('-')[1]) - 1, parseInt(dateStr.split('-')[2]));
-      const dOW = dateObj.getDay();
-      let dayType = 'weekday';
-      if (branchData.holidays?.includes?.(dateStr) || dOW === 0 || dOW === 6) dayType = 'weekend';
-      else if (dOW === 5) dayType = 'friday';
+      const dayType = getDayType(dateStr, branchData.holidays, branchData.holidayCycles);
 
       if (dayData.duties) {
         Object.keys(dayData.duties).forEach(dutyId => {
@@ -860,11 +865,7 @@ export default function App() {
               });
           }
 
-          const dateObj = new Date(parseInt(dateStr.split('-')[0]), parseInt(dateStr.split('-')[1]) - 1, parseInt(dateStr.split('-')[2]));
-          const dOW = dateObj.getDay();
-          let dayType = 'weekday';
-          if (branchData.holidays?.includes?.(dateStr) || dOW === 0 || dOW === 6) dayType = 'weekend';
-          else if (dOW === 5) dayType = 'friday';
+          const dayType = getDayType(dateStr, branchData.holidays, branchData.holidayCycles);
 
           if (dayData.duties) {
               Object.keys(dayData.duties).forEach(dutyId => {
@@ -1361,7 +1362,7 @@ export default function App() {
             data.matrix = generateDefaultMatrix(data.duties.service, data.duties.kitchen);
         } else {
             let needsMigration = false;
-            ['weekday', 'friday', 'weekend'].forEach(dt => {
+            ['weekday', 'friday', 'saturday', 'sunday'].forEach(dt => {
                 if (data.matrix[dt]?.duties) {
                     Object.values(data.matrix[dt].duties).forEach(slots => {
                         if (slots && slots.length > 0 && slots[0] && slots[0].startTime) {
@@ -1372,7 +1373,7 @@ export default function App() {
             });
 
             if (needsMigration) {
-                ['weekday', 'friday', 'weekend'].forEach(dt => {
+                ['weekday', 'friday', 'saturday', 'sunday'].forEach(dt => {
                     if (data.matrix[dt]?.duties) {
                         Object.keys(data.matrix[dt].duties).forEach(dutyId => {
                             data.matrix[dt].duties[dutyId] = data.matrix[dt].duties[dutyId].map(oldSlot => {
@@ -1384,7 +1385,13 @@ export default function App() {
                 });
             }
 
-            ['weekday', 'friday', 'weekend'].forEach(dt => {
+            if (data.matrix.weekend) {
+                if (!data.matrix.saturday) data.matrix.saturday = JSON.parse(JSON.stringify(data.matrix.weekend));
+                if (!data.matrix.sunday) data.matrix.sunday = JSON.parse(JSON.stringify(data.matrix.weekend));
+                delete data.matrix.weekend;
+            }
+
+            ['weekday', 'friday', 'saturday', 'sunday'].forEach(dt => {
                 if (!data.matrix[dt]) data.matrix[dt] = { duties: {} };
                 if (!data.matrix[dt].duties) data.matrix[dt].duties = {};
                 ['service', 'kitchen'].forEach(dept => {
@@ -1482,11 +1489,7 @@ export default function App() {
     Object.keys(newSched).forEach(dateStr => {
         const dayData = newSched[dateStr];
         if (!dayData || !dayData.duties) return;
-        const dateObj = new Date(parseInt(dateStr.split('-')[0]), parseInt(dateStr.split('-')[1]) - 1, parseInt(dateStr.split('-')[2]));
-        const dayOfWeek = dateObj.getDay();
-        let dayType = 'weekday';
-        if (branchData.holidays?.includes?.(dateStr) || dayOfWeek === 0 || dayOfWeek === 6) dayType = 'weekend';
-        else if (dayOfWeek === 5) dayType = 'friday';
+        const dayType = getDayType(dateStr, branchData.holidays, branchData.holidayCycles);
 
         CURRENT_DUTY_LIST.forEach(duty => {
           const slots = branchData.matrix[dayType]?.duties?.[duty.id] || [];
@@ -1845,7 +1848,7 @@ export default function App() {
       if (!nd.duties[activeDept]) nd.duties[activeDept] = activeDept === 'service' ? DEFAULT_SERVICE_DUTIES : DEFAULT_KITCHEN_DUTIES;
       nd.duties[activeDept].push(newDuty);
       if(!nd.matrix) nd.matrix = generateDefaultMatrix();
-      ['weekday', 'friday', 'weekend'].forEach(dt => { // This part might need adjustment for new shift preset logic
+      ['weekday', 'friday', 'saturday', 'sunday'].forEach(dt => {
         if(!nd.matrix[dt].duties[newId]) nd.matrix[dt].duties[newId] = [{ shiftPresetId: 'S1', maxOtHours: 0 }];
       });
       if (activeBranchId) setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd).catch(console.error);
@@ -1870,7 +1873,7 @@ export default function App() {
         const nd = JSON.parse(JSON.stringify(prev));
         nd.duties[activeDept] = nd.duties[activeDept].filter(d => d.id !== dutyId);
         if (nd.matrix) {
-          ['weekday', 'friday', 'weekend'].forEach(dt => {
+          ['weekday', 'friday', 'saturday', 'sunday'].forEach(dt => {
              if (nd.matrix[dt] && nd.matrix[dt].duties) delete nd.matrix[dt].duties[dutyId];
           });
         }
@@ -2488,11 +2491,7 @@ export default function App() {
       }
 
       const dayData = schedule[dateStr];
-      const dateObj = new Date(parseInt(dateStr.split('-')[0]), parseInt(dateStr.split('-')[1]) - 1, parseInt(dateStr.split('-')[2]));
-      const dayOfWeek = dateObj.getDay();
-      let dayType = 'weekday';
-      if (branchData.holidays?.includes?.(dateStr) || dayOfWeek === 0 || dayOfWeek === 6) dayType = 'weekend';
-      else if (dayOfWeek === 5) dayType = 'friday';
+      const dayType = getDayType(dateStr, branchData.holidays, branchData.holidayCycles);
 
       if (dayData.duties) {
         Object.keys(dayData.duties).forEach(dutyId => {
@@ -4387,7 +4386,7 @@ export default function App() {
                                     <option value="ALL">ทุกกะ</option>
                                     {(() => {
                                         const names = new Set();
-                                        ['weekday', 'friday', 'weekend'].forEach(dt => {
+                                        ['weekday', 'friday', 'saturday', 'sunday'].forEach(dt => {
                                             const pg = branchData.matrix?.[dt]?.prepGoals;
                                             if (Array.isArray(pg)) pg.forEach(g => names.add(g.name));
                                             else { names.add('กะเช้า'); names.add('กะบ่าย'); }
@@ -4513,16 +4512,33 @@ export default function App() {
                    <button 
                      key={d.dateStr} disabled={authRole === 'branch'} onClick={() => { 
                          if(authRole === 'superadmin') {
-                             setBranchData(p => {
-                                 const isHol = p.holidays?.includes?.(d.dateStr);
-                                 const nd = {...p, holidays: isHol ? p.holidays.filter(x=>x!==d.dateStr) : [...(p.holidays || []), d.dateStr]};
-                                 if (activeBranchId) setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd).catch(console.error);
-                                 return nd;
-                             });
+                             const isHol = branchData.holidays?.includes?.(d.dateStr);
+                             if (isHol) {
+                                 setBranchData(p => {
+                                     const nd = {...p, holidays: p.holidays.filter(x=>x!==d.dateStr)};
+                                     if (nd.holidayCycles) { delete nd.holidayCycles[d.dateStr]; }
+                                     if (activeBranchId) setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd).catch(console.error);
+                                     return nd;
+                                 });
+                             } else {
+                                 const choice = window.prompt("วันหยุดนี้ต้องการให้ใช้กะแบบไหน?\n[ 1 ] = วันเสาร์ (ปิดดึก)\n[ 2 ] = วันอาทิตย์ (ปิดปกติ)", "1");
+                                 if (choice === "1" || choice === "2") {
+                                     setBranchData(p => {
+                                         const hc = {...(p.holidayCycles || {})};
+                                         hc[d.dateStr] = choice === "1" ? 'saturday' : 'sunday';
+                                         const nd = {...p, holidays: [...(p.holidays || []), d.dateStr], holidayCycles: hc};
+                                         if (activeBranchId) setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd).catch(console.error);
+                                         return nd;
+                                     });
+                                 }
+                             }
                          }
                      }} 
-                     className={`w-full aspect-square rounded-[0.8rem] sm:rounded-[1.5rem] text-[10px] sm:text-[12px] font-black transition-all border-2 flex items-center justify-center ${isHoliday ? 'bg-red-500 text-white border-red-600 shadow-lg sm:shadow-xl' : 'bg-slate-50 text-slate-400 border-transparent hover:bg-slate-100'} ${authRole === 'branch' ? 'cursor-not-allowed opacity-80' : ''}`}
-                   >{d.dayNum}</button>
+                     className={`w-full aspect-square rounded-[0.8rem] sm:rounded-[1.5rem] text-[10px] sm:text-[12px] font-black transition-all border-2 flex flex-col items-center justify-center ${isHoliday ? 'bg-red-500 text-white border-red-600 shadow-lg sm:shadow-xl' : 'bg-slate-50 text-slate-400 border-transparent hover:bg-slate-100'} ${authRole === 'branch' ? 'cursor-not-allowed opacity-80' : ''}`}
+                   >
+                     <span>{d.dayNum}</span>
+                     {isHoliday && <span className="text-[8px] opacity-80 leading-none">{branchData.holidayCycles?.[d.dateStr] === 'sunday' ? '(อา.)' : '(ส.)'}</span>}
+                   </button>
                  );
                })}
              </div>
@@ -4622,7 +4638,7 @@ export default function App() {
            <p className="text-[10px] text-slate-400 font-bold mt-4">* ระบบจะนำยอดเงินมาหารเป็นชั่วโมงโควตาตั้งต้น สำหรับบริหารจัดการ Part-Time ในกระเป๋าชั่วโมง (PT Ledger)</p>
            
            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-8 mb-4 border-b border-slate-100 pb-2">ตั้งค่าฐานยอดขาย (Base TC) สำหรับระบบ Forecast (อัตราส่วน Man-Hour)</h3>
-           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100 relative overflow-hidden">
                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">Base TC (วันธรรมดา จ.-พฤ.)</label>
                  <input type="text" disabled value={Object.values(branchData.matrix?.weekday?.hourlyTc || {}).reduce((a, b) => a + (parseInt(b) || 0), 0)} className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-black outline-none bg-slate-100 text-slate-500" />
@@ -4634,8 +4650,13 @@ export default function App() {
                  <span className="absolute top-4 right-4 text-[8px] font-bold bg-indigo-100 text-indigo-600 px-2 py-1 rounded uppercase tracking-widest">Auto from CYCLE</span>
               </div>
               <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100 relative overflow-hidden">
-                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">Base TC (วันหยุด/นักขัตฤกษ์)</label>
-                 <input type="text" disabled value={Object.values(branchData.matrix?.weekend?.hourlyTc || {}).reduce((a, b) => a + (parseInt(b) || 0), 0)} className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-black outline-none bg-slate-100 text-slate-500" />
+                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">Base TC (วันเสาร์)</label>
+                 <input type="text" disabled value={Object.values(branchData.matrix?.saturday?.hourlyTc || {}).reduce((a, b) => a + (parseInt(b) || 0), 0)} className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-black outline-none bg-slate-100 text-slate-500" />
+                 <span className="absolute top-4 right-4 text-[8px] font-bold bg-indigo-100 text-indigo-600 px-2 py-1 rounded uppercase tracking-widest">Auto from CYCLE</span>
+              </div>
+              <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100 relative overflow-hidden">
+                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">Base TC (วันอาทิตย์)</label>
+                 <input type="text" disabled value={Object.values(branchData.matrix?.sunday?.hourlyTc || {}).reduce((a, b) => a + (parseInt(b) || 0), 0)} className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-black outline-none bg-slate-100 text-slate-500" />
                  <span className="absolute top-4 right-4 text-[8px] font-bold bg-indigo-100 text-indigo-600 px-2 py-1 rounded uppercase tracking-widest">Auto from CYCLE</span>
               </div>
            </div>
@@ -4680,7 +4701,7 @@ export default function App() {
                    const isSelected = selectedDateStr === d.dateStr;
                    const isHoliday = branchData.holidays?.includes?.(d.dateStr);
                    return (
-                      <button key={d.dateStr} onClick={() => setSelectedDateStr(d.dateStr)} className={`flex-shrink-0 w-16 h-20 sm:w-24 sm:h-28 rounded-[1.5rem] sm:rounded-[2.2rem] flex flex-col items-center justify-center transition-all border-2 snap-center ${isSelected ? 'bg-indigo-600 text-white border-indigo-700 shadow-xl sm:shadow-2xl scale-105 z-20 ring-4 sm:ring-8 ring-indigo-50' : isHoliday ? 'bg-red-500 text-white border-red-600 shadow-sm sm:shadow-md' : d.type === 'weekend' ? 'bg-orange-500 text-white border-orange-600 shadow-sm sm:shadow-md' : d.type === 'friday' ? 'bg-sky-500 text-white border-sky-600 shadow-sm sm:shadow-md' : 'bg-white text-slate-800 border-slate-200 hover:border-indigo-400 shadow-sm'}`}>
+                      <button key={d.dateStr} onClick={() => setSelectedDateStr(d.dateStr)} className={`flex-shrink-0 w-16 h-20 sm:w-24 sm:h-28 rounded-[1.5rem] sm:rounded-[2.2rem] flex flex-col items-center justify-center transition-all border-2 snap-center ${isSelected ? 'bg-indigo-600 text-white border-indigo-700 shadow-xl sm:shadow-2xl scale-105 z-20 ring-4 sm:ring-8 ring-indigo-50' : isHoliday ? 'bg-red-500 text-white border-red-600 shadow-sm sm:shadow-md' : d.type === 'saturday' ? 'bg-purple-500 text-white border-purple-600 shadow-sm sm:shadow-md' : d.type === 'sunday' ? 'bg-orange-500 text-white border-orange-600 shadow-sm sm:shadow-md' : d.type === 'friday' ? 'bg-sky-500 text-white border-sky-600 shadow-sm sm:shadow-md' : 'bg-white text-slate-800 border-slate-200 hover:border-indigo-400 shadow-sm'}`}>
                       <span className={`text-[9px] sm:text-[11px] font-black uppercase tracking-widest ${isSelected ? 'text-indigo-100 opacity-80' : 'opacity-40'}`}>{d.dayLabel}</span>
                       <span className="text-2xl sm:text-4xl font-black mt-1 sm:mt-2 leading-none">{d.dayNum}</span>
                       </button>
@@ -6057,7 +6078,7 @@ export default function App() {
     return (
        <div className="space-y-6 sm:space-y-8 w-full mt-6 sm:mt-10 print:hidden">
          <h2 className="text-xl sm:text-2xl font-black text-slate-800 px-2 uppercase tracking-tighter flex items-center gap-3 sm:gap-4"><Clock className="w-6 h-6 sm:w-8 sm:h-8 text-indigo-600" /> โครงสร้างกะงานฝั่ง: {activeDept === 'service' ? 'บริการ' : 'ครัว'}</h2>
-         {Object.entries(branchData.matrix || {}).map(([key, data]) => (
+         {['weekday', 'friday', 'saturday', 'sunday'].filter(k => branchData.matrix?.[k]).map(k => [k, branchData.matrix[k]]).map(([key, data]) => (
            <div key={key} className="bg-white rounded-[2rem] sm:rounded-[3rem] border border-slate-200 overflow-hidden shadow-sm mb-6 sm:mb-10 w-full">
              <div className={`px-6 sm:px-10 py-4 sm:py-6 font-black text-base sm:text-lg text-white ${key==='weekday' ? 'bg-slate-900' : key==='friday' ? 'bg-sky-700' : key==='saturday' ? 'bg-purple-600' : 'bg-orange-600'}`}>{key.toUpperCase()} CYCLE {authRole === 'branch' ? '(VIEW ONLY)' : ''}</div>
              <div className="overflow-x-auto custom-scrollbar">
@@ -6526,7 +6547,7 @@ export default function App() {
                    const isSelected = selectedDateStr === d.dateStr;
                    const isHoliday = branchData.holidays?.includes?.(d.dateStr);
                    return (
-                      <button key={d.dateStr} onClick={() => setSelectedDateStr(d.dateStr)} className={`flex-shrink-0 w-16 h-20 sm:w-24 sm:h-28 rounded-[1.5rem] sm:rounded-[2.2rem] flex flex-col items-center justify-center transition-all border-2 snap-center ${isSelected ? 'bg-indigo-600 text-white border-indigo-700 shadow-xl sm:shadow-2xl scale-105 z-20 ring-4 sm:ring-8 ring-indigo-50' : isHoliday ? 'bg-red-500 text-white border-red-600 shadow-sm sm:shadow-md' : d.type === 'weekend' ? 'bg-orange-500 text-white border-orange-600 shadow-sm sm:shadow-md' : d.type === 'friday' ? 'bg-sky-500 text-white border-sky-600 shadow-sm sm:shadow-md' : 'bg-white text-slate-800 border-slate-200 hover:border-indigo-400 shadow-sm'}`}>
+                      <button key={d.dateStr} onClick={() => setSelectedDateStr(d.dateStr)} className={`flex-shrink-0 w-16 h-20 sm:w-24 sm:h-28 rounded-[1.5rem] sm:rounded-[2.2rem] flex flex-col items-center justify-center transition-all border-2 snap-center ${isSelected ? 'bg-indigo-600 text-white border-indigo-700 shadow-xl sm:shadow-2xl scale-105 z-20 ring-4 sm:ring-8 ring-indigo-50' : isHoliday ? 'bg-red-500 text-white border-red-600 shadow-sm sm:shadow-md' : d.type === 'saturday' ? 'bg-purple-500 text-white border-purple-600 shadow-sm sm:shadow-md' : d.type === 'sunday' ? 'bg-orange-500 text-white border-orange-600 shadow-sm sm:shadow-md' : d.type === 'friday' ? 'bg-sky-500 text-white border-sky-600 shadow-sm sm:shadow-md' : 'bg-white text-slate-800 border-slate-200 hover:border-indigo-400 shadow-sm'}`}>
                       <span className={`text-[9px] sm:text-[11px] font-black uppercase tracking-widest ${isSelected ? 'text-indigo-100 opacity-80' : 'opacity-40'}`}>{d.dayLabel}</span>
                       <span className="text-2xl sm:text-4xl font-black mt-1 sm:mt-2 leading-none">{d.dayNum}</span>
                       </button>
@@ -6721,11 +6742,7 @@ export default function App() {
                         }
 
                         if (dayData.duties) {
-                            const dateObj = new Date(parseInt(y), parseInt(m) - 1, parseInt(dateStr.split('-')[2]));
-                            const dOW = dateObj.getDay();
-                            let dayType = 'weekday';
-                            if (bData?.holidays?.includes?.(dateStr) || dOW === 0 || dOW === 6) dayType = 'weekend';
-                            else if (dOW === 5) dayType = 'friday';
+                            const dayType = getDayType(dateStr, bData?.holidays, bData?.holidayCycles);
 
                             Object.keys(dayData.duties).forEach(dutyId => {
                                 const slots = dayData.duties[dutyId] || [];
