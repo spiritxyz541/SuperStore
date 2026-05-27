@@ -6,7 +6,7 @@ import {
   Users, AlertCircle, Clock, Save, Plus, Trash2, LayoutDashboard, Printer, ChevronLeft, ChevronRight, 
   Coffee, BarChart3, TrendingUp, Award, PlaneTakeoff, Loader2, Store, ArrowLeftRight, Sparkles, Wand2, Bold, Italic, Underline, Link as LinkIcon, BookOpen,
   Eraser, Filter, ChevronDown, Download, MessageCircle, Bell, UserCircle, SaveAll, FolderOpen, CheckCircle2, Edit2, X, Check, List, TableProperties, GripVertical, LogIn, ShieldCheck, Megaphone,
-  UtensilsCrossed, ConciergeBell, UserPlus, ArrowUpRight, ArrowDownRight, CalendarDays as CalendarDaysIcon, Calendar as CalendarIcon, CheckSquare
+  UtensilsCrossed, ConciergeBell, UserPlus, ArrowUpRight, ArrowDownRight, CalendarDays as CalendarDaysIcon, Calendar as CalendarIcon, CheckSquare, KeyRound
 } from 'lucide-react';
 
 /**
@@ -611,6 +611,9 @@ export default function App() {
   const [newAmPass, setNewAmPass] = useState('');
   const [newAmBranches, setNewAmBranches] = useState([]);
   const [amData, setAmData] = useState({});
+  
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
+  const [newPasswordInput, setNewPasswordInput] = useState('');
 
   const [userInput, setUserInput] = useState('');
   const [passInput, setPassInput] = useState('');
@@ -3730,6 +3733,44 @@ export default function App() {
              </div>
           </div>
         )}
+        {showChangePasswordModal && (
+          <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300 font-sans">
+             <div className="bg-white rounded-[2rem] p-6 sm:p-8 max-w-sm w-full shadow-2xl relative flex flex-col gap-4 animate-in zoom-in-95">
+                <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                   <h3 className="text-xl font-black text-slate-800 uppercase tracking-tighter flex items-center gap-2"><KeyRound className="w-6 h-6 text-indigo-500"/> เปลี่ยนรหัสผ่าน</h3>
+                   <button onClick={() => { setShowChangePasswordModal(false); setNewPasswordInput(''); }} className="text-slate-400 hover:bg-slate-100 p-2 rounded-full transition"><X className="w-5 h-5"/></button>
+                </div>
+                <div className="space-y-4">
+                    <div>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">รหัสผ่านใหม่</label>
+                        <input type="text" value={newPasswordInput} onChange={(e) => setNewPasswordInput(e.target.value)} placeholder="กรอกรหัสผ่านใหม่..." className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 bg-white shadow-sm" />
+                    </div>
+                    <button onClick={async () => {
+                        if (!newPasswordInput.trim()) return;
+                        try {
+                            let nc = JSON.parse(JSON.stringify(globalConfig));
+                            if (authRole === 'branch') {
+                                const bIdx = nc.branches.findIndex(b => b.id === activeBranchId);
+                                if (bIdx > -1) nc.branches[bIdx].pass = newPasswordInput.trim();
+                            } else if (authRole === 'areamanager') {
+                                const aIdx = nc.areaManagers.findIndex(a => a.user === authUser);
+                                if (aIdx > -1) nc.areaManagers[aIdx].pass = newPasswordInput.trim();
+                            }
+                            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'master'), nc);
+                            setGlobalConfig(nc);
+                            setShowChangePasswordModal(false);
+                            setNewPasswordInput('');
+                            setConfirmModal({ message: 'เปลี่ยนรหัสผ่านสำเร็จ!' });
+                        } catch (e) {
+                            setConfirmModal({ message: 'เกิดข้อผิดพลาดในการเปลี่ยนรหัสผ่าน' });
+                        }
+                    }} disabled={!newPasswordInput.trim()} className="w-full bg-indigo-600 text-white py-3.5 rounded-xl font-black text-sm hover:bg-indigo-700 transition disabled:opacity-50 shadow-lg mt-2 uppercase tracking-widest">
+                        ยืนยันการเปลี่ยนรหัสผ่าน
+                    </button>
+                </div>
+             </div>
+          </div>
+        )}
         {showDataInspector && renderDataInspectorModal()}
       </React.Fragment>
     );
@@ -4937,7 +4978,7 @@ export default function App() {
                                   <div className="p-5 sm:p-6 bg-white border-b border-slate-100 flex flex-col gap-2">
                                      <div className="flex justify-between items-start w-full gap-2">
                                         <h3 className="font-black text-slate-900 text-sm sm:text-base uppercase tracking-tighter leading-tight break-words whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: duty.jobA }}></h3>
-                                        {['branch', 'superadmin', 'areamanager'].includes(authRole) && allowsPT && (
+                                        {['branch', 'superadmin', 'areamanager'].includes(authRole) && (!duty.isBackup || unassignedStaffDaily.length > 0) && (
                                            <div className="flex flex-col gap-1 items-end">
                                               <button onClick={() => handleAddExtraSlot(selectedDateStr, duty.id, slots, false)} className="bg-slate-100 text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 px-3 py-1.5 rounded-lg text-[9px] font-black transition-colors flex items-center gap-1 shadow-sm whitespace-nowrap">+ Extra (Base)</button>
                                               {dailyEventQuota > 0 && (
@@ -5018,7 +5059,7 @@ export default function App() {
                                                  {branchData.staff?.filter(s => s.dept === activeDept && isStaffActiveOnDate(s, selectedDateStr)).map(s => {
                                                     const isUsed = usedStaffIds.includes(s.id) && data.staffId !== s.id;
                                                     const wrongPos = !checkPositionEligibility(s.pos, reqArr, activeDept) && data.staffId !== s.id;
-                                                    if (isExtra && !s.pos.includes('PT')) return null;
+                                                    if (isExtra && data.isEventExtra && !s.pos.includes('PT')) return null;
                                                     return (isUsed || wrongPos) ? null : <option key={s.id} value={s.id}>{s.name} ({s.pos})</option>
                                                  })}
                                               </select>
@@ -7158,6 +7199,9 @@ export default function App() {
                           <Bell className="w-5 h-5 text-slate-600" />
                           {pendingRequests.some(r => r.status === 'PENDING_MANAGER') && <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>}
                       </button>
+                      {['branch', 'areamanager'].includes(authRole) && (
+                          <button onClick={() => setShowChangePasswordModal(true)} className="text-slate-400 p-2 bg-slate-100 rounded-lg hover:text-indigo-500 transition" title="เปลี่ยนรหัสผ่าน"><KeyRound className="w-4 h-4" /></button>
+                      )}
                       <button onClick={() => { localStorage.removeItem('superstore_session'); window.location.reload(); }} className="text-slate-400 p-2 bg-slate-100 rounded-lg"><LogIn className="w-4 h-4 rotate-180" /></button>
                    </div>
                 </div>
@@ -7187,7 +7231,10 @@ export default function App() {
                          <span className="ml-1">{saveStatus === 'saving' ? 'กำลังบันทึก...' : 'บันทึกทั้งหมด'}</span>
                       </button>
                       {saveStatus === 'error' && <div className="text-red-500 text-xs font-bold ml-2">บันทึกไม่สำเร็จ กรุณาลองใหม่</div>}
-                      <button onClick={() => { localStorage.removeItem('superstore_session'); window.location.reload(); }} className="text-slate-400 hover:text-red-500 transition"><LogIn className="w-6 h-6 rotate-180" /></button>
+                      {['branch', 'areamanager'].includes(authRole) && (
+                          <button onClick={() => setShowChangePasswordModal(true)} className="text-slate-400 hover:text-indigo-500 transition p-1" title="เปลี่ยนรหัสผ่าน"><KeyRound className="w-5 h-5 sm:w-6 sm:h-6" /></button>
+                      )}
+                      <button onClick={() => { localStorage.removeItem('superstore_session'); window.location.reload(); }} className="text-slate-400 hover:text-red-500 transition p-1"><LogIn className="w-6 h-6 rotate-180" /></button>
                    </div>
                 </div>
              </div>
