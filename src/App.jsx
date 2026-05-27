@@ -4979,7 +4979,7 @@ export default function App() {
                                   <div className="p-5 sm:p-6 bg-white border-b border-slate-100 flex flex-col gap-2">
                                      <div className="flex justify-between items-start w-full gap-2">
                                         <h3 className="font-black text-slate-900 text-sm sm:text-base uppercase tracking-tighter leading-tight break-words whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: duty.jobA }}></h3>
-                                        {['branch', 'superadmin', 'areamanager'].includes(authRole) && (
+                                        {['branch', 'superadmin', 'areamanager'].includes(authRole) && !duty.category.includes('HEAD') && (
                                            <div className="flex flex-col gap-1 items-end">
                                               {(!duty.isBackup || unassignedStaffDaily.length > 0) && (
                                                   <button onClick={() => handleAddExtraSlot(selectedDateStr, duty.id, slots, false)} className="bg-slate-100 text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 px-3 py-1.5 rounded-lg text-[9px] font-black transition-colors flex items-center gap-1 shadow-sm whitespace-nowrap">+ Extra (Base)</button>
