@@ -2749,11 +2749,7 @@ export default function App() {
                                     const posList = POSITIONS[activeDept] || [];
                                     const rankA = posList.indexOf(a.pos);
                                     const rankB = posList.indexOf(b.pos);
-                                    if (aDirect && bDirect) {
-                                        if (rankA !== rankB) return rankA - rankB; // Highest rank first
-                                    } else {
-                                        if (rankA !== rankB) return rankB - rankA; // Lowest rank first
-                                    }
+                                    if (rankA !== rankB) return rankA - rankB; // วิ่งจากตำแหน่งใหญ่สุดก่อนเสมอ ตามที่กำหนด
                                     
                                     // Priority 5: Random Rotation (สุ่มคนลงเมื่อเงื่อนไขทั้งหมดเท่ากัน)
                                     return Math.random() - 0.5;
@@ -5397,7 +5393,12 @@ export default function App() {
          const isAfternoon = stHour >= thresholds.lateMorningEnd && stHour < thresholds.afternoonEnd;
          const isEvening = stHour >= thresholds.afternoonEnd && stHour < thresholds.eveningEnd;
          const isNight = stHour >= thresholds.eveningEnd;
-         const timeText = `${formatTimeAbbreviation(startTime)}-${formatTimeAbbreviation(endTime)}`;
+         const timeText = (
+             <div className="flex flex-col items-center justify-center leading-tight">
+                 <span>{formatTimeAbbreviation(startTime)}-{formatTimeAbbreviation(endTime)}</span>
+                 {assignedData.otHours > 0 && <span className="text-[8px] sm:text-[9px] text-rose-600 font-black mt-0.5 bg-rose-50 px-1 rounded shadow-sm border border-rose-100">OT {assignedData.otHours} ชม.</span>}
+             </div>
+         );
          const pendingExtraOt = pendingRequests.find(r => r.reqType === 'EXTRA_OT' && r.dateStr === selectedDateStr && r.dutyId === duty.id && r.slotIdx === originalIdx && r.status === 'PENDING_MANAGER');
          const otBadge = pendingExtraOt ? <span className="text-[7px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 ml-1 whitespace-nowrap shadow-sm">รออนุมัติ {pendingExtraOt.requestedOt} ชม.</span> : (assignedData.otHours > 0 ? ` (O${assignedData.otHours})` : '');
 
