@@ -4935,6 +4935,10 @@ export default function App() {
                     if (d.isBackup) {
                         const assigned = schedule[selectedDateStr]?.duties?.[d.id] || [];
                         const hasAssigned = assigned.some(a => a && a.staffId);
+                        
+                        // 1. กะสำรองจะไม่ขึ้นจนกว่าจะจัดกะหลักครบ (ยกเว้นมีคนถูกจัดลงไปแล้ว)
+                        if (activeDayEmptySlots > 0 && !hasAssigned) return false;
+
                         // ซ่อนกะสำรอง หากไม่มีคนถูกจัดลงในกะเลย และไม่มีพนักงานว่างเหลือให้จัดแล้ว
                         if (!hasAssigned && unassignedStaffDaily.length === 0) return false;
                     }
@@ -4978,7 +4982,7 @@ export default function App() {
                                <div key={duty.id} className="bg-white rounded-2xl sm:rounded-3xl shadow-sm border border-slate-200 overflow-hidden flex flex-col transition hover:shadow-xl w-full">
                                   <div className="p-5 sm:p-6 bg-white border-b border-slate-100 flex flex-col gap-2">
                                      <div className="flex justify-between items-start w-full gap-2">
-                                        <h3 className="font-black text-slate-900 text-sm sm:text-base uppercase tracking-tighter leading-tight break-words whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: duty.jobA }}></h3>
+                                        <h3 className={`font-black text-sm sm:text-base uppercase tracking-tighter leading-tight break-words whitespace-pre-wrap ${duty.isBackup ? 'text-red-600' : 'text-slate-900'}`} dangerouslySetInnerHTML={{ __html: duty.jobA }}></h3>
                                         {['branch', 'superadmin', 'areamanager'].includes(authRole) && !duty.category.includes('HEAD') && (
                                            <div className="flex flex-col gap-1 items-end">
                                               {(!duty.isBackup || unassignedStaffDaily.length > 0) && (
@@ -5010,9 +5014,9 @@ export default function App() {
                                         const pendingExtraOt = pendingRequests.find(r => r.reqType === 'EXTRA_OT' && r.dateStr === selectedDateStr && r.dutyId === duty.id && r.slotIdx === idx && r.status === 'PENDING_MANAGER');
 
                                         const extraBadge = isExtra ? (data.isEventExtra ? 'EVENT EXTRA' : 'BASE EXTRA') : null;
-                                        const extraColor = isExtra ? (data.isEventExtra ? 'border-amber-300 bg-amber-50/50' : 'border-indigo-300 bg-indigo-50/50') : (!data.staffId ? 'border-dashed border-rose-300 bg-rose-50 animate-pulse' : 'border-indigo-100 bg-white');
-                                        const extraIconColor = isExtra ? (data.isEventExtra ? 'text-amber-500' : 'text-indigo-500') : (!data.staffId ? 'text-rose-400' : 'text-slate-400');
-                                        const extraTextColor = isExtra ? (data.isEventExtra ? 'text-amber-700' : 'text-indigo-700') : (!data.staffId ? 'text-rose-500' : 'text-slate-500');
+                                        const extraColor = isExtra ? (data.isEventExtra ? 'border-amber-300 bg-amber-50/50' : 'border-indigo-300 bg-indigo-50/50') : (!data.staffId ? (duty.isBackup ? 'border-dashed border-slate-300 bg-slate-50' : 'border-dashed border-rose-300 bg-rose-50 animate-pulse') : 'border-indigo-100 bg-white');
+                                        const extraIconColor = isExtra ? (data.isEventExtra ? 'text-amber-500' : 'text-indigo-500') : (!data.staffId ? (duty.isBackup ? 'text-slate-400' : 'text-rose-400') : 'text-slate-400');
+                                        const extraTextColor = isExtra ? (data.isEventExtra ? 'text-amber-700' : 'text-indigo-700') : (!data.staffId ? (duty.isBackup ? 'text-slate-500' : 'text-rose-500') : 'text-slate-500');
                                         
                                         let dynMaxOt = slot.maxOtHours || 0;
                                         if (slot.targetEndTime) {
@@ -5042,7 +5046,7 @@ export default function App() {
                                                  {isExtra && ['branch', 'superadmin', 'areamanager'].includes(authRole) ? (
                                                     <button onClick={() => handleRemoveExtraSlot(selectedDateStr, duty.id, idx)} className="bg-red-100 text-red-500 hover:bg-red-500 hover:text-white px-2 py-1 rounded text-[8px] sm:text-[9px] font-black transition shadow-sm"><X className="w-3 h-3"/></button>
                                                  ) : (
-                                                    <span className={`text-[8px] sm:text-[9px] font-black px-2 py-1 rounded-full uppercase ${!data.staffId ? 'bg-rose-200/50 text-rose-600' : data.otHours >= dynMaxOt && dynMaxOt > 0 ? 'bg-indigo-600 text-white' : 'bg-indigo-50 text-indigo-500'}`}>Q: {dynMaxOt}H</span>
+                                                    <span className={`text-[8px] sm:text-[9px] font-black px-2 py-1 rounded-full uppercase ${!data.staffId ? (duty.isBackup ? 'bg-slate-200/50 text-slate-600' : 'bg-rose-200/50 text-rose-600') : data.otHours >= dynMaxOt && dynMaxOt > 0 ? 'bg-indigo-600 text-white' : 'bg-indigo-50 text-indigo-500'}`}>Q: {dynMaxOt}H</span>
                                                  )}
                                               </div>
                                               </div>
@@ -5057,7 +5061,7 @@ export default function App() {
                                                       calculatedOt = calculateOtHours(slot.targetEndTime, endTime);
                                                   }
                                                   handleScheduleUpdate(selectedDateStr, duty.id, idx, 'staffId', e.target.value, calculatedOt);
-                                              }} className={`w-full sm:flex-[3] border rounded-xl px-3 py-2 text-xs font-black outline-none shadow-sm focus:border-indigo-500 transition-colors ${!data.staffId ? 'bg-rose-100/50 border-rose-200 text-rose-600' : 'bg-slate-50 border-slate-200 text-slate-900'}`}>
+                                              }} className={`w-full sm:flex-[3] border rounded-xl px-3 py-2 text-xs font-black outline-none shadow-sm focus:border-indigo-500 transition-colors ${!data.staffId ? (duty.isBackup ? 'bg-slate-100/50 border-slate-200 text-slate-500' : 'bg-rose-100/50 border-rose-200 text-rose-600') : 'bg-slate-50 border-slate-200 text-slate-900'}`}>
                                                  <option value="">-- เลือกพนักงาน --</option>
                                                  {branchData.staff?.filter(s => s.dept === activeDept && isStaffActiveOnDate(s, selectedDateStr)).map(s => {
                                                     const isUsed = usedStaffIds.includes(s.id) && data.staffId !== s.id;
@@ -5457,7 +5461,7 @@ export default function App() {
                {isFirstOfDuty && (
                   <React.Fragment>
                      <td rowSpan={dutySlotCount} className="border border-slate-800 p-2 text-left leading-tight bg-white/40" style={{ fontSize: `${rs.fontJobA || rs.fontSize}px` }}>
-                        <div className="font-black text-slate-900 whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: duty.jobA }}></div>
+                        <div className={`font-black whitespace-pre-wrap ${duty.isBackup ? 'text-red-600' : 'text-slate-900'}`} dangerouslySetInnerHTML={{ __html: duty.jobA }}></div>
                         {duty.prepItems && duty.prepItems.length > 0 && (
                             <div className="mt-2 flex flex-col gap-1.5">
                                 {duty.prepItems.map(p => {
@@ -5729,11 +5733,24 @@ export default function App() {
                                });
                                if (!hasAssigned) {
                                    const hasUnassignedAnyDay = CALENDAR_DAYS.some(day => {
+                                       // Check if there are empty primary slots on this day
+                                       let emptyPrimaryCount = 0;
+                                       CURRENT_DUTY_LIST.forEach(duty => {
+                                           if (duty.isBackup) return;
+                                           const slots = branchData.matrix?.[day.type]?.duties?.[duty.id] || [];
+                                           const assigned = schedule[day.dateStr]?.duties?.[duty.id] || [];
+                                           slots.forEach((_, idx) => {
+                                               if (!assigned[idx] || !assigned[idx].staffId) emptyPrimaryCount++;
+                                           });
+                                       });
+                                       
                                        const dayUsedStaffIds = new Set();
                                        (schedule[day.dateStr]?.leaves || []).forEach(l => l.staffId && dayUsedStaffIds.add(l.staffId));
                                        Object.values(schedule[day.dateStr]?.duties || {}).forEach(sls => sls.forEach(s => s && s.staffId && dayUsedStaffIds.add(s.staffId)));
                                        const unassignedStaffCount = branchData.staff?.filter(s => s.dept === activeDept && !dayUsedStaffIds.has(s.id) && isStaffActiveOnDate(s, day.dateStr)).length || 0;
-                                       return unassignedStaffCount > 0;
+                                       
+                                       // Only allow backup if primary is full AND there are unassigned staff
+                                       return emptyPrimaryCount === 0 && unassignedStaffCount > 0;
                                    });
                                    return hasUnassignedAnyDay;
                                }
@@ -5751,7 +5768,7 @@ export default function App() {
                                        </td>
                                    )}
                                    <td className="p-4 border-r border-slate-200 sticky left-[150px] bg-white z-10 align-top">
-                                       <div className="font-black text-sm text-slate-800 leading-tight mb-1 whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: duty.jobA }}></div>
+                                       <div className={`font-black text-sm leading-tight mb-1 whitespace-pre-wrap ${duty.isBackup ? 'text-red-600' : 'text-slate-800'}`} dangerouslySetInnerHTML={{ __html: duty.jobA }}></div>
                                        <div className="font-bold text-[9px] text-slate-500 leading-tight whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: duty.jobB || '-' }}></div>
                                        <div className="mt-2 text-[8px] font-black px-1.5 py-0.5 rounded border uppercase bg-slate-50 text-slate-500 inline-block">{(duty.reqPos || ['ALL']).join(', ')}</div>
                                    </td>
@@ -5764,8 +5781,18 @@ export default function App() {
 
                                        const unassignedStaff = branchData.staff?.filter(s => s.dept === activeDept && !dayUsedStaffIds.has(s.id) && isStaffActiveOnDate(s, day.dateStr)) || [];
 
+                                       let emptyPrimaryCount = 0;
+                                       CURRENT_DUTY_LIST.forEach(dty => {
+                                           if (dty.isBackup) return;
+                                           const primSlots = branchData.matrix?.[day.type]?.duties?.[dty.id] || [];
+                                           const primAssigned = schedule[day.dateStr]?.duties?.[dty.id] || [];
+                                           primSlots.forEach((_, pIdx) => {
+                                               if (!primAssigned[pIdx] || !primAssigned[pIdx].staffId) emptyPrimaryCount++;
+                                           });
+                                       });
+
                                        let totalSlotsCount = Math.max(slots.length, assigned.length);
-                                       if (duty.isBackup && unassignedStaff.length > 0) {
+                                       if (duty.isBackup && unassignedStaff.length > 0 && emptyPrimaryCount === 0) {
                                            const emptyCount = assigned.filter(a => !a || !a.staffId).length;
                                            if (emptyCount === 0) {
                                                totalSlotsCount += 1;
@@ -5780,7 +5807,7 @@ export default function App() {
                                                   {renderSlots.map((_, idx) => {
                                                       const matrixSlot = slots[idx] || { shiftPresetId: assigned[idx]?.shiftPresetId || branchData.shiftPresets?.[0]?.id, maxOtHours: 0 };
                                                       const data = assigned[idx] || { staffId: "", otHours: 0 };
-                                                     if (duty.isBackup && !data.staffId && unassignedStaff.length === 0) return null; // ซ่อนกล่องว่าง หากเป็นกะสำรองและไม่มีคนว่างเหลือ
+                                                     if (duty.isBackup && !data.staffId && (unassignedStaff.length === 0 || emptyPrimaryCount > 0)) return null; // ซ่อนกล่องว่าง หากเป็นกะสำรองและไม่มีคนว่างเหลือ หรือกะหลักยังไม่เต็ม
                                                       const shiftPreset = branchData.shiftPresets?.find(p => p.id === matrixSlot.shiftPresetId);
                                                       const shiftName = shiftPreset ? shiftPreset.name : 'N/A';
                                                       const pendingExtraOt = pendingRequests.find(r => r.reqType === 'EXTRA_OT' && r.dateStr === day.dateStr && r.dutyId === duty.id && r.slotIdx === idx && r.status === 'PENDING_MANAGER');
@@ -5798,9 +5825,9 @@ export default function App() {
                                                       }
 
                                                       return (
-                                                          <div key={idx} className={`p-2 rounded-lg border ${!data.staffId ? 'border-dashed border-rose-300 bg-rose-50 animate-pulse shadow-sm' : data.staffId.startsWith('COVER_BY_') ? 'border-dashed border-amber-300 bg-amber-50 shadow-sm' : 'border-indigo-200 bg-indigo-50/30'}`}>
+                                                          <div key={idx} className={`p-2 rounded-lg border ${!data.staffId ? (duty.isBackup ? 'border-dashed border-slate-300 bg-slate-50' : 'border-dashed border-rose-300 bg-rose-50 animate-pulse shadow-sm') : data.staffId.startsWith('COVER_BY_') ? 'border-dashed border-amber-300 bg-amber-50 shadow-sm' : 'border-indigo-200 bg-indigo-50/30'}`}>
                                                              <div className="flex justify-between items-center mb-1 gap-1">
-                                                                <span className={`text-[8px] font-bold truncate ${!data.staffId ? 'text-rose-400' : data.staffId.startsWith('COVER_BY_') ? 'text-amber-500' : 'text-slate-400'}`}>{shiftName}</span>
+                                                                <span className={`text-[8px] font-bold truncate ${!data.staffId ? (duty.isBackup ? 'text-slate-400' : 'text-rose-400') : data.staffId.startsWith('COVER_BY_') ? 'text-amber-500' : 'text-slate-400'}`}>{shiftName}</span>
                                                                 <div className="flex items-center gap-0.5 flex-shrink-0">
                                                                    <span className="text-[7px] font-black text-slate-400">OT:</span>
                                                                    {pendingExtraOt ? (
@@ -5820,7 +5847,7 @@ export default function App() {
                                                                       calculatedOt = calculateOtHours(matrixSlot.targetEndTime, endTime);
                                                                   }
                                                                   handleScheduleUpdate(day.dateStr, duty.id, idx, 'staffId', e.target.value, calculatedOt);
-                                                              }} className={`w-full text-[10px] font-bold bg-transparent outline-none truncate ${!data.staffId ? 'text-rose-600' : data.staffId.startsWith('COVER_BY_') ? 'text-amber-700' : 'text-slate-800'}`}>
+                                                              }} className={`w-full text-[10px] font-bold bg-transparent outline-none truncate ${!data.staffId ? (duty.isBackup ? 'text-slate-500' : 'text-rose-600') : data.staffId.startsWith('COVER_BY_') ? 'text-amber-700' : 'text-slate-800'}`}>
                                                                 <option value="">-- ว่าง --</option>
                                                                 {data.staffId && data.staffId.startsWith('COVER_BY_') && <option value={data.staffId}>✅ Cover: {branchData.staff?.find(s=>s.id === data.staffId.replace('COVER_BY_',''))?.name}</option>}
                                                                 {branchData.staff?.filter(s => s.dept === activeDept && isStaffActiveOnDate(s, day.dateStr)).map(s => {
