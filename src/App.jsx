@@ -987,16 +987,17 @@ export default function App() {
   const activeDayShiftVisibilities = useMemo(() => {
       let hasMorning = false, hasLateMorning = false, hasAfternoon = false, hasEvening = false, hasNight = false;
       if (branchData.matrix && activeDay) {
+          const thresholds = branchData.shiftThresholds || { morningEnd: 11, lateMorningEnd: 12, afternoonEnd: 16, eveningEnd: 19 };
           CURRENT_DUTY_LIST.forEach(duty => {
               const matrixSlots = branchData.matrix[activeDay.type]?.duties?.[duty.id] || [];
               const checkTime = (startTime) => {
                   if (!startTime || startTime === '??:??') return;
                   const stHour = parseInt(startTime.split(':')[0]) || 0;
-                  if (stHour < 11) hasMorning = true;
-                  else if (stHour === 11) hasLateMorning = true;
-                  else if (stHour >= 12 && stHour < 16) hasAfternoon = true;
-                  else if (stHour >= 16 && stHour < 19) hasEvening = true;
-                  else if (stHour >= 19) hasNight = true;
+                  if (stHour < thresholds.morningEnd) hasMorning = true;
+                  else if (stHour >= thresholds.morningEnd && stHour < thresholds.lateMorningEnd) hasLateMorning = true;
+                  else if (stHour >= thresholds.lateMorningEnd && stHour < thresholds.afternoonEnd) hasAfternoon = true;
+                  else if (stHour >= thresholds.afternoonEnd && stHour < thresholds.eveningEnd) hasEvening = true;
+                  else if (stHour >= thresholds.eveningEnd) hasNight = true;
               };
 
               matrixSlots.forEach(matrixSlot => {
@@ -1337,6 +1338,9 @@ export default function App() {
         const data = snap.data();
         if (!data.shiftPresets || !Array.isArray(data.shiftPresets) || data.shiftPresets.length === 0) {
             data.shiftPresets = DEFAULT_SHIFT_PRESETS;
+        }
+        if (!data.shiftThresholds) {
+            data.shiftThresholds = { morningEnd: 11, lateMorningEnd: 12, afternoonEnd: 16, eveningEnd: 19 };
         }
         if (!data.duties) data.duties = { service: DEFAULT_SERVICE_DUTIES, kitchen: DEFAULT_KITCHEN_DUTIES };
         if (!data.templates) data.templates = [];
@@ -2179,6 +2183,7 @@ export default function App() {
         matrix: branchData.matrix,
         shiftPresets: branchData.shiftPresets,
         holidays: branchData.holidays,
+        shiftThresholds: branchData.shiftThresholds || { morningEnd: 11, lateMorningEnd: 12, afternoonEnd: 16, eveningEnd: 19 },
         branchId: activeBranchId 
     };
     try {
@@ -2199,7 +2204,8 @@ export default function App() {
                 duties: tpl.duties, 
                 matrix: tpl.matrix,
                 shiftPresets: tpl.shiftPresets || DEFAULT_SHIFT_PRESETS, // Fallback for old templates
-                holidays: tpl.holidays || [] // Fallback for old templates
+                holidays: tpl.holidays || [], // Fallback for old templates
+                shiftThresholds: tpl.shiftThresholds || { morningEnd: 11, lateMorningEnd: 12, afternoonEnd: 16, eveningEnd: 19 }
             })); }
         });
     }
@@ -4040,6 +4046,53 @@ export default function App() {
     );
   }
 
+  function renderShiftThresholdSettings() {
+    if (authRole !== 'superadmin') return null;
+
+    const thresholds = branchData.shiftThresholds || { morningEnd: 11, lateMorningEnd: 12, afternoonEnd: 16, eveningEnd: 19 };
+
+    const handleChange = async (field, value) => {
+        const nd = JSON.parse(JSON.stringify(branchData));
+        if (!nd.shiftThresholds) nd.shiftThresholds = { morningEnd: 11, lateMorningEnd: 12, afternoonEnd: 16, eveningEnd: 19 };
+        nd.shiftThresholds[field] = parseInt(value) || 0;
+        setBranchData(nd);
+        if (activeBranchId) {
+            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd);
+        }
+    };
+
+    return (
+        <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm w-full mt-6 sm:mt-10 print:hidden">
+            <h2 className="text-lg sm:text-xl font-black text-slate-800 mb-6 sm:mb-8 flex items-center gap-2 sm:gap-4 uppercase tracking-tighter">
+                <Clock className="w-6 h-6 sm:w-7 sm:h-7 text-emerald-500" /> ตั้งค่าเกณฑ์เวลาการจัดกลุ่มคอลัมน์กะ (Shift Thresholds)
+            </h2>
+            <p className="text-xs font-bold text-slate-500 mb-4">กำหนดชั่วโมงเริ่มต้นของแต่ละช่วงเวลา เพื่อให้ระบบจัดเรียงกะเข้าคอลัมน์ต่างๆ ในหน้า Duty Roster ได้อย่างถูกต้อง</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">สิ้นสุดกะเช้า (เริ่มสาย)</label>
+                    <div className="flex items-center gap-2"><input type="number" min="0" max="23" value={thresholds.morningEnd} onChange={(e) => handleChange('morningEnd', e.target.value)} className="w-full border rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-emerald-500" /><span className="text-xs font-bold text-slate-400">น.</span></div>
+                    <p className="text-[9px] text-slate-400 mt-1 font-bold">ก่อน {thresholds.morningEnd}:00 = <span className="text-indigo-600">เช้า</span></p>
+                </div>
+                <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">สิ้นสุดสาย (เริ่มบ่าย)</label>
+                    <div className="flex items-center gap-2"><input type="number" min="0" max="23" value={thresholds.lateMorningEnd} onChange={(e) => handleChange('lateMorningEnd', e.target.value)} className="w-full border rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-emerald-500" /><span className="text-xs font-bold text-slate-400">น.</span></div>
+                    <p className="text-[9px] text-slate-400 mt-1 font-bold">{thresholds.morningEnd}:00 - ก่อน {thresholds.lateMorningEnd}:00 = <span className="text-indigo-600">สาย</span></p>
+                </div>
+                <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">สิ้นสุดบ่าย (เริ่มเย็น)</label>
+                    <div className="flex items-center gap-2"><input type="number" min="0" max="23" value={thresholds.afternoonEnd} onChange={(e) => handleChange('afternoonEnd', e.target.value)} className="w-full border rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-emerald-500" /><span className="text-xs font-bold text-slate-400">น.</span></div>
+                    <p className="text-[9px] text-slate-400 mt-1 font-bold">{thresholds.lateMorningEnd}:00 - ก่อน {thresholds.afternoonEnd}:00 = <span className="text-indigo-600">บ่าย</span></p>
+                </div>
+                <div>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">สิ้นสุดเย็น (เริ่มดึก)</label>
+                    <div className="flex items-center gap-2"><input type="number" min="0" max="23" value={thresholds.eveningEnd} onChange={(e) => handleChange('eveningEnd', e.target.value)} className="w-full border rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-emerald-500" /><span className="text-xs font-bold text-slate-400">น.</span></div>
+                    <p className="text-[9px] text-slate-400 mt-1 font-bold">{thresholds.afternoonEnd}:00 - ก่อน {thresholds.eveningEnd}:00 = <span className="text-indigo-600">เย็น</span><br/>ตั้งแต่ {thresholds.eveningEnd}:00 เป็นต้นไป = <span className="text-indigo-600">ดึก</span></p>
+                </div>
+            </div>
+        </div>
+    );
+  }
+
   function renderEmptyBranchAdmin() {
     return (
      <div className="flex-1 h-[60vh] sm:h-[70vh] flex flex-col items-center justify-center gap-4 sm:gap-6 text-slate-300 font-black uppercase tracking-[0.2em] sm:tracking-[0.4em] text-center px-4 w-full">
@@ -4667,6 +4720,8 @@ export default function App() {
         )}
 
         {authRole === 'superadmin' && renderShiftPresetManager()}
+
+        {authRole === 'superadmin' && renderShiftThresholdSettings()}
 
         {authRole === 'superadmin' && renderMatrixSettings()}
 
