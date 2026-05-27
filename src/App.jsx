@@ -4935,7 +4935,8 @@ export default function App() {
                     if (d.isBackup) {
                         const assigned = schedule[selectedDateStr]?.duties?.[d.id] || [];
                         const hasAssigned = assigned.some(a => a && a.staffId);
-                        if (!hasAssigned) return false; // ซ่อนกะสำรอง หากไม่มีคนถูกจัดลงในกะเลย
+                        // ซ่อนกะสำรอง หากไม่มีคนถูกจัดลงในกะเลย และไม่มีพนักงานว่างเหลือให้จัดแล้ว
+                        if (!hasAssigned && unassignedStaffDaily.length === 0) return false;
                     }
                     return true;
                 });
@@ -4978,9 +4979,11 @@ export default function App() {
                                   <div className="p-5 sm:p-6 bg-white border-b border-slate-100 flex flex-col gap-2">
                                      <div className="flex justify-between items-start w-full gap-2">
                                         <h3 className="font-black text-slate-900 text-sm sm:text-base uppercase tracking-tighter leading-tight break-words whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: duty.jobA }}></h3>
-                                        {['branch', 'superadmin', 'areamanager'].includes(authRole) && (!duty.isBackup || unassignedStaffDaily.length > 0) && (
+                                        {['branch', 'superadmin', 'areamanager'].includes(authRole) && (
                                            <div className="flex flex-col gap-1 items-end">
-                                              <button onClick={() => handleAddExtraSlot(selectedDateStr, duty.id, slots, false)} className="bg-slate-100 text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 px-3 py-1.5 rounded-lg text-[9px] font-black transition-colors flex items-center gap-1 shadow-sm whitespace-nowrap">+ Extra (Base)</button>
+                                              {unassignedStaffDaily.length > 0 && (
+                                                  <button onClick={() => handleAddExtraSlot(selectedDateStr, duty.id, slots, false)} className="bg-slate-100 text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 px-3 py-1.5 rounded-lg text-[9px] font-black transition-colors flex items-center gap-1 shadow-sm whitespace-nowrap">+ Extra (Base)</button>
+                                              )}
                                               {dailyEventQuota > 0 && (
                                                 <button onClick={() => handleAddExtraSlot(selectedDateStr, duty.id, slots, true)} className="bg-amber-100 text-amber-700 hover:bg-amber-500 hover:text-white px-3 py-1.5 rounded-lg text-[9px] font-black transition-colors flex items-center gap-1 shadow-sm whitespace-nowrap">+ Extra (Event) {dailyEventUsed.toFixed(1)}/{dailyEventQuota.toFixed(1)}H</button>
                                               )}
