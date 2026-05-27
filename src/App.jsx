@@ -4981,7 +4981,7 @@ export default function App() {
                                         <h3 className="font-black text-slate-900 text-sm sm:text-base uppercase tracking-tighter leading-tight break-words whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: duty.jobA }}></h3>
                                         {['branch', 'superadmin', 'areamanager'].includes(authRole) && (
                                            <div className="flex flex-col gap-1 items-end">
-                                              {unassignedStaffDaily.length > 0 && (
+                                              {(!duty.isBackup || unassignedStaffDaily.length > 0) && (
                                                   <button onClick={() => handleAddExtraSlot(selectedDateStr, duty.id, slots, false)} className="bg-slate-100 text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 px-3 py-1.5 rounded-lg text-[9px] font-black transition-colors flex items-center gap-1 shadow-sm whitespace-nowrap">+ Extra (Base)</button>
                                               )}
                                               {dailyEventQuota > 0 && (
