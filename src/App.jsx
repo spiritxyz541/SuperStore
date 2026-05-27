@@ -5807,6 +5807,7 @@ export default function App() {
                                            <td key={day.dateStr} className="p-2 border-r border-slate-100 align-top bg-white">
                                                <div className="space-y-2">
                                                   {renderSlots.map((_, idx) => {
+                                                      const isExtra = idx >= slots.length;
                                                       const matrixSlot = slots[idx] || { shiftPresetId: assigned[idx]?.shiftPresetId || branchData.shiftPresets?.[0]?.id, maxOtHours: 0 };
                                                       const data = assigned[idx] || { staffId: "", otHours: 0 };
                                                      if (duty.isBackup && !data.staffId && (unassignedFT.length === 0 || emptyPrimaryCount > 0)) return null; // ซ่อนกล่องว่าง หากเป็นกะสำรองและไม่มีคน FT ว่างเหลือ หรือกะหลักยังไม่เต็ม
@@ -5826,11 +5827,18 @@ export default function App() {
                                                           dynMaxOt = calculateOtHours(matrixSlot.targetEndTime, endTime);
                                                       }
 
+                                                      const extraBadge = isExtra ? (data.isEventExtra ? 'EVENT EXTRA' : 'BASE EXTRA') : null;
+                                                      const extraColor = isExtra ? (data.isEventExtra ? 'border-amber-300 bg-amber-50/50' : 'border-indigo-300 bg-indigo-50/50') : (!data.staffId ? (duty.isBackup ? 'border-dashed border-slate-300 bg-slate-50' : 'border-dashed border-rose-300 bg-rose-50 animate-pulse shadow-sm') : data.staffId.startsWith('COVER_BY_') ? 'border-dashed border-amber-300 bg-amber-50 shadow-sm' : 'border-indigo-200 bg-indigo-50/30');
+                                                      const extraTextColor = isExtra ? (data.isEventExtra ? 'text-amber-700' : 'text-indigo-700') : (!data.staffId ? (duty.isBackup ? 'text-slate-400' : 'text-rose-400') : data.staffId.startsWith('COVER_BY_') ? 'text-amber-500' : 'text-slate-400');
+
                                                       return (
-                                                          <div key={idx} className={`p-2 rounded-lg border ${!data.staffId ? (duty.isBackup ? 'border-dashed border-slate-300 bg-slate-50' : 'border-dashed border-rose-300 bg-rose-50 animate-pulse shadow-sm') : data.staffId.startsWith('COVER_BY_') ? 'border-dashed border-amber-300 bg-amber-50 shadow-sm' : 'border-indigo-200 bg-indigo-50/30'}`}>
+                                                          <div key={idx} className={`p-2 rounded-lg border ${extraColor}`}>
                                                              <div className="flex justify-between items-center mb-1 gap-1">
-                                                                <span className={`text-[8px] font-bold truncate ${!data.staffId ? (duty.isBackup ? 'text-slate-400' : 'text-rose-400') : data.staffId.startsWith('COVER_BY_') ? 'text-amber-500' : 'text-slate-400'}`}>{shiftName}</span>
+                                                                <span className={`text-[8px] font-bold truncate ${extraTextColor}`}>{isExtra ? extraBadge : shiftName}</span>
                                                                 <div className="flex items-center gap-0.5 flex-shrink-0">
+                                                                   {isExtra && ['branch', 'superadmin', 'areamanager'].includes(authRole) && (
+                                                                       <button onClick={() => handleRemoveExtraSlot(day.dateStr, duty.id, idx)} className="bg-red-100 text-red-500 hover:bg-red-500 hover:text-white px-1.5 py-0.5 rounded text-[7px] font-black transition shadow-sm mr-0.5"><X className="w-2.5 h-2.5"/></button>
+                                                                   )}
                                                                    <span className="text-[7px] font-black text-slate-400">OT:</span>
                                                                    {pendingExtraOt ? (
                                                                        <span className="text-[7px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 leading-tight text-center">รออนุมัติ<br/>{pendingExtraOt.requestedOt}</span>
@@ -5849,18 +5857,29 @@ export default function App() {
                                                                       calculatedOt = calculateOtHours(matrixSlot.targetEndTime, endTime);
                                                                   }
                                                                   handleScheduleUpdate(day.dateStr, duty.id, idx, 'staffId', e.target.value, calculatedOt);
-                                                              }} className={`w-full text-[10px] font-bold bg-transparent outline-none truncate ${!data.staffId ? (duty.isBackup ? 'text-slate-500' : 'text-rose-600') : data.staffId.startsWith('COVER_BY_') ? 'text-amber-700' : 'text-slate-800'}`}>
+                                                              }} className={`w-full text-[10px] font-bold bg-transparent outline-none truncate ${!data.staffId ? (duty.isBackup ? 'text-slate-500' : 'text-rose-600') : data.staffId.startsWith('COVER_BY_') ? 'text-amber-700' : 'text-slate-800'} ${isExtra && !data.staffId ? 'text-indigo-500' : ''}`}>
                                                                 <option value="">-- ว่าง --</option>
                                                                 {data.staffId && data.staffId.startsWith('COVER_BY_') && <option value={data.staffId}>✅ Cover: {branchData.staff?.find(s=>s.id === data.staffId.replace('COVER_BY_',''))?.name}</option>}
                                                                 {branchData.staff?.filter(s => s.dept === activeDept && isStaffActiveOnDate(s, day.dateStr)).map(s => {
                                                                    const isUsed = dayUsedStaffIds.has(s.id) && data.staffId !== s.id;
                                                                    const wrongPos = !checkPositionEligibility(s.pos, reqArr, activeDept) && data.staffId !== s.id;
+                                                                   if (isExtra && data.isEventExtra && !s.pos.includes('PT')) return null;
                                                                    return (isUsed || wrongPos) ? null : <option key={s.id} value={s.id}>{s.name}</option>
                                                                 })}
                                                              </select>
                                                           </div>
                                                       )
                                                   })}
+                                                  {['branch', 'superadmin', 'areamanager'].includes(authRole) && !duty.category.includes('HEAD') && (
+                                                      <div className="flex flex-col gap-1 mt-1">
+                                                          {(!duty.isBackup || unassignedFT.length > 0) && (
+                                                              <button onClick={() => handleAddExtraSlot(day.dateStr, duty.id, slots, false)} className="w-full bg-slate-50 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 border border-dashed border-slate-200 hover:border-indigo-200 py-1.5 rounded-lg text-[8px] font-black transition-colors flex items-center justify-center gap-1 shadow-sm">+ Extra (Base)</button>
+                                                          )}
+                                                          {(schedule[day.dateStr]?.eventExtraHours > 0) && (
+                                                              <button onClick={() => handleAddExtraSlot(day.dateStr, duty.id, slots, true)} className="w-full bg-amber-50 hover:bg-amber-100 text-amber-600 hover:text-amber-700 border border-dashed border-amber-200 hover:border-amber-300 py-1.5 rounded-lg text-[8px] font-black transition-colors flex items-center justify-center gap-1 shadow-sm">+ Extra (Event)</button>
+                                                          )}
+                                                      </div>
+                                                  )}
                                                </div>
                                            </td>
                                        )
