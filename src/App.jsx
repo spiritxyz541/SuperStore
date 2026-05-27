@@ -5071,6 +5071,7 @@ export default function App() {
   function renderManagerDailyTable() {
     const hourlyTcData = branchData.matrix?.[activeDay.type]?.hourlyTc || {};
 
+    const thresholds = branchData.shiftThresholds || { morningEnd: 11, lateMorningEnd: 12, afternoonEnd: 16, eveningEnd: 19 };
     const categories = DUTY_CATEGORIES[activeDept] || [];
     let totalAssignedAll = 0;
     const rs = branchData.rosterStyle || {
@@ -5391,11 +5392,11 @@ export default function App() {
 
          const stHour = parseInt(startTime.split(':')[0]) || 0;
 
-         const isMorning = stHour < 11;
-         const isLateMorning = stHour === 11;
-         const isAfternoon = stHour >= 12 && stHour < 16;
-         const isEvening = stHour >= 16 && stHour < 19;
-         const isNight = stHour >= 19;
+         const isMorning = stHour < thresholds.morningEnd;
+         const isLateMorning = stHour >= thresholds.morningEnd && stHour < thresholds.lateMorningEnd;
+         const isAfternoon = stHour >= thresholds.lateMorningEnd && stHour < thresholds.afternoonEnd;
+         const isEvening = stHour >= thresholds.afternoonEnd && stHour < thresholds.eveningEnd;
+         const isNight = stHour >= thresholds.eveningEnd;
          const timeText = `${formatTimeAbbreviation(startTime)}-${formatTimeAbbreviation(endTime)}`;
          const pendingExtraOt = pendingRequests.find(r => r.reqType === 'EXTRA_OT' && r.dateStr === selectedDateStr && r.dutyId === duty.id && r.slotIdx === originalIdx && r.status === 'PENDING_MANAGER');
          const otBadge = pendingExtraOt ? <span className="text-[7px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 ml-1 whitespace-nowrap shadow-sm">รออนุมัติ {pendingExtraOt.requestedOt} ชม.</span> : (assignedData.otHours > 0 ? ` (O${assignedData.otHours})` : '');
