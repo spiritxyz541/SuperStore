@@ -5723,10 +5723,20 @@ export default function App() {
                        const catDuties = CURRENT_DUTY_LIST.filter(d => {
                            if (d.category !== cat.id) return false;
                            if (d.isBackup) {
-                               return CALENDAR_DAYS.some(day => {
+                               const hasAssigned = CALENDAR_DAYS.some(day => {
                                    const assigned = schedule[day.dateStr]?.duties?.[d.id] || [];
                                    return assigned.some(a => a && a.staffId);
-                               }); // ซ่อนแถวกะสำรอง หากทั้งเดือนนั้นไม่มีใครถูกจับลงกะนี้เลย
+                               });
+                               if (!hasAssigned) {
+                                   const hasUnassignedAnyDay = CALENDAR_DAYS.some(day => {
+                                       const dayUsedStaffIds = new Set();
+                                       (schedule[day.dateStr]?.leaves || []).forEach(l => l.staffId && dayUsedStaffIds.add(l.staffId));
+                                       Object.values(schedule[day.dateStr]?.duties || {}).forEach(sls => sls.forEach(s => s && s.staffId && dayUsedStaffIds.add(s.staffId)));
+                                       const unassignedStaffCount = branchData.staff?.filter(s => s.dept === activeDept && !dayUsedStaffIds.has(s.id) && isStaffActiveOnDate(s, day.dateStr)).length || 0;
+                                       return unassignedStaffCount > 0;
+                                   });
+                                   return hasUnassignedAnyDay;
+                               }
                            }
                            return true;
                        });
@@ -5752,7 +5762,16 @@ export default function App() {
                                        (schedule[day.dateStr]?.leaves || []).forEach(l => l.staffId && dayUsedStaffIds.add(l.staffId));
                                        Object.values(schedule[day.dateStr]?.duties || {}).forEach(sls => sls.forEach(s => s && s.staffId && dayUsedStaffIds.add(s.staffId)));
 
-                                       const totalSlotsCount = Math.max(slots.length, assigned.length);
+                                       const unassignedStaff = branchData.staff?.filter(s => s.dept === activeDept && !dayUsedStaffIds.has(s.id) && isStaffActiveOnDate(s, day.dateStr)) || [];
+
+                                       let totalSlotsCount = Math.max(slots.length, assigned.length);
+                                       if (duty.isBackup && unassignedStaff.length > 0) {
+                                           const emptyCount = assigned.filter(a => !a || !a.staffId).length;
+                                           if (emptyCount === 0) {
+                                               totalSlotsCount += 1;
+                                           }
+                                       }
+
                                        const renderSlots = Array.from({ length: totalSlotsCount });
 
                                        return (
@@ -5761,7 +5780,7 @@ export default function App() {
                                                   {renderSlots.map((_, idx) => {
                                                       const matrixSlot = slots[idx] || { shiftPresetId: assigned[idx]?.shiftPresetId || branchData.shiftPresets?.[0]?.id, maxOtHours: 0 };
                                                       const data = assigned[idx] || { staffId: "", otHours: 0 };
-                                                     if (duty.isBackup && !data.staffId) return null; // ซ่อนกล่องว่าง หากเป็นกะสำรอง
+                                                     if (duty.isBackup && !data.staffId && unassignedStaff.length === 0) return null; // ซ่อนกล่องว่าง หากเป็นกะสำรองและไม่มีคนว่างเหลือ
                                                       const shiftPreset = branchData.shiftPresets?.find(p => p.id === matrixSlot.shiftPresetId);
                                                       const shiftName = shiftPreset ? shiftPreset.name : 'N/A';
                                                       const pendingExtraOt = pendingRequests.find(r => r.reqType === 'EXTRA_OT' && r.dateStr === day.dateStr && r.dutyId === duty.id && r.slotIdx === idx && r.status === 'PENDING_MANAGER');
