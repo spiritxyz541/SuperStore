@@ -6,7 +6,7 @@ import {
   Users, AlertCircle, Clock, Save, Plus, Trash2, LayoutDashboard, Printer, ChevronLeft, ChevronRight, 
   Coffee, BarChart3, TrendingUp, Award, PlaneTakeoff, Loader2, Store, ArrowLeftRight, Sparkles, Wand2, Bold, Italic, Underline, Link as LinkIcon, BookOpen,
   Eraser, Filter, ChevronDown, Download, MessageCircle, Bell, UserCircle, SaveAll, FolderOpen, CheckCircle2, Edit2, X, Check, List, TableProperties, GripVertical, LogIn, ShieldCheck, Megaphone,
-  UtensilsCrossed, ConciergeBell, UserPlus, ArrowUpRight, ArrowDownRight, CalendarDays as CalendarDaysIcon, Calendar as CalendarIcon, CheckSquare, KeyRound
+  UtensilsCrossed, ConciergeBell, UserPlus, ArrowUpRight, ArrowDownRight, CalendarDays as CalendarDaysIcon, Calendar as CalendarIcon, CheckSquare, KeyRound, Upload
 } from 'lucide-react';
 
 /**
@@ -3969,6 +3969,54 @@ export default function App() {
              </div>
           </div>
         )}
+        {showImportStaffModal && (
+          <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300 font-sans">
+             <div className="bg-white rounded-[2rem] p-6 sm:p-8 max-w-2xl w-full shadow-2xl relative flex flex-col gap-4 animate-in zoom-in-95">
+                <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                   <h3 className="text-xl font-black text-slate-800 uppercase tracking-tighter flex items-center gap-2"><UserPlus className="w-6 h-6 text-emerald-500"/> นำเข้าพนักงาน (Bulk Import)</h3>
+                   <button onClick={() => { setShowImportStaffModal(false); setImportStaffText(''); }} className="text-slate-400 hover:bg-slate-100 p-2 rounded-full transition"><X className="w-5 h-5"/></button>
+                </div>
+                <div className="space-y-4">
+                    <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100 text-xs sm:text-sm text-emerald-800 font-bold space-y-2">
+                        <div className="flex justify-between items-center mb-2 border-b border-emerald-200/50 pb-2">
+                            <p>วิธีการนำเข้าข้อมูลพนักงาน:</p>
+                            <button onClick={handleDownloadTemplate} className="bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-[10px] font-black hover:bg-emerald-700 transition shadow-sm flex items-center gap-1">
+                                <Download className="w-3 h-3" /> โหลดไฟล์แม่แบบ (CSV)
+                            </button>
+                        </div>
+                        <p>1. <b>อัปโหลดไฟล์ CSV</b> หรือ คัดลอกข้อมูลจาก Excel มาวางในกล่องด้านล่าง</p>
+                        <p>2. เรียงลำดับคอลัมน์ ดังนี้:</p>
+                        <div className="flex flex-wrap gap-1 mt-1 font-black text-[10px] sm:text-xs">
+                           <span className="bg-white px-2 py-1 rounded shadow-sm">1. รหัสพนง. (เว้นว่างได้)</span>
+                           <span className="bg-white px-2 py-1 rounded shadow-sm text-red-500">2. ชื่อ-สกุล*</span>
+                           <span className="bg-white px-2 py-1 rounded shadow-sm text-indigo-500">3. แผนก (บริการ/ครัว)</span>
+                           <span className="bg-white px-2 py-1 rounded shadow-sm text-indigo-500">4. ตำแหน่ง (เช่น OC, PT)</span>
+                           <span className="bg-white px-2 py-1 rounded shadow-sm">5. ประเภทจ้าง (รายเดือน/รายชั่วโมง/PT)</span>
+                           <span className="bg-white px-2 py-1 rounded shadow-sm">6. ฐานเงินเดือน/ค่าแรง</span>
+                        </div>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                        <label className="w-full border-2 border-dashed border-emerald-300 bg-emerald-50/50 hover:bg-emerald-100 rounded-xl p-4 text-center cursor-pointer transition flex items-center justify-center gap-2">
+                            <input type="file" accept=".csv" onChange={handleFileUpload} className="hidden" />
+                            <Upload className="w-5 h-5 text-emerald-600" />
+                            <span className="text-emerald-700 font-black text-sm">คลิกเพื่ออัปโหลดไฟล์ข้อมูล CSV</span>
+                        </label>
+                        <textarea
+                            value={importStaffText}
+                            onChange={(e) => setImportStaffText(e.target.value)}
+                            placeholder={"ตัวอย่างการวางข้อมูล:\n10001\tสมชาย ใจดี\tบริการ\tOC\tรายเดือน\t15000\n10002\tสมหญิง รักงาน\tครัว\tPT ครัว\tPT\t50"}
+                            className="w-full border rounded-xl px-4 py-3 text-xs sm:text-sm font-medium outline-none focus:border-emerald-500 bg-white shadow-sm min-h-[150px] resize-y"
+                            wrap="off"
+                        />
+                    </div>
+                    <div className="flex gap-3 mt-2">
+                        <button onClick={() => { setShowImportStaffModal(false); setImportStaffText(''); }} className="flex-1 bg-slate-100 text-slate-600 py-3.5 rounded-xl font-black text-xs sm:text-sm hover:bg-slate-200 transition shadow-sm uppercase tracking-widest">ยกเลิก</button>
+                        <button onClick={handleImportStaff} disabled={!importStaffText.trim()} className="flex-[2] bg-emerald-600 text-white py-3.5 rounded-xl font-black text-xs sm:text-sm hover:bg-emerald-700 transition disabled:opacity-50 shadow-lg uppercase tracking-widest">ตรวจสอบและนำเข้าข้อมูล</button>
+                    </div>
+                </div>
+             </div>
+          </div>
+        )}
         {loadTemplateState && (
           <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300 font-sans">
              <div className="bg-white rounded-[2rem] p-6 sm:p-8 max-w-sm w-full shadow-2xl relative flex flex-col gap-4 animate-in zoom-in-95">
@@ -4619,8 +4667,7 @@ export default function App() {
                          </div>
                       )}
                   </div>
-                  <div className="xl:col-span-2 flex flex-col gap-2 h-full w-full">
-                      <button onClick={() => { 
+                  <button onClick={() => { 
                       if(newStaffName.trim()){ 
                           const layer = getStaffLayer(newStaffDept, newStaffPos);
                           const isPT = newStaffPos.includes('PT');
@@ -4651,9 +4698,7 @@ export default function App() {
                           }); 
                           setNewStaffName(''); setNewStaffEmpId(''); setNewStaffDayOff(''); setNewStaffStartDate(''); setNewStaffBaseWage('');
                       } 
-                      }} className="w-full bg-slate-900 text-white px-4 py-2 sm:py-3 rounded-xl sm:rounded-2xl font-black text-[10px] sm:text-xs hover:bg-indigo-600 transition uppercase flex items-center justify-center flex-1 min-h-[40px]"><UserPlus className="w-4 h-4 sm:w-5 sm:h-5 mr-2"/><span className="whitespace-nowrap">เพิ่มพนักงาน</span></button>
-                      <button onClick={() => setShowImportStaffModal(true)} className="w-full bg-emerald-600 text-white px-4 py-2 rounded-xl sm:rounded-2xl font-black text-[10px] hover:bg-emerald-700 transition shadow-sm uppercase flex items-center justify-center min-h-[32px]"><TableProperties className="w-3 h-3 sm:w-4 sm:h-4 mr-1.5 whitespace-nowrap"/><span className="whitespace-nowrap">นำเข้าจาก Excel</span></button>
-                  </div>
+                  }} className="xl:col-span-2 w-full bg-slate-900 text-white px-4 py-3 rounded-xl sm:rounded-2xl font-black text-xs hover:bg-indigo-600 transition uppercase flex items-center justify-center h-full min-h-[48px]"><UserPlus className="w-4 h-4 sm:w-5 sm:h-5 mr-2"/><span>เพิ่มพนักงาน</span></button>
                </div>
              </div>
              <div className="grid grid-cols-1 gap-2 sm:gap-3 w-full">
