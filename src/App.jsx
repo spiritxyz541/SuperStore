@@ -4572,11 +4572,11 @@ export default function App() {
              </div>
 
              <div className="space-y-4 mb-6 sm:mb-10 w-full">
-               <div className="flex flex-col xl:flex-row gap-2 sm:gap-4">
+               <div className="flex flex-col xl:flex-row gap-2 sm:gap-4 items-stretch">
                   <input type="text" placeholder="รหัสพนง." className="w-full xl:w-24 border-2 border-slate-100 rounded-xl sm:rounded-2xl px-3 py-3 sm:py-4 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none transition shadow-sm" value={newStaffEmpId} onChange={(e) => setNewStaffEmpId(e.target.value)} />
                   <input type="text" placeholder={`ชื่อพนักงานใหม่ (${newStaffDept === 'service' ? 'บริการ' : 'ครัว'})...`} className="w-full xl:w-auto flex-[2] border-2 border-slate-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none transition shadow-sm" value={newStaffName} onChange={(e) => setNewStaffName(e.target.value)} />
-                  <div className="flex flex-col w-full flex-1 gap-2 xl:gap-0">
-                      <div className="flex gap-2 sm:gap-4 flex-1">
+                  <div className="flex flex-col w-full flex-1 gap-2">
+                      <div className="flex flex-wrap sm:flex-nowrap gap-2 sm:gap-4 w-full">
                         <select value={newStaffDept} onChange={(e) => { 
                             setNewStaffDept(e.target.value); 
                             const defPos = POSITIONS[e.target.value][0];
@@ -4609,7 +4609,7 @@ export default function App() {
                         <input type="date" title="วันเริ่มงาน" className="flex-1 bg-slate-50 border-2 border-slate-100 rounded-xl sm:rounded-2xl px-3 sm:px-4 py-3 text-[10px] sm:text-xs font-black outline-none focus:border-indigo-500 text-slate-500" value={newStaffStartDate} onChange={(e) => setNewStaffStartDate(e.target.value)} />
                       </div>
                       {['superadmin', 'areamanager'].includes(authRole) && (
-                         <div className="flex gap-2 sm:gap-4 flex-1 mt-2">
+                         <div className="flex flex-wrap sm:flex-nowrap gap-2 sm:gap-4 w-full mt-0">
                              <select value={newStaffWageType} onChange={e => setNewStaffWageType(e.target.value)} className="flex-1 bg-emerald-50 border-2 border-emerald-100 rounded-xl sm:rounded-2xl px-3 sm:px-4 py-2 text-[10px] sm:text-xs font-black text-emerald-700 outline-none focus:border-emerald-500">
                                  <option value="MONTHLY">ประเภท: รายเดือน (FT)</option>
                                  <option value="HOURLY">ประเภท: รายชั่วโมง (FT)</option>
@@ -4650,10 +4650,10 @@ export default function App() {
                           }); 
                           setNewStaffName(''); setNewStaffEmpId(''); setNewStaffDayOff(''); setNewStaffStartDate(''); setNewStaffBaseWage('');
                       } 
-                  }} className="w-full xl:w-auto bg-slate-900 text-white px-6 sm:px-8 py-3 rounded-xl sm:rounded-2xl font-black text-xs hover:bg-indigo-600 transition uppercase flex items-center justify-center"><UserPlus className="w-4 h-4 sm:w-5 sm:h-5 mr-0 sm:mr-0"/><span className="xl:hidden ml-2">เพิ่มพนักงาน</span></button>
+                  }} className="w-full xl:w-auto bg-slate-900 text-white px-6 sm:px-8 py-3 rounded-xl sm:rounded-2xl font-black text-xs hover:bg-indigo-600 transition uppercase flex items-center justify-center h-full min-h-[48px] self-stretch"><UserPlus className="w-4 h-4 sm:w-5 sm:h-5 mr-0 sm:mr-0"/><span className="xl:hidden ml-2">เพิ่มพนักงาน</span></button>
                </div>
              </div>
-             <div className="grid grid-cols-1 gap-2 sm:gap-3 max-h-[400px] overflow-y-auto pr-2 sm:pr-3 custom-scrollbar">
+             <div className="grid grid-cols-1 gap-2 sm:gap-3 w-full">
                {branchData.staff?.filter(s => s.dept === activeDept && (staffFilterPos === 'ALL' || s.pos === staffFilterPos)).length === 0 ? (
                  <div className="text-center py-8 sm:py-10 text-slate-400 font-bold text-[10px] sm:text-sm uppercase tracking-widest border-2 border-dashed rounded-[1.5rem] sm:rounded-[2rem]">ไม่มีพนักงานในแผนก/ตำแหน่งนี้</div>
                ) : branchData.staff?.filter(s => s.dept === activeDept && (staffFilterPos === 'ALL' || s.pos === staffFilterPos)).map(s => {
@@ -4782,7 +4782,7 @@ export default function App() {
                             </div>
                         </div>
                     </div>
-                    <div className="flex flex-col xl:flex-row gap-2 sm:gap-4">
+                   <div className="flex flex-col xl:flex-row gap-2 sm:gap-4 items-stretch">
                       <input type="text" placeholder="XP-DNA SOP" className="flex-[2] border-2 border-slate-100 rounded-xl px-4 py-3 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none" value={newDutyXpDna} onChange={e => setNewDutyXpDna(e.target.value)} />
                       <select value={newDutyCategory} onChange={e => setNewDutyCategory(e.target.value)} className="border-2 border-slate-100 rounded-xl px-4 py-3 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none">
                          {DUTY_CATEGORIES[activeDept]?.map(cat => <option key={cat.id} value={cat.id}>{cat.label}</option>)}
@@ -4792,11 +4792,11 @@ export default function App() {
                          กะสำรอง
                       </label>
                       <PositionSelector disabled={false} value={newDutyReqPos} options={POSITIONS[activeDept]} onChange={setNewDutyReqPos} className="w-full xl:min-w-[80px]" />
-                      <button onClick={handleAddDuty} className="w-full xl:w-auto bg-slate-900 text-white px-6 py-3 rounded-xl font-black text-xs hover:bg-indigo-600 transition flex items-center justify-center"><Plus className="w-4 h-4 sm:w-5 sm:h-5"/></button>
+                      <button onClick={handleAddDuty} className="w-full xl:w-auto bg-slate-900 text-white px-6 py-3 rounded-xl font-black text-xs hover:bg-indigo-600 transition flex items-center justify-center h-full min-h-[48px] self-stretch"><Plus className="w-4 h-4 sm:w-5 sm:h-5"/></button>
                     </div>
                  </div>
                </div>
-             <div className="grid grid-cols-1 gap-2 sm:gap-3 max-h-[400px] overflow-y-auto pr-2 sm:pr-3 custom-scrollbar">
+             <div className="grid grid-cols-1 gap-2 sm:gap-3 w-full">
                {CURRENT_DUTY_LIST.length === 0 ? (
                  <div className="text-center py-8 sm:py-10 text-slate-400 font-bold text-[10px] sm:text-sm uppercase tracking-widest border-2 border-dashed rounded-[1.5rem]">ไม่มีข้อมูลหน้าที่</div>
                ) : CURRENT_DUTY_LIST.map((duty, idx) => {
@@ -5020,7 +5020,7 @@ export default function App() {
            <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm w-full mt-6 sm:mt-10 lg:mt-0">
              <h2 className="text-lg sm:text-xl font-black text-slate-800 mb-6 sm:mb-8 flex items-center gap-2 sm:gap-4 uppercase tracking-tighter"><Megaphone className="w-6 h-6 sm:w-7 sm:h-7 text-indigo-500" /> จัดการหน้าประกาศ (Landing Pages)</h2>
              <div className="flex flex-col lg:flex-row gap-6">
-                <div className="flex-[2] space-y-4 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
+                <div className="flex-[2] space-y-4 w-full">
                     {(branchData.announcements || []).map(a => (
                         <div key={a.id} className={`flex flex-col sm:flex-row gap-4 bg-slate-50 border p-4 rounded-2xl transition-all ${a.isActive ? 'border-indigo-200 shadow-sm' : 'border-slate-200 opacity-60'}`}>
                             {a.imageUrl && <img src={a.imageUrl} alt="img" className="w-full sm:w-32 h-24 object-cover rounded-xl border border-slate-200" />}
