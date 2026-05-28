@@ -6733,6 +6733,7 @@ export default function App() {
                           <div className="font-black text-slate-900 text-sm sm:text-lg mb-1 leading-tight flex items-center gap-2 whitespace-pre-wrap">
                              {catInfo && <div className={`w-3 h-3 rounded-full ${catInfo.color.split(' ')[0]}`} title={catInfo.label}></div>}
                              <div dangerouslySetInnerHTML={{ __html: duty.jobA }}></div>
+                             {duty.isBackup && <span className="text-[8px] sm:text-[10px] font-black text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 whitespace-nowrap">กะสำรอง</span>}
                           </div>
                           <div className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase italic leading-tight mt-1 sm:ml-5 whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: duty.jobB }}></div>
                        </td>
