@@ -6379,7 +6379,7 @@ export default function App() {
                           <th key={mult} className="px-2 sm:px-8 py-4 sm:py-8 text-center bg-indigo-50/40 text-indigo-700">OT x{mult}</th>
                       ))}
                       <th className="px-4 sm:px-12 py-4 sm:py-8 text-center bg-indigo-50/60 text-indigo-900">รวม OT</th>
-                      <th className="px-4 sm:px-12 py-4 sm:py-8 text-center">Delta</th>
+                      <th className="px-4 sm:px-12 py-4 sm:py-8 text-center">ส่วนต่างOT</th>
                       {['superadmin', 'areamanager'].includes(authRole) && <th className="px-4 sm:px-8 py-4 sm:py-8 text-right bg-emerald-50/40">ค่าจ้างปกติ</th>}
                       {['superadmin', 'areamanager'].includes(authRole) && <th className="px-4 sm:px-8 py-4 sm:py-8 text-right bg-emerald-50/60">ค่า OT</th>}
                       {['superadmin', 'areamanager'].includes(authRole) && <th className="px-4 sm:px-8 py-4 sm:py-8 text-right bg-emerald-50/80">ค่าแรงวันหยุด</th>}
