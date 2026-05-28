@@ -168,8 +168,14 @@ function checkPositionEligibility(staffPos, reqPosArr, dept) {
   const deptPositions = POSITIONS[targetDept] || [];
   const staffRank = deptPositions.indexOf(staffPos);
   if (staffRank === -1) return false; 
+
+  // บังคับให้พนักงานที่เป็น Part-Time (มีคำว่า PT) ทำได้เฉพาะหน้าที่ที่ระบุตำแหน่งของตัวเองเป๊ะๆ เท่านั้น (ไม่อนุญาตให้ไปทำแทนตำแหน่งอื่นแม้ว่า Rank จะสูงกว่า)
+  if (staffPos.includes('PT')) {
+      return reqPosArr.includes(staffPos);
+  }
+
   return reqPosArr.some(reqPos => {
-    // บังคับให้ตำแหน่งที่มีคำว่า PT (เช่น PT, PT+, PT ครัว) ทำได้เฉพาะผู้ที่มีตำแหน่งนั้นเป๊ะๆ เท่านั้น
+    // บังคับให้ตำแหน่งที่ต้องการเป็น Part-Time ทำได้เฉพาะผู้ที่มีตำแหน่งนั้นเป๊ะๆ เท่านั้น
     if (reqPos.includes('PT')) {
       return staffPos === reqPos;
     }
