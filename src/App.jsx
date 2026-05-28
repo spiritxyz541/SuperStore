@@ -6471,7 +6471,7 @@ export default function App() {
                       {['superadmin', 'areamanager'].includes(authRole) && <th className="px-4 sm:px-8 py-4 sm:py-8 text-right bg-emerald-50/40">ค่าจ้างปกติ</th>}
                       {['superadmin', 'areamanager'].includes(authRole) && <th className="px-4 sm:px-8 py-4 sm:py-8 text-right bg-emerald-50/60">ค่า OT</th>}
                       {['superadmin', 'areamanager'].includes(authRole) && <th className="px-4 sm:px-8 py-4 sm:py-8 text-right bg-emerald-50/80">ค่าแรงวันหยุด</th>}
-                      {['superadmin', 'areamanager'].includes(authRole) && <th className="px-4 sm:px-8 py-4 sm:py-8 text-right bg-emerald-100 text-emerald-800">รวมรายได้สุทธิ</th>}
+                      {['superadmin', 'areamanager'].includes(authRole) && <th className="px-4 sm:px-8 py-4 sm:py-8 text-right bg-emerald-100 text-emerald-800">รวมค่าแรงได้สุทธิ</th>}
                    </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-bold text-slate-700">
@@ -7522,7 +7522,7 @@ export default function App() {
                                     <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100 flex flex-col justify-center"><div className="text-[10px] font-bold text-emerald-600 uppercase">ค่าจ้างปกติ</div><div className="text-xl sm:text-2xl font-black text-emerald-800 mt-1">฿{totalBasePay.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</div></div>
                                     <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100 flex flex-col justify-center"><div className="text-[10px] font-bold text-indigo-600 uppercase">ค่า OT</div><div className="text-xl sm:text-2xl font-black text-indigo-800 mt-1">฿{totalOtPay.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</div></div>
                                     <div className="bg-orange-50 p-4 rounded-xl border border-orange-100 flex flex-col justify-center"><div className="text-[10px] font-bold text-orange-600 uppercase">ค่าแรงวันหยุด</div><div className="text-xl sm:text-2xl font-black text-orange-800 mt-1">฿{totalHolidayPay.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</div></div>
-                                    <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 flex flex-col justify-center"><div className="text-[10px] font-bold text-slate-400 uppercase">รวมรายได้สุทธิ</div><div className="text-xl sm:text-2xl font-black text-white mt-1">฿{branchTotalNetPay.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</div></div>
+                                    <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 flex flex-col justify-center"><div className="text-[10px] font-bold text-slate-400 uppercase">รวมค่าแรงได้สุทธิ</div><div className="text-xl sm:text-2xl font-black text-white mt-1">฿{branchTotalNetPay.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</div></div>
                                 </div>
                             </div>
                             <div className="w-full xl:w-auto flex flex-col sm:flex-row xl:flex-col gap-3">
