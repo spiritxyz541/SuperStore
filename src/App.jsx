@@ -631,6 +631,8 @@ export default function App() {
   const [newStaffPos, setNewStaffPos] = useState('OC');
   const [newStaffDayOff, setNewStaffDayOff] = useState(''); 
   const [newStaffStartDate, setNewStaffStartDate] = useState(''); 
+  const [newStaffWageType, setNewStaffWageType] = useState('MONTHLY');
+  const [newStaffBaseWage, setNewStaffBaseWage] = useState('');
 
   const [editingStaffId, setEditingStaffId] = useState(null);
   const [editStaffData, setEditStaffData] = useState({});
@@ -1372,6 +1374,9 @@ export default function App() {
                 kitchen: { ...defaultLimits, ...baseLimits }
             };
         }
+        if (!data.payrollConfig) {
+            data.payrollConfig = { otRateMonthly: 1.5, otRateHourly: 1.5, holidayMultiplierMonthly: 1.0, holidayMultiplierHourly: 2.0 };
+        }
         if (!data.matrix) {
             data.matrix = generateDefaultMatrix(data.duties.service, data.duties.kitchen);
         } else {
@@ -1847,6 +1852,23 @@ export default function App() {
       const parsedValue = parseFloat(value) || 0;
       setBranchData(prev => {
           const nd = { ...prev, otConfig: { ...(prev.otConfig || { monthlyBudgetHours: 0 }), [field]: parsedValue } };
+          setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd).catch(console.error);
+          return nd;
+      });
+  };
+
+  const handleUpdatePayrollConfig = (field, value) => {
+      setBranchData(prev => ({
+          ...prev,
+          payrollConfig: { ...(prev.payrollConfig || {}), [field]: value }
+      }));
+  };
+
+  const handleSavePayrollConfig = async (field, value) => {
+      if (!activeBranchId) return;
+      const parsedValue = parseFloat(value) || 0;
+      setBranchData(prev => {
+          const nd = { ...prev, payrollConfig: { ...(prev.payrollConfig || {}), [field]: parsedValue } };
           setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd).catch(console.error);
           return nd;
       });
@@ -4353,24 +4375,49 @@ export default function App() {
                <div className="flex flex-col xl:flex-row gap-2 sm:gap-4">
                   <input type="text" placeholder="รหัสพนง." className="w-full xl:w-24 border-2 border-slate-100 rounded-xl sm:rounded-2xl px-3 py-3 sm:py-4 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none transition shadow-sm" value={newStaffEmpId} onChange={(e) => setNewStaffEmpId(e.target.value)} />
                   <input type="text" placeholder={`ชื่อพนักงานใหม่ (${newStaffDept === 'service' ? 'บริการ' : 'ครัว'})...`} className="w-full xl:w-auto flex-[2] border-2 border-slate-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none transition shadow-sm" value={newStaffName} onChange={(e) => setNewStaffName(e.target.value)} />
-                  <div className="flex gap-2 sm:gap-4 flex-1">
-                    <select value={newStaffDept} onChange={(e) => { setNewStaffDept(e.target.value); setNewStaffPos(POSITIONS[e.target.value][0]); }} className="flex-1 bg-slate-50 border-2 border-slate-100 rounded-xl sm:rounded-2xl px-3 sm:px-4 py-3 text-[10px] sm:text-xs font-black uppercase outline-none focus:border-indigo-500">
-                       <option value="service">งานบริการ</option><option value="kitchen">งานครัว</option>
-                    </select>
-                    <select value={newStaffPos} onChange={(e) => setNewStaffPos(e.target.value)} className="flex-1 bg-slate-50 border-2 border-slate-100 rounded-xl sm:rounded-2xl px-3 sm:px-4 py-3 text-[10px] sm:text-xs font-black uppercase outline-none focus:border-indigo-500">
-                       {POSITIONS[newStaffDept].map(p => <option key={p} value={p}>{p}</option>)}
-                    </select>
-                    <select value={newStaffDayOff} onChange={(e) => setNewStaffDayOff(e.target.value)} className="flex-1 bg-slate-50 border-2 border-slate-100 rounded-xl sm:rounded-2xl px-3 sm:px-4 py-3 text-[10px] sm:text-xs font-black uppercase outline-none focus:border-indigo-500 text-slate-500">
-                        <option value="">- วันหยุด -</option>
-                        {DAYS_OF_WEEK.map(d => {
-                            const deptCounts = dayOffCounts[newStaffDept] || {};
-                            const limit = branchData.dayOffLimits?.[newStaffDept]?.[d.id] ?? 99;
-                            const current = deptCounts[d.id] || 0;
-                            const isFull = current >= limit;
-                            return <option key={d.id} value={d.id} disabled={isFull}>{d.label} {isFull ? '(เต็ม)' : ''}</option>
-                        })}
-                    </select>
-                    <input type="date" title="วันเริ่มงาน" className="flex-1 bg-slate-50 border-2 border-slate-100 rounded-xl sm:rounded-2xl px-3 sm:px-4 py-3 text-[10px] sm:text-xs font-black outline-none focus:border-indigo-500 text-slate-500" value={newStaffStartDate} onChange={(e) => setNewStaffStartDate(e.target.value)} />
+                  <div className="flex flex-col w-full flex-1 gap-2 xl:gap-0">
+                      <div className="flex gap-2 sm:gap-4 flex-1">
+                        <select value={newStaffDept} onChange={(e) => { 
+                            setNewStaffDept(e.target.value); 
+                            const defPos = POSITIONS[e.target.value][0];
+                            setNewStaffPos(defPos); 
+                            if (defPos.includes('PT')) setNewStaffWageType('PT');
+                            else if (['DVT', 'EDC'].some(p => defPos.includes(p))) setNewStaffWageType('HOURLY');
+                            else setNewStaffWageType('MONTHLY');
+                        }} className="flex-1 bg-slate-50 border-2 border-slate-100 rounded-xl sm:rounded-2xl px-3 sm:px-4 py-3 text-[10px] sm:text-xs font-black uppercase outline-none focus:border-indigo-500">
+                           <option value="service">งานบริการ</option><option value="kitchen">งานครัว</option>
+                        </select>
+                        <select value={newStaffPos} onChange={(e) => {
+                            const pos = e.target.value;
+                            setNewStaffPos(pos);
+                            if (pos.includes('PT')) setNewStaffWageType('PT');
+                            else if (['DVT', 'EDC'].some(p => pos.includes(p))) setNewStaffWageType('HOURLY');
+                            else setNewStaffWageType('MONTHLY');
+                        }} className="flex-1 bg-slate-50 border-2 border-slate-100 rounded-xl sm:rounded-2xl px-3 sm:px-4 py-3 text-[10px] sm:text-xs font-black uppercase outline-none focus:border-indigo-500">
+                           {POSITIONS[newStaffDept].map(p => <option key={p} value={p}>{p}</option>)}
+                        </select>
+                        <select value={newStaffDayOff} onChange={(e) => setNewStaffDayOff(e.target.value)} className="flex-1 bg-slate-50 border-2 border-slate-100 rounded-xl sm:rounded-2xl px-3 sm:px-4 py-3 text-[10px] sm:text-xs font-black uppercase outline-none focus:border-indigo-500 text-slate-500">
+                            <option value="">- วันหยุด -</option>
+                            {DAYS_OF_WEEK.map(d => {
+                                const deptCounts = dayOffCounts[newStaffDept] || {};
+                                const limit = branchData.dayOffLimits?.[newStaffDept]?.[d.id] ?? 99;
+                                const current = deptCounts[d.id] || 0;
+                                const isFull = current >= limit;
+                                return <option key={d.id} value={d.id} disabled={isFull}>{d.label} {isFull ? '(เต็ม)' : ''}</option>
+                            })}
+                        </select>
+                        <input type="date" title="วันเริ่มงาน" className="flex-1 bg-slate-50 border-2 border-slate-100 rounded-xl sm:rounded-2xl px-3 sm:px-4 py-3 text-[10px] sm:text-xs font-black outline-none focus:border-indigo-500 text-slate-500" value={newStaffStartDate} onChange={(e) => setNewStaffStartDate(e.target.value)} />
+                      </div>
+                      {['superadmin', 'areamanager'].includes(authRole) && (
+                         <div className="flex gap-2 sm:gap-4 flex-1 mt-2">
+                             <select value={newStaffWageType} onChange={e => setNewStaffWageType(e.target.value)} className="flex-1 bg-emerald-50 border-2 border-emerald-100 rounded-xl sm:rounded-2xl px-3 sm:px-4 py-2 text-[10px] sm:text-xs font-black text-emerald-700 outline-none focus:border-emerald-500">
+                                 <option value="MONTHLY">ประเภท: รายเดือน (FT)</option>
+                                 <option value="HOURLY">ประเภท: รายชั่วโมง (FT)</option>
+                                 <option value="PT">ประเภท: พาร์ทไทม์ (PT)</option>
+                             </select>
+                             <input type="number" placeholder="ฐานเงินเดือน / ค่าแรงต่อชม. (บาท)" className="flex-1 border-2 border-emerald-100 bg-emerald-50 rounded-xl sm:rounded-2xl px-3 py-2 text-xs sm:text-sm font-bold text-emerald-700 focus:border-emerald-500 outline-none transition shadow-sm" value={newStaffBaseWage} onChange={(e) => setNewStaffBaseWage(e.target.value)} />
+                         </div>
+                      )}
                   </div>
                   <button onClick={() => { 
                       if(newStaffName.trim()){ 
@@ -4397,11 +4444,11 @@ export default function App() {
                               return;
                           }
                           setBranchData(p => {
-                              const nd = {...p, staff: [...(p.staff || []), {id: 's' + Date.now(), empId: newStaffEmpId.trim(), name: newStaffName.trim(), dept: newStaffDept, pos: newStaffPos, regularDayOff: newStaffDayOff === '' ? null : parseInt(newStaffDayOff), startDate: newStaffStartDate || null}]};
+                              const nd = {...p, staff: [...(p.staff || []), {id: 's' + Date.now(), empId: newStaffEmpId.trim(), name: newStaffName.trim(), dept: newStaffDept, pos: newStaffPos, regularDayOff: newStaffDayOff === '' ? null : parseInt(newStaffDayOff), startDate: newStaffStartDate || null, wageType: newStaffWageType, baseWage: newStaffBaseWage ? parseFloat(newStaffBaseWage) : 0 }]};
                               if (activeBranchId) setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd).catch(console.error);
                               return nd;
                           }); 
-                          setNewStaffName(''); setNewStaffEmpId(''); setNewStaffDayOff(''); setNewStaffStartDate('');
+                          setNewStaffName(''); setNewStaffEmpId(''); setNewStaffDayOff(''); setNewStaffStartDate(''); setNewStaffBaseWage('');
                       } 
                   }} className="w-full xl:w-auto bg-slate-900 text-white px-6 sm:px-8 py-3 rounded-xl sm:rounded-2xl font-black text-xs hover:bg-indigo-600 transition uppercase flex items-center justify-center"><UserPlus className="w-4 h-4 sm:w-5 sm:h-5 mr-0 sm:mr-0"/><span className="xl:hidden ml-2">เพิ่มพนักงาน</span></button>
                </div>
@@ -4444,6 +4491,14 @@ export default function App() {
                                         return <option key={d.id} value={d.id} disabled={isFull && !isThisStaffsDayOff}>{d.label} {isFull && !isThisStaffsDayOff ? '(เต็ม)' : ''}</option>
                                     })}
                           </select>
+                          {['superadmin', 'areamanager'].includes(authRole) && (
+                             <div className="flex gap-2 items-center mt-1 w-full sm:w-auto">
+                                 <select value={editStaffData.wageType || 'MONTHLY'} onChange={e => setEditStaffData({...editStaffData, wageType: e.target.value})} className="border border-emerald-200 bg-emerald-50 text-emerald-700 font-bold rounded px-2 py-1 text-[10px]">
+                                     <option value="MONTHLY">รายเดือน</option><option value="HOURLY">รายชั่วโมง</option><option value="PT">PT</option>
+                                 </select>
+                                 <input type="number" placeholder="ค่าจ้าง" value={editStaffData.baseWage || ''} onChange={e => setEditStaffData({...editStaffData, baseWage: parseFloat(e.target.value) || 0})} className="border border-emerald-200 bg-emerald-50 text-emerald-700 font-bold rounded px-2 py-1 text-[10px] w-20 sm:w-24"/>
+                             </div>
+                          )}
                           <button onClick={() => {
                               const s = branchData.staff.find(x => x.id === editingStaffId);
                               if (editStaffData.pos !== s.pos || editStaffData.dept !== s.dept) {
@@ -4485,6 +4540,11 @@ export default function App() {
                                    const isResigned = s.resignDate || s.isActive === false;
                                    return <span className={`text-[7px] sm:text-[8px] font-black px-1.5 sm:px-2 py-0.5 rounded border uppercase ${isResigned ? 'bg-rose-50 text-rose-500 border-rose-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200'}`}>{isResigned ? (s.resignDate ? `ลาออก (${s.resignDate})` : 'ลาออก/ไม่รับงาน') : 'ทำงานปกติ'}</span>;
                                })()}
+                              {['superadmin', 'areamanager'].includes(authRole) && (
+                                  <span className="text-[7px] sm:text-[8px] font-black px-1.5 sm:px-2 py-0.5 rounded border border-emerald-200 bg-emerald-50 text-emerald-600 uppercase">
+                                      {s.wageType === 'MONTHLY' ? 'รายเดือน' : s.wageType === 'HOURLY' ? 'รายชั่วโมง' : 'PT'} : ฿{s.baseWage?.toLocaleString() || 0}
+                                  </span>
+                              )}
                               <span className="text-[7px] sm:text-[8px] font-black px-1.5 sm:px-2 py-0.5 rounded border border-slate-200 bg-white text-slate-400 uppercase truncate" title={`วันเริ่มงาน: ${s.startDate || 'ไม่ระบุ'} | หยุดประจำ: ${s.regularDayOff !== undefined && s.regularDayOff !== null ? DAYS_OF_WEEK.find(d => d.id === s.regularDayOff)?.label : '-'}`}>หยุด: {s.regularDayOff !== undefined && s.regularDayOff !== null ? DAYS_OF_WEEK.find(d => d.id === s.regularDayOff)?.label : '-'}</span>
                                <button onClick={() => startEditStaff(s)} className="text-slate-300 hover:text-indigo-500"><Edit2 className="w-3 h-3"/></button>
                             </div>
@@ -4834,6 +4894,26 @@ export default function App() {
                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">โควตา OT รายเดือน (FT) (ชม.)</label>
                  <input type="text" disabled value={otLedger.budgetHours.toFixed(1)} className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-black outline-none bg-slate-100 text-rose-600" />
                  <span className="absolute top-4 right-4 text-[8px] font-bold bg-indigo-100 text-indigo-600 px-2 py-1 rounded uppercase tracking-widest">Auto from CYCLE</span>
+              </div>
+           </div>
+           
+           <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-8 mb-4 border-b border-slate-100 pb-2">ตั้งค่าสูตรคำนวณค่าจ้างและ OT (Payroll Rules)</h3>
+           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">OT พนักงานรายเดือน (เท่า)</label>
+                 <input type="number" step="0.1" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.otRateMonthly ?? 1.5} onChange={(e) => handleUpdatePayrollConfig('otRateMonthly', e.target.value)} onBlur={(e) => handleSavePayrollConfig('otRateMonthly', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
+              </div>
+              <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">OT พนักงานรายชั่วโมง/PT (เท่า)</label>
+                 <input type="number" step="0.1" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.otRateHourly ?? 1.5} onChange={(e) => handleUpdatePayrollConfig('otRateHourly', e.target.value)} onBlur={(e) => handleSavePayrollConfig('otRateHourly', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
+              </div>
+              <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">วันหยุด: รายเดือนได้เพิ่ม (แรง)</label>
+                 <input type="number" step="0.1" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.holidayMultiplierMonthly ?? 1.0} onChange={(e) => handleUpdatePayrollConfig('holidayMultiplierMonthly', e.target.value)} onBlur={(e) => handleSavePayrollConfig('holidayMultiplierMonthly', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" title="1.0 หมายถึงได้เพิ่มอีก 1 แรง (รวมในฐานเงินเดือน 1 แรง = 2 แรง)" />
+              </div>
+              <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">วันหยุด: รายชั่วโมง/PT ได้ (แรง)</label>
+                 <input type="number" step="0.1" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.holidayMultiplierHourly ?? 2.0} onChange={(e) => handleUpdatePayrollConfig('holidayMultiplierHourly', e.target.value)} onBlur={(e) => handleSavePayrollConfig('holidayMultiplierHourly', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" title="2.0 หมายถึงได้ค่าแรง 2 เท่าจากปกติ" />
               </div>
            </div>
            <p className="text-[10px] text-slate-400 font-bold mt-4">* ระบบจะนำยอดเงินมาหารเป็นชั่วโมงโควตาตั้งต้น สำหรับบริหารจัดการ Part-Time ในกระเป๋าชั่วโมง (PT Ledger)</p>
