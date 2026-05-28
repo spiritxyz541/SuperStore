@@ -2950,7 +2950,7 @@ export default function App() {
                 const dayOfWeek = dateObj.getDay();
                 
                 const manuallyOnLeaveIds = new Set((dayData.leaves || []).map(l => l.staffId));
-                const isHoliday = branchData.holidays?.includes?.(dateStr);
+                const isHoliday = isDateHoliday(dateStr, branchData.holidays);
                 const regularOffStaff = isHoliday ? [] : branchData.staff?.filter(s => {
                     if (!isStaffActiveOnDate(s, dateStr)) return false;
                     const daysOff = Array.isArray(s.regularDayOff) ? s.regularDayOff : (s.regularDayOff !== null && s.regularDayOff !== undefined && s.regularDayOff !== '' ? [s.regularDayOff] : []);
