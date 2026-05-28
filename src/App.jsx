@@ -6421,22 +6421,22 @@ export default function App() {
                    })}
                 </tbody>
                 {['superadmin', 'areamanager'].includes(authRole) && (
-                   <tfoot className="bg-slate-100 text-slate-800 font-black text-sm uppercase">
+                   <tfoot className="bg-slate-100 text-slate-800 font-black text-base sm:text-lg uppercase">
                        <tr>
-                           <td colSpan={['superadmin', 'areamanager'].includes(authRole) ? 2 : 1} className="px-6 sm:px-12 py-4 text-right">Total</td>
-                           <td className="px-4 sm:px-12 py-4 text-center">{reportData.reduce((acc, curr) => acc + curr.shifts, 0)}</td>
-                           <td className="px-4 sm:px-12 py-4 text-center">{reportData.reduce((acc, curr) => acc + curr.workHours, 0).toFixed(1)}</td>
-                           <td className="px-4 sm:px-12 py-4 text-center">{totalPlannedOT.toFixed(1)}</td>
+                           <td colSpan={['superadmin', 'areamanager'].includes(authRole) ? 2 : 1} className="px-6 sm:px-12 py-6 text-right">Total</td>
+                           <td className="px-4 sm:px-12 py-6 text-center">{reportData.reduce((acc, curr) => acc + curr.shifts, 0)}</td>
+                           <td className="px-4 sm:px-12 py-6 text-center">{reportData.reduce((acc, curr) => acc + curr.workHours, 0).toFixed(1)}</td>
+                           <td className="px-4 sm:px-12 py-6 text-center">{totalPlannedOT.toFixed(1)}</td>
                            {uniqueOtMultipliers.map(mult => {
                                const totalForMult = reportData.reduce((sum, s) => sum + (s.otHoursByMultiplier?.[mult] || 0), 0);
-                               return <td key={mult} className="px-2 sm:px-8 py-4 text-center text-indigo-700">{totalForMult > 0 ? totalForMult.toFixed(1) : '-'}</td>;
+                               return <td key={mult} className="px-2 sm:px-8 py-6 text-center text-indigo-700">{totalForMult > 0 ? totalForMult.toFixed(1) : '-'}</td>;
                            })}
-                           <td className="px-4 sm:px-12 py-4 text-center text-indigo-900">{totalActualOT.toFixed(1)}</td>
-                           <td className={`px-4 sm:px-12 py-4 text-center ${deltaOT > 0 ? 'text-red-500' : 'text-emerald-500'}`}>{deltaOT > 0 ? `+${deltaOT.toFixed(1)}` : deltaOT.toFixed(1)}</td>
-                           <td className="px-4 sm:px-8 py-4 text-right font-mono">{totalBasePay.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                           <td className="px-4 sm:px-8 py-4 text-right font-mono">{totalOtPay.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                           <td className="px-4 sm:px-8 py-4 text-right font-mono">{totalHolidayPay.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                           <td className="px-4 sm:px-8 py-4 text-right font-mono text-base text-emerald-800">฿{totalPay.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                           <td className="px-4 sm:px-12 py-6 text-center text-indigo-900">{totalActualOT.toFixed(1)}</td>
+                           <td className={`px-4 sm:px-12 py-6 text-center ${deltaOT > 0 ? 'text-red-500' : 'text-emerald-500'}`}>{deltaOT > 0 ? `+${deltaOT.toFixed(1)}` : deltaOT.toFixed(1)}</td>
+                           <td className="px-4 sm:px-8 py-6 text-right font-mono">{totalBasePay.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                           <td className="px-4 sm:px-8 py-6 text-right font-mono">{totalOtPay.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                           <td className="px-4 sm:px-8 py-6 text-right font-mono">{totalHolidayPay.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                           <td className="px-4 sm:px-8 py-6 text-right font-mono text-emerald-800">฿{totalPay.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                        </tr>
                    </tfoot>
                 )}
