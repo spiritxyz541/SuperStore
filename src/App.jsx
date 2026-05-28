@@ -830,20 +830,10 @@ export default function App() {
                    if (s.dept === 'kitchen') activeFtCountKitchen++;
                }
            });
-           const gapService = targetFtHeadcountService - activeFtCountService;
-           const gapKitchen = targetFtHeadcountKitchen - activeFtCountKitchen;
-           const totalGap = gapService + gapKitchen;
+           const gapService = Math.max(0, targetFtHeadcountService - activeFtCountService);
+           const gapKitchen = Math.max(0, targetFtHeadcountKitchen - activeFtCountKitchen);
            
-           let dayVacancy = 0;
-           if (totalGap > 0) {
-               if (gapService > 0 && gapKitchen > 0) {
-                   dayVacancy = (gapService * compHoursPerDayService) + (gapKitchen * compHoursPerDayKitchen);
-               } else if (gapService > 0) {
-                   dayVacancy = totalGap * compHoursPerDayService;
-               } else if (gapKitchen > 0) {
-                   dayVacancy = totalGap * compHoursPerDayKitchen;
-               }
-           }
+           const dayVacancy = (gapService * compHoursPerDayService) + (gapKitchen * compHoursPerDayKitchen);
            vacancyCompensations += dayVacancy;
            dailyAllowance[day.dateStr] = { baseAvg: dailyBaseAvg, leave: 0, vacancy: dayVacancy, event: 0, total: dailyBaseAvg + dayVacancy };
       });
@@ -7004,19 +6994,10 @@ export default function App() {
                             }
                         });
                         
-                        const gapSvc = targetFtService - actSvc;
-                        const gapKit = targetFtKitchen - actKit;
-                        const totalGap = gapSvc + gapKit;
+                        const gapSvc = Math.max(0, targetFtService - actSvc);
+                        const gapKit = Math.max(0, targetFtKitchen - actKit);
                         
-                        if (totalGap > 0) {
-                            if (gapSvc > 0 && gapKit > 0) {
-                                vacancyComp += (gapSvc * compHrSvc) + (gapKit * compHrKit);
-                            } else if (gapSvc > 0) {
-                                vacancyComp += totalGap * compHrSvc;
-                            } else if (gapKit > 0) {
-                                vacancyComp += totalGap * compHrKit;
-                            }
-                        }
+                        vacancyComp += (gapSvc * compHrSvc) + (gapKit * compHrKit);
                     });
 
                     let totalOT = 0;
