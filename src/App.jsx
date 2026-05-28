@@ -4492,7 +4492,12 @@ export default function App() {
      <div className="flex-1 space-y-6 sm:space-y-10 animate-in fade-in duration-500 pb-24 w-full">
         <div className={`grid grid-cols-1 ${authRole === 'superadmin' ? 'lg:grid-cols-2' : ''} gap-6 sm:gap-10`}>
            <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm flex flex-col">
-             <h2 className="text-lg sm:text-xl font-black text-slate-800 mb-4 sm:mb-6 flex items-center gap-2 sm:gap-4 uppercase tracking-tighter"><Users className="w-6 h-6 sm:w-7 sm:h-7 text-indigo-500" /> จัดการพนักงาน ({globalConfig.branches?.find(b=>b.id===activeBranchId)?.name})</h2>
+             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 sm:mb-6">
+                <h2 className="text-lg sm:text-xl font-black text-slate-800 flex items-center gap-2 sm:gap-4 uppercase tracking-tighter"><Users className="w-6 h-6 sm:w-7 sm:h-7 text-indigo-500" /> จัดการพนักงาน ({globalConfig.branches?.find(b=>b.id===activeBranchId)?.name})</h2>
+                <button onClick={() => setShowImportStaffModal(true)} className="bg-emerald-100 text-emerald-700 hover:bg-emerald-500 hover:text-white px-4 py-2.5 rounded-xl text-xs font-black transition-colors shadow-sm flex items-center justify-center gap-2">
+                   <Upload className="w-4 h-4"/> นำเข้า Excel/CSV
+                </button>
+             </div>
              
              <div className="flex flex-col gap-4 mb-6 sm:mb-8 bg-slate-50 p-4 rounded-2xl border border-slate-100">
                  <div className="text-[10px] sm:text-xs font-black text-slate-500 uppercase tracking-widest flex justify-between items-center">
