@@ -1696,9 +1696,9 @@ export default function App() {
   }, [activeDept]);
 
   const handleDownloadTemplate = () => {
-      const headers = ['รหัสพนักงาน', 'ชื่อ-สกุล', 'แผนก (บริการ/ครัว)', 'ตำแหน่ง (เช่น OC, PT)', 'ประเภทจ้าง (รายเดือน/รายชั่วโมง/PT)', 'ฐานเงินเดือน/ค่าแรง'];
-      const sample1 = ['10001', 'สมชาย ใจดี', 'บริการ', 'OC', 'รายเดือน', '15000'];
-      const sample2 = ['10002', 'สมหญิง รักงาน', 'ครัว', 'PT ครัว', 'PT', '50'];
+      const headers = ['รหัสพนักงาน', 'ชื่อ-สกุล', 'แผนก (บริการ/ครัว)', 'ตำแหน่ง (เช่น OC, PT)', 'ประเภทจ้าง (รายเดือน/รายชั่วโมง/PT)', 'ฐานเงินเดือน/ค่าแรง', 'วันหยุดประจำสัปดาห์ (0=อาทิตย์, 1=จันทร์... 6=เสาร์)'];
+      const sample1 = ['10001', 'สมชาย ใจดี', 'บริการ', 'OC', 'รายเดือน', '15000', '1'];
+      const sample2 = ['10002', 'สมหญิง รักงาน', 'ครัว', 'PT ครัว', 'PT', '50', ''];
       const csvContent = [headers.join(','), sample1.join(','), sample2.join(',')].join('\n');
 
       const bom = '\uFEFF';
@@ -1734,6 +1734,7 @@ export default function App() {
           const posRaw = (finalCols[3] || '').trim();
           const wageTypeRaw = (finalCols[4] || '').trim().toLowerCase();
           const baseWage = parseFloat(finalCols[5]?.trim() || '0') || 0;
+          const dayOffRaw = finalCols[6]?.trim() || '';
           if (!name) { skipped++; return; }
           let dept = 'service';
           if (deptRaw.includes('ครัว') || deptRaw.includes('kitchen') || deptRaw.includes('boh')) dept = 'kitchen';
@@ -1744,7 +1745,19 @@ export default function App() {
           if (wageTypeRaw.includes('ชั่วโมง') || wageTypeRaw.includes('hourly')) wageType = 'HOURLY';
           if (wageTypeRaw.includes('pt') || wageTypeRaw.includes('พาร์ทไทม์') || wageTypeRaw.includes('พาสทาม')) wageType = 'PT';
           if (!wageTypeRaw) { if (pos.includes('PT')) wageType = 'PT'; else if (['DVT', 'EDC'].some(p => pos.includes(p))) wageType = 'HOURLY'; else wageType = 'MONTHLY'; }
-          newStaffs.push({ id: 's' + Date.now() + index + Math.random().toString(36).substring(2,9), empId: empId, name: name, dept: dept, pos: pos, regularDayOff: null, startDate: new Date().toISOString().slice(0,10), wageType: wageType, baseWage: baseWage, isActive: true });
+          
+          let regularDayOff = null;
+          if (dayOffRaw !== '') {
+              const dayOffInt = parseInt(dayOffRaw, 10);
+              if (!isNaN(dayOffInt) && dayOffInt >= 0 && dayOffInt <= 6) {
+                  regularDayOff = dayOffInt;
+              } else {
+                  const dayNames = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัส', 'ศุกร์', 'เสาร์'];
+                  const matchedIdx = dayNames.findIndex(d => dayOffRaw.includes(d));
+                  if (matchedIdx !== -1) regularDayOff = matchedIdx;
+              }
+          }
+          newStaffs.push({ id: 's' + Date.now() + index + Math.random().toString(36).substring(2,9), empId: empId, name: name, dept: dept, pos: pos, regularDayOff: regularDayOff, startDate: new Date().toISOString().slice(0,10), wageType: wageType, baseWage: baseWage, isActive: true });
       });
       if (newStaffs.length > 0) {
           setBranchData(p => { const nd = {...p, staff: [...(p.staff || []), ...newStaffs]}; if (activeBranchId) setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd).catch(console.error); return nd; });
@@ -4054,6 +4067,7 @@ export default function App() {
                            <span className="bg-white px-2 py-1 rounded shadow-sm text-indigo-500">4. ตำแหน่ง (เช่น OC, PT)</span>
                            <span className="bg-white px-2 py-1 rounded shadow-sm">5. ประเภทจ้าง (รายเดือน/รายชั่วโมง/PT)</span>
                            <span className="bg-white px-2 py-1 rounded shadow-sm">6. ฐานเงินเดือน/ค่าแรง</span>
+                           <span className="bg-white px-2 py-1 rounded shadow-sm">7. วันหยุดประจำสัปดาห์ (0-6 หรือชื่อวัน)</span>
                         </div>
                     </div>
                     <div className="flex flex-col gap-2">
@@ -4065,7 +4079,7 @@ export default function App() {
                         <textarea
                             value={importStaffText}
                             onChange={(e) => setImportStaffText(e.target.value)}
-                            placeholder={"ตัวอย่างการวางข้อมูล:\n10001\tสมชาย ใจดี\tบริการ\tOC\tรายเดือน\t15000\n10002\tสมหญิง รักงาน\tครัว\tPT ครัว\tPT\t50"}
+                            placeholder={"ตัวอย่างการวางข้อมูล:\n10001\tสมชาย ใจดี\tบริการ\tOC\tรายเดือน\t15000\t1\n10002\tสมหญิง รักงาน\tครัว\tPT ครัว\tPT\t50\t"}
                             className="w-full border rounded-xl px-4 py-3 text-xs sm:text-sm font-medium outline-none focus:border-emerald-500 bg-white shadow-sm min-h-[150px] resize-y"
                             wrap="off"
                         />
