@@ -672,6 +672,15 @@ export default function App() {
   
   const [staffFilterPos, setStaffFilterPos] = useState('ALL'); 
   const [templateName, setTemplateName] = useState('');
+  const [loadTemplateState, setLoadTemplateState] = useState(null);
+  const [loadTemplateOptions, setLoadTemplateOptions] = useState({
+      duties: true,
+      matrix: true,
+      shiftPresets: true,
+      holidays: true,
+      configs: true,
+      rosterStyle: true
+  });
 
   const [reportFilterMode, setReportFilterMode] = useState('month'); 
   const [reportFilterMonth, setReportFilterMonth] = useState(new Date().getMonth());
@@ -2308,14 +2317,21 @@ export default function App() {
 
   const handleSaveTemplate = async () => {
     if (!templateName.trim()) { setConfirmModal({ message: "กรุณาตั้งชื่อแม่แบบ (Template Name) ก่อนบันทึก" }); return; }
+    
+    const matrixCopy = JSON.parse(JSON.stringify(branchData.matrix || {}));
+    Object.keys(matrixCopy).forEach(dayType => {
+        if (matrixCopy[dayType]) {
+            delete matrixCopy[dayType].hourlyTc;
+        }
+    });
+
+    const { staff, matrix, ...otherConfig } = branchData;
+
     const newTemplate = { 
         id: 'T'+Date.now(), 
         name: `${templateName.trim()} (${globalConfig.branches?.find(b=>b.id===activeBranchId)?.name || 'Unknown'})`, 
-        duties: branchData.duties,
-        matrix: branchData.matrix,
-        shiftPresets: branchData.shiftPresets,
-        holidays: branchData.holidays,
-        shiftThresholds: branchData.shiftThresholds || { morningEnd: 11, lateMorningEnd: 12, afternoonEnd: 16, eveningEnd: 19 },
+        ...otherConfig,
+        matrix: matrixCopy,
         branchId: activeBranchId 
     };
     try {
@@ -2329,20 +2345,61 @@ export default function App() {
   const handleLoadTemplate = (tplId) => {
     const tpl = globalTemplates.find(t => t.id === tplId);
     if (tpl) {
-        setConfirmModal({ 
-            message: `ยืนยันการโหลดแม่แบบ "${tpl.name}" ใช่หรือไม่? (โครงสร้างปัจจุบันจะถูกเขียนทับทั้งหมด)`, 
-            action: () => { setBranchData(prev => ({ 
-                ...prev, 
-                duties: tpl.duties, 
-                matrix: tpl.matrix,
-                shiftPresets: tpl.shiftPresets || DEFAULT_SHIFT_PRESETS, // Fallback for old templates
-                holidays: tpl.holidays || [], // Fallback for old templates
-                shiftThresholds: tpl.shiftThresholds || { morningEnd: 11, lateMorningEnd: 12, afternoonEnd: 16, eveningEnd: 19 }
-            })); }
+        setLoadTemplateState(tpl);
+        setLoadTemplateOptions({
+            duties: true,
+            matrix: true,
+            shiftPresets: true,
+            holidays: true,
+            configs: true,
+            rosterStyle: true
         });
     }
   };
 
+  const confirmLoadTemplate = () => {
+      if (!loadTemplateState) return;
+      const tpl = loadTemplateState;
+      setBranchData(prev => {
+          const newData = { ...prev };
+          
+          if (loadTemplateOptions.duties && tpl.duties) newData.duties = tpl.duties;
+          if (loadTemplateOptions.shiftPresets) {
+              if (tpl.shiftPresets) newData.shiftPresets = tpl.shiftPresets;
+              if (tpl.shiftThresholds) newData.shiftThresholds = tpl.shiftThresholds;
+          }
+          if (loadTemplateOptions.holidays) {
+              if (tpl.holidays) newData.holidays = tpl.holidays;
+              if (tpl.holidayCycles) newData.holidayCycles = tpl.holidayCycles;
+          }
+          if (loadTemplateOptions.configs) {
+              if (tpl.ptConfig) newData.ptConfig = tpl.ptConfig;
+              if (tpl.otConfig) newData.otConfig = tpl.otConfig;
+              if (tpl.payrollConfig) newData.payrollConfig = tpl.payrollConfig;
+              if (tpl.staffLimits) newData.staffLimits = tpl.staffLimits;
+              if (tpl.dayOffLimits) newData.dayOffLimits = tpl.dayOffLimits;
+              if (tpl.totalTables !== undefined) newData.totalTables = tpl.totalTables;
+          }
+          if (loadTemplateOptions.rosterStyle && tpl.rosterStyle) newData.rosterStyle = tpl.rosterStyle;
+          
+          if (loadTemplateOptions.matrix && tpl.matrix) {
+              const newMatrix = JSON.parse(JSON.stringify(tpl.matrix));
+              if (prev.matrix) {
+                  Object.keys(prev.matrix).forEach(dayType => {
+                      if (prev.matrix[dayType]?.hourlyTc) {
+                          if (!newMatrix[dayType]) newMatrix[dayType] = {};
+                          newMatrix[dayType].hourlyTc = prev.matrix[dayType].hourlyTc;
+                      }
+                  });
+              }
+              newData.matrix = newMatrix;
+          }
+
+          return newData;
+      });
+      setLoadTemplateState(null);
+      setConfirmModal({ message: `โหลดแม่แบบ "${tpl.name}" สำเร็จ!` });
+  };
   const handleDeleteTemplate = async (tplId) => {
     const newList = globalTemplates.filter(t => t.id !== tplId);
     await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'templates'), { list: newList });
@@ -3907,6 +3964,37 @@ export default function App() {
                         }
                     }} disabled={!newPasswordInput.trim()} className="w-full bg-indigo-600 text-white py-3.5 rounded-xl font-black text-sm hover:bg-indigo-700 transition disabled:opacity-50 shadow-lg mt-2 uppercase tracking-widest">
                         ยืนยันการเปลี่ยนรหัสผ่าน
+                    </button>
+                </div>
+             </div>
+          </div>
+        )}
+        {loadTemplateState && (
+          <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300 font-sans">
+             <div className="bg-white rounded-[2rem] p-6 sm:p-8 max-w-sm w-full shadow-2xl relative flex flex-col gap-4 animate-in zoom-in-95">
+                <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                   <h3 className="text-lg sm:text-xl font-black text-slate-800 uppercase tracking-tighter flex items-center gap-2"><FolderOpen className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-500"/> โหลดแม่แบบ</h3>
+                   <button onClick={() => setLoadTemplateState(null)} className="text-slate-400 hover:bg-slate-100 p-2 rounded-full transition"><X className="w-5 h-5"/></button>
+                </div>
+                <div className="space-y-4">
+                    <p className="text-xs font-bold text-slate-600">เลือกข้อมูลที่ต้องการโหลดจากแม่แบบ <span className="text-emerald-600 font-black">"{loadTemplateState.name}"</span></p>
+                    <div className="flex flex-col gap-2">
+                        {[
+                            { id: 'duties', label: 'หน้าที่งาน (Duties)' },
+                            { id: 'shiftPresets', label: 'กะทำงาน (Shift Presets)' },
+                            { id: 'matrix', label: 'โครงสร้างกะงาน (Matrix)' },
+                            { id: 'holidays', label: 'วันหยุดสาขา (Holidays)' },
+                            { id: 'configs', label: 'การตั้งค่า (Configs)' },
+                            { id: 'rosterStyle', label: 'รูปแบบตาราง (Roster Style)' }
+                        ].map(opt => (
+                            <label key={opt.id} className="flex items-center gap-3 cursor-pointer p-2 hover:bg-slate-50 rounded-lg transition-colors border border-transparent hover:border-slate-200">
+                                <input type="checkbox" checked={loadTemplateOptions[opt.id]} onChange={e => setLoadTemplateOptions(prev => ({ ...prev, [opt.id]: e.target.checked }))} className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500 border-slate-300" />
+                                <span className="text-xs font-bold text-slate-700">{opt.label}</span>
+                            </label>
+                        ))}
+                    </div>
+                    <button onClick={confirmLoadTemplate} className="w-full bg-emerald-600 text-white py-3.5 rounded-xl font-black text-sm hover:bg-emerald-700 transition shadow-lg mt-2 uppercase tracking-widest">
+                        ยืนยันการโหลด
                     </button>
                 </div>
              </div>
