@@ -4159,7 +4159,7 @@ export default function App() {
              
              <div className="flex flex-col gap-4 mb-6 sm:mb-8 bg-slate-50 p-4 rounded-2xl border border-slate-100">
                  <div className="text-[10px] sm:text-xs font-black text-slate-500 uppercase tracking-widest flex justify-between items-center">
-                <span>สรุปพนักงาน ({branchData.staff?.filter(s => s.dept === activeDept && s.isActive !== false).length || 0} คน)</span>
+                <span>สรุปปปปปปพนักงาน ({branchData.staff?.filter(s => s.dept === activeDept && s.isActive !== false).length || 0} คน)</span>
                     <button onClick={() => setStaffFilterPos('ALL')} className={`px-3 py-1 rounded-lg transition-all shadow-sm ${staffFilterPos === 'ALL' ? 'bg-slate-800 text-white' : 'bg-slate-200 text-slate-700'}`}>ดูทั้งหมด</button>
                  </div>
                  
