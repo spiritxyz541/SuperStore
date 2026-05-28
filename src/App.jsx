@@ -206,8 +206,9 @@ function getDayType(dateStr, holidays = [], holidayCycles = {}) {
     const [yStr, mStr, dStr] = dateStr.split('-');
     const dateObj = new Date(parseInt(yStr), parseInt(mStr) - 1, parseInt(dStr));
     const dOW = dateObj.getDay();
-    // ถ้าเป็นวันหยุดนักขัตฤกษ์ ให้อิงตามที่ตั้งค่าไว้ (ค่าเริ่มต้นคือวันเสาร์)
-    if (holidays?.includes?.(dateStr)) return holidayCycles?.[dateStr] || 'saturday';
+    
+    const holidayInfo = (Array.isArray(holidays) && holidays.length > 0 && typeof holidays[0] === 'object') ? holidays.find(h => h.date === dateStr) : holidays.includes(dateStr);
+    if (holidayInfo) return holidayCycles?.[dateStr] || 'saturday';
     if (dOW === 0) return 'sunday';
     if (dOW === 6) return 'saturday';
     if (dOW === 5) return 'friday';
@@ -738,7 +739,16 @@ export default function App() {
 
   const reportData = useMemo(() => {
     const staffMap = {};
-    const payrollConfig = branchData.payrollConfig || { otRateMonthly: 1.5, otRateHourly: 1.5, holidayMultiplierMonthly: 1.0, holidayMultiplierHourly: 2.0 };
+    const payrollConfig = {
+        monthlySalaryDivider: 30,
+        otRateMonthly: 1.5, 
+        otRateHolidayMonthly: 3.0,
+        otRateFtHourly: 1.5, 
+        otRatePt: 1.5,
+        holidayMultiplierFtHourly: 2.0,
+        holidayMultiplierPt: 2.0,
+        ...(branchData.payrollConfig || {})
+    };
     const ptHourlyRate = branchData.ptConfig?.hourlyRate || 50;
 
     (branchData.staff || []).forEach(s => {
@@ -761,7 +771,7 @@ export default function App() {
 
       const dayData = schedule[dateStr];
       const dayType = getDayType(dateStr, branchData.holidays, branchData.holidayCycles);
-      const isHoliday = branchData.holidays?.includes?.(dateStr);
+      const isPublicHoliday = (branchData.holidays || []).some(h => h.date === dateStr && h.isPublic);
 
       if (dayData.leaves) {
         dayData.leaves.forEach(l => { 
@@ -799,22 +809,28 @@ export default function App() {
 
               if (staff.wageType === 'MONTHLY') {
                   const monthlyRate = staff.baseWage || 0;
-                  const dailyRate = monthlyRate / 30;
+                  const dailyRate = monthlyRate / (payrollConfig.monthlySalaryDivider || 30);
                   const hourlyRate = dailyRate / 8;
-                  if (isHoliday) {
-                      staff.holidayPay += dailyRate * payrollConfig.holidayMultiplierMonthly;
-                      staff.otPay += otHours * hourlyRate * 3.0; // Holiday OT is 3x
+                  if (isPublicHoliday) {
+                      staff.holidayPay += dailyRate * (payrollConfig.holidayMultiplierMonthly || 1.0);
+                      staff.otPay += otHours * hourlyRate * (payrollConfig.otRateHolidayMonthly || 3.0);
                   } else {
-                      staff.otPay += otHours * hourlyRate * payrollConfig.otRateMonthly;
+                      staff.otPay += otHours * hourlyRate * (payrollConfig.otRateMonthly || 1.5);
                   }
               } else { // HOURLY or PT
-                  const hourlyRate = staff.wageType === 'PT' ? ptHourlyRate : (staff.baseWage || 0);
-                  if (isHoliday) {
-                      staff.basePay += workHours * hourlyRate * payrollConfig.holidayMultiplierHourly;
+                  const isPt = staff.wageType === 'PT';
+                  const hourlyRate = isPt ? ptHourlyRate : (staff.baseWage || 0);
+                  
+                  const holidayMultiplier = isPt ? (payrollConfig.holidayMultiplierPt || 2.0) : (payrollConfig.holidayMultiplierFtHourly || 2.0);
+                  const otMultiplier = isPt ? (payrollConfig.otRatePt || 1.5) : (payrollConfig.otRateFtHourly || 1.5);
+
+                  if (isPublicHoliday) {
+                      // ค่าแรงวันหยุดนักขัตฤกษ์ (สำหรับรายชั่วโมง/PT) จะคิดเป็น x เท่าของชั่วโมงทำงานปกติ
+                      staff.basePay += workHours * hourlyRate * holidayMultiplier;
                   } else {
                       staff.basePay += workHours * hourlyRate;
                   }
-                  staff.otPay += otHours * hourlyRate * payrollConfig.otRateHourly;
+                  staff.otPay += otHours * hourlyRate * otMultiplier;
               }
             }
           });
@@ -825,8 +841,8 @@ export default function App() {
     Object.values(staffMap).forEach(staff => {
         if (staff.wageType === 'MONTHLY') {
             const monthlyRate = staff.baseWage || 0;
-            const dailyRate = monthlyRate / 30;
-            staff.basePay = monthlyRate - (staff.unpaidLeaveDays * dailyRate);
+            const dailyRate = monthlyRate / (payrollConfig.monthlySalaryDivider || 30);
+            staff.basePay = Math.max(0, monthlyRate - (staff.unpaidLeaveDays * dailyRate));
         }
         staff.totalPay = staff.basePay + staff.otPay + staff.holidayPay;
     });
@@ -1426,8 +1442,25 @@ export default function App() {
                 kitchen: { ...defaultLimits, ...baseLimits }
             };
         }
-        if (!data.payrollConfig) {
-            data.payrollConfig = { otRateMonthly: 1.5, otRateHourly: 1.5, holidayMultiplierMonthly: 1.0, holidayMultiplierHourly: 2.0 };
+        if (!data.payrollConfig) { // Initialize new structure
+            data.payrollConfig = { monthlySalaryDivider: 30, otRateMonthly: 1.5, otRateHolidayMonthly: 3.0, otRateFtHourly: 1.5, otRatePt: 1.5, holidayMultiplierFtHourly: 2.0, holidayMultiplierPt: 2.0 };
+        } else { // Migrate old structure
+            if (data.payrollConfig.otRateHourly) {
+                data.payrollConfig.otRateFtHourly = data.payrollConfig.otRateHourly;
+                data.payrollConfig.otRatePt = data.payrollConfig.otRateHourly;
+                delete data.payrollConfig.otRateHourly;
+            }
+            if (data.payrollConfig.holidayMultiplierHourly) {
+                data.payrollConfig.holidayMultiplierFtHourly = data.payrollConfig.holidayMultiplierHourly;
+                data.payrollConfig.holidayMultiplierPt = data.payrollConfig.holidayMultiplierHourly;
+                delete data.payrollConfig.holidayMultiplierHourly;
+            }
+            if (data.payrollConfig.monthlySalaryDivider === undefined) data.payrollConfig.monthlySalaryDivider = 30;
+            if (data.payrollConfig.otRateHolidayMonthly === undefined) data.payrollConfig.otRateHolidayMonthly = 3.0;
+            if (data.payrollConfig.otRateFtHourly === undefined) data.payrollConfig.otRateFtHourly = 1.5;
+            if (data.payrollConfig.otRatePt === undefined) data.payrollConfig.otRatePt = 1.5;
+            if (data.payrollConfig.holidayMultiplierFtHourly === undefined) data.payrollConfig.holidayMultiplierFtHourly = 2.0;
+            if (data.payrollConfig.holidayMultiplierPt === undefined) data.payrollConfig.holidayMultiplierPt = 2.0;
         }
         if (!data.matrix) {
             data.matrix = generateDefaultMatrix(data.duties.service, data.duties.kitchen);
@@ -4820,26 +4853,26 @@ export default function App() {
              <h2 className="text-lg sm:text-xl font-black text-slate-800 mb-6 sm:mb-8 flex items-center justify-center gap-2 sm:gap-4 uppercase tracking-tighter"><Coffee className="w-6 h-6 sm:w-7 sm:h-7 text-red-500" /> วันหยุดประจำสาขา</h2>
              <div className="grid grid-cols-7 gap-1.5 sm:gap-3">
                {CALENDAR_DAYS.map(d => {
-                 const isHoliday = branchData.holidays?.includes?.(d.dateStr);
+                 const holidayInfo = (branchData.holidays || []).find(h => h.date === d.dateStr);
+                 const isHoliday = !!holidayInfo;
+                 const isPublicHoliday = holidayInfo?.isPublic;
                  return (
                    <button 
                      key={d.dateStr} disabled={authRole === 'branch'} onClick={() => { 
-                         if(authRole === 'superadmin') {
-                             const isHol = branchData.holidays?.includes?.(d.dateStr);
-                             if (isHol) {
+                         if (authRole === 'superadmin') {
+                             if (isHoliday) {
                                  setBranchData(p => {
-                                     const nd = {...p, holidays: p.holidays.filter(x=>x!==d.dateStr)};
-                                     if (nd.holidayCycles) { delete nd.holidayCycles[d.dateStr]; }
+                                     const nd = {...p, holidays: (p.holidays || []).filter(h => h.date !== d.dateStr)};
                                      if (activeBranchId) setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd).catch(console.error);
                                      return nd;
                                  });
                              } else {
-                                 const choice = window.prompt("วันหยุดนี้ต้องการให้ใช้กะแบบไหน?\n[ 1 ] = วันเสาร์ (ปิดดึก)\n[ 2 ] = วันอาทิตย์ (ปิดปกติ)", "1");
-                                 if (choice === "1" || choice === "2") {
+                                 const holidayName = window.prompt(`กรอกชื่อวันหยุดสำหรับวันที่ ${d.dateStr}:`, 'วันหยุดนักขัตฤกษ์');
+                                 if (holidayName) {
+                                     const isPublic = window.confirm('เป็นวันหยุดนักขัตฤกษ์ (จ่าย 2 แรง) หรือไม่?');
                                      setBranchData(p => {
-                                         const hc = {...(p.holidayCycles || {})};
-                                         hc[d.dateStr] = choice === "1" ? 'saturday' : 'sunday';
-                                         const nd = {...p, holidays: [...(p.holidays || []), d.dateStr], holidayCycles: hc};
+                                         const newHoliday = { date: d.dateStr, name: holidayName, isPublic };
+                                         const nd = {...p, holidays: [...(p.holidays || []), newHoliday]};
                                          if (activeBranchId) setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd).catch(console.error);
                                          return nd;
                                      });
@@ -4847,10 +4880,11 @@ export default function App() {
                              }
                          }
                      }} 
-                     className={`w-full aspect-square rounded-[0.8rem] sm:rounded-[1.5rem] text-[10px] sm:text-[12px] font-black transition-all border-2 flex flex-col items-center justify-center ${isHoliday ? 'bg-red-500 text-white border-red-600 shadow-lg sm:shadow-xl' : 'bg-slate-50 text-slate-400 border-transparent hover:bg-slate-100'} ${authRole === 'branch' ? 'cursor-not-allowed opacity-80' : ''}`}
+                     className={`w-full aspect-square rounded-[0.8rem] sm:rounded-[1.5rem] text-[10px] sm:text-[12px] font-black transition-all border-2 flex flex-col items-center justify-center relative ${isHoliday ? 'bg-red-500 text-white border-red-600 shadow-lg sm:shadow-xl' : 'bg-slate-50 text-slate-400 border-transparent hover:bg-slate-100'} ${authRole === 'branch' ? 'cursor-not-allowed opacity-80' : ''}`}
+                     title={holidayInfo?.name || ''}
                    >
                      <span>{d.dayNum}</span>
-                     {isHoliday && <span className="text-[8px] opacity-80 leading-none">{branchData.holidayCycles?.[d.dateStr] === 'sunday' ? '(อา.)' : '(ส.)'}</span>}
+                     {isPublicHoliday && <span className="absolute top-1 right-1 w-2 h-2 bg-yellow-300 rounded-full" title="วันหยุดนักขัตฤกษ์"></span>}
                    </button>
                  );
                })}
@@ -4949,23 +4983,39 @@ export default function App() {
               </div>
            </div>
            
-           <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-8 mb-4 border-b border-slate-100 pb-2">ตั้งค่าสูตรคำนวณค่าจ้างและ OT (Payroll Rules)</h3>
-           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+           <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-8 mb-4 border-b border-slate-100 pb-2">ตั้งค่าสูตรคำนวณค่าจ้างและ OT (Payroll Rules) - สิทธิ์เฉพาะ Superadmin</h3>
+           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">ตัวหารเงินเดือน (วัน)</label>
+                 <input type="number" step="1" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.monthlySalaryDivider ?? 30} onChange={(e) => handleUpdatePayrollConfig('monthlySalaryDivider', e.target.value)} onBlur={(e) => handleSavePayrollConfig('monthlySalaryDivider', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
+              </div>
               <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">OT พนักงานรายเดือน (เท่า)</label>
                  <input type="number" step="0.1" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.otRateMonthly ?? 1.5} onChange={(e) => handleUpdatePayrollConfig('otRateMonthly', e.target.value)} onBlur={(e) => handleSavePayrollConfig('otRateMonthly', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
               </div>
               <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
-                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">OT พนักงานรายชั่วโมง/PT (เท่า)</label>
-                 <input type="number" step="0.1" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.otRateHourly ?? 1.5} onChange={(e) => handleUpdatePayrollConfig('otRateHourly', e.target.value)} onBlur={(e) => handleSavePayrollConfig('otRateHourly', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
+                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">OT รายเดือน (วันหยุดนักขัตฯ) (เท่า)</label>
+                 <input type="number" step="0.1" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.otRateHolidayMonthly ?? 3.0} onChange={(e) => handleUpdatePayrollConfig('otRateHolidayMonthly', e.target.value)} onBlur={(e) => handleSavePayrollConfig('otRateHolidayMonthly', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
+              </div>
+              <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">OT พนักงานราย ชม. (FT) (เท่า)</label>
+                 <input type="number" step="0.1" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.otRateFtHourly ?? 1.5} onChange={(e) => handleUpdatePayrollConfig('otRateFtHourly', e.target.value)} onBlur={(e) => handleSavePayrollConfig('otRateFtHourly', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
+              </div>
+              <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">OT พนักงาน Part-Time (เท่า)</label>
+                 <input type="number" step="0.1" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.otRatePt ?? 1.5} onChange={(e) => handleUpdatePayrollConfig('otRatePt', e.target.value)} onBlur={(e) => handleSavePayrollConfig('otRatePt', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
               </div>
               <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">วันหยุด: รายเดือนได้เพิ่ม (แรง)</label>
-                 <input type="number" step="0.1" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.holidayMultiplierMonthly ?? 1.0} onChange={(e) => handleUpdatePayrollConfig('holidayMultiplierMonthly', e.target.value)} onBlur={(e) => handleSavePayrollConfig('holidayMultiplierMonthly', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" title="1.0 หมายถึงได้เพิ่มอีก 1 แรง (รวมในฐานเงินเดือน 1 แรง = 2 แรง)" />
+                 <input type="number" step="0.1" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.holidayMultiplierMonthly ?? 1.0} onChange={(e) => handleUpdatePayrollConfig('holidayMultiplierMonthly', e.target.value)} onBlur={(e) => handleSavePayrollConfig('holidayMultiplierMonthly', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" title="1.0 หมายถึงได้เพิ่มอีก 1 แรง (รวมกับที่ได้ในเงินเดือนแล้ว)" />
               </div>
               <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
-                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">วันหยุด: รายชั่วโมง/PT ได้ (แรง)</label>
-                 <input type="number" step="0.1" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.holidayMultiplierHourly ?? 2.0} onChange={(e) => handleUpdatePayrollConfig('holidayMultiplierHourly', e.target.value)} onBlur={(e) => handleSavePayrollConfig('holidayMultiplierHourly', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" title="2.0 หมายถึงได้ค่าแรง 2 เท่าจากปกติ" />
+                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">วันหยุด: ราย ชม. (FT) ได้ (แรง)</label>
+                 <input type="number" step="0.1" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.holidayMultiplierFtHourly ?? 2.0} onChange={(e) => handleUpdatePayrollConfig('holidayMultiplierFtHourly', e.target.value)} onBlur={(e) => handleSavePayrollConfig('holidayMultiplierFtHourly', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" title="2.0 หมายถึงได้ค่าแรง 2 เท่าจากปกติ" />
+              </div>
+              <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">วันหยุด: Part-Time ได้ (แรง)</label>
+                 <input type="number" step="0.1" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.holidayMultiplierPt ?? 2.0} onChange={(e) => handleUpdatePayrollConfig('holidayMultiplierPt', e.target.value)} onBlur={(e) => handleSavePayrollConfig('holidayMultiplierPt', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" title="2.0 หมายถึงได้ค่าแรง 2 เท่าจากปกติ" />
               </div>
            </div>
            <p className="text-[10px] text-slate-400 font-bold mt-4">* ระบบจะนำยอดเงินมาหารเป็นชั่วโมงโควตาตั้งต้น สำหรับบริหารจัดการ Part-Time ในกระเป๋าชั่วโมง (PT Ledger)</p>
