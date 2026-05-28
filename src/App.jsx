@@ -5116,15 +5116,15 @@ export default function App() {
                  <input type="number" step="1" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.monthlySalaryDivider ?? 30} onChange={(e) => handleUpdatePayrollConfig('monthlySalaryDivider', e.target.value)} onBlur={(e) => handleSavePayrollConfig('monthlySalaryDivider', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
               </div>
               <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
-                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">OT พนักงานรายเดือน (เท่า)</label>
+                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">OT FT พนักงานรายเดือน (เท่า)</label>
                  <input type="number" step="0.1" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.otRateMonthly ?? 1.5} onChange={(e) => handleUpdatePayrollConfig('otRateMonthly', e.target.value)} onBlur={(e) => handleSavePayrollConfig('otRateMonthly', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
               </div>
               <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
-                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">OT รายเดือน (วันหยุดนักขัตฯ) (เท่า)</label>
+                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">OT FTรายเดือน (วันหยุดนักขัตฯ) (เท่า)</label>
                  <input type="number" step="0.1" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.otRateHolidayMonthly ?? 3.0} onChange={(e) => handleUpdatePayrollConfig('otRateHolidayMonthly', e.target.value)} onBlur={(e) => handleSavePayrollConfig('otRateHolidayMonthly', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
               </div>
               <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
-                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">OT พนักงานราย ชม. (FT) (เท่า)</label>
+                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">OT พนักงาน EDC/DVT (เท่า)</label>
                  <input type="number" step="0.1" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.otRateFtHourly ?? 1.5} onChange={(e) => handleUpdatePayrollConfig('otRateFtHourly', e.target.value)} onBlur={(e) => handleSavePayrollConfig('otRateFtHourly', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
               </div>
               <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
@@ -5132,15 +5132,15 @@ export default function App() {
                  <input type="number" step="0.1" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.otRatePt ?? 1.5} onChange={(e) => handleUpdatePayrollConfig('otRatePt', e.target.value)} onBlur={(e) => handleSavePayrollConfig('otRatePt', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
               </div>
               <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
-                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">วันหยุด: รายเดือนได้เพิ่ม (แรง)</label>
+                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">วันหยุดนักขัต: FT รายเดือนได้เพิ่ม (แรง)</label>
                  <input type="number" step="0.1" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.holidayMultiplierMonthly ?? 1.0} onChange={(e) => handleUpdatePayrollConfig('holidayMultiplierMonthly', e.target.value)} onBlur={(e) => handleSavePayrollConfig('holidayMultiplierMonthly', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" title="1.0 หมายถึงได้เพิ่มอีก 1 แรง (รวมกับที่ได้ในเงินเดือนแล้ว)" />
               </div>
               <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
-                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">วันหยุด: ราย ชม. (FT) ได้ (แรง)</label>
+                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">วันหยุดนักขัต: EDC DVT ได้ (แรง)</label>
                  <input type="number" step="0.1" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.holidayMultiplierFtHourly ?? 2.0} onChange={(e) => handleUpdatePayrollConfig('holidayMultiplierFtHourly', e.target.value)} onBlur={(e) => handleSavePayrollConfig('holidayMultiplierFtHourly', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" title="2.0 หมายถึงได้ค่าแรง 2 เท่าจากปกติ" />
               </div>
               <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
-                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">วันหยุด: Part-Time ได้ (แรง)</label>
+                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">วันหยุดนักขัต: Part-Time ได้ (แรง)</label>
                  <input type="number" step="0.1" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.holidayMultiplierPt ?? 2.0} onChange={(e) => handleUpdatePayrollConfig('holidayMultiplierPt', e.target.value)} onBlur={(e) => handleSavePayrollConfig('holidayMultiplierPt', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" title="2.0 หมายถึงได้ค่าแรง 2 เท่าจากปกติ" />
               </div>
            </div>
