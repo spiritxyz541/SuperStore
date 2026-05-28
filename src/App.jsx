@@ -760,7 +760,8 @@ export default function App() {
           wageType: s.wageType || 'MONTHLY', baseWage: s.baseWage || 0,
           workHours: 0, shifts: 0, actualOT: 0, plannedOT: 0, leaves: 0,
           unpaidLeaveDays: 0,
-          basePay: 0, otPay: 0, holidayPay: 0, totalPay: 0
+          basePay: 0, otPay: 0, holidayPay: 0, totalPay: 0,
+          otHoursByMultiplier: {}
       };
     });
 
@@ -814,19 +815,26 @@ export default function App() {
                   const monthlyRate = staff.baseWage || 0;
                   const dailyRate = monthlyRate / (payrollConfig.monthlySalaryDivider || 30);
                   const hourlyRate = dailyRate / 8;
+                  const effectiveOtMultiplier = isPublicHoliday ? (payrollConfig.otRateHolidayMonthly || 3.0) : (payrollConfig.otRateMonthly || 1.5);
+                  
                   if (isPublicHoliday) {
                       // พนักงานประจำ (รายเดือน) จะได้เป็นวันหยุดชดเชย (CO) แทน ไม่มีการจ่ายค่าแรงวันหยุดเพิ่ม
                       // staff.holidayPay += dailyRate * (payrollConfig.holidayMultiplierMonthly || 1.0);
-                      staff.otPay += otHours * hourlyRate * (payrollConfig.otRateHolidayMonthly || 3.0);
+                      staff.otPay += otHours * hourlyRate * effectiveOtMultiplier;
                   } else {
-                      staff.otPay += otHours * hourlyRate * (payrollConfig.otRateMonthly || 1.5);
+                      staff.otPay += otHours * hourlyRate * effectiveOtMultiplier;
                   }
+                  
+                  if (otHours > 0) staff.otHoursByMultiplier[effectiveOtMultiplier] = (staff.otHoursByMultiplier[effectiveOtMultiplier] || 0) + otHours;
               } else { // HOURLY or PT
                   const isPt = staff.wageType === 'PT';
                   const hourlyRate = isPt ? ptHourlyRate : (staff.baseWage || 0);
                   
                   const holidayMultiplier = isPt ? (payrollConfig.holidayMultiplierPt || 2.0) : (payrollConfig.holidayMultiplierFtHourly || 2.0);
-                  const otMultiplier = isPt ? (payrollConfig.otRatePt || 1.5) : (payrollConfig.otRateFtHourly || 1.5);
+                  const baseOtMultiplier = isPt ? (payrollConfig.otRatePt || 1.5) : (payrollConfig.otRateFtHourly || 1.5);
+                  
+                  // พนักงานชั่วโมง/PT หากทำ OT ในวันหยุด จะได้ (เรท OT ปกติ * เรทวันหยุด) เช่น 1.5 * 2 = 3.0 เท่า
+                  const effectiveOtMultiplier = isPublicHoliday ? (baseOtMultiplier * holidayMultiplier) : baseOtMultiplier;
 
                   if (isPublicHoliday) {
                       // ค่าแรงปกติเข้า basePay, ส่วนที่เกินเนื่องจากเป็นวันหยุด (x-1) เข้า holidayPay
@@ -835,7 +843,9 @@ export default function App() {
                   } else {
                       staff.basePay += workHours * hourlyRate;
                   }
-                  staff.otPay += otHours * hourlyRate * otMultiplier;
+                  staff.otPay += otHours * hourlyRate * effectiveOtMultiplier;
+                  
+                  if (otHours > 0) staff.otHoursByMultiplier[effectiveOtMultiplier] = (staff.otHoursByMultiplier[effectiveOtMultiplier] || 0) + otHours;
               }
             }
           });
@@ -2608,7 +2618,7 @@ export default function App() {
   };
 
   const handleExportExcel = () => {
-    const headers = ['วันที่', 'รหัสพนักงาน', 'ชื่อพนักงาน', 'แผนก', 'ตำแหน่ง', 'เวลาเข้า', 'เวลาออก', 'OT (ชั่วโมง)'];
+    const headers = ['วันที่', 'รหัสพนักงาน', 'ชื่อพนักงาน', 'แผนก', 'ตำแหน่ง', 'เวลาเข้า', 'เวลาออก', 'OT (ชั่วโมง)', 'เรท OT (เท่า)'];
     const rows = [];
     Object.keys(schedule).sort().forEach(dateStr => {
       if (reportFilterMode === 'month') {
@@ -2620,6 +2630,7 @@ export default function App() {
 
       const dayData = schedule[dateStr];
       const dayType = getDayType(dateStr, branchData.holidays, branchData.holidayCycles);
+      const isPublicHoliday = (branchData.holidays || []).some(h => typeof h === 'object' && h.date === dateStr && h.isPublic);
 
       if (dayData.duties) {
         Object.keys(dayData.duties).forEach(dutyId => {
@@ -2632,7 +2643,18 @@ export default function App() {
               const shiftPreset = branchData.shiftPresets?.find(p => p.id === mSlot?.shiftPresetId);
               if (staff && shiftPreset) {
                   const { startTime, endTime } = getShiftTimesForStaff(staff.pos, shiftPreset);
-                  rows.push([ dateStr, staff.empId || '-', staff.name, staff.dept, staff.pos, startTime, endTime, assigned.otHours || 0 ]);
+                  
+                  let effectiveOtMultiplier = 1.0;
+                  if (staff.wageType === 'MONTHLY') {
+                      effectiveOtMultiplier = isPublicHoliday ? (branchData.payrollConfig?.otRateHolidayMonthly || 3.0) : (branchData.payrollConfig?.otRateMonthly || 1.5);
+                  } else {
+                      const isPt = staff.wageType === 'PT';
+                      const holidayMultiplier = isPt ? (branchData.payrollConfig?.holidayMultiplierPt || 2.0) : (branchData.payrollConfig?.holidayMultiplierFtHourly || 2.0);
+                      const baseOtMultiplier = isPt ? (branchData.payrollConfig?.otRatePt || 1.5) : (branchData.payrollConfig?.otRateFtHourly || 1.5);
+                      effectiveOtMultiplier = isPublicHoliday ? (baseOtMultiplier * holidayMultiplier) : baseOtMultiplier;
+                  }
+
+                  rows.push([ dateStr, staff.empId || '-', staff.name, staff.dept, staff.pos, startTime, endTime, assigned.otHours || 0, effectiveOtMultiplier ]);
               }
             }
           });
@@ -6220,6 +6242,14 @@ export default function App() {
     const baseBudget = branchData.ptConfig?.monthlyBudget || 0;
     const isOverAllowed = estimatedPtExpense > totalAllowedExpense;
 
+    const uniqueOtMultipliers = useMemo(() => {
+        const multipliers = new Set();
+        reportData.forEach(s => {
+            Object.keys(s.otHoursByMultiplier || {}).forEach(m => multipliers.add(m));
+        });
+        return Array.from(multipliers).map(Number).sort((a, b) => a - b);
+    }, [reportData]);
+
     return (
        <div className="flex-1 space-y-6 sm:space-y-12 animate-in fade-in duration-500 pb-24 w-full">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0">
@@ -6345,7 +6375,10 @@ export default function App() {
                       <th className="px-4 sm:px-12 py-4 sm:py-8 text-center">Shifts</th>
                       <th className="px-4 sm:px-12 py-4 sm:py-8 text-center">Hours</th>
                       <th className="px-4 sm:px-12 py-4 sm:py-8 text-center bg-indigo-50/30 text-indigo-600">Plan OT</th>
-                      <th className="px-4 sm:px-12 py-4 sm:py-8 text-center bg-indigo-50/50 text-indigo-800">Actual OT</th>
+                      {uniqueOtMultipliers.map(mult => (
+                          <th key={mult} className="px-2 sm:px-8 py-4 sm:py-8 text-center bg-indigo-50/40 text-indigo-700">OT x{mult}</th>
+                      ))}
+                      <th className="px-4 sm:px-12 py-4 sm:py-8 text-center bg-indigo-50/60 text-indigo-900">รวม OT</th>
                       <th className="px-4 sm:px-12 py-4 sm:py-8 text-center">Delta</th>
                       {['superadmin', 'areamanager'].includes(authRole) && <th className="px-4 sm:px-8 py-4 sm:py-8 text-right bg-emerald-50/40">ค่าจ้างปกติ</th>}
                       {['superadmin', 'areamanager'].includes(authRole) && <th className="px-4 sm:px-8 py-4 sm:py-8 text-right bg-emerald-50/60">ค่า OT</th>}
@@ -6370,7 +6403,12 @@ export default function App() {
                          <td className="px-4 sm:px-12 py-4 sm:py-8 text-center text-sm sm:text-xl">{s.shifts}</td>
                          <td className="px-4 sm:px-12 py-4 sm:py-8 text-center text-sm sm:text-xl">{s.workHours.toFixed(1)}</td>
                          <td className="px-4 sm:px-12 py-4 sm:py-8 text-center bg-indigo-50/10 text-slate-500">{s.plannedOT.toFixed(1)}</td>
-                         <td className="px-4 sm:px-12 py-4 sm:py-8 text-center bg-indigo-50/30 text-indigo-700 text-lg sm:text-2xl font-black">{s.actualOT.toFixed(1)}</td>
+                         {uniqueOtMultipliers.map(mult => (
+                             <td key={mult} className="px-2 sm:px-8 py-4 sm:py-8 text-center bg-indigo-50/20 text-indigo-700 font-bold">
+                                 {s.otHoursByMultiplier?.[mult] ? s.otHoursByMultiplier[mult].toFixed(1) : '-'}
+                             </td>
+                         ))}
+                         <td className="px-4 sm:px-12 py-4 sm:py-8 text-center bg-indigo-50/30 text-indigo-800 text-lg sm:text-2xl font-black">{s.actualOT.toFixed(1)}</td>
                          <td className={`px-4 sm:px-12 py-4 sm:py-8 text-center text-sm sm:text-lg font-black ${delta > 0 ? 'text-red-500' : delta < 0 ? 'text-emerald-500' : 'text-slate-300'}`}>
                             {delta > 0 ? `+${delta.toFixed(1)}` : delta.toFixed(1)}
                          </td>
@@ -6385,8 +6423,16 @@ export default function App() {
                 {['superadmin', 'areamanager'].includes(authRole) && (
                    <tfoot className="bg-slate-100 text-slate-800 font-black text-sm uppercase">
                        <tr>
-                           <td colSpan="2" className="px-6 sm:px-12 py-4 text-right">Total</td>
-                           <td colSpan="5" className="px-4 sm:px-12 py-4 text-center"></td>
+                           <td colSpan={['superadmin', 'areamanager'].includes(authRole) ? 2 : 1} className="px-6 sm:px-12 py-4 text-right">Total</td>
+                           <td className="px-4 sm:px-12 py-4 text-center">{reportData.reduce((acc, curr) => acc + curr.shifts, 0)}</td>
+                           <td className="px-4 sm:px-12 py-4 text-center">{reportData.reduce((acc, curr) => acc + curr.workHours, 0).toFixed(1)}</td>
+                           <td className="px-4 sm:px-12 py-4 text-center">{totalPlannedOT.toFixed(1)}</td>
+                           {uniqueOtMultipliers.map(mult => {
+                               const totalForMult = reportData.reduce((sum, s) => sum + (s.otHoursByMultiplier?.[mult] || 0), 0);
+                               return <td key={mult} className="px-2 sm:px-8 py-4 text-center text-indigo-700">{totalForMult > 0 ? totalForMult.toFixed(1) : '-'}</td>;
+                           })}
+                           <td className="px-4 sm:px-12 py-4 text-center text-indigo-900">{totalActualOT.toFixed(1)}</td>
+                           <td className={`px-4 sm:px-12 py-4 text-center ${deltaOT > 0 ? 'text-red-500' : 'text-emerald-500'}`}>{deltaOT > 0 ? `+${deltaOT.toFixed(1)}` : deltaOT.toFixed(1)}</td>
                            <td className="px-4 sm:px-8 py-4 text-right font-mono">{totalBasePay.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                            <td className="px-4 sm:px-8 py-4 text-right font-mono">{totalOtPay.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                            <td className="px-4 sm:px-8 py-4 text-right font-mono">{totalHolidayPay.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
