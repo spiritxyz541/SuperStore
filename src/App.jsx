@@ -4572,10 +4572,10 @@ export default function App() {
              </div>
 
              <div className="space-y-4 mb-6 sm:mb-10 w-full">
-               <div className="flex flex-col xl:flex-row gap-2 sm:gap-4 items-stretch">
-                  <input type="text" placeholder="รหัสพนง." className="w-full xl:w-24 border-2 border-slate-100 rounded-xl sm:rounded-2xl px-3 py-3 sm:py-4 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none transition shadow-sm" value={newStaffEmpId} onChange={(e) => setNewStaffEmpId(e.target.value)} />
-                  <input type="text" placeholder={`ชื่อพนักงานใหม่ (${newStaffDept === 'service' ? 'บริการ' : 'ครัว'})...`} className="w-full xl:w-auto flex-[2] border-2 border-slate-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none transition shadow-sm" value={newStaffName} onChange={(e) => setNewStaffName(e.target.value)} />
-                  <div className="flex flex-col w-full flex-1 gap-2">
+               <div className="grid grid-cols-1 xl:grid-cols-12 gap-2 sm:gap-4 items-stretch w-full">
+                  <input type="text" placeholder="รหัสพนง." className="xl:col-span-2 w-full border-2 border-slate-100 rounded-xl sm:rounded-2xl px-3 py-3 sm:py-4 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none transition shadow-sm" value={newStaffEmpId} onChange={(e) => setNewStaffEmpId(e.target.value)} />
+                  <input type="text" placeholder={`ชื่อพนักงานใหม่ (${newStaffDept === 'service' ? 'บริการ' : 'ครัว'})...`} className="xl:col-span-3 w-full border-2 border-slate-100 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none transition shadow-sm" value={newStaffName} onChange={(e) => setNewStaffName(e.target.value)} />
+                  <div className="xl:col-span-5 flex flex-col w-full gap-2">
                       <div className="flex flex-wrap sm:flex-nowrap gap-2 sm:gap-4 w-full">
                         <select value={newStaffDept} onChange={(e) => { 
                             setNewStaffDept(e.target.value); 
@@ -4650,7 +4650,7 @@ export default function App() {
                           }); 
                           setNewStaffName(''); setNewStaffEmpId(''); setNewStaffDayOff(''); setNewStaffStartDate(''); setNewStaffBaseWage('');
                       } 
-                  }} className="w-full xl:w-auto bg-slate-900 text-white px-6 sm:px-8 py-3 rounded-xl sm:rounded-2xl font-black text-xs hover:bg-indigo-600 transition uppercase flex items-center justify-center h-full min-h-[48px] self-stretch"><UserPlus className="w-4 h-4 sm:w-5 sm:h-5 mr-0 sm:mr-0"/><span className="xl:hidden ml-2">เพิ่มพนักงาน</span></button>
+                  }} className="xl:col-span-2 w-full bg-slate-900 text-white px-4 py-3 rounded-xl sm:rounded-2xl font-black text-xs hover:bg-indigo-600 transition uppercase flex items-center justify-center h-full min-h-[48px]"><UserPlus className="w-4 h-4 sm:w-5 sm:h-5 mr-2"/><span>เพิ่มพนักงาน</span></button>
                </div>
              </div>
              <div className="grid grid-cols-1 gap-2 sm:gap-3 w-full">
@@ -6553,7 +6553,7 @@ export default function App() {
               {(!globalTemplates || globalTemplates.length === 0) ? (
                   <div className="flex-1 flex items-center justify-center text-xs font-bold text-slate-400 border-2 border-dashed border-slate-100 rounded-xl">ยังไม่มีแม่แบบที่บันทึกไว้</div>
               ) : (
-                  <div className="space-y-2 overflow-y-auto max-h-[200px] custom-scrollbar pr-2">
+                  <div className="space-y-2 w-full">
                       {globalTemplates.map(tpl => (
                           <div key={tpl.id} className="flex justify-between items-center bg-slate-50 border border-slate-100 p-3 rounded-xl hover:border-emerald-300 transition-colors">
                               <span className="font-black text-xs text-slate-700 truncate mr-4">{tpl.name}</span>
