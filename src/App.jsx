@@ -202,13 +202,16 @@ function generateDefaultMatrix(svc = DEFAULT_SERVICE_DUTIES, ktn = DEFAULT_KITCH
   return m;
 }
 
+function isDateHoliday(dateStr, holidays = []) {
+    return (holidays || []).some(h => (typeof h === 'object' ? h.date : h) === dateStr);
+}
+
 function getDayType(dateStr, holidays = [], holidayCycles = {}) {
     const [yStr, mStr, dStr] = dateStr.split('-');
     const dateObj = new Date(parseInt(yStr), parseInt(mStr) - 1, parseInt(dStr));
     const dOW = dateObj.getDay();
     
-    const holidayInfo = (Array.isArray(holidays) && holidays.length > 0 && typeof holidays[0] === 'object') ? holidays.find(h => h.date === dateStr) : holidays.includes(dateStr);
-    if (holidayInfo) return holidayCycles?.[dateStr] || 'saturday';
+    if (isDateHoliday(dateStr, holidays)) return holidayCycles?.[dateStr] || 'saturday';
     if (dOW === 0) return 'sunday';
     if (dOW === 6) return 'saturday';
     if (dOW === 5) return 'friday';
