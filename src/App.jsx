@@ -4298,13 +4298,16 @@ export default function App() {
                           if (!isPT && (layer.id.includes('STAFF') || layer.id.includes('SUPPORT'))) {
                               limitId = `${newStaffDept.toUpperCase()}_STAFF_SUPPORT_FT`;
                               currentCount = (branchData.staff || []).filter(s => s.isActive !== false && s.dept === newStaffDept && !s.pos.includes('PT') && (getStaffLayer(s.dept, s.pos).id.includes('STAFF') || getStaffLayer(s.dept, s.pos).id.includes('SUPPORT'))).length;
+                          } else if (isPT && (layer.id.includes('STAFF') || layer.id.includes('SUPPORT'))) {
+                              limitId = `${newStaffDept.toUpperCase()}_STAFF_SUPPORT_PT`;
+                              currentCount = (branchData.staff || []).filter(s => s.isActive !== false && s.dept === newStaffDept && s.pos.includes('PT') && (getStaffLayer(s.dept, s.pos).id.includes('STAFF') || getStaffLayer(s.dept, s.pos).id.includes('SUPPORT'))).length;
                           } else {
                               currentCount = (branchData.staff || []).filter(s => s.isActive !== false && s.dept === newStaffDept && getStaffLayer(s.dept, s.pos).id === layer.id && (isPT ? s.pos.includes('PT') : !s.pos.includes('PT'))).length;
                           }
 
                           const limit = branchData.staffLimits?.[limitId];
                           if (limit !== undefined && limit !== null && currentCount >= limit) {
-                              const groupLabel = (!isPT && (layer.id.includes('STAFF') || layer.id.includes('SUPPORT'))) ? 'Staff & Support' : (isPT ? 'Part-Time' : layer.label);
+                              const groupLabel = (!isPT && (layer.id.includes('STAFF') || layer.id.includes('SUPPORT'))) ? 'Staff & Support' : (isPT && (layer.id.includes('STAFF') || layer.id.includes('SUPPORT'))) ? 'Part-Time (Staff & Support)' : (isPT ? 'Part-Time' : layer.label);
                               setConfirmModal({ message: `เพิ่มพนักงานไม่ได้ เนื่องจากกลุ่ม ${groupLabel} เต็มแล้ว (รับได้สูงสุด ${limit} คน)` });
                               return;
                           }
@@ -4367,13 +4370,16 @@ export default function App() {
                                   if (!isPT && (layer.id.includes('STAFF') || layer.id.includes('SUPPORT'))) {
                                       limitId = `${editStaffData.dept.toUpperCase()}_STAFF_SUPPORT_FT`;
                                       currentCount = (branchData.staff || []).filter(x => x.id !== editingStaffId && x.isActive !== false && !x.resignDate && x.dept === editStaffData.dept && !x.pos.includes('PT') && (getStaffLayer(x.dept, x.pos).id.includes('STAFF') || getStaffLayer(x.dept, x.pos).id.includes('SUPPORT'))).length;
+                                  } else if (isPT && (layer.id.includes('STAFF') || layer.id.includes('SUPPORT'))) {
+                                      limitId = `${editStaffData.dept.toUpperCase()}_STAFF_SUPPORT_PT`;
+                                      currentCount = (branchData.staff || []).filter(x => x.id !== editingStaffId && x.isActive !== false && !x.resignDate && x.dept === editStaffData.dept && x.pos.includes('PT') && (getStaffLayer(x.dept, x.pos).id.includes('STAFF') || getStaffLayer(x.dept, x.pos).id.includes('SUPPORT'))).length;
                                   } else {
                                       currentCount = (branchData.staff || []).filter(x => x.id !== editingStaffId && x.isActive !== false && !x.resignDate && x.dept === editStaffData.dept && getStaffLayer(x.dept, x.pos).id === layer.id && (isPT ? x.pos.includes('PT') : !x.pos.includes('PT'))).length;
                                   }
                                   
                                   const limit = branchData.staffLimits?.[limitId];
                                   if (limit !== undefined && limit !== null && currentCount >= limit) {
-                                      const groupLabel = (!isPT && (layer.id.includes('STAFF') || layer.id.includes('SUPPORT'))) ? 'Staff & Support' : (isPT ? 'Part-Time' : layer.label);
+                                      const groupLabel = (!isPT && (layer.id.includes('STAFF') || layer.id.includes('SUPPORT'))) ? 'Staff & Support' : (isPT && (layer.id.includes('STAFF') || layer.id.includes('SUPPORT'))) ? 'Part-Time (Staff & Support)' : (isPT ? 'Part-Time' : layer.label);
                                       setConfirmModal({ message: `เปลี่ยนตำแหน่งไม่ได้ เนื่องจากกลุ่ม ${groupLabel} เต็มแล้ว (รับได้สูงสุด ${limit} คน)` });
                                       return;
                                   }
