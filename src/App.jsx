@@ -4164,82 +4164,161 @@ export default function App() {
                  </div>
                  
                  <div className="text-[10px] sm:text-xs font-black text-indigo-700 uppercase mt-2 border-b border-slate-200 pb-2">พนักงานประจำ (Full-Time)</div>
-                 {DUTY_CATEGORIES[activeDept].map(cat => {
-                    const layerPositions = POSITIONS[activeDept].filter(p => !p.includes('PT') && getStaffLayer(activeDept, p).id === cat.id);
-                    if (layerPositions.length === 0) return null;
-                    const catStaffCount = (branchData.staff || []).filter(s => s.isActive !== false && s.dept === activeDept && layerPositions.includes(s.pos)).length;
-                    const limitId = cat.id;
-                    const catLimit = branchData.staffLimits?.[limitId];
-                    const isFull = catLimit !== undefined && catLimit !== null && catStaffCount >= catLimit;
+                 {(() => {
+                     const headCat = DUTY_CATEGORIES[activeDept].find(c => c.id.includes('HEAD'));
+                     const staffCat = DUTY_CATEGORIES[activeDept].find(c => c.id.includes('STAFF'));
+                     const supportCat = DUTY_CATEGORIES[activeDept].find(c => c.id.includes('SUPPORT'));
+                     
+                     const renderCat = (cat, showLimitInput = true) => {
+                         if (!cat) return null;
+                         const layerPositions = POSITIONS[activeDept].filter(p => !p.includes('PT') && getStaffLayer(activeDept, p).id === cat.id);
+                         if (layerPositions.length === 0) return null;
+                         
+                         const catStaffCount = (branchData.staff || []).filter(s => s.isActive !== false && s.dept === activeDept && layerPositions.includes(s.pos)).length;
+                         const limitId = cat.id;
+                         const catLimit = branchData.staffLimits?.[limitId];
+                         const isFull = catLimit !== undefined && catLimit !== null && catStaffCount >= catLimit;
 
-                    return (
-                       <div key={limitId} className="flex flex-col gap-2 p-3 rounded-xl bg-white border border-slate-200 shadow-sm">
-                          <div className="flex justify-between items-center">
-                             <div className={`text-[10px] font-black px-3 py-1.5 rounded uppercase w-fit ${cat.color.split(' ')[0]} ${cat.color.split(' ')[1]}`}>{cat.label}</div>
-                             <div className="flex items-center gap-2">
-                                <span className={`text-[10px] font-bold ${isFull ? 'text-red-500' : 'text-slate-500'}`}>จำนวน {catStaffCount}/{catLimit !== undefined && catLimit !== null ? catLimit : '∞'}</span>
-                                <input 
-                                   type="number" min="0" disabled={authRole !== 'superadmin'}
-                                   value={catLimit === undefined || catLimit === null ? '' : catLimit}
-                                   onChange={(e) => handleUpdateStaffLimit(limitId, e.target.value)}
-                                   className="w-12 text-center border rounded p-1 text-[10px] font-bold outline-none focus:border-indigo-500 disabled:bg-slate-50 disabled:text-slate-400"
-                                   placeholder="∞" title="ตั้งค่าจำนวนสูงสุด"
-                                />
-                             </div>
-                          </div>
-                          <div className="flex flex-wrap gap-2">
-                             {layerPositions.map(p => {
-                             const count = (branchData.staff || []).filter(s => s.dept === activeDept && s.pos === p && s.isActive !== false).length;
-                                 const isSelected = staffFilterPos === p;
-                                 return (
-                                    <button key={p} onClick={() => setStaffFilterPos(isSelected ? 'ALL' : p)} className={`text-[10px] font-black border px-3 py-1.5 rounded-lg transition-all shadow-sm ${isSelected ? 'ring-2 ring-offset-2 ring-indigo-500 scale-105' : 'hover:opacity-80'} ${cat.color.split(' ')[0]} ${cat.color.split(' ')[1]} ${count === 0 ? 'opacity-40' : ''}`}>
-                                       {p}: {count}
-                                    </button>
-                                 )
-                             })}
-                          </div>
-                       </div>
-                    )
-                 })}
+                         return (
+                           <div key={cat.id} className={`flex flex-col gap-2 p-3 ${showLimitInput ? 'rounded-xl bg-white border border-slate-200 shadow-sm' : ''}`}>
+                              <div className="flex justify-between items-center">
+                                 <div className={`text-[10px] font-black px-3 py-1.5 rounded uppercase w-fit ${cat.color.split(' ')[0]} ${cat.color.split(' ')[1]}`}>{cat.label}</div>
+                                 {showLimitInput && (
+                                     <div className="flex items-center gap-2">
+                                        <span className={`text-[10px] font-bold ${isFull ? 'text-red-500' : 'text-slate-500'}`}>จำนวน {catStaffCount}/{catLimit !== undefined && catLimit !== null ? catLimit : '∞'}</span>
+                                        <input 
+                                           type="number" min="0" disabled={authRole !== 'superadmin'}
+                                           value={catLimit === undefined || catLimit === null ? '' : catLimit}
+                                           onChange={(e) => handleUpdateStaffLimit(limitId, e.target.value)}
+                                           className="w-12 text-center border rounded p-1 text-[10px] font-bold outline-none focus:border-indigo-500 disabled:bg-slate-50 disabled:text-slate-400"
+                                           placeholder="∞" title="ตั้งค่าจำนวนสูงสุด"
+                                        />
+                                     </div>
+                                 )}
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                 {layerPositions.map(p => {
+                                 const count = (branchData.staff || []).filter(s => s.dept === activeDept && s.pos === p && s.isActive !== false).length;
+                                     const isSelected = staffFilterPos === p;
+                                     return (
+                                        <button key={p} onClick={() => setStaffFilterPos(isSelected ? 'ALL' : p)} className={`text-[10px] font-black border px-3 py-1.5 rounded-lg transition-all shadow-sm ${isSelected ? 'ring-2 ring-offset-2 ring-indigo-500 scale-105' : 'hover:opacity-80'} ${cat.color.split(' ')[0]} ${cat.color.split(' ')[1]} ${count === 0 ? 'opacity-40' : ''}`}>
+                                           {p}: {count}
+                                        </button>
+                                     )
+                                 })}
+                              </div>
+                           </div>
+                         );
+                     };
+
+                     const combinedLimitId = `${activeDept.toUpperCase()}_STAFF_SUPPORT_FT`;
+                     let combinedCount = 0;
+                     if (staffCat) {
+                         const layerPositions = POSITIONS[activeDept].filter(p => !p.includes('PT') && getStaffLayer(activeDept, p).id === staffCat.id);
+                         combinedCount += (branchData.staff || []).filter(s => s.isActive !== false && s.dept === activeDept && layerPositions.includes(s.pos)).length;
+                     }
+                     if (supportCat) {
+                         const layerPositions = POSITIONS[activeDept].filter(p => !p.includes('PT') && getStaffLayer(activeDept, p).id === supportCat.id);
+                         combinedCount += (branchData.staff || []).filter(s => s.isActive !== false && s.dept === activeDept && layerPositions.includes(s.pos)).length;
+                     }
+                     
+                     const combinedLimit = branchData.staffLimits?.[combinedLimitId];
+                     const isCombinedFull = combinedLimit !== undefined && combinedLimit !== null && combinedCount >= combinedLimit;
+
+                     return (
+                         <React.Fragment>
+                             {renderCat(headCat, true)}
+                             {(staffCat || supportCat) && (
+                                 <div className="flex flex-col gap-0 p-1 rounded-xl bg-slate-50 border border-slate-200 shadow-sm relative mt-2">
+                                     <div className="flex justify-between items-center px-3 pt-3 pb-1 border-b border-slate-200/50 mx-2">
+                                        <div className="text-[10px] font-black text-slate-600 uppercase">Staff & Support Team (โควตาร่วม)</div>
+                                        <div className="flex items-center gap-2">
+                                           <span className={`text-[10px] font-bold ${isCombinedFull ? 'text-red-500' : 'text-slate-500'}`}>จำนวนรวม {combinedCount}/{combinedLimit !== undefined && combinedLimit !== null ? combinedLimit : '∞'}</span>
+                                           <input 
+                                              type="number" min="0" disabled={authRole !== 'superadmin'}
+                                              value={combinedLimit === undefined || combinedLimit === null ? '' : combinedLimit}
+                                              onChange={(e) => handleUpdateStaffLimit(combinedLimitId, e.target.value)}
+                                              className="w-12 text-center border rounded p-1 text-[10px] font-bold outline-none focus:border-indigo-500 disabled:bg-slate-50 disabled:text-slate-400 bg-white"
+                                              placeholder="∞" title="ตั้งค่าจำนวนสูงสุด"
+                                           />
+                                        </div>
+                                     </div>
+                                     <div className="bg-transparent">
+                                        {renderCat(staffCat, false)}
+                                        {renderCat(supportCat, false)}
+                                     </div>
+                                 </div>
+                             )}
+                         </React.Fragment>
+                     );
+                 })()}
 
                  <div className="text-[10px] sm:text-xs font-black text-orange-600 uppercase mt-4 border-b border-slate-200 pb-2">พนักงานพาร์ทไทม์ (Part-Time)</div>
-                 {DUTY_CATEGORIES[activeDept].map(cat => {
-                    const layerPositions = POSITIONS[activeDept].filter(p => p.includes('PT') && getStaffLayer(activeDept, p).id === cat.id);
-                    if (layerPositions.length === 0) return null;
-                    const catStaffCount = (branchData.staff || []).filter(s => s.isActive !== false && s.dept === activeDept && layerPositions.includes(s.pos)).length;
-                    const limitId = cat.id + '_PT';
-                    const catLimit = branchData.staffLimits?.[limitId];
-                    const isFull = catLimit !== undefined && catLimit !== null && catStaffCount >= catLimit;
+                 {(() => {
+                     const staffCat = DUTY_CATEGORIES[activeDept].find(c => c.id.includes('STAFF'));
+                     const supportCat = DUTY_CATEGORIES[activeDept].find(c => c.id.includes('SUPPORT'));
+                     
+                     const renderCatPT = (cat) => {
+                         if (!cat) return null;
+                         const layerPositions = POSITIONS[activeDept].filter(p => p.includes('PT') && getStaffLayer(activeDept, p).id === cat.id);
+                         if (layerPositions.length === 0) return null;
+                         
+                         return (
+                           <div key={cat.id + '_PT'} className="flex flex-col gap-2 p-3">
+                              <div className="flex justify-between items-center">
+                                 <div className={`text-[10px] font-black px-3 py-1.5 rounded uppercase w-fit ${cat.color.split(' ')[0]} ${cat.color.split(' ')[1]}`}>Part-Time {cat.id.includes('STAFF') ? 'Staff Team' : 'Support Team'}</div>
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                 {layerPositions.map(p => {
+                                 const count = (branchData.staff || []).filter(s => s.dept === activeDept && s.pos === p && s.isActive !== false).length;
+                                     const isSelected = staffFilterPos === p;
+                                     return (
+                                        <button key={p} onClick={() => setStaffFilterPos(isSelected ? 'ALL' : p)} className={`text-[10px] font-black border px-3 py-1.5 rounded-lg transition-all shadow-sm ${isSelected ? 'ring-2 ring-offset-2 ring-orange-500 scale-105' : 'hover:opacity-80'} ${cat.color.split(' ')[0]} ${cat.color.split(' ')[1]} ${count === 0 ? 'opacity-40' : ''}`}>
+                                           {p}: {count}
+                                        </button>
+                                     )
+                                 })}
+                              </div>
+                           </div>
+                         );
+                     };
 
-                    return (
-                       <div key={limitId} className="flex flex-col gap-2 p-3 rounded-xl bg-white border border-slate-200 shadow-sm">
-                          <div className="flex justify-between items-center">
-                             <div className={`text-[10px] font-black px-3 py-1.5 rounded uppercase w-fit ${cat.color.split(' ')[0]} ${cat.color.split(' ')[1]}`}>Part-Time {cat.id.includes('STAFF') ? 'Staff Team' : 'Support Team'}</div>
-                             <div className="flex items-center gap-2">
-                                <span className={`text-[10px] font-bold ${isFull ? 'text-red-500' : 'text-slate-500'}`}>จำนวน {catStaffCount}/{catLimit !== undefined && catLimit !== null ? catLimit : '∞'}</span>
-                                <input 
-                                   type="number" min="0" disabled={authRole !== 'superadmin'}
-                                   value={catLimit === undefined || catLimit === null ? '' : catLimit}
-                                   onChange={(e) => handleUpdateStaffLimit(limitId, e.target.value)}
-                                   className="w-12 text-center border rounded p-1 text-[10px] font-bold outline-none focus:border-indigo-500 disabled:bg-slate-50 disabled:text-slate-400"
-                                   placeholder="∞" title="ตั้งค่าจำนวนสูงสุด"
-                                />
+                     const combinedLimitId = `${activeDept.toUpperCase()}_STAFF_SUPPORT_PT`;
+                     let combinedCount = 0;
+                     if (staffCat) {
+                         const layerPositions = POSITIONS[activeDept].filter(p => p.includes('PT') && getStaffLayer(activeDept, p).id === staffCat.id);
+                         combinedCount += (branchData.staff || []).filter(s => s.isActive !== false && s.dept === activeDept && layerPositions.includes(s.pos)).length;
+                     }
+                     if (supportCat) {
+                         const layerPositions = POSITIONS[activeDept].filter(p => p.includes('PT') && getStaffLayer(activeDept, p).id === supportCat.id);
+                         combinedCount += (branchData.staff || []).filter(s => s.isActive !== false && s.dept === activeDept && layerPositions.includes(s.pos)).length;
+                     }
+                     
+                     const combinedLimit = branchData.staffLimits?.[combinedLimitId];
+                     const isCombinedFull = combinedLimit !== undefined && combinedLimit !== null && combinedCount >= combinedLimit;
+
+                     return (
+                         <div className="flex flex-col gap-0 p-1 rounded-xl bg-slate-50 border border-slate-200 shadow-sm relative mt-2">
+                             <div className="flex justify-between items-center px-3 pt-3 pb-1 border-b border-slate-200/50 mx-2">
+                                <div className="text-[10px] font-black text-slate-600 uppercase">Part-Time (โควตาร่วม)</div>
+                                <div className="flex items-center gap-2">
+                                   <span className={`text-[10px] font-bold ${isCombinedFull ? 'text-red-500' : 'text-slate-500'}`}>จำนวนรวม {combinedCount}/{combinedLimit !== undefined && combinedLimit !== null ? combinedLimit : '∞'}</span>
+                                   <input 
+                                      type="number" min="0" disabled={authRole !== 'superadmin'}
+                                      value={combinedLimit === undefined || combinedLimit === null ? '' : combinedLimit}
+                                      onChange={(e) => handleUpdateStaffLimit(combinedLimitId, e.target.value)}
+                                      className="w-12 text-center border rounded p-1 text-[10px] font-bold outline-none focus:border-indigo-500 disabled:bg-slate-50 disabled:text-slate-400 bg-white"
+                                      placeholder="∞" title="ตั้งค่าจำนวนสูงสุด"
+                                   />
+                                </div>
                              </div>
-                          </div>
-                          <div className="flex flex-wrap gap-2">
-                             {layerPositions.map(p => {
-                             const count = (branchData.staff || []).filter(s => s.dept === activeDept && s.pos === p && s.isActive !== false).length;
-                                 const isSelected = staffFilterPos === p;
-                                 return (
-                                    <button key={p} onClick={() => setStaffFilterPos(isSelected ? 'ALL' : p)} className={`text-[10px] font-black border px-3 py-1.5 rounded-lg transition-all shadow-sm ${isSelected ? 'ring-2 ring-offset-2 ring-orange-500 scale-105' : 'hover:opacity-80'} ${cat.color.split(' ')[0]} ${cat.color.split(' ')[1]} ${count === 0 ? 'opacity-40' : ''}`}>
-                                       {p}: {count}
-                                    </button>
-                                 )
-                             })}
-                          </div>
-                       </div>
-                    )
-                 })}
+                             <div className="bg-transparent">
+                                {renderCatPT(staffCat)}
+                                {renderCatPT(supportCat)}
+                             </div>
+                         </div>
+                     );
+                 })()}
              </div>
 
              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 mb-6 mt-4">
