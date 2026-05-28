@@ -815,7 +815,8 @@ export default function App() {
                   const dailyRate = monthlyRate / (payrollConfig.monthlySalaryDivider || 30);
                   const hourlyRate = dailyRate / 8;
                   if (isPublicHoliday) {
-                      staff.holidayPay += dailyRate * (payrollConfig.holidayMultiplierMonthly || 1.0);
+                      // พนักงานประจำ (รายเดือน) จะได้เป็นวันหยุดชดเชย (CO) แทน ไม่มีการจ่ายค่าแรงวันหยุดเพิ่ม
+                      // staff.holidayPay += dailyRate * (payrollConfig.holidayMultiplierMonthly || 1.0);
                       staff.otPay += otHours * hourlyRate * (payrollConfig.otRateHolidayMonthly || 3.0);
                   } else {
                       staff.otPay += otHours * hourlyRate * (payrollConfig.otRateMonthly || 1.5);
@@ -828,8 +829,9 @@ export default function App() {
                   const otMultiplier = isPt ? (payrollConfig.otRatePt || 1.5) : (payrollConfig.otRateFtHourly || 1.5);
 
                   if (isPublicHoliday) {
-                      // ค่าแรงวันหยุดนักขัตฤกษ์ (สำหรับรายชั่วโมง/PT) จะคิดเป็น x เท่าของชั่วโมงทำงานปกติ
-                      staff.basePay += workHours * hourlyRate * holidayMultiplier;
+                      // ค่าแรงปกติเข้า basePay, ส่วนที่เกินเนื่องจากเป็นวันหยุด (x-1) เข้า holidayPay
+                      staff.basePay += workHours * hourlyRate;
+                      staff.holidayPay += workHours * hourlyRate * (holidayMultiplier - 1);
                   } else {
                       staff.basePay += workHours * hourlyRate;
                   }
