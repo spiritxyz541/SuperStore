@@ -369,6 +369,62 @@ const StaffMultiSelector = ({ value, options, onChange, disabled, placeholder })
   );
 };
 
+const DayOffSelector = ({ value, onChange, disabled, dayOffCounts, limits, isPT, className, triggerClassName, placeholder = "- วันหยุด -" }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const valArray = Array.isArray(value) ? value : (value !== null && value !== undefined && value !== '' ? [value] : []);
+
+    const toggle = (dayId) => {
+        let next = [...valArray];
+        if (next.includes(dayId)) {
+            next = next.filter(x => x !== dayId);
+        } else {
+            if (!isPT) {
+                next = [dayId];
+            } else {
+                next.push(dayId);
+            }
+        }
+        onChange(next.length > 0 ? next : null);
+    };
+
+    const selectedLabels = valArray.map(dId => DAYS_OF_WEEK.find(d => d.id === dId)?.label).filter(Boolean);
+    const defaultTriggerClass = `w-full border bg-white rounded-xl px-3 py-2 text-[10px] sm:text-xs font-black outline-none flex justify-between items-center cursor-pointer transition-colors ${disabled ? 'opacity-50' : 'hover:border-indigo-400'} ${selectedLabels.length > 0 ? 'text-indigo-700 border-indigo-200' : 'text-slate-500 border-slate-200'}`;
+
+    return (
+        <div className={`relative flex-1 ${className || ''}`}>
+            <div onClick={() => !disabled && setIsOpen(!isOpen)} className={triggerClassName ? `${triggerClassName} ${selectedLabels.length > 0 ? 'text-indigo-700' : 'text-slate-500'}` : defaultTriggerClass}>
+                <span className="truncate pr-2">
+                    {selectedLabels.length > 0 ? selectedLabels.join(', ') : placeholder}
+                </span>
+                <ChevronDown className="w-4 h-4 text-slate-400 flex-shrink-0" />
+            </div>
+            {isOpen && !disabled && (
+                <React.Fragment>
+                    <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)}></div>
+                    <div className="absolute top-full left-0 mt-1 w-full min-w-[150px] bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1 max-h-60 overflow-y-auto custom-scrollbar">
+                        {DAYS_OF_WEEK.map(d => {
+                            const limit = limits?.[d.id] ?? 99;
+                            const current = dayOffCounts?.[d.id] || 0;
+                            const isSelected = valArray.includes(d.id);
+                            const isFull = current >= limit && !isSelected;
+                            
+                            return (
+                                <div key={d.id} className={`px-3 py-2.5 text-xs font-bold cursor-pointer flex items-center justify-between transition-colors ${isFull ? 'opacity-50 cursor-not-allowed bg-slate-50' : 'hover:bg-slate-50'} ${isSelected ? 'text-indigo-600 bg-indigo-50/50' : 'text-slate-600'}`} onClick={() => !isFull && toggle(d.id)}>
+                                    <div className="flex items-center gap-2">
+                                        <div className={`w-3.5 h-3.5 rounded border flex flex-shrink-0 items-center justify-center transition-colors ${isSelected ? 'bg-indigo-500 border-indigo-500' : 'border-slate-300'}`}>{isSelected && <Check className="w-2.5 h-2.5 text-white" />}</div>
+                                        <span>{d.label}</span>
+                                    </div>
+                                    {isFull && <span className="text-[9px] text-red-500 bg-red-50 px-1.5 py-0.5 rounded border border-red-100">(เต็ม)</span>}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </React.Fragment>
+            )}
+        </div>
+    );
+};
+
 const BreakTimeInput = ({ computedValue, manualValue, onSave, onReset, rsFontSize, staffPos }) => {
     const displayValue = manualValue !== undefined ? manualValue : computedValue;
 
@@ -636,7 +692,7 @@ export default function App() {
   const [newStaffEmpId, setNewStaffEmpId] = useState(''); 
   const [newStaffDept, setNewStaffDept] = useState('service');
   const [newStaffPos, setNewStaffPos] = useState('OC');
-  const [newStaffDayOff, setNewStaffDayOff] = useState(''); 
+  const [newStaffDayOff, setNewStaffDayOff] = useState([]); 
   const [newStaffStartDate, setNewStaffStartDate] = useState(''); 
   const [newStaffWageType, setNewStaffWageType] = useState('MONTHLY');
   const [newStaffBaseWage, setNewStaffBaseWage] = useState('');
@@ -1597,7 +1653,11 @@ export default function App() {
         const dateObj = new Date(y, m - 1, d);
         const dayOfWeek = dateObj.getDay();
         const isHoliday = isDateHoliday(selectedDateStr, branchData.holidays);
-        const regularOffStaff = isHoliday ? [] : branchData.staff.filter(s => s.regularDayOff === dayOfWeek && isStaffActiveOnDate(s, selectedDateStr));
+        const regularOffStaff = isHoliday ? [] : branchData.staff.filter(s => {
+             if (!isStaffActiveOnDate(s, selectedDateStr)) return false;
+             const daysOff = Array.isArray(s.regularDayOff) ? s.regularDayOff : (s.regularDayOff !== null && s.regularDayOff !== undefined && s.regularDayOff !== '' ? [s.regularDayOff] : []);
+             return daysOff.includes(dayOfWeek);
+        });
         const newSched = { ...prev };
         if (!newSched[selectedDateStr]) newSched[selectedDateStr] = { duties: {}, leaves: [] };
         const currentLeaves = newSched[selectedDateStr].leaves || [];
@@ -1698,7 +1758,7 @@ export default function App() {
   const handleDownloadTemplate = () => {
       const headers = ['รหัสพนักงาน', 'ชื่อ-สกุล', 'แผนก (บริการ/ครัว)', 'ตำแหน่ง (เช่น OC, PT)', 'ประเภทจ้าง (รายเดือน/รายชั่วโมง/PT)', 'ฐานเงินเดือน/ค่าแรง', 'วันหยุดประจำสัปดาห์ (0=อาทิตย์, 1=จันทร์... 6=เสาร์)'];
       const sample1 = ['10001', 'สมชาย ใจดี', 'บริการ', 'OC', 'รายเดือน', '15000', '1'];
-      const sample2 = ['10002', 'สมหญิง รักงาน', 'ครัว', 'PT ครัว', 'PT', '50', ''];
+      const sample2 = ['10002', 'สมหญิง รักงาน', 'ครัว', 'PT ครัว', 'PT', '50', '2,4'];
       const csvContent = [headers.join(','), sample1.join(','), sample2.join(',')].join('\n');
 
       const bom = '\uFEFF';
@@ -1746,18 +1806,21 @@ export default function App() {
           if (wageTypeRaw.includes('pt') || wageTypeRaw.includes('พาร์ทไทม์') || wageTypeRaw.includes('พาสทาม')) wageType = 'PT';
           if (!wageTypeRaw) { if (pos.includes('PT')) wageType = 'PT'; else if (['DVT', 'EDC'].some(p => pos.includes(p))) wageType = 'HOURLY'; else wageType = 'MONTHLY'; }
           
-          let regularDayOff = null;
+          let regularDayOff = [];
           if (dayOffRaw !== '') {
-              const dayOffInt = parseInt(dayOffRaw, 10);
-              if (!isNaN(dayOffInt) && dayOffInt >= 0 && dayOffInt <= 6) {
-                  regularDayOff = dayOffInt;
-              } else {
-                  const dayNames = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัส', 'ศุกร์', 'เสาร์'];
-                  const matchedIdx = dayNames.findIndex(d => dayOffRaw.includes(d));
-                  if (matchedIdx !== -1) regularDayOff = matchedIdx;
-              }
+              const parts = dayOffRaw.split(/[,|]/).map(p => p.trim());
+              parts.forEach(part => {
+                  const dayOffInt = parseInt(part, 10);
+                  if (!isNaN(dayOffInt) && dayOffInt >= 0 && dayOffInt <= 6) {
+                      regularDayOff.push(dayOffInt);
+                  } else {
+                      const dayNames = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัส', 'ศุกร์', 'เสาร์'];
+                      const matchedIdx = dayNames.findIndex(d => part.includes(d));
+                      if (matchedIdx !== -1) regularDayOff.push(matchedIdx);
+                  }
+              });
           }
-          newStaffs.push({ id: 's' + Date.now() + index + Math.random().toString(36).substring(2,9), empId: empId, name: name, dept: dept, pos: pos, regularDayOff: regularDayOff, startDate: new Date().toISOString().slice(0,10), wageType: wageType, baseWage: baseWage, isActive: true });
+          newStaffs.push({ id: 's' + Date.now() + index + Math.random().toString(36).substring(2,9), empId: empId, name: name, dept: dept, pos: pos, regularDayOff: regularDayOff.length > 0 ? regularDayOff : null, startDate: new Date().toISOString().slice(0,10), wageType: wageType, baseWage: baseWage, isActive: true });
       });
       if (newStaffs.length > 0) {
           setBranchData(p => { const nd = {...p, staff: [...(p.staff || []), ...newStaffs]}; if (activeBranchId) setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd).catch(console.error); return nd; });
@@ -2205,18 +2268,22 @@ export default function App() {
       DUTY_CATEGORIES.kitchen.forEach(cat => teamCounts.kitchen[cat.id] = {0:0, 1:0, 2:0, 3:0, 4:0, 5:0, 6:0});
 
       (nd.staff || []).forEach(s => {
-          if (s.regularDayOff !== null && s.regularDayOff !== undefined && s.isActive !== false) {
+          if (s.isActive !== false) {
+              const daysOff = Array.isArray(s.regularDayOff) ? s.regularDayOff : (s.regularDayOff !== null && s.regularDayOff !== undefined && s.regularDayOff !== '' ? [s.regularDayOff] : []);
               const dept = s.dept || 'service';
-              counts[dept][s.regularDayOff] = (counts[dept][s.regularDayOff] || 0) + 1;
-              const layer = getStaffLayer(dept, s.pos);
-              if (teamCounts[dept][layer.id]) {
-                  teamCounts[dept][layer.id][s.regularDayOff]++;
-              }
+              daysOff.forEach(dOff => {
+                  counts[dept][dOff] = (counts[dept][dOff] || 0) + 1;
+                  const layer = getStaffLayer(dept, s.pos);
+                  if (teamCounts[dept][layer.id]) {
+                      teamCounts[dept][layer.id][dOff]++;
+                  }
+              });
           }
       });
       let changed = false;
       (nd.staff || []).filter(s => s.isActive !== false).forEach(s => {
-          if (s.regularDayOff === null || s.regularDayOff === undefined || s.regularDayOff === '') {
+          const daysOff = Array.isArray(s.regularDayOff) ? s.regularDayOff : (s.regularDayOff !== null && s.regularDayOff !== undefined && s.regularDayOff !== '' ? [s.regularDayOff] : []);
+          if (daysOff.length === 0) {
               const dept = s.dept || 'service';
               const deptLimits = limits[dept];
               const deptCounts = counts[dept];
@@ -2234,7 +2301,7 @@ export default function App() {
                   });
                   
                   const bestDay = validDays[0];
-                  s.regularDayOff = bestDay;
+                  s.regularDayOff = [bestDay];
                   deptCounts[bestDay] = (deptCounts[bestDay] || 0) + 1;
                   layerCounts[bestDay] = (layerCounts[bestDay] || 0) + 1;
                   changed = true;
@@ -2884,7 +2951,11 @@ export default function App() {
                 
                 const manuallyOnLeaveIds = new Set((dayData.leaves || []).map(l => l.staffId));
                 const isHoliday = branchData.holidays?.includes?.(dateStr);
-                const regularOffStaff = isHoliday ? [] : branchData.staff?.filter(s => s.regularDayOff === dayOfWeek && isStaffActiveOnDate(s, dateStr)) || [];
+                const regularOffStaff = isHoliday ? [] : branchData.staff?.filter(s => {
+                    if (!isStaffActiveOnDate(s, dateStr)) return false;
+                    const daysOff = Array.isArray(s.regularDayOff) ? s.regularDayOff : (s.regularDayOff !== null && s.regularDayOff !== undefined && s.regularDayOff !== '' ? [s.regularDayOff] : []);
+                    return daysOff.includes(dayOfWeek);
+                }) || [];
                 
                 let finalLeaves = [...(dayData.leaves || [])];
                 regularOffStaff.forEach(staff => {
@@ -3331,7 +3402,12 @@ export default function App() {
                                               <td className="p-3 border-b border-slate-700/50 font-black text-indigo-300">{s.name}</td>
                                               <td className="p-3 border-b border-slate-700/50">{s.dept === 'service' ? 'FOH' : 'BOH'}</td>
                                               <td className="p-3 border-b border-slate-700/50"><span className="bg-slate-700 px-2 py-1 rounded font-bold">{s.pos}</span></td>
-                                              <td className="p-3 border-b border-slate-700/50">{s.regularDayOff !== null && s.regularDayOff !== undefined ? ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'][s.regularDayOff] : '-'}</td>
+                                              <td className="p-3 border-b border-slate-700/50">{
+                                                  (() => {
+                                                      const dOffs = Array.isArray(s.regularDayOff) ? s.regularDayOff : (s.regularDayOff !== null && s.regularDayOff !== undefined && s.regularDayOff !== '' ? [s.regularDayOff] : []);
+                                                      return dOffs.length > 0 ? dOffs.map(d => ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'][d]).join(', ') : '-';
+                                                  })()
+                                              }</td>
                                           </tr>
                                       )) : <tr><td colSpan="6" className="p-4 text-center text-slate-500">No staff data</td></tr>}
                                    </tbody>
@@ -4494,10 +4570,13 @@ export default function App() {
   function renderBranchAdmin() {
     const dayOffCounts = { service: {}, kitchen: {} };
     (branchData.staff || []).forEach(s => {
-       if (s.isActive !== false && s.regularDayOff !== null && s.regularDayOff !== undefined) {
+       if (s.isActive !== false) {
+           const daysOff = Array.isArray(s.regularDayOff) ? s.regularDayOff : (s.regularDayOff !== null && s.regularDayOff !== undefined && s.regularDayOff !== '' ? [s.regularDayOff] : []);
            const dept = s.dept || 'service';
            if (!dayOffCounts[dept]) dayOffCounts[dept] = {};
-           dayOffCounts[dept][s.regularDayOff] = (dayOffCounts[dept][s.regularDayOff] || 0) + 1;
+           daysOff.forEach(dOff => {
+               dayOffCounts[dept][dOff] = (dayOffCounts[dept][dOff] || 0) + 1;
+           });
        }
     });
     const activeDeptDayOffCounts = dayOffCounts[activeDept] || {};
@@ -4724,16 +4803,15 @@ export default function App() {
                         }} className="flex-1 bg-slate-50 border-2 border-slate-100 rounded-xl sm:rounded-2xl px-3 sm:px-4 py-3 text-[10px] sm:text-xs font-black uppercase outline-none focus:border-indigo-500">
                            {POSITIONS[newStaffDept].map(p => <option key={p} value={p}>{p}</option>)}
                         </select>
-                        <select value={newStaffDayOff} onChange={(e) => setNewStaffDayOff(e.target.value)} className="flex-1 bg-slate-50 border-2 border-slate-100 rounded-xl sm:rounded-2xl px-3 sm:px-4 py-3 text-[10px] sm:text-xs font-black uppercase outline-none focus:border-indigo-500 text-slate-500">
-                            <option value="">- วันหยุด -</option>
-                            {DAYS_OF_WEEK.map(d => {
-                                const deptCounts = dayOffCounts[newStaffDept] || {};
-                                const limit = branchData.dayOffLimits?.[newStaffDept]?.[d.id] ?? 99;
-                                const current = deptCounts[d.id] || 0;
-                                const isFull = current >= limit;
-                                return <option key={d.id} value={d.id} disabled={isFull}>{d.label} {isFull ? '(เต็ม)' : ''}</option>
-                            })}
-                        </select>
+                        <DayOffSelector 
+                            value={newStaffDayOff}
+                            onChange={setNewStaffDayOff}
+                            dayOffCounts={dayOffCounts[newStaffDept] || {}}
+                            limits={branchData.dayOffLimits?.[newStaffDept] || {}}
+                            isPT={newStaffPos.includes('PT') || newStaffWageType === 'PT'}
+                            className="flex-1 min-w-[100px]"
+                            triggerClassName={`w-full bg-slate-50 border-2 border-slate-100 rounded-xl sm:rounded-2xl px-3 sm:px-4 py-3 text-[10px] sm:text-xs font-black uppercase outline-none flex justify-between items-center cursor-pointer transition-colors ${newStaffDayOff.length > 0 ? 'text-indigo-700 border-indigo-300 bg-indigo-50/30' : 'text-slate-500 hover:border-indigo-300'}`}
+                        />
                         <input type="date" title="วันเริ่มงาน" className="flex-1 bg-slate-50 border-2 border-slate-100 rounded-xl sm:rounded-2xl px-3 sm:px-4 py-3 text-[10px] sm:text-xs font-black outline-none focus:border-indigo-500 text-slate-500" value={newStaffStartDate} onChange={(e) => setNewStaffStartDate(e.target.value)} />
                       </div>
                       {['superadmin', 'areamanager'].includes(authRole) && (
@@ -4772,11 +4850,11 @@ export default function App() {
                               return;
                           }
                           setBranchData(p => {
-                              const nd = {...p, staff: [...(p.staff || []), {id: 's' + Date.now(), empId: newStaffEmpId.trim(), name: newStaffName.trim(), dept: newStaffDept, pos: newStaffPos, regularDayOff: newStaffDayOff === '' ? null : parseInt(newStaffDayOff), startDate: newStaffStartDate || null, wageType: newStaffWageType, baseWage: newStaffBaseWage ? parseFloat(newStaffBaseWage) : 0 }]};
+                              const nd = {...p, staff: [...(p.staff || []), {id: 's' + Date.now(), empId: newStaffEmpId.trim(), name: newStaffName.trim(), dept: newStaffDept, pos: newStaffPos, regularDayOff: newStaffDayOff.length > 0 ? newStaffDayOff : null, startDate: newStaffStartDate || null, wageType: newStaffWageType, baseWage: newStaffBaseWage ? parseFloat(newStaffBaseWage) : 0 }]};
                               if (activeBranchId) setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd).catch(console.error);
                               return nd;
                           }); 
-                          setNewStaffName(''); setNewStaffEmpId(''); setNewStaffDayOff(''); setNewStaffStartDate(''); setNewStaffBaseWage('');
+                          setNewStaffName(''); setNewStaffEmpId(''); setNewStaffDayOff([]); setNewStaffStartDate(''); setNewStaffBaseWage('');
                       } 
                   }} className="xl:col-span-2 w-full bg-slate-900 text-white px-4 py-3 rounded-xl sm:rounded-2xl font-black text-xs hover:bg-indigo-600 transition uppercase flex items-center justify-center h-full min-h-[48px]"><UserPlus className="w-4 h-4 sm:w-5 sm:h-5 mr-2"/><span>เพิ่มพนักงาน</span></button>
                </div>
@@ -4808,17 +4886,15 @@ export default function App() {
                               <input type="date" value={editStaffData.resignDate || ''} onChange={e => setEditStaffData({...editStaffData, resignDate: e.target.value})} className="border rounded px-2 py-1 text-[10px] w-24 sm:w-auto" />
                           )}
                       </div>
-                          <select value={editStaffData.regularDayOff ?? ''} onChange={e => setEditStaffData({...editStaffData, regularDayOff: e.target.value === '' ? null : parseInt(e.target.value)})} className="border rounded px-2 py-1 text-[10px]">
-                                    <option value="">- วันหยุด -</option>
-                                    {DAYS_OF_WEEK.map(d => {
-                                        const deptCounts = dayOffCounts[s.dept] || {};
-                                        const limit = branchData.dayOffLimits?.[s.dept]?.[d.id] ?? 99;
-                                        const current = deptCounts[d.id] || 0;
-                                        const isFull = current >= limit;
-                                        const isThisStaffsDayOff = s.regularDayOff === d.id;
-                                        return <option key={d.id} value={d.id} disabled={isFull && !isThisStaffsDayOff}>{d.label} {isFull && !isThisStaffsDayOff ? '(เต็ม)' : ''}</option>
-                                    })}
-                          </select>
+                          <DayOffSelector 
+                              value={editStaffData.regularDayOff}
+                              onChange={val => setEditStaffData({...editStaffData, regularDayOff: val})}
+                              dayOffCounts={dayOffCounts[s.dept] || {}}
+                              limits={branchData.dayOffLimits?.[s.dept] || {}}
+                              isPT={editStaffData.pos.includes('PT') || editStaffData.wageType === 'PT'}
+                              className="w-24 sm:w-auto min-w-[100px]"
+                              triggerClassName="border rounded px-2 py-1 text-[10px] w-full bg-white flex justify-between items-center cursor-pointer outline-none"
+                          />
                           {['superadmin', 'areamanager'].includes(authRole) && (
                              <div className="flex gap-2 items-center mt-1 w-full sm:w-auto">
                                  <select value={editStaffData.wageType || 'MONTHLY'} onChange={e => setEditStaffData({...editStaffData, wageType: e.target.value})} className="border border-emerald-200 bg-emerald-50 text-emerald-700 font-bold rounded px-2 py-1 text-[10px]">
@@ -4873,7 +4949,11 @@ export default function App() {
                                       {s.wageType === 'MONTHLY' ? 'รายเดือน' : s.wageType === 'HOURLY' ? 'รายชั่วโมง' : 'PT'} : ฿{s.baseWage?.toLocaleString() || 0}
                                   </span>
                               )}
-                              <span className="text-[7px] sm:text-[8px] font-black px-1.5 sm:px-2 py-0.5 rounded border border-slate-200 bg-white text-slate-400 uppercase truncate" title={`วันเริ่มงาน: ${s.startDate || 'ไม่ระบุ'} | หยุดประจำ: ${s.regularDayOff !== undefined && s.regularDayOff !== null ? DAYS_OF_WEEK.find(d => d.id === s.regularDayOff)?.label : '-'}`}>หยุด: {s.regularDayOff !== undefined && s.regularDayOff !== null ? DAYS_OF_WEEK.find(d => d.id === s.regularDayOff)?.label : '-'}</span>
+                              {(() => {
+                                  const daysOff = Array.isArray(s.regularDayOff) ? s.regularDayOff : (s.regularDayOff !== null && s.regularDayOff !== undefined && s.regularDayOff !== '' ? [s.regularDayOff] : []);
+                                  const dayOffLabels = daysOff.length > 0 ? daysOff.map(dId => DAYS_OF_WEEK.find(d => d.id === dId)?.label).filter(Boolean).join(', ') : '-';
+                                  return <span className="text-[7px] sm:text-[8px] font-black px-1.5 sm:px-2 py-0.5 rounded border border-slate-200 bg-white text-slate-400 uppercase truncate" title={`วันเริ่มงาน: ${s.startDate || 'ไม่ระบุ'} | หยุดประจำ: ${dayOffLabels}`}>หยุด: {dayOffLabels}</span>;
+                              })()}
                                <button onClick={() => startEditStaff(s)} className="text-slate-300 hover:text-indigo-500"><Edit2 className="w-3 h-3"/></button>
                             </div>
                          </div>
