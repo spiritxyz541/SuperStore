@@ -625,6 +625,9 @@ export default function App() {
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
   const [newPasswordInput, setNewPasswordInput] = useState('');
 
+  const [showImportStaffModal, setShowImportStaffModal] = useState(false);
+  const [importStaffText, setImportStaffText] = useState('');
+
   const [userInput, setUserInput] = useState('');
   const [passInput, setPassInput] = useState('');
   const [loginError, setLoginError] = useState('');
@@ -1691,6 +1694,64 @@ export default function App() {
   useEffect(() => {
       setNewDutyCategory(activeDept === 'service' ? 'FOH_STAFF' : 'BOH_STAFF');
   }, [activeDept]);
+
+  const handleDownloadTemplate = () => {
+      const headers = ['รหัสพนักงาน', 'ชื่อ-สกุล', 'แผนก (บริการ/ครัว)', 'ตำแหน่ง (เช่น OC, PT)', 'ประเภทจ้าง (รายเดือน/รายชั่วโมง/PT)', 'ฐานเงินเดือน/ค่าแรง'];
+      const sample1 = ['10001', 'สมชาย ใจดี', 'บริการ', 'OC', 'รายเดือน', '15000'];
+      const sample2 = ['10002', 'สมหญิง รักงาน', 'ครัว', 'PT ครัว', 'PT', '50'];
+      const csvContent = [headers.join(','), sample1.join(','), sample2.join(',')].join('\n');
+
+      const bom = '\uFEFF';
+      const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', 'Staff_Import_Template.csv');
+      document.body.appendChild(link); link.click(); document.body.removeChild(link);
+  };
+
+  const handleFileUpload = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (evt) => { setImportStaffText(evt.target.result); };
+      reader.readAsText(file, 'UTF-8');
+  };
+
+  const handleImportStaff = () => {
+      if(!importStaffText.trim()) return;
+      const rows = importStaffText.split('\n');
+      const newStaffs = [];
+      let skipped = 0;
+      rows.forEach((row, index) => {
+          if(!row.trim()) return;
+          if(index === 0 && (row.includes('ชื่อ') || row.includes('รหัส') || row.includes('Name'))) return;
+          const cols = row.split('\t');
+          const finalCols = cols.length > 1 ? cols : row.split(',');
+          const empId = finalCols[0]?.trim() || '';
+          const name = finalCols[1]?.trim() || '';
+          const deptRaw = (finalCols[2] || '').trim().toLowerCase();
+          const posRaw = (finalCols[3] || '').trim();
+          const wageTypeRaw = (finalCols[4] || '').trim().toLowerCase();
+          const baseWage = parseFloat(finalCols[5]?.trim() || '0') || 0;
+          if (!name) { skipped++; return; }
+          let dept = 'service';
+          if (deptRaw.includes('ครัว') || deptRaw.includes('kitchen') || deptRaw.includes('boh')) dept = 'kitchen';
+          let pos = 'OC';
+          const validPositions = POSITIONS[dept];
+          if (validPositions.includes(posRaw)) { pos = posRaw; } else if (validPositions.includes(posRaw.toUpperCase())) { pos = posRaw.toUpperCase(); } else { const match = validPositions.find(p => posRaw.toUpperCase().includes(p) || p.includes(posRaw.toUpperCase())); if (match) pos = match; }
+          let wageType = 'MONTHLY';
+          if (wageTypeRaw.includes('ชั่วโมง') || wageTypeRaw.includes('hourly')) wageType = 'HOURLY';
+          if (wageTypeRaw.includes('pt') || wageTypeRaw.includes('พาร์ทไทม์') || wageTypeRaw.includes('พาสทาม')) wageType = 'PT';
+          if (!wageTypeRaw) { if (pos.includes('PT')) wageType = 'PT'; else if (['DVT', 'EDC'].some(p => pos.includes(p))) wageType = 'HOURLY'; else wageType = 'MONTHLY'; }
+          newStaffs.push({ id: 's' + Date.now() + index + Math.random().toString(36).substring(2,9), empId: empId, name: name, dept: dept, pos: pos, regularDayOff: null, startDate: new Date().toISOString().slice(0,10), wageType: wageType, baseWage: baseWage, isActive: true });
+      });
+      if (newStaffs.length > 0) {
+          setBranchData(p => { const nd = {...p, staff: [...(p.staff || []), ...newStaffs]}; if (activeBranchId) setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd).catch(console.error); return nd; });
+          setConfirmModal({ message: `นำเข้าพนักงานสำเร็จ ${newStaffs.length} คน` + (skipped > 0 ? ` (ข้ามข้อมูลที่ไม่มีชื่อ ${skipped} แถว)` : '') });
+          setShowImportStaffModal(false); setImportStaffText('');
+      } else { setConfirmModal({ message: 'ไม่พบข้อมูลที่สามารถนำเข้าได้ กรุณาตรวจสอบรูปแบบข้อมูลอีกครั้ง' }); }
+  };
 
   // === HANDLERS ===
   const handleManagerLogin = (e) => {
