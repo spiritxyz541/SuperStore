@@ -7511,10 +7511,11 @@ export default function App() {
                     let actKitAll = 0;
                     const todayStr = new Date().toISOString().slice(0, 10);
                     (bData?.staff || []).forEach(s => {
+                        const isPT = s.pos?.includes('PT') || s.wageType === 'PT';
                         const started = !s.startDate || s.startDate <= todayStr;
                         const notResigned = !s.resignDate || s.resignDate >= todayStr;
                         const isActive = s.isActive !== false;
-                        if (started && notResigned && isActive) {
+                        if (!isPT && started && notResigned && isActive) {
                             if (s.dept === 'service') actSvcAll++;
                             if (s.dept === 'kitchen') actKitAll++;
                         }
@@ -7527,13 +7528,13 @@ export default function App() {
                     
                     if (bData?.staffLimits) {
                         const l = bData.staffLimits;
-                        if (l['FOH_HEAD'] || l['SERVICE_STAFF_SUPPORT_FT'] || l['SERVICE_STAFF_SUPPORT_PT']) {
+                        if (l['FOH_HEAD'] || l['SERVICE_STAFF_SUPPORT_FT']) {
                             hasLimitSvc = true;
-                            targetSvcAll += parseInt(l['FOH_HEAD'] || 0) + parseInt(l['SERVICE_STAFF_SUPPORT_FT'] || 0) + parseInt(l['SERVICE_STAFF_SUPPORT_PT'] || 0);
+                            targetSvcAll += parseInt(l['FOH_HEAD'] || 0) + parseInt(l['SERVICE_STAFF_SUPPORT_FT'] || 0);
                         }
-                        if (l['BOH_HEAD'] || l['KITCHEN_STAFF_SUPPORT_FT'] || l['KITCHEN_STAFF_SUPPORT_PT']) {
+                        if (l['BOH_HEAD'] || l['KITCHEN_STAFF_SUPPORT_FT']) {
                             hasLimitKit = true;
-                            targetKitAll += parseInt(l['BOH_HEAD'] || 0) + parseInt(l['KITCHEN_STAFF_SUPPORT_FT'] || 0) + parseInt(l['KITCHEN_STAFF_SUPPORT_PT'] || 0);
+                            targetKitAll += parseInt(l['BOH_HEAD'] || 0) + parseInt(l['KITCHEN_STAFF_SUPPORT_FT'] || 0);
                         }
                     }
                     
@@ -7554,7 +7555,7 @@ export default function App() {
                                 <div className="flex flex-col sm:flex-row gap-4 mt-4 w-full">
                                     <div className="flex-1 bg-indigo-50/50 p-4 rounded-xl border border-indigo-100 flex flex-col justify-center">
                                         <div className="flex justify-between items-end mb-2">
-                                            <div className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest">อัตรากำลังคน บริการ (FOH)</div>
+                                            <div className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest">อัตรากำลังคนประจำ (FT) บริการ (FOH)</div>
                                             <div className="text-sm font-black text-indigo-900">{actSvcAll} <span className="text-[10px] text-indigo-400">/ {hasLimitSvc ? targetSvcAll : '∞'} คน</span></div>
                                         </div>
                                         <div className="h-2 w-full bg-indigo-100 rounded-full overflow-hidden">
@@ -7565,7 +7566,7 @@ export default function App() {
                                     </div>
                                     <div className="flex-1 bg-orange-50/50 p-4 rounded-xl border border-orange-100 flex flex-col justify-center">
                                         <div className="flex justify-between items-end mb-2">
-                                            <div className="text-[10px] font-bold text-orange-600 uppercase tracking-widest">อัตรากำลังคน ครัว (BOH)</div>
+                                            <div className="text-[10px] font-bold text-orange-600 uppercase tracking-widest">อัตรากำลังคนประจำ (FT) ครัว (BOH)</div>
                                             <div className="text-sm font-black text-orange-900">{actKitAll} <span className="text-[10px] text-orange-400">/ {hasLimitKit ? targetKitAll : '∞'} คน</span></div>
                                         </div>
                                         <div className="h-2 w-full bg-orange-100 rounded-full overflow-hidden">
