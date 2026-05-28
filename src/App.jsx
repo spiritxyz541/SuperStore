@@ -7507,6 +7507,39 @@ export default function App() {
                     const estimatedPtExpense = totalPtHours * ptRate;
                     const isOverAllowed = estimatedPtExpense > totalAllowedExpense;
 
+                    let actSvcAll = 0;
+                    let actKitAll = 0;
+                    const todayStr = new Date().toISOString().slice(0, 10);
+                    (bData?.staff || []).forEach(s => {
+                        const started = !s.startDate || s.startDate <= todayStr;
+                        const notResigned = !s.resignDate || s.resignDate >= todayStr;
+                        const isActive = s.isActive !== false;
+                        if (started && notResigned && isActive) {
+                            if (s.dept === 'service') actSvcAll++;
+                            if (s.dept === 'kitchen') actKitAll++;
+                        }
+                    });
+                    
+                    let targetSvcAll = 0;
+                    let targetKitAll = 0;
+                    let hasLimitSvc = false;
+                    let hasLimitKit = false;
+                    
+                    if (bData?.staffLimits) {
+                        const l = bData.staffLimits;
+                        if (l['FOH_HEAD'] || l['SERVICE_STAFF_SUPPORT_FT'] || l['SERVICE_STAFF_SUPPORT_PT']) {
+                            hasLimitSvc = true;
+                            targetSvcAll += parseInt(l['FOH_HEAD'] || 0) + parseInt(l['SERVICE_STAFF_SUPPORT_FT'] || 0) + parseInt(l['SERVICE_STAFF_SUPPORT_PT'] || 0);
+                        }
+                        if (l['BOH_HEAD'] || l['KITCHEN_STAFF_SUPPORT_FT'] || l['KITCHEN_STAFF_SUPPORT_PT']) {
+                            hasLimitKit = true;
+                            targetKitAll += parseInt(l['BOH_HEAD'] || 0) + parseInt(l['KITCHEN_STAFF_SUPPORT_FT'] || 0) + parseInt(l['KITCHEN_STAFF_SUPPORT_PT'] || 0);
+                        }
+                    }
+                    
+                    const svcPercent = hasLimitSvc && targetSvcAll > 0 ? (actSvcAll / targetSvcAll) * 100 : 100;
+                    const kitPercent = hasLimitKit && targetKitAll > 0 ? (actKitAll / targetKitAll) * 100 : 100;
+
                     return (
                         <div key={bId} className="bg-white p-6 sm:p-8 rounded-[2rem] border border-slate-200 shadow-sm flex flex-col gap-6 transition hover:border-indigo-300">
                           <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-6">
@@ -7517,6 +7550,30 @@ export default function App() {
                                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col justify-center"><div className="text-[10px] font-bold text-slate-400 uppercase">พนักงานพาร์ทไทม์ (PT)</div><div className="text-xl sm:text-2xl font-black text-emerald-600 mt-1">{ptCount} <span className="text-[10px] font-bold text-emerald-600/50">คน</span></div></div>
                                     <div className="bg-rose-50 p-4 rounded-xl border border-rose-100 flex flex-col justify-center"><div className="text-[10px] font-bold text-rose-500 uppercase">ใช้งาน OT (เดือนนี้)</div><div className="text-xl sm:text-2xl font-black text-rose-700 mt-1">{totalOT.toFixed(1)} <span className="text-[10px] font-bold text-rose-500/50">ชม.</span></div></div>
                                     <div className="bg-amber-50 p-4 rounded-xl border border-amber-100 flex flex-col justify-center"><div className="text-[10px] font-bold text-amber-500 uppercase">วันลา/หยุด (เดือนนี้)</div><div className="text-xl sm:text-2xl font-black text-amber-700 mt-1">{totalLeaves} <span className="text-[10px] font-bold text-amber-500/50">รายการ</span></div></div>
+                                </div>
+                                <div className="flex flex-col sm:flex-row gap-4 mt-4 w-full">
+                                    <div className="flex-1 bg-indigo-50/50 p-4 rounded-xl border border-indigo-100 flex flex-col justify-center">
+                                        <div className="flex justify-between items-end mb-2">
+                                            <div className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest">อัตรากำลังคน บริการ (FOH)</div>
+                                            <div className="text-sm font-black text-indigo-900">{actSvcAll} <span className="text-[10px] text-indigo-400">/ {hasLimitSvc ? targetSvcAll : '∞'} คน</span></div>
+                                        </div>
+                                        <div className="h-2 w-full bg-indigo-100 rounded-full overflow-hidden">
+                                            <div className={`h-full ${actSvcAll < targetSvcAll ? 'bg-amber-400' : 'bg-indigo-500'} transition-all`} style={{ width: `${Math.min(svcPercent, 100)}%` }}></div>
+                                        </div>
+                                        {hasLimitSvc && actSvcAll < targetSvcAll && <p className="text-[9px] text-amber-600 font-bold mt-1.5 text-right">⚠️ ขาดอีก {targetSvcAll - actSvcAll} คน</p>}
+                                        {hasLimitSvc && actSvcAll > targetSvcAll && <p className="text-[9px] text-red-500 font-bold mt-1.5 text-right">🛑 เกินโควตา {actSvcAll - targetSvcAll} คน</p>}
+                                    </div>
+                                    <div className="flex-1 bg-orange-50/50 p-4 rounded-xl border border-orange-100 flex flex-col justify-center">
+                                        <div className="flex justify-between items-end mb-2">
+                                            <div className="text-[10px] font-bold text-orange-600 uppercase tracking-widest">อัตรากำลังคน ครัว (BOH)</div>
+                                            <div className="text-sm font-black text-orange-900">{actKitAll} <span className="text-[10px] text-orange-400">/ {hasLimitKit ? targetKitAll : '∞'} คน</span></div>
+                                        </div>
+                                        <div className="h-2 w-full bg-orange-100 rounded-full overflow-hidden">
+                                            <div className={`h-full ${actKitAll < targetKitAll ? 'bg-amber-400' : 'bg-orange-500'} transition-all`} style={{ width: `${Math.min(kitPercent, 100)}%` }}></div>
+                                        </div>
+                                        {hasLimitKit && actKitAll < targetKitAll && <p className="text-[9px] text-amber-600 font-bold mt-1.5 text-right">⚠️ ขาดอีก {targetKitAll - actKitAll} คน</p>}
+                                        {hasLimitKit && actKitAll > targetKitAll && <p className="text-[9px] text-red-500 font-bold mt-1.5 text-right">🛑 เกินโควตา {actKitAll - targetKitAll} คน</p>}
+                                    </div>
                                 </div>
                                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-4 w-full">
                                     <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100 flex flex-col justify-center"><div className="text-[10px] font-bold text-emerald-600 uppercase">ค่าจ้างปกติ</div><div className="text-xl sm:text-2xl font-black text-emerald-800 mt-1">฿{totalBasePay.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</div></div>
