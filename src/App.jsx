@@ -801,15 +801,16 @@ export default function App() {
       const compHoursPerDayKitchen = branchData.ptConfig?.compHoursPerDayKitchen ?? 8;
 
       let targetFtHeadcountService = 0;
-      DUTY_CATEGORIES.service.forEach(cat => {
-          const limit = branchData.staffLimits?.[cat.id];
-          if (limit) targetFtHeadcountService += parseInt(limit, 10);
-      });
+      const headServiceLimit = branchData.staffLimits?.['FOH_HEAD'];
+      if (headServiceLimit) targetFtHeadcountService += parseInt(headServiceLimit, 10);
+      const staffSupportServiceLimit = branchData.staffLimits?.['SERVICE_STAFF_SUPPORT_FT'];
+      if (staffSupportServiceLimit) targetFtHeadcountService += parseInt(staffSupportServiceLimit, 10);
+
       let targetFtHeadcountKitchen = 0;
-      DUTY_CATEGORIES.kitchen.forEach(cat => {
-          const limit = branchData.staffLimits?.[cat.id];
-          if (limit) targetFtHeadcountKitchen += parseInt(limit, 10);
-      });
+      const headKitchenLimit = branchData.staffLimits?.['BOH_HEAD'];
+      if (headKitchenLimit) targetFtHeadcountKitchen += parseInt(headKitchenLimit, 10);
+      const staffSupportKitchenLimit = branchData.staffLimits?.['KITCHEN_STAFF_SUPPORT_FT'];
+      if (staffSupportKitchenLimit) targetFtHeadcountKitchen += parseInt(staffSupportKitchenLimit, 10);
 
       const daysInMonth = CALENDAR_DAYS.length || 30;
       const dailyBaseAvg = baseAllowance / daysInMonth;
