@@ -738,8 +738,17 @@ export default function App() {
 
   const reportData = useMemo(() => {
     const staffMap = {};
+    const payrollConfig = branchData.payrollConfig || { otRateMonthly: 1.5, otRateHourly: 1.5, holidayMultiplierMonthly: 1.0, holidayMultiplierHourly: 2.0 };
+    const ptHourlyRate = branchData.ptConfig?.hourlyRate || 50;
+
     (branchData.staff || []).forEach(s => {
-      staffMap[s.id] = { id: s.id, name: s.name, dept: s.dept, pos: s.pos, empId: s.empId, workHours: 0, shifts: 0, actualOT: 0, plannedOT: 0, leaves: 0 };
+      staffMap[s.id] = { 
+          id: s.id, name: s.name, dept: s.dept, pos: s.pos, empId: s.empId, 
+          wageType: s.wageType || 'MONTHLY', baseWage: s.baseWage || 0,
+          workHours: 0, shifts: 0, actualOT: 0, plannedOT: 0, leaves: 0,
+          unpaidLeaveDays: 0,
+          basePay: 0, otPay: 0, holidayPay: 0, totalPay: 0
+      };
     });
 
     Object.keys(schedule).forEach(dateStr => {
@@ -749,8 +758,21 @@ export default function App() {
       } else {
           if (dateStr < reportFilterStart || dateStr > reportFilterEnd) return;
       }
+
       const dayData = schedule[dateStr];
       const dayType = getDayType(dateStr, branchData.holidays, branchData.holidayCycles);
+      const isHoliday = branchData.holidays?.includes?.(dateStr);
+
+      if (dayData.leaves) {
+        dayData.leaves.forEach(l => { 
+            if (l.staffId && staffMap[l.staffId]) {
+                staffMap[l.staffId].leaves += 1; 
+                if (['SL_UNPAID', 'PL_UNPAID'].includes(l.type)) {
+                    staffMap[l.staffId].unpaidLeaveDays += 1;
+                }
+            }
+        });
+      }
 
       if (dayData.duties) {
         Object.keys(dayData.duties).forEach(dutyId => {
@@ -758,29 +780,59 @@ export default function App() {
           const matrixSlots = branchData.matrix?.[dayType]?.duties?.[dutyId] || [];
           slots.forEach((slot, idx) => {
             if (slot && slot.staffId && staffMap[slot.staffId]) {
-              const mSlot = matrixSlots[idx];
+              const staff = staffMap[slot.staffId];
+              const mSlot = matrixSlots?.[idx];
               const shiftPreset = branchData.shiftPresets?.find(p => p.id === mSlot?.shiftPresetId);
-              const staffPos = staffMap[slot.staffId].pos;
-              const { startTime, endTime } = getShiftTimesForStaff(staffPos, shiftPreset);
-              staffMap[slot.staffId].workHours += getNetWorkHours(startTime, endTime, staffPos);
-              staffMap[slot.staffId].shifts += 1;
-              staffMap[slot.staffId].actualOT += Number(slot.otHours || 0);
+              const { startTime, endTime } = getShiftTimesForStaff(staff.pos, shiftPreset);
+              const workHours = getNetWorkHours(startTime, endTime, staff.pos);
+              const otHours = Number(slot.otHours || 0);
+
+              staff.workHours += workHours;
+              staff.shifts += 1;
+              staff.actualOT += otHours;
               
               let plannedOT = Number(mSlot?.maxOtHours || 0);
               if (mSlot?.targetEndTime) {
                   plannedOT = calculateOtHours(mSlot.targetEndTime, endTime);
               }
-              staffMap[slot.staffId].plannedOT += plannedOT;
+              staff.plannedOT += plannedOT;
+
+              if (staff.wageType === 'MONTHLY') {
+                  const monthlyRate = staff.baseWage || 0;
+                  const dailyRate = monthlyRate / 30;
+                  const hourlyRate = dailyRate / 8;
+                  if (isHoliday) {
+                      staff.holidayPay += dailyRate * payrollConfig.holidayMultiplierMonthly;
+                      staff.otPay += otHours * hourlyRate * 3.0; // Holiday OT is 3x
+                  } else {
+                      staff.otPay += otHours * hourlyRate * payrollConfig.otRateMonthly;
+                  }
+              } else { // HOURLY or PT
+                  const hourlyRate = staff.wageType === 'PT' ? ptHourlyRate : (staff.baseWage || 0);
+                  if (isHoliday) {
+                      staff.basePay += workHours * hourlyRate * payrollConfig.holidayMultiplierHourly;
+                  } else {
+                      staff.basePay += workHours * hourlyRate;
+                  }
+                  staff.otPay += otHours * hourlyRate * payrollConfig.otRateHourly;
+              }
             }
           });
         });
       }
-      if (dayData.leaves) {
-        dayData.leaves.forEach(l => { if (l.staffId && staffMap[l.staffId]) staffMap[l.staffId].leaves += 1; });
-      }
-    }); // This might have issues if staff position changes.
-    return Object.values(staffMap).sort((a,b) => b.workHours - a.workHours);
-  }, [schedule, branchData.staff, branchData.matrix, branchData.holidays, reportFilterMode, reportFilterMonth, reportFilterStart, reportFilterEnd, selectedYear]);
+    });
+
+    Object.values(staffMap).forEach(staff => {
+        if (staff.wageType === 'MONTHLY') {
+            const monthlyRate = staff.baseWage || 0;
+            const dailyRate = monthlyRate / 30;
+            staff.basePay = monthlyRate - (staff.unpaidLeaveDays * dailyRate);
+        }
+        staff.totalPay = staff.basePay + staff.otPay + staff.holidayPay;
+    });
+
+    return Object.values(staffMap).sort((a,b) => b.totalPay - a.totalPay);
+  }, [schedule, branchData, reportFilterMode, reportFilterMonth, reportFilterStart, reportFilterEnd, selectedYear, authRole]);
 
   const totalActualOT = reportData.reduce((acc, curr) => acc + curr.actualOT, 0);
   const totalPlannedOT = reportData.reduce((acc, curr) => acc + curr.plannedOT, 0);
@@ -6093,6 +6145,11 @@ export default function App() {
     const ptRate = branchData.ptConfig?.hourlyRate || 0;
     const estimatedPtExpense = totalPtHours * ptRate;
     
+    const totalBasePay = reportData.reduce((sum, s) => sum + s.basePay, 0);
+    const totalOtPay = reportData.reduce((sum, s) => sum + s.otPay, 0);
+    const totalHolidayPay = reportData.reduce((sum, s) => sum + s.holidayPay, 0);
+    const totalPay = reportData.reduce((sum, s) => sum + s.totalPay, 0);
+
     const totalAllowedExpense = ptLedger.totalAllowance * ptRate;
     const baseBudget = branchData.ptConfig?.monthlyBudget || 0;
     const isOverAllowed = estimatedPtExpense > totalAllowedExpense;
@@ -6218,11 +6275,16 @@ export default function App() {
                 <thead className="bg-white text-[9px] sm:text-[12px] font-black uppercase text-slate-400 tracking-widest border-b">
                    <tr>
                       <th className="px-6 sm:px-12 py-4 sm:py-8 text-left sticky left-0 bg-white z-10">Staff Name</th>
+                      {['superadmin', 'areamanager'].includes(authRole) && <th className="px-4 sm:px-8 py-4 sm:py-8 text-right bg-emerald-50/20">ฐานเงินเดือน/เรท</th>}
                       <th className="px-4 sm:px-12 py-4 sm:py-8 text-center">Shifts</th>
                       <th className="px-4 sm:px-12 py-4 sm:py-8 text-center">Hours</th>
                       <th className="px-4 sm:px-12 py-4 sm:py-8 text-center bg-indigo-50/30 text-indigo-600">Plan OT</th>
                       <th className="px-4 sm:px-12 py-4 sm:py-8 text-center bg-indigo-50/50 text-indigo-800">Actual OT</th>
                       <th className="px-4 sm:px-12 py-4 sm:py-8 text-center">Delta</th>
+                      {['superadmin', 'areamanager'].includes(authRole) && <th className="px-4 sm:px-8 py-4 sm:py-8 text-right bg-emerald-50/40">ค่าจ้างปกติ</th>}
+                      {['superadmin', 'areamanager'].includes(authRole) && <th className="px-4 sm:px-8 py-4 sm:py-8 text-right bg-emerald-50/60">ค่า OT</th>}
+                      {['superadmin', 'areamanager'].includes(authRole) && <th className="px-4 sm:px-8 py-4 sm:py-8 text-right bg-emerald-50/80">ค่าแรงวันหยุด</th>}
+                      {['superadmin', 'areamanager'].includes(authRole) && <th className="px-4 sm:px-8 py-4 sm:py-8 text-right bg-emerald-100 text-emerald-800">รวมรายได้สุทธิ</th>}
                    </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-bold text-slate-700">
@@ -6233,8 +6295,12 @@ export default function App() {
                       <tr key={idx} className="hover:bg-slate-50 transition duration-300">
                          <td className="px-6 sm:px-12 py-4 sm:py-8 sticky left-0 bg-white group-hover:bg-slate-50 transition-colors z-10 border-r border-slate-50">
                             <p className="font-black text-slate-900 uppercase text-sm sm:text-base truncate max-w-[120px] sm:max-w-[200px]">{s.name}</p>
-                            <span className={`mt-1 inline-block text-[8px] sm:text-[10px] font-bold uppercase px-2 py-0.5 rounded ${layer.color.split(' ')[0]} ${layer.color.split(' ')[1]}`}>{s.dept} - {s.pos}</span>
+                            <div className="flex items-center gap-2">
+                               <span className={`mt-1 inline-block text-[8px] sm:text-[10px] font-bold uppercase px-2 py-0.5 rounded ${layer.color.split(' ')[0]} ${layer.color.split(' ')[1]}`}>{s.dept} - {s.pos}</span>
+                               {['superadmin', 'areamanager'].includes(authRole) && <span className="mt-1 text-[8px] sm:text-[9px] font-bold text-slate-400">({s.wageType})</span>}
+                            </div>
                          </td>
+                         {['superadmin', 'areamanager'].includes(authRole) && <td className="px-4 sm:px-8 py-4 sm:py-8 text-right bg-emerald-50/20 text-emerald-700 font-mono">฿{s.baseWage.toLocaleString()}</td>}
                          <td className="px-4 sm:px-12 py-4 sm:py-8 text-center text-sm sm:text-xl">{s.shifts}</td>
                          <td className="px-4 sm:px-12 py-4 sm:py-8 text-center text-sm sm:text-xl">{s.workHours.toFixed(1)}</td>
                          <td className="px-4 sm:px-12 py-4 sm:py-8 text-center bg-indigo-50/10 text-slate-500">{s.plannedOT.toFixed(1)}</td>
@@ -6242,10 +6308,26 @@ export default function App() {
                          <td className={`px-4 sm:px-12 py-4 sm:py-8 text-center text-sm sm:text-lg font-black ${delta > 0 ? 'text-red-500' : delta < 0 ? 'text-emerald-500' : 'text-slate-300'}`}>
                             {delta > 0 ? `+${delta.toFixed(1)}` : delta.toFixed(1)}
                          </td>
+                         {['superadmin', 'areamanager'].includes(authRole) && <td className="px-4 sm:px-8 py-4 sm:py-8 text-right bg-emerald-50/40 font-mono">{s.basePay.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>}
+                         {['superadmin', 'areamanager'].includes(authRole) && <td className="px-4 sm:px-8 py-4 sm:py-8 text-right bg-emerald-50/60 font-mono">{s.otPay.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>}
+                         {['superadmin', 'areamanager'].includes(authRole) && <td className="px-4 sm:px-8 py-4 sm:py-8 text-right bg-emerald-50/80 font-mono">{s.holidayPay.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>}
+                         {['superadmin', 'areamanager'].includes(authRole) && <td className="px-4 sm:px-8 py-4 sm:py-8 text-right bg-emerald-100 text-emerald-800 font-black text-base sm:text-lg font-mono">฿{s.totalPay.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>}
                       </tr>
                       );
                    })}
                 </tbody>
+                {['superadmin', 'areamanager'].includes(authRole) && (
+                   <tfoot className="bg-slate-100 text-slate-800 font-black text-sm uppercase">
+                       <tr>
+                           <td colSpan="2" className="px-6 sm:px-12 py-4 text-right">Total</td>
+                           <td colSpan="5" className="px-4 sm:px-12 py-4 text-center"></td>
+                           <td className="px-4 sm:px-8 py-4 text-right font-mono">{totalBasePay.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                           <td className="px-4 sm:px-8 py-4 text-right font-mono">{totalOtPay.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                           <td className="px-4 sm:px-8 py-4 text-right font-mono">{totalHolidayPay.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                           <td className="px-4 sm:px-8 py-4 text-right font-mono text-base text-emerald-800">฿{totalPay.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                       </tr>
+                   </tfoot>
+                )}
                 </table>
              </div>
           </div>
