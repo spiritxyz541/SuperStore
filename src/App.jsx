@@ -7720,7 +7720,7 @@ export default function App() {
       {renderModals()}
       {renderLandingModal()}
       {authRole === 'guest' ? renderGuestLogin() : (
-        <div className="flex-1 flex flex-col min-h-screen w-full bg-slate-50 text-slate-900 font-sans antialiased overflow-x-hidden">
+        <div className="flex-1 flex flex-col min-h-screen w-full bg-slate-50 text-slate-900 font-sans antialiased">
           <nav className="flex-none sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200 print:hidden shadow-sm px-4 sm:px-8 py-3 w-full">
              <div className="max-w-[1600px] mx-auto flex flex-col lg:flex-row items-center justify-between gap-4 lg:gap-0 w-full">
                 <div className="flex items-center justify-between w-full lg:w-auto">
