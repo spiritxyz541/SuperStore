@@ -4619,7 +4619,8 @@ export default function App() {
                          </div>
                       )}
                   </div>
-                  <button onClick={() => { 
+                  <div className="xl:col-span-2 flex flex-col gap-2 h-full w-full">
+                      <button onClick={() => { 
                       if(newStaffName.trim()){ 
                           const layer = getStaffLayer(newStaffDept, newStaffPos);
                           const isPT = newStaffPos.includes('PT');
@@ -4650,7 +4651,9 @@ export default function App() {
                           }); 
                           setNewStaffName(''); setNewStaffEmpId(''); setNewStaffDayOff(''); setNewStaffStartDate(''); setNewStaffBaseWage('');
                       } 
-                  }} className="xl:col-span-2 w-full bg-slate-900 text-white px-4 py-3 rounded-xl sm:rounded-2xl font-black text-xs hover:bg-indigo-600 transition uppercase flex items-center justify-center h-full min-h-[48px]"><UserPlus className="w-4 h-4 sm:w-5 sm:h-5 mr-2"/><span>เพิ่มพนักงาน</span></button>
+                      }} className="w-full bg-slate-900 text-white px-4 py-2 sm:py-3 rounded-xl sm:rounded-2xl font-black text-[10px] sm:text-xs hover:bg-indigo-600 transition uppercase flex items-center justify-center flex-1 min-h-[40px]"><UserPlus className="w-4 h-4 sm:w-5 sm:h-5 mr-2"/><span className="whitespace-nowrap">เพิ่มพนักงาน</span></button>
+                      <button onClick={() => setShowImportStaffModal(true)} className="w-full bg-emerald-600 text-white px-4 py-2 rounded-xl sm:rounded-2xl font-black text-[10px] hover:bg-emerald-700 transition shadow-sm uppercase flex items-center justify-center min-h-[32px]"><TableProperties className="w-3 h-3 sm:w-4 sm:h-4 mr-1.5 whitespace-nowrap"/><span className="whitespace-nowrap">นำเข้าจาก Excel</span></button>
+                  </div>
                </div>
              </div>
              <div className="grid grid-cols-1 gap-2 sm:gap-3 w-full">
