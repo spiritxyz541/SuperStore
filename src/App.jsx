@@ -7509,15 +7509,22 @@ export default function App() {
 
                     let actSvcAll = 0;
                     let actKitAll = 0;
+                    let actSvcPt = 0;
+                    let actKitPt = 0;
                     const todayStr = new Date().toISOString().slice(0, 10);
                     (bData?.staff || []).forEach(s => {
                         const isPT = s.pos?.includes('PT') || s.wageType === 'PT';
                         const started = !s.startDate || s.startDate <= todayStr;
                         const notResigned = !s.resignDate || s.resignDate >= todayStr;
                         const isActive = s.isActive !== false;
-                        if (!isPT && started && notResigned && isActive) {
-                            if (s.dept === 'service') actSvcAll++;
-                            if (s.dept === 'kitchen') actKitAll++;
+                        if (started && notResigned && isActive) {
+                            if (!isPT) {
+                                if (s.dept === 'service') actSvcAll++;
+                                if (s.dept === 'kitchen') actKitAll++;
+                            } else {
+                                if (s.dept === 'service') actSvcPt++;
+                                if (s.dept === 'kitchen') actKitPt++;
+                            }
                         }
                     });
                     
@@ -7525,6 +7532,11 @@ export default function App() {
                     let targetKitAll = 0;
                     let hasLimitSvc = false;
                     let hasLimitKit = false;
+                    
+                    let targetSvcPt = 0;
+                    let targetKitPt = 0;
+                    let hasLimitSvcPt = false;
+                    let hasLimitKitPt = false;
                     
                     if (bData?.staffLimits) {
                         const l = bData.staffLimits;
@@ -7536,10 +7548,21 @@ export default function App() {
                             hasLimitKit = true;
                             targetKitAll += parseInt(l['BOH_HEAD'] || 0) + parseInt(l['KITCHEN_STAFF_SUPPORT_FT'] || 0);
                         }
+                        if (l['SERVICE_STAFF_SUPPORT_PT']) {
+                            hasLimitSvcPt = true;
+                            targetSvcPt += parseInt(l['SERVICE_STAFF_SUPPORT_PT'] || 0);
+                        }
+                        if (l['KITCHEN_STAFF_SUPPORT_PT']) {
+                            hasLimitKitPt = true;
+                            targetKitPt += parseInt(l['KITCHEN_STAFF_SUPPORT_PT'] || 0);
+                        }
                     }
                     
                     const svcPercent = hasLimitSvc && targetSvcAll > 0 ? (actSvcAll / targetSvcAll) * 100 : 100;
                     const kitPercent = hasLimitKit && targetKitAll > 0 ? (actKitAll / targetKitAll) * 100 : 100;
+
+                    const svcPtPercent = hasLimitSvcPt && targetSvcPt > 0 ? (actSvcPt / targetSvcPt) * 100 : 100;
+                    const kitPtPercent = hasLimitKitPt && targetKitPt > 0 ? (actKitPt / targetKitPt) * 100 : 100;
 
                     return (
                         <div key={bId} className="bg-white p-6 sm:p-8 rounded-[2rem] border border-slate-200 shadow-sm flex flex-col gap-6 transition hover:border-indigo-300">
@@ -7574,6 +7597,30 @@ export default function App() {
                                         </div>
                                         {hasLimitKit && actKitAll < targetKitAll && <p className="text-[9px] text-amber-600 font-bold mt-1.5 text-right">⚠️ ขาดอีก {targetKitAll - actKitAll} คน</p>}
                                         {hasLimitKit && actKitAll > targetKitAll && <p className="text-[9px] text-red-500 font-bold mt-1.5 text-right">🛑 เกินโควตา {actKitAll - targetKitAll} คน</p>}
+                                    </div>
+                                </div>
+                                <div className="flex flex-col sm:flex-row gap-4 mt-4 w-full">
+                                    <div className="flex-1 bg-indigo-50/50 p-4 rounded-xl border border-indigo-100 flex flex-col justify-center">
+                                        <div className="flex justify-between items-end mb-2">
+                                            <div className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest">อัตรากำลังคนพาร์ทไทม์ (PT) บริการ (FOH)</div>
+                                            <div className="text-sm font-black text-indigo-900">{actSvcPt} <span className="text-[10px] text-indigo-400">/ {hasLimitSvcPt ? targetSvcPt : '∞'} คน</span></div>
+                                        </div>
+                                        <div className="h-2 w-full bg-indigo-100 rounded-full overflow-hidden">
+                                            <div className={`h-full ${actSvcPt < targetSvcPt ? 'bg-amber-400' : 'bg-indigo-500'} transition-all`} style={{ width: `${Math.min(svcPtPercent, 100)}%` }}></div>
+                                        </div>
+                                        {hasLimitSvcPt && actSvcPt < targetSvcPt && <p className="text-[9px] text-amber-600 font-bold mt-1.5 text-right">⚠️ ขาดอีก {targetSvcPt - actSvcPt} คน</p>}
+                                        {hasLimitSvcPt && actSvcPt > targetSvcPt && <p className="text-[9px] text-red-500 font-bold mt-1.5 text-right">🛑 เกินโควตา {actSvcPt - targetSvcPt} คน</p>}
+                                    </div>
+                                    <div className="flex-1 bg-orange-50/50 p-4 rounded-xl border border-orange-100 flex flex-col justify-center">
+                                        <div className="flex justify-between items-end mb-2">
+                                            <div className="text-[10px] font-bold text-orange-600 uppercase tracking-widest">อัตรากำลังคนพาร์ทไทม์ (PT) ครัว (BOH)</div>
+                                            <div className="text-sm font-black text-orange-900">{actKitPt} <span className="text-[10px] text-orange-400">/ {hasLimitKitPt ? targetKitPt : '∞'} คน</span></div>
+                                        </div>
+                                        <div className="h-2 w-full bg-orange-100 rounded-full overflow-hidden">
+                                            <div className={`h-full ${actKitPt < targetKitPt ? 'bg-amber-400' : 'bg-orange-500'} transition-all`} style={{ width: `${Math.min(kitPtPercent, 100)}%` }}></div>
+                                        </div>
+                                        {hasLimitKitPt && actKitPt < targetKitPt && <p className="text-[9px] text-amber-600 font-bold mt-1.5 text-right">⚠️ ขาดอีก {targetKitPt - actKitPt} คน</p>}
+                                        {hasLimitKitPt && actKitPt > targetKitPt && <p className="text-[9px] text-red-500 font-bold mt-1.5 text-right">🛑 เกินโควตา {actKitPt - targetKitPt} คน</p>}
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-4 w-full">
