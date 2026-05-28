@@ -6864,8 +6864,16 @@ export default function App() {
                     
                     const bDays = getDaysInMonth(selectedYear, selectedMonth, bData?.holidays || []);
                     let targetFtService = 0, targetFtKitchen = 0;
-                    DUTY_CATEGORIES.service.forEach(cat => { if (bData?.staffLimits?.[cat.id]) targetFtService += parseInt(bData?.staffLimits[cat.id], 10); });
-                    DUTY_CATEGORIES.kitchen.forEach(cat => { if (bData?.staffLimits?.[cat.id]) targetFtKitchen += parseInt(bData?.staffLimits[cat.id], 10); });
+                    
+                    const headServiceLimit = bData?.staffLimits?.['FOH_HEAD'];
+                    if (headServiceLimit) targetFtService += parseInt(headServiceLimit, 10);
+                    const staffSupportServiceLimit = bData?.staffLimits?.['SERVICE_STAFF_SUPPORT_FT'];
+                    if (staffSupportServiceLimit) targetFtService += parseInt(staffSupportServiceLimit, 10);
+
+                    const headKitchenLimit = bData?.staffLimits?.['BOH_HEAD'];
+                    if (headKitchenLimit) targetFtKitchen += parseInt(headKitchenLimit, 10);
+                    const staffSupportKitchenLimit = bData?.staffLimits?.['KITCHEN_STAFF_SUPPORT_FT'];
+                    if (staffSupportKitchenLimit) targetFtKitchen += parseInt(staffSupportKitchenLimit, 10);
 
                     const compHrSvc = bData?.ptConfig?.compHoursPerDayService ?? 8;
                     const compHrKit = bData?.ptConfig?.compHoursPerDayKitchen ?? 8;
