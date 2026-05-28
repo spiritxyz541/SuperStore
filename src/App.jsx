@@ -470,7 +470,7 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
                 <th className="border-r border-slate-700 p-2 sm:p-3 text-center sticky left-[4rem] sm:left-[5rem] bg-slate-900 z-30 w-12 sm:w-16 font-black uppercase border-b-2 border-slate-600 print:border-black print:bg-transparent">Pos</th>
                 <th className="border-r border-slate-700 p-2 sm:p-3 text-left sticky left-[7rem] sm:left-[9rem] bg-slate-900 z-30 w-24 sm:w-40 font-black uppercase border-b-2 border-slate-600 print:border-black print:bg-transparent">Employee Name</th>
                 {CALENDAR_DAYS.map(day => (
-                  <th key={day.dateStr} className={`border-r border-slate-700 p-1.5 sm:p-3 min-w-[30px] sm:min-w-[45px] text-center border-b-2 border-slate-600 print:border-black ${(day.type === 'saturday' || day.type === 'sunday') || branchData.holidays?.includes?.(day.dateStr) ? 'bg-slate-800 text-indigo-300 print:text-black print:bg-slate-100' : ''}`}>
+                  <th key={day.dateStr} className={`border-r border-slate-700 p-1.5 sm:p-3 min-w-[30px] sm:min-w-[45px] text-center border-b-2 border-slate-600 print:border-black ${(day.type === 'saturday' || day.type === 'sunday') || isDateHoliday(day.dateStr, branchData.holidays) ? 'bg-slate-800 text-indigo-300 print:text-black print:bg-slate-100' : ''}`}>
                     <div className="font-black text-[10px] sm:text-sm mb-0.5 sm:mb-1">{day.dayNum}</div><div className="text-[6px] sm:text-[8px] opacity-70 uppercase tracking-tighter">{day.dayLabel}</div>
                   </th>
                 ))}
@@ -771,7 +771,7 @@ export default function App() {
 
       const dayData = schedule[dateStr];
       const dayType = getDayType(dateStr, branchData.holidays, branchData.holidayCycles);
-      const isPublicHoliday = (branchData.holidays || []).some(h => h.date === dateStr && h.isPublic);
+      const isPublicHoliday = (branchData.holidays || []).some(h => typeof h === 'object' && h.date === dateStr && h.isPublic);
 
       if (dayData.leaves) {
         dayData.leaves.forEach(l => { 
@@ -1569,7 +1569,7 @@ export default function App() {
         const [y, m, d] = selectedDateStr.split('-').map(Number);
         const dateObj = new Date(y, m - 1, d);
         const dayOfWeek = dateObj.getDay();
-        const isHoliday = branchData.holidays?.includes?.(selectedDateStr);
+        const isHoliday = isDateHoliday(selectedDateStr, branchData.holidays);
         const regularOffStaff = isHoliday ? [] : branchData.staff.filter(s => s.regularDayOff === dayOfWeek && isStaffActiveOnDate(s, selectedDateStr));
         const newSched = { ...prev };
         if (!newSched[selectedDateStr]) newSched[selectedDateStr] = { duties: {}, leaves: [] };
@@ -2401,7 +2401,7 @@ export default function App() {
   };
 
   const handleSubmitLeaveRequest = async (dateStr, leaveTypeId) => {
-      if (branchData.holidays?.includes?.(dateStr)) {
+      if (isDateHoliday(dateStr, branchData.holidays)) {
           setConfirmModal({ message: 'ระบบไม่อนุญาตให้ลาหยุดในวันหยุดประจำสาขาได้' });
           return;
       }
@@ -4853,7 +4853,7 @@ export default function App() {
              <h2 className="text-lg sm:text-xl font-black text-slate-800 mb-6 sm:mb-8 flex items-center justify-center gap-2 sm:gap-4 uppercase tracking-tighter"><Coffee className="w-6 h-6 sm:w-7 sm:h-7 text-red-500" /> วันหยุดประจำสาขา</h2>
              <div className="grid grid-cols-7 gap-1.5 sm:gap-3">
                {CALENDAR_DAYS.map(d => {
-                 const holidayInfo = (branchData.holidays || []).find(h => h.date === d.dateStr);
+                 const holidayInfo = (branchData.holidays || []).find(h => (typeof h === 'object' ? h.date : h) === d.dateStr);
                  const isHoliday = !!holidayInfo;
                  const isPublicHoliday = holidayInfo?.isPublic;
                  return (
@@ -4862,20 +4862,30 @@ export default function App() {
                          if (authRole === 'superadmin') {
                              if (isHoliday) {
                                  setBranchData(p => {
-                                     const nd = {...p, holidays: (p.holidays || []).filter(h => h.date !== d.dateStr)};
+                                     const nd = {...p, holidays: (p.holidays || []).filter(h => (typeof h === 'object' ? h.date : h) !== d.dateStr)};
+                                     if (nd.holidayCycles) {
+                                         const newHc = { ...nd.holidayCycles };
+                                         delete newHc[d.dateStr];
+                                         nd.holidayCycles = newHc;
+                                     }
                                      if (activeBranchId) setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd).catch(console.error);
                                      return nd;
                                  });
                              } else {
-                                 const holidayName = window.prompt(`กรอกชื่อวันหยุดสำหรับวันที่ ${d.dateStr}:`, 'วันหยุดนักขัตฤกษ์');
-                                 if (holidayName) {
-                                     const isPublic = window.confirm('เป็นวันหยุดนักขัตฤกษ์ (จ่าย 2 แรง) หรือไม่?');
-                                     setBranchData(p => {
-                                         const newHoliday = { date: d.dateStr, name: holidayName, isPublic };
-                                         const nd = {...p, holidays: [...(p.holidays || []), newHoliday]};
-                                         if (activeBranchId) setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd).catch(console.error);
-                                         return nd;
-                                     });
+                                 const choice = window.prompt("วันหยุดนี้ต้องการให้ใช้กะแบบไหน?\n[ 1 ] = วันเสาร์ (ปิดดึก)\n[ 2 ] = วันอาทิตย์ (ปิดปกติ)", "1");
+                                 if (choice === "1" || choice === "2") {
+                                     const holidayName = window.prompt(`กรอกชื่อวันหยุดสำหรับวันที่ ${d.dateStr}:`, 'วันหยุดนักขัตฤกษ์');
+                                     if (holidayName !== null) {
+                                         const isPublic = window.confirm('เป็นวันหยุดนักขัตฤกษ์ (จ่าย 2 แรง) หรือไม่?');
+                                         setBranchData(p => {
+                                             const hc = {...(p.holidayCycles || {})};
+                                             hc[d.dateStr] = choice === "1" ? 'saturday' : 'sunday';
+                                             const newHoliday = { date: d.dateStr, name: holidayName || 'วันหยุด', isPublic };
+                                             const nd = {...p, holidays: [...(p.holidays || []), newHoliday], holidayCycles: hc};
+                                             if (activeBranchId) setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd).catch(console.error);
+                                             return nd;
+                                         });
+                                     }
                                  }
                              }
                          }
@@ -4884,6 +4894,7 @@ export default function App() {
                      title={holidayInfo?.name || ''}
                    >
                      <span>{d.dayNum}</span>
+                     {isHoliday && <span className="text-[8px] opacity-80 leading-none mt-0.5">{branchData.holidayCycles?.[d.dateStr] === 'sunday' ? '(อา.)' : '(ส.)'}</span>}
                      {isPublicHoliday && <span className="absolute top-1 right-1 w-2 h-2 bg-yellow-300 rounded-full" title="วันหยุดนักขัตฤกษ์"></span>}
                    </button>
                  );
@@ -5084,7 +5095,7 @@ export default function App() {
                 <div ref={dateBarRef} className="flex-1 flex gap-3 sm:gap-5 overflow-x-auto pb-4 sm:pb-6 pt-2 sm:pt-3 custom-scrollbar px-2 sm:px-3 select-none touch-pan-x snap-x">
                 {CALENDAR_DAYS.map(d => {
                    const isSelected = selectedDateStr === d.dateStr;
-                   const isHoliday = branchData.holidays?.includes?.(d.dateStr);
+                   const isHoliday = isDateHoliday(d.dateStr, branchData.holidays);
                    return (
                       <button key={d.dateStr} onClick={() => setSelectedDateStr(d.dateStr)} className={`flex-shrink-0 w-16 h-20 sm:w-24 sm:h-28 rounded-[1.5rem] sm:rounded-[2.2rem] flex flex-col items-center justify-center transition-all border-2 snap-center ${isSelected ? 'bg-indigo-600 text-white border-indigo-700 shadow-xl sm:shadow-2xl scale-105 z-20 ring-4 sm:ring-8 ring-indigo-50' : isHoliday ? 'bg-red-500 text-white border-red-600 shadow-sm sm:shadow-md' : d.type === 'saturday' ? 'bg-purple-500 text-white border-purple-600 shadow-sm sm:shadow-md' : d.type === 'sunday' ? 'bg-orange-500 text-white border-orange-600 shadow-sm sm:shadow-md' : d.type === 'friday' ? 'bg-sky-500 text-white border-sky-600 shadow-sm sm:shadow-md' : 'bg-white text-slate-800 border-slate-200 hover:border-indigo-400 shadow-sm'}`}>
                       <span className={`text-[9px] sm:text-[11px] font-black uppercase tracking-widest ${isSelected ? 'text-indigo-100 opacity-80' : 'opacity-40'}`}>{d.dayLabel}</span>
@@ -5176,7 +5187,7 @@ export default function App() {
                     if (s.pos.includes('PT') && !['OFF', 'SWAP_OFF', 'SL_UNPAID', 'PL_UNPAID'].includes(lt.id)) return false;
                     return !(usedStaffIds.includes(s.id) && !selectedStaffIds.includes(s.id)); 
                 }) || [];
-                const isHoliday = branchData.holidays?.includes?.(selectedDateStr);
+                const isHoliday = isDateHoliday(selectedDateStr, branchData.holidays);
                 const isBlocked = isHoliday && lt.id === 'OFF';
                 return (
                    <div key={lt.id} className={`bg-slate-50 p-4 sm:p-5 rounded-[1.5rem] flex flex-col gap-4 border border-slate-100 shadow-sm transition-all ${isBlocked ? 'opacity-50 pointer-events-none grayscale' : 'hover:bg-white hover:border-indigo-100'}`}>
@@ -5955,7 +5966,7 @@ export default function App() {
                           if (s.pos.includes('PT') && !['OFF', 'SWAP_OFF', 'SL_UNPAID', 'PL_UNPAID'].includes(lt.id)) return false;
                           return !(usedStaffIds.includes(s.id) && !selectedStaffIds.includes(s.id)); 
                       }) || [];
-                      const isHoliday = branchData.holidays?.includes?.(selectedDateStr);
+                      const isHoliday = isDateHoliday(selectedDateStr, branchData.holidays);
                       const isBlocked = isHoliday && lt.id === 'OFF';
                       return (
                          <div key={lt.id} className={`bg-white p-4 rounded-[1.5rem] flex flex-col gap-3 border border-slate-200 shadow-sm ${isBlocked ? 'opacity-50 pointer-events-none grayscale' : ''}`}>
@@ -6672,7 +6683,7 @@ export default function App() {
                                                       const dateObj = new Date(parseInt(dateStr.split('-')[0]), parseInt(dateStr.split('-')[1]) - 1, parseInt(dateStr.split('-')[2]));
                                                       const dayOfWeek = dateObj.getDay();
                                                       let dayType = 'weekday';
-                                                      if (nd.holidays?.includes?.(dateStr) || dayOfWeek === 0 || dayOfWeek === 6) dayType = 'weekend';
+                                                      if (isDateHoliday(dateStr, nd.holidays) || dayOfWeek === 0 || dayOfWeek === 6) dayType = 'weekend';
                                                       else if (dayOfWeek === 5) dayType = 'friday';
 
                                                       if (dayType === key && newSched[dateStr].duties?.[duty.id]) {
@@ -7036,7 +7047,7 @@ export default function App() {
                 <div ref={dateBarRef} className="flex-1 flex gap-3 sm:gap-5 overflow-x-auto pb-4 sm:pb-6 pt-2 sm:pt-3 custom-scrollbar px-2 sm:px-3 select-none touch-pan-x snap-x">
                 {CALENDAR_DAYS.map(d => {
                    const isSelected = selectedDateStr === d.dateStr;
-                   const isHoliday = branchData.holidays?.includes?.(d.dateStr);
+                   const isHoliday = isDateHoliday(d.dateStr, branchData.holidays);
                    return (
                       <button key={d.dateStr} onClick={() => setSelectedDateStr(d.dateStr)} className={`flex-shrink-0 w-16 h-20 sm:w-24 sm:h-28 rounded-[1.5rem] sm:rounded-[2.2rem] flex flex-col items-center justify-center transition-all border-2 snap-center ${isSelected ? 'bg-indigo-600 text-white border-indigo-700 shadow-xl sm:shadow-2xl scale-105 z-20 ring-4 sm:ring-8 ring-indigo-50' : isHoliday ? 'bg-red-500 text-white border-red-600 shadow-sm sm:shadow-md' : d.type === 'saturday' ? 'bg-purple-500 text-white border-purple-600 shadow-sm sm:shadow-md' : d.type === 'sunday' ? 'bg-orange-500 text-white border-orange-600 shadow-sm sm:shadow-md' : d.type === 'friday' ? 'bg-sky-500 text-white border-sky-600 shadow-sm sm:shadow-md' : 'bg-white text-slate-800 border-slate-200 hover:border-indigo-400 shadow-sm'}`}>
                       <span className={`text-[9px] sm:text-[11px] font-black uppercase tracking-widest ${isSelected ? 'text-indigo-100 opacity-80' : 'opacity-40'}`}>{d.dayLabel}</span>
