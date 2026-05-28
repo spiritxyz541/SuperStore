@@ -7375,7 +7375,29 @@ export default function App() {
                     let totalPtHours = 0;
                     
                     const staffMap = {};
-                    (bData?.staff || []).forEach(s => staffMap[s.id] = s);
+                    const payrollConfig = {
+                        monthlySalaryDivider: 30,
+                        otRateMonthly: 1.5, 
+                        otRateHolidayMonthly: 3.0,
+                        otRateFtHourly: 1.5, 
+                        otRatePt: 1.5,
+                        holidayMultiplierFtHourly: 2.0,
+                        holidayMultiplierPt: 2.0,
+                        ...(bData?.payrollConfig || {})
+                    };
+                    const ptRate = bData?.ptConfig?.hourlyRate || 0;
+
+                    const staffMapPayroll = {};
+                    (bData?.staff || []).forEach(s => {
+                        staffMap[s.id] = s;
+                        staffMapPayroll[s.id] = {
+                            basePay: 0, otPay: 0, holidayPay: 0, totalPay: 0,
+                            unpaidLeaveDays: 0, workHours: 0,
+                            wageType: s.wageType || 'MONTHLY',
+                            baseWage: s.baseWage || 0,
+                            pos: s.pos
+                        };
+                    });
 
                     Object.keys(sData).forEach(dateStr => {
                         const [y, m] = dateStr.split('-');
@@ -7391,11 +7413,17 @@ export default function App() {
                                 if (staff && !staff.pos.includes('PT') && ['AL', 'SL', 'SL_UNPAID', 'PL', 'PL_UNPAID', 'MATERNITY', 'MARRIAGE', 'TRAINING', 'MY_DAY', 'FAMILY_DAY', 'CO'].includes(l.type)) {
                                     leaveRefunds += 8;
                                 }
+                                if (l.staffId && staffMapPayroll[l.staffId]) {
+                                    if (['SL_UNPAID', 'PL_UNPAID'].includes(l.type)) {
+                                        staffMapPayroll[l.staffId].unpaidLeaveDays += 1;
+                                    }
+                                }
                             });
                         }
 
                         if (dayData.duties) {
                             const dayType = getDayType(dateStr, bData?.holidays, bData?.holidayCycles);
+                            const isPublicHoliday = (bData?.holidays || []).some(h => typeof h === 'object' && h.date === dateStr && h.isPublic);
 
                             Object.keys(dayData.duties).forEach(dutyId => {
                                 const slots = dayData.duties[dutyId] || [];
@@ -7412,13 +7440,66 @@ export default function App() {
                                             const shiftHrs = getNetWorkHours(times.startTime, times.endTime, staff.pos);
                                             totalPtHours += shiftHrs + Number(slot.otHours || 0);
                                         }
+
+                                        const pStaff = staffMapPayroll[actualStaffId];
+                                        if (pStaff) {
+                                            const mSlot = matrixSlots?.[idx];
+                                            const shiftPreset = bData?.shiftPresets?.find(p => p.id === (slot.shiftPresetId || mSlot?.shiftPresetId));
+                                            const { startTime, endTime } = getShiftTimesForStaff(pStaff.pos, shiftPreset);
+                                            const workHours = getNetWorkHours(startTime, endTime, pStaff.pos);
+                                            const otHours = Number(slot.otHours || 0);
+
+                                            pStaff.workHours += workHours;
+
+                                            if (pStaff.wageType === 'MONTHLY') {
+                                                const monthlyRate = pStaff.baseWage || 0;
+                                                const dailyRate = monthlyRate / (payrollConfig.monthlySalaryDivider || 30);
+                                                const hourlyRate = dailyRate / 8;
+                                                const effectiveOtMultiplier = isPublicHoliday ? (payrollConfig.otRateHolidayMonthly || 3.0) : (payrollConfig.otRateMonthly || 1.5);
+                                                
+                                                pStaff.otPay += otHours * hourlyRate * effectiveOtMultiplier;
+                                            } else {
+                                                const isPt = pStaff.wageType === 'PT';
+                                                const hourlyRate = isPt ? ptRate : (pStaff.baseWage || 0);
+                                                
+                                                const holidayMultiplier = isPt ? (payrollConfig.holidayMultiplierPt || 2.0) : (payrollConfig.holidayMultiplierFtHourly || 2.0);
+                                                const baseOtMultiplier = isPt ? (payrollConfig.otRatePt || 1.5) : (payrollConfig.otRateFtHourly || 1.5);
+                                                
+                                                const effectiveOtMultiplier = isPublicHoliday ? (baseOtMultiplier * holidayMultiplier) : baseOtMultiplier;
+
+                                                if (isPublicHoliday) {
+                                                    pStaff.basePay += workHours * hourlyRate;
+                                                    pStaff.holidayPay += workHours * hourlyRate * (holidayMultiplier - 1);
+                                                } else {
+                                                    pStaff.basePay += workHours * hourlyRate;
+                                                }
+                                                pStaff.otPay += otHours * hourlyRate * effectiveOtMultiplier;
+                                            }
+                                        }
                                     }
                                 });
                             });
                         }
                     });
                     
-                    const ptRate = bData?.ptConfig?.hourlyRate || 0;
+                    let totalBasePay = 0;
+                    let totalOtPay = 0;
+                    let totalHolidayPay = 0;
+
+                    Object.values(staffMapPayroll).forEach(staff => {
+                        if (staff.wageType === 'MONTHLY') {
+                            const monthlyRate = staff.baseWage || 0;
+                            const dailyRate = monthlyRate / (payrollConfig.monthlySalaryDivider || 30);
+                            staff.basePay = Math.max(0, monthlyRate - (staff.unpaidLeaveDays * dailyRate));
+                        }
+                        staff.totalPay = staff.basePay + staff.otPay + staff.holidayPay;
+
+                        totalBasePay += staff.basePay;
+                        totalOtPay += staff.otPay;
+                        totalHolidayPay += staff.holidayPay;
+                    });
+                    const branchTotalNetPay = totalBasePay + totalOtPay + totalHolidayPay;
+
                     const baseBudget = bData?.ptConfig?.monthlyBudget || 0;
                     const baseAllowance = ptRate > 0 ? baseBudget / ptRate : 0;
                     
@@ -7436,6 +7517,12 @@ export default function App() {
                                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col justify-center"><div className="text-[10px] font-bold text-slate-400 uppercase">พนักงานพาร์ทไทม์ (PT)</div><div className="text-xl sm:text-2xl font-black text-emerald-600 mt-1">{ptCount} <span className="text-[10px] font-bold text-emerald-600/50">คน</span></div></div>
                                     <div className="bg-rose-50 p-4 rounded-xl border border-rose-100 flex flex-col justify-center"><div className="text-[10px] font-bold text-rose-500 uppercase">ใช้งาน OT (เดือนนี้)</div><div className="text-xl sm:text-2xl font-black text-rose-700 mt-1">{totalOT.toFixed(1)} <span className="text-[10px] font-bold text-rose-500/50">ชม.</span></div></div>
                                     <div className="bg-amber-50 p-4 rounded-xl border border-amber-100 flex flex-col justify-center"><div className="text-[10px] font-bold text-amber-500 uppercase">วันลา/หยุด (เดือนนี้)</div><div className="text-xl sm:text-2xl font-black text-amber-700 mt-1">{totalLeaves} <span className="text-[10px] font-bold text-amber-500/50">รายการ</span></div></div>
+                                </div>
+                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-4 w-full">
+                                    <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100 flex flex-col justify-center"><div className="text-[10px] font-bold text-emerald-600 uppercase">ค่าจ้างปกติ</div><div className="text-xl sm:text-2xl font-black text-emerald-800 mt-1">฿{totalBasePay.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</div></div>
+                                    <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100 flex flex-col justify-center"><div className="text-[10px] font-bold text-indigo-600 uppercase">ค่า OT</div><div className="text-xl sm:text-2xl font-black text-indigo-800 mt-1">฿{totalOtPay.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</div></div>
+                                    <div className="bg-orange-50 p-4 rounded-xl border border-orange-100 flex flex-col justify-center"><div className="text-[10px] font-bold text-orange-600 uppercase">ค่าแรงวันหยุด</div><div className="text-xl sm:text-2xl font-black text-orange-800 mt-1">฿{totalHolidayPay.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</div></div>
+                                    <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 flex flex-col justify-center"><div className="text-[10px] font-bold text-slate-400 uppercase">รวมรายได้สุทธิ</div><div className="text-xl sm:text-2xl font-black text-white mt-1">฿{branchTotalNetPay.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</div></div>
                                 </div>
                             </div>
                             <div className="w-full xl:w-auto flex flex-col sm:flex-row xl:flex-col gap-3">
