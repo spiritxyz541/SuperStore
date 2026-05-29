@@ -6667,9 +6667,28 @@ export default function App() {
 
           <div className="bg-white rounded-[2rem] sm:rounded-[4rem] border border-slate-200 shadow-sm overflow-hidden w-full">
              <div className="p-6 sm:p-12 border-b border-slate-50 font-black text-slate-900 bg-slate-50/30 uppercase tracking-tighter text-lg sm:text-2xl"><div className="flex items-center gap-3 sm:gap-5"><BarChart3 className="w-6 h-6 sm:w-10 sm:h-10 text-indigo-500" /> Employee Workload Summary</div></div>
-             <div className="overflow-x-auto custom-scrollbar">
-                <table className="w-full text-xs sm:text-base min-w-[700px]">
-                <thead className="bg-white text-[9px] sm:text-[12px] font-black uppercase text-slate-400 tracking-widest border-b">
+             {['service', 'kitchen'].map(dept => {
+                const deptData = reportData.filter(s => s.dept === dept);
+                if (deptData.length === 0) return null;
+                
+                const deptTotalActualOT = deptData.reduce((acc, curr) => acc + curr.actualOT, 0);
+                const deptTotalPlannedOT = deptData.reduce((acc, curr) => acc + curr.plannedOT, 0);
+                const deptDeltaOT = deptTotalActualOT - deptTotalPlannedOT;
+                const deptTotalBasePay = deptData.reduce((acc, curr) => acc + curr.basePay, 0);
+                const deptTotalOtPay = deptData.reduce((acc, curr) => acc + curr.otPay, 0);
+                const deptTotalHolidayPay = deptData.reduce((acc, curr) => acc + curr.holidayPay, 0);
+                const deptTotalPay = deptData.reduce((acc, curr) => acc + curr.totalPay, 0);
+                const deptTitle = dept === 'service' ? 'ฝั่งบริการ (FOH)' : 'ฝั่งครัว (BOH)';
+
+                return (
+                 <div key={dept} className="mb-0 border-b-8 border-slate-100 last:border-b-0">
+                    <div className="px-6 sm:px-12 py-6 bg-white flex items-center gap-3 border-b border-slate-100">
+                       <span className={`w-2 h-6 rounded-full ${dept === 'service' ? 'bg-indigo-500' : 'bg-orange-500'}`}></span>
+                       <h3 className="text-base sm:text-xl font-black text-slate-800 uppercase tracking-widest">{deptTitle}</h3>
+                    </div>
+                    <div className="overflow-x-auto custom-scrollbar">
+                       <table className="w-full text-xs sm:text-base min-w-[700px]">
+                       <thead className="bg-white text-[9px] sm:text-[12px] font-black uppercase text-slate-400 tracking-widest border-b">
                    <tr>
                       <th className="px-6 sm:px-12 py-4 sm:py-8 text-left sticky left-0 bg-white z-10">Staff Name</th>
                       {['superadmin', 'areamanager'].includes(authRole) && <th className="px-4 sm:px-8 py-4 sm:py-8 text-right bg-emerald-50/20">ฐานเงินเดือน/เรท</th>}
@@ -6688,7 +6707,7 @@ export default function App() {
                    </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-bold text-slate-700">
-                   {reportData.map((s, idx) => {
+                  {deptData.map((s, idx) => {
                       const delta = s.actualOT - s.plannedOT;
                       const layer = getStaffLayer(s.dept, s.pos);
                       return (
@@ -6724,25 +6743,28 @@ export default function App() {
                 {['superadmin', 'areamanager'].includes(authRole) && (
                    <tfoot className="bg-slate-100 text-slate-800 font-black text-base sm:text-lg uppercase">
                        <tr>
-                           <td colSpan={['superadmin', 'areamanager'].includes(authRole) ? 2 : 1} className="px-6 sm:px-12 py-6 text-right">Total</td>
-                           <td className="px-4 sm:px-12 py-6 text-center">{reportData.reduce((acc, curr) => acc + curr.shifts, 0)}</td>
-                           <td className="px-4 sm:px-12 py-6 text-center">{reportData.reduce((acc, curr) => acc + curr.workHours, 0).toFixed(1)}</td>
-                           <td className="px-4 sm:px-12 py-6 text-center">{totalPlannedOT.toFixed(1)}</td>
+                           <td colSpan={['superadmin', 'areamanager'].includes(authRole) ? 2 : 1} className="px-6 sm:px-12 py-6 text-right">Total ({deptTitle})</td>
+                           <td className="px-4 sm:px-12 py-6 text-center">{deptData.reduce((acc, curr) => acc + curr.shifts, 0)}</td>
+                           <td className="px-4 sm:px-12 py-6 text-center">{deptData.reduce((acc, curr) => acc + curr.workHours, 0).toFixed(1)}</td>
+                           <td className="px-4 sm:px-12 py-6 text-center">{deptTotalPlannedOT.toFixed(1)}</td>
                            {uniqueOtMultipliers.map(mult => {
-                               const totalForMult = reportData.reduce((sum, s) => sum + (s.otHoursByMultiplier?.[mult] || 0), 0);
+                               const totalForMult = deptData.reduce((sum, s) => sum + (s.otHoursByMultiplier?.[mult] || 0), 0);
                                return <td key={mult} className="px-2 sm:px-8 py-6 text-center text-indigo-700">{totalForMult > 0 ? totalForMult.toFixed(1) : '-'}</td>;
                            })}
-                           <td className="px-4 sm:px-12 py-6 text-center text-indigo-900">{totalActualOT.toFixed(1)}</td>
-                           <td className={`px-4 sm:px-12 py-6 text-center ${deltaOT > 0 ? 'text-red-500' : 'text-emerald-500'}`}>{deltaOT > 0 ? `+${deltaOT.toFixed(1)}` : deltaOT.toFixed(1)}</td>
-                           <td className="px-4 sm:px-8 py-6 text-right font-mono">{totalBasePay.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                           <td className="px-4 sm:px-8 py-6 text-right font-mono">{totalOtPay.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                           <td className="px-4 sm:px-8 py-6 text-right font-mono">{totalHolidayPay.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                           <td className="px-4 sm:px-8 py-6 text-right font-mono text-emerald-800">฿{totalPay.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                           <td className="px-4 sm:px-12 py-6 text-center text-indigo-900">{deptTotalActualOT.toFixed(1)}</td>
+                           <td className={`px-4 sm:px-12 py-6 text-center ${deptDeltaOT > 0 ? 'text-red-500' : 'text-emerald-500'}`}>{deptDeltaOT > 0 ? `+${deptDeltaOT.toFixed(1)}` : deptDeltaOT.toFixed(1)}</td>
+                           <td className="px-4 sm:px-8 py-6 text-right font-mono">{deptTotalBasePay.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                           <td className="px-4 sm:px-8 py-6 text-right font-mono">{deptTotalOtPay.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                           <td className="px-4 sm:px-8 py-6 text-right font-mono">{deptTotalHolidayPay.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                           <td className="px-4 sm:px-8 py-6 text-right font-mono text-emerald-800">฿{deptTotalPay.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                        </tr>
                    </tfoot>
                 )}
                 </table>
              </div>
+                 </div>
+                );
+             })}
           </div>
        </div>
     );
