@@ -3354,7 +3354,6 @@ export default function App() {
 
           for (const documentSnapshot of querySnapshot.docs) {
               const data = documentSnapshot.data();
-              if (data.branchData) {
               if (documentSnapshot.id.startsWith('MASTER_')) {
                   masterBackupData = data.masterData;
               } else if (data.branchData) {
@@ -3367,26 +3366,54 @@ export default function App() {
                   newBranches.push({ id: bId, name: data.branchData.name || `Branch ${bId}`, user: data.branchData.user || bId, pass: data.branchData.pass || '1234' });
                   restoreCount++;
               }
+
           }
 
+          // ใช้ข้อมูลปัจจุบัน (Live Data) เป็นฐาน เพื่อไม่ให้ รหัสผ่าน หรือ Area Manager หายไป
           const newConfig = { ...globalConfig };
 
-          // นำเข้าข้อมูล Master (Area Managers, รหัสผ่าน, แอดมิน) กลับมาด้วย
+          // ดึงข้อมูล Master Backup มาผสาน (ถ้ามี)
           if (masterBackupData) {
-              if (masterBackupData.branches) newConfig.branches = masterBackupData.branches;
-              if (masterBackupData.areaManagers) newConfig.areaManagers = masterBackupData.areaManagers;
-              if (masterBackupData.admins) newConfig.admins = masterBackupData.admins;
-          } else if (newBranches.length > 0) {
-              // กรณีที่เป็น Backup แบบเก่าที่ยังไม่มี Master Backup
+              if (masterBackupData.areaManagers) {
+                  const amMap = new Map((newConfig.areaManagers || []).map(a => [a.id, a]));
+                  masterBackupData.areaManagers.forEach(a => { if (!amMap.has(a.id)) amMap.set(a.id, a); });
+                  newConfig.areaManagers = Array.from(amMap.values());
+              }
+              if (masterBackupData.admins) {
+                  const adminMap = new Map((newConfig.admins || []).map(a => [a.user, a]));
+                  masterBackupData.admins.forEach(a => { if (!adminMap.has(a.user)) adminMap.set(a.user, a); });
+                  newConfig.admins = Array.from(adminMap.values());
+              }
+              if (masterBackupData.branches) {
+                  const bMap = new Map((newConfig.branches || []).map(b => [b.id, b]));
+                  masterBackupData.branches.forEach(bBackup => {
+                      if (bMap.has(bBackup.id)) {
+                          const live = bMap.get(bBackup.id);
+                          bMap.set(bBackup.id, { ...bBackup, user: live.user || bBackup.user, pass: live.pass || bBackup.pass });
+                      } else { bMap.set(bBackup.id, bBackup); }
+                  });
+                  newConfig.branches = Array.from(bMap.values());
+              }
+          }
+
+          // ผสานข้อมูลสาขาจาก Backup รายสาขา (กรณีเป็นแบ็คอัปเก่าที่ไม่มี Master)
+          if (newBranches.length > 0) {
               const existingMap = new Map((newConfig.branches || []).map(b => [b.id, b]));
-              newBranches.forEach(b => existingMap.set(b.id, b));
+              newBranches.forEach(bBackup => {
+                  if (existingMap.has(bBackup.id)) {
+                      const liveBranch = existingMap.get(bBackup.id);
+                      existingMap.set(bBackup.id, { id: bBackup.id, name: bBackup.name, user: liveBranch.user || bBackup.user, pass: liveBranch.pass || bBackup.pass });
+                  } else {
+                      existingMap.set(bBackup.id, bBackup);
+                  }
+              });
               newConfig.branches = Array.from(existingMap.values());
           }
-          
+
           await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'master'), newConfig);
           setGlobalConfig(newConfig);
 
-          setConfirmModal({ message: `✅ กู้คืนข้อมูลสำเร็จทั้งหมด ${restoreCount} สาขา!\n\n${masterBackupData ? 'ดึงบัญชี Area Manager และรหัสผ่านทุกสาขากลับมาครบถ้วนแล้ว' : 'รายชื่อสาขาได้ถูกเพิ่มกลับเข้าสู่ระบบ (แต่อาจต้องตั้งรหัสผ่าน/Area Manager ใหม่เพราะเป็นแบ็คอัปรุ่นเก่า)'}` });
+          setConfirmModal({ message: `✅ กู้คืนข้อมูลสำเร็จทั้งหมด ${restoreCount} สาขา!\n\nระบบได้ดึงข้อมูลพนักงานและตารางกะงานกลับมาให้แล้ว และได้ทำการ "คงรักษา" ข้อมูลบัญชีผู้จัดการเขต (Area Manager) รวมทั้งรหัสผ่านเดิมที่เชื่อมต่ออยู่ปัจจุบันไว้ให้อย่างครบถ้วน 100% (ดึงข้อมูลจากระบบปกติมาเสริมให้แล้วครับ)` });
       } catch (e) {
           setConfirmModal({ message: `เกิดข้อผิดพลาดในการดึงข้อมูลทั้งหมด: ${e.message}` });
       }
