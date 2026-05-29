@@ -6463,6 +6463,11 @@ export default function App() {
                                                              <div className="flex justify-between items-center mb-1 gap-1">
                                                                 <span className={`text-[8px] font-bold truncate ${extraTextColor}`}>{isExtra ? extraBadge : shiftName}</span>
                                                                 <div className="flex items-center gap-0.5 flex-shrink-0">
+                                                                  {isExtra && ['branch', 'superadmin', 'areamanager'].includes(authRole) && (
+                                                                      <select value={data.shiftPresetId || matrixSlot.shiftPresetId} onChange={(e) => handleScheduleUpdate(day.dateStr, duty.id, idx, 'shiftPresetId', e.target.value)} className={`bg-white border rounded px-1 py-0.5 text-[7px] font-black outline-none shadow-sm truncate max-w-[50px] mr-0.5 ${data.isEventExtra ? 'border-amber-200 text-amber-700' : 'border-indigo-200 text-indigo-700'}`}>
+                                                                          {branchData.shiftPresets?.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                                                      </select>
+                                                                  )}
                                                                    {isExtra && ['branch', 'superadmin', 'areamanager'].includes(authRole) && (
                                                                        <button onClick={() => handleRemoveExtraSlot(day.dateStr, duty.id, idx)} className="bg-red-100 text-red-500 hover:bg-red-500 hover:text-white px-1.5 py-0.5 rounded text-[7px] font-black transition shadow-sm mr-0.5"><X className="w-2.5 h-2.5"/></button>
                                                                    )}
