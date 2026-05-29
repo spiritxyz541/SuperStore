@@ -4273,6 +4273,18 @@ export default function App() {
             <div className="text-center w-full">
                <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tighter uppercase">Welcome Back</h2>
                <p className="text-slate-400 text-xs sm:text-sm font-bold mt-2">Sign in to your management account</p>
+               
+               {/* เพิ่มส่วนแสดงสถานะ Firebase Error เพื่อให้เห็นต้นตอของปัญหา */}
+               {loadError && (
+                   <div className="mt-4 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-xs font-bold text-left break-words">
+                       ⚠️ <b>การเชื่อมต่อถูกปฏิเสธ:</b> {loadError}
+                   </div>
+               )}
+               {!user?.uid && !loadError && (
+                   <div className="mt-4 bg-amber-50 border border-amber-200 text-amber-600 px-4 py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2">
+                       <Loader2 className="w-4 h-4 animate-spin" /> <span>กำลังเชื่อมต่อฐานข้อมูล...</span>
+                   </div>
+               )}
             </div>
                 <form onSubmit={handleManagerLogin} className="w-full space-y-4 sm:space-y-5">
                   <div>
@@ -8230,7 +8242,7 @@ export default function App() {
                    <div className="flex flex-col">
                       <span className="font-black text-lg sm:text-xl tracking-tighter uppercase leading-none">Super Store</span>
                       <div className="flex items-center gap-1.5 mt-0.5">
-                         <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-green-500 rounded-full animate-pulse"></span>
+                         <span className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full ${user?.uid && !loadError ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} title={loadError || 'Disconnected'}></span>
                          <span className={`text-[8px] sm:text-[9px] font-black uppercase text-slate-400`}>{authRole === 'superadmin' ? 'BAR B Q PLAZA' : authRole === 'areamanager' ? 'AREA MANAGER' : 'BRANCH MANAGEMENT'}</span>
                       </div>
                    </div>
