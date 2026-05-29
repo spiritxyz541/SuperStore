@@ -3652,7 +3652,7 @@ export default function App() {
           </div>
         )}
         {showSuccessModal && (
-          <div className="fixed inset-0 z-[400] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-300 font-sans">
+          <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-300 font-sans">
              <div className="bg-white p-8 rounded-[3rem] shadow-2xl flex flex-col items-center gap-4 animate-in zoom-in-95">
                 <div className="bg-green-500 p-4 rounded-full shadow-xl shadow-green-200 animate-bounce"><CheckCircle2 className="w-12 h-12 text-white" /></div>
                 <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight mt-2">Saved Successfully</h3>
@@ -3660,7 +3660,7 @@ export default function App() {
           </div>
         )}
         {confirmModal && (
-          <div className="fixed inset-0 z-[400] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-300 font-sans p-4">
+          <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-300 font-sans p-4">
              <div className="bg-white p-8 rounded-[2rem] shadow-2xl flex flex-col items-center gap-6 max-w-sm w-full text-center animate-in zoom-in-95">
                 <div className="bg-indigo-100 p-4 rounded-full text-indigo-500"><AlertCircle className="w-10 h-10" /></div>
                 <div><h3 className="text-xl font-black text-slate-800 uppercase tracking-tight mb-2">{confirmModal.action ? 'ยืนยันการทำรายการ' : 'แจ้งเตือน'}</h3><p className="text-slate-500 text-sm font-bold">{confirmModal.message}</p></div>
