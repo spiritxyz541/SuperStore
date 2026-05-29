@@ -5,7 +5,7 @@ import { getFirestore, doc, setDoc, onSnapshot, collection, getDoc, getDocs, que
 import { 
   Users, AlertCircle, Clock, Save, Plus, Trash2, LayoutDashboard, Printer, ChevronLeft, ChevronRight, 
   Coffee, BarChart3, TrendingUp, Award, PlaneTakeoff, Loader2, Store, ArrowLeftRight, Sparkles, Wand2, Bold, Italic, Underline, Link as LinkIcon, BookOpen,
-  Eraser, Filter, ChevronDown, Download, MessageCircle, Bell, UserCircle, SaveAll, FolderOpen, CheckCircle2, Edit2, X, Check, List, TableProperties, GripVertical, LogIn, ShieldCheck, Megaphone,
+  Eraser, Filter, ChevronDown, Download, MessageCircle, Bell, UserCircle, SaveAll, FolderOpen, CheckCircle2, Edit2, X, Check, List, TableProperties, GripVertical, LogIn, ShieldCheck, Megaphone, Undo2,
   UtensilsCrossed, ConciergeBell, UserPlus, ArrowUpRight, ArrowDownRight, CalendarDays as CalendarDaysIcon, Calendar as CalendarIcon, CheckSquare, KeyRound, Upload
 } from 'lucide-react';
 
@@ -641,6 +641,7 @@ export default function App() {
   const [globalTemplates, setGlobalTemplates] = useState([]);
   const [branchData, setBranchData] = useState({ staff: [], holidays: [], matrix: generateDefaultMatrix(), duties: { service: DEFAULT_SERVICE_DUTIES, kitchen: DEFAULT_KITCHEN_DUTIES }, templates: [] });
   const [schedule, setSchedule] = useState({});
+  const [scheduleHistory, setScheduleHistory] = useState(null);
   const [pendingRequests, setPendingRequests] = useState([]); 
   
   const [selectedDateStr, setSelectedDateStr] = useState(() => {
@@ -3176,7 +3177,24 @@ export default function App() {
     }, 500); 
   };
 
+  const handleUndoSchedule = () => {
+      if (scheduleHistory) {
+          setConfirmModal({
+              message: 'ยืนยันการยกเลิก (Undo) การจัดกะครั้งล่าสุดและกลับไปใช้ข้อมูลก่อนหน้าใช่หรือไม่?',
+              action: () => {
+                  setSchedule(scheduleHistory);
+                  if (activeBranchId) autoSaveSchedule(scheduleHistory);
+                  setScheduleHistory(null);
+                  setConfirmModal({ message: 'ยกเลิกการจัดกะและกู้คืนข้อมูลสำเร็จ!' });
+              }
+          });
+      }
+  };
+
   const handleClearSchedule = (mode = 'daily') => {
+      // บันทึกสถานะก่อนหน้าเพื่อใช้สำหรับ Undo ในกรณีที่เผลอกดล้างข้อมูล
+      setScheduleHistory(JSON.parse(JSON.stringify(scheduleRef.current)));
+
       let newSchedToSave = null;
       setSchedule(prevSched => {
           const newSched = JSON.parse(JSON.stringify(prevSched));
@@ -5563,6 +5581,11 @@ export default function App() {
                 <button onClick={handleShareToLine} className="flex-1 xl:flex-none bg-[#00B900] hover:bg-[#009900] text-white px-4 sm:px-6 py-4 sm:py-5 rounded-xl sm:rounded-[2rem] font-black flex justify-center items-center gap-2 shadow-lg active:scale-95 transition-all text-[10px] sm:text-sm"><MessageCircle className="w-4 h-4 sm:w-5 sm:h-5" /> <span className="hidden sm:inline">Copy to LINE</span><span className="sm:hidden">Share</span></button>
                 <button onClick={() => { setForecastTc(''); setForecastReason(''); setForecastEvidence(''); setShowForecastModal(true); }} className="flex-1 xl:flex-none bg-indigo-50 text-indigo-600 border border-indigo-200 hover:bg-indigo-100 px-4 sm:px-6 py-4 sm:py-5 rounded-xl sm:rounded-[2rem] font-black flex justify-center items-center gap-2 shadow-sm active:scale-95 transition-all text-[10px] sm:text-sm"><TrendingUp className="w-4 h-4 sm:w-5 sm:h-5" /> <span className="hidden sm:inline">ขอจัดกะพิเศษกรณีมีอีเว้นพิเศษ</span><span className="sm:hidden">กะพิเศษ</span></button>
                 <button onClick={() => requestAutoAssign('daily')} disabled={aiLoading} className="flex-1 xl:flex-none bg-slate-900 text-white px-4 sm:px-6 py-4 sm:py-5 rounded-xl sm:rounded-[2rem] font-black flex justify-center items-center gap-2 sm:gap-3 hover:bg-black shadow-xl active:scale-95 transition-all text-[10px] sm:text-sm">{aiLoading ? <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin text-indigo-400" /> : <Wand2 className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-400" />} จัดกะอัตโนมัติ</button>
+                {scheduleHistory && (
+                   <button onClick={handleUndoSchedule} disabled={aiLoading} className="flex-1 xl:flex-none bg-indigo-100 text-indigo-600 hover:bg-indigo-200 px-4 sm:px-6 py-4 sm:py-5 rounded-xl sm:rounded-[2rem] font-black flex justify-center items-center gap-2 shadow-sm active:scale-95 transition-all text-[10px] sm:text-sm">
+                      <Undo2 className="w-4 h-4 sm:w-5 sm:h-5" /> Undo
+                   </button>
+                )}
                 <button onClick={() => setConfirmModal({ message: 'ยืนยันการล้างข้อมูลกะงานของ "วันนี้" ใช่หรือไม่?', action: () => handleClearSchedule('daily') })} className="bg-white border-2 border-red-100 text-red-500 hover:bg-red-500 hover:text-white hover:border-red-500 px-4 sm:px-6 py-4 sm:py-5 rounded-xl sm:rounded-[2rem] font-black flex justify-center items-center shadow-sm active:scale-95 transition-all"><Eraser className="w-5 h-5" /></button>
              </div>
           </div>
@@ -6296,9 +6319,16 @@ export default function App() {
                 </div>
                 <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                    {(view === 'manager' || view === 'head_team') && (
+                       <React.Fragment>
                        <button onClick={() => requestAutoAssign('daily')} disabled={aiLoading} className="flex-1 sm:flex-none justify-center bg-indigo-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-black flex items-center gap-2 hover:bg-indigo-700 shadow-sm active:scale-95 transition-all text-[10px] sm:text-xs uppercase tracking-widest">
                           {aiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />} จัดกะอัตโนมัติ
                        </button>
+                       {scheduleHistory && (
+                           <button onClick={handleUndoSchedule} disabled={aiLoading} className="flex-1 sm:flex-none justify-center bg-white text-indigo-600 border border-indigo-200 px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-black flex items-center gap-2 hover:bg-indigo-50 shadow-sm active:scale-95 transition-all text-[10px] sm:text-xs uppercase tracking-widest">
+                              <Undo2 className="w-4 h-4" /> Undo
+                           </button>
+                       )}
+                       </React.Fragment>
                    )}
                    <div className="bg-slate-200 p-1.5 rounded-xl flex gap-1 w-full sm:w-auto">
                       <button onClick={() => setDailyViewMode('roster')} className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-[10px] sm:text-xs font-black transition-all ${dailyViewMode === 'roster' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>ตารางกะงาน</button>
@@ -6392,6 +6422,11 @@ export default function App() {
                   <button onClick={() => requestAutoAssign('monthly')} disabled={aiLoading} className="flex-1 sm:flex-none bg-slate-900 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-black flex justify-center items-center gap-2 hover:bg-black shadow-lg active:scale-95 transition-all text-[10px] sm:text-xs uppercase tracking-widest">
                       {aiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4 text-yellow-400" />} จัดกะอัตโนมัติ (ทั้งเดือน)
                    </button>
+                   {scheduleHistory && (
+                      <button onClick={handleUndoSchedule} disabled={aiLoading} className="flex-1 sm:flex-none bg-indigo-100 text-indigo-600 hover:bg-indigo-200 px-4 py-2 sm:py-3 rounded-xl flex justify-center items-center gap-2 shadow-sm active:scale-95 transition-all text-[10px] sm:text-xs font-black uppercase tracking-widest">
+                         <Undo2 className="w-4 h-4" /> เลิกทำ (Undo)
+                      </button>
+                   )}
                    <button onClick={() => setConfirmModal({ message: 'ยืนยันการล้างข้อมูลกะงานของ "ทั้งเดือนนี้" ใช่หรือไม่?', action: () => handleClearSchedule('monthly') })} className="bg-white border-2 border-red-100 text-red-500 hover:bg-red-500 hover:text-white hover:border-red-500 px-4 py-2 sm:py-3 rounded-xl flex justify-center items-center shadow-sm active:scale-95 transition-all">
                       <Eraser className="w-4 h-4" />
                    </button>
