@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from 'firebase/auth';
-import { getFirestore, doc, setDoc, onSnapshot, collection, getDoc } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, onSnapshot, collection, getDoc, disableNetwork, enableNetwork } from 'firebase/firestore';
 import { 
   Users, AlertCircle, Clock, Save, Plus, Trash2, LayoutDashboard, Printer, ChevronLeft, ChevronRight, 
   Coffee, BarChart3, TrendingUp, Award, PlaneTakeoff, Loader2, Store, ArrowLeftRight, Sparkles, Wand2, Bold, Italic, Underline, Link as LinkIcon, BookOpen,
   Eraser, Filter, ChevronDown, Download, MessageCircle, Bell, UserCircle, SaveAll, FolderOpen, CheckCircle2, Edit2, X, Check, List, TableProperties, GripVertical, LogIn, ShieldCheck, Megaphone,
-  UtensilsCrossed, ConciergeBell, UserPlus, ArrowUpRight, ArrowDownRight, CalendarDays as CalendarDaysIcon, Calendar as CalendarIcon, CheckSquare, KeyRound, Upload
+  UtensilsCrossed, ConciergeBell, UserPlus, ArrowUpRight, ArrowDownRight, CalendarDays as CalendarDaysIcon, Calendar as CalendarIcon, CheckSquare, KeyRound, Upload, Wifi
 } from 'lucide-react';
 
 /**
@@ -1459,7 +1459,7 @@ export default function App() {
   }, [authRole, activeBranchId, view, authUser]);
 
   useEffect(() => {
-    const timer = setTimeout(() => { if (loading) setIsTimeout(true); }, 8000);
+    const timer = setTimeout(() => { setIsTimeout(true); }, 8000);
     const initAuth = async () => {
       try {
         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -1470,10 +1470,10 @@ export default function App() {
     initAuth();
     const unsub = onAuthStateChanged(auth, setUser);
     return () => { unsub(); clearTimeout(timer); };
-  }, [loading]);
+  }, []);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user?.uid) return;
     const unsub = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'master'), (snap) => {
       if (snap.exists()) {
         const data = snap.data();
@@ -1493,10 +1493,10 @@ export default function App() {
     });
 
     return () => { unsub(); unsubTpl(); };
-  }, [user]);
+  }, [user?.uid]);
 
   useEffect(() => {
-    if (!user || !activeBranchId) return;
+    if (!user?.uid || !activeBranchId) return;
     const unsubBranch = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), (snap) => {
       if (snap.exists()) {
         const data = snap.data();
@@ -1602,7 +1602,7 @@ export default function App() {
       if (snap.exists()) setPendingRequests(snap.data().list || []); else setPendingRequests([]);
     });
     return () => { unsubBranch(); unsubSched(); unsubReq(); };
-  }, [user, activeBranchId]);
+  }, [user?.uid, activeBranchId]);
 
   // Reset Landing Page view when branch changes
   const prevBranchRef = useRef(activeBranchId);
@@ -8255,6 +8255,9 @@ export default function App() {
                           <Bell className="w-5 h-5 text-slate-600" />
                           {pendingRequests.some(r => r.status === 'PENDING_MANAGER') && <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>}
                       </button>
+                      <button onClick={async () => {
+                          try { await disableNetwork(db); await enableNetwork(db); setConfirmModal({ message: 'รีเซ็ตการเชื่อมต่อฐานข้อมูลสำเร็จ! (Reconnected)' }); } catch(e) { setConfirmModal({ message: 'การเชื่อมต่อขัดข้อง: ' + e.message }); }
+                      }} className="text-slate-400 p-2 bg-slate-100 rounded-lg hover:text-emerald-500 transition" title="เชื่อมต่อฐานข้อมูลใหม่ (Force Reconnect)"><Wifi className="w-4 h-4" /></button>
                       {['branch', 'areamanager'].includes(authRole) && (
                           <button onClick={() => setShowChangePasswordModal(true)} className="text-slate-400 p-2 bg-slate-100 rounded-lg hover:text-indigo-500 transition" title="เปลี่ยนรหัสผ่าน"><KeyRound className="w-4 h-4" /></button>
                       )}
@@ -8287,6 +8290,9 @@ export default function App() {
                          <span className="ml-1">{saveStatus === 'saving' ? 'กำลังบันทึก...' : 'บันทึกทั้งหมด'}</span>
                       </button>
                       {saveStatus === 'error' && <div className="text-red-500 text-xs font-bold ml-2">บันทึกไม่สำเร็จ กรุณาลองใหม่</div>}
+                      <button onClick={async () => {
+                          try { await disableNetwork(db); await enableNetwork(db); setConfirmModal({ message: 'รีเซ็ตการเชื่อมต่อฐานข้อมูลสำเร็จ! (Reconnected)' }); } catch(e) { setConfirmModal({ message: 'การเชื่อมต่อขัดข้อง: ' + e.message }); }
+                      }} className="text-slate-400 hover:text-emerald-500 transition p-1" title="เชื่อมต่อฐานข้อมูลใหม่ (Force Reconnect)"><Wifi className="w-5 h-5 sm:w-6 sm:h-6" /></button>
                       {['branch', 'areamanager'].includes(authRole) && (
                           <button onClick={() => setShowChangePasswordModal(true)} className="text-slate-400 hover:text-indigo-500 transition p-1" title="เปลี่ยนรหัสผ่าน"><KeyRound className="w-5 h-5 sm:w-6 sm:h-6" /></button>
                       )}
