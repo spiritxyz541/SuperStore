@@ -745,6 +745,7 @@ export default function App() {
   const [reportFilterMonth, setReportFilterMonth] = useState(new Date().getMonth());
   const [reportFilterStart, setReportFilterStart] = useState(`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`);
   const [reportFilterEnd, setReportFilterEnd] = useState(`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()}`);
+  const [reportWorkloadTab, setReportWorkloadTab] = useState('all');
 
   const [isEditingGuide, setIsEditingGuide] = useState(false);
   const [editGuideSteps, setEditGuideSteps] = useState([]);
@@ -6666,8 +6667,15 @@ export default function App() {
          </div>
 
           <div className="bg-white rounded-[2rem] sm:rounded-[4rem] border border-slate-200 shadow-sm overflow-hidden w-full">
-             <div className="p-6 sm:p-12 border-b border-slate-50 font-black text-slate-900 bg-slate-50/30 uppercase tracking-tighter text-lg sm:text-2xl"><div className="flex items-center gap-3 sm:gap-5"><BarChart3 className="w-6 h-6 sm:w-10 sm:h-10 text-indigo-500" /> Employee Workload Summary</div></div>
-             {['service', 'kitchen'].map(dept => {
+             <div className="p-6 sm:p-12 border-b border-slate-50 font-black text-slate-900 bg-slate-50/30 uppercase tracking-tighter text-lg sm:text-2xl flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
+                 <div className="flex items-center gap-3 sm:gap-5"><BarChart3 className="w-6 h-6 sm:w-10 sm:h-10 text-indigo-500" /> Employee Workload Summary</div>
+                 <div className="flex bg-slate-200/50 p-1.5 rounded-2xl border border-slate-200 w-full xl:w-auto">
+                    <button onClick={() => setReportWorkloadTab('all')} className={`flex-1 xl:flex-none px-4 py-2 rounded-xl text-[10px] sm:text-xs font-black transition-all ${reportWorkloadTab === 'all' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>ทั้งหมด</button>
+                    <button onClick={() => setReportWorkloadTab('service')} className={`flex-1 xl:flex-none px-4 py-2 rounded-xl text-[10px] sm:text-xs font-black transition-all ${reportWorkloadTab === 'service' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>บริการ (FOH)</button>
+                    <button onClick={() => setReportWorkloadTab('kitchen')} className={`flex-1 xl:flex-none px-4 py-2 rounded-xl text-[10px] sm:text-xs font-black transition-all ${reportWorkloadTab === 'kitchen' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>ครัว (BOH)</button>
+                 </div>
+             </div>
+             {['service', 'kitchen'].filter(d => reportWorkloadTab === 'all' || reportWorkloadTab === d).map(dept => {
                 const deptData = reportData.filter(s => s.dept === dept);
                 if (deptData.length === 0) return null;
                 
