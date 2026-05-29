@@ -6121,7 +6121,8 @@ export default function App() {
                 endMin += assignedData.otHours * 60;
             }
 
-            const [bStartStr, bEndStr] = (breakTime || '').split('-');
+            const actualBreakTime = assignedData.breakTime !== undefined ? assignedData.breakTime : breakTime;
+            const [bStartStr, bEndStr] = (actualBreakTime || '').split('-');
             const bStartMin = timeToMinutes(bStartStr);
             const bEndMin = timeToMinutes(bEndStr);
 
