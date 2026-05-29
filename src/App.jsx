@@ -3277,6 +3277,54 @@ export default function App() {
       } catch(e) { setConfirmModal({ message: `การกู้คืนล้มเหลว: ${e.message}` }); }
   };
 
+  const handleGlobalRestore = async (dateStr) => {
+      if (!dateStr) return;
+      const confirmed = window.confirm(`คำเตือน: การกู้คืนข้อมูลทั้งหมดของวันที่ ${dateStr}\n\nระบบจะทำการค้นหาข้อมูล Backup ของ "ทุกสาขา" ในวันดังกล่าว และนำกลับมาทับข้อมูลปัจจุบัน รวมถึงกู้รายชื่อสาขากลับคืนให้อัตโนมัติ\n\nคุณแน่ใจหรือไม่?`);
+      if (!confirmed) return;
+
+      try {
+          const backupsRef = collection(db, 'artifacts', appId, 'public', 'data', 'backups');
+          const q = query(backupsRef, where('backupDate', '==', dateStr));
+          const querySnapshot = await getDocs(q);
+
+          if (querySnapshot.empty) {
+              setConfirmModal({ message: `ไม่พบข้อมูล Backup ของสาขาใดๆ ในวันที่ ${dateStr} เลยครับ` });
+              return;
+          }
+
+          const newBranches = [];
+          let restoreCount = 0;
+
+          for (const documentSnapshot of querySnapshot.docs) {
+              const data = documentSnapshot.data();
+              if (data.branchData) {
+                  const bId = documentSnapshot.id.split('_day_')[0];
+                  await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', bId), data.branchData);
+                  if (data.schedule) {
+                      await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'schedules', bId), { records: data.schedule });
+                  }
+                  
+                  newBranches.push({ id: bId, name: data.branchData.name || `Branch ${bId}`, user: data.branchData.user || bId, pass: data.branchData.pass || '1234' });
+                  restoreCount++;
+              }
+          }
+
+          if (newBranches.length > 0) {
+              const newConfig = { ...globalConfig };
+              const existingMap = new Map((newConfig.branches || []).map(b => [b.id, b]));
+              newBranches.forEach(b => existingMap.set(b.id, b));
+              newConfig.branches = Array.from(existingMap.values());
+              
+              await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'master'), newConfig);
+              setGlobalConfig(newConfig);
+          }
+
+          setConfirmModal({ message: `✅ กู้คืนข้อมูลสำเร็จทั้งหมด ${restoreCount} สาขา!\nรายชื่อสาขาได้ถูกเพิ่มกลับเข้าสู่ระบบ และนำข้อมูลพนักงาน/กะงานกลับมาเรียบร้อยแล้ว` });
+      } catch (e) {
+          setConfirmModal({ message: `เกิดข้อผิดพลาดในการดึงข้อมูลทั้งหมด: ${e.message}` });
+      }
+  };
+
   const scrollDates = (dir) => {
     if (dateBarRef.current) {
       const amt = dir === 'left' ? -350 : 350;
