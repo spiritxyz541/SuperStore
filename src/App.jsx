@@ -2920,8 +2920,24 @@ export default function App() {
     document.body.appendChild(link); link.click(); document.body.removeChild(link);
   };
 
+  const requestAutoAssign = (mode = 'daily') => {
+      const lastTime = branchData.lastAutoAssign ? new Date(branchData.lastAutoAssign).toLocaleString('th-TH') : 'ยังไม่เคยใช้งาน';
+      setConfirmModal({
+          message: `ใช้งานจัดกะอัตโนมัติครั้งล่าสุดเมื่อ: ${lastTime}\n\nระบบจะทำการจัดกะอัตโนมัติสำหรับ${mode === 'daily' ? 'วันนี้' : 'ทั้งเดือนนี้'} ข้อมูลกะเดิมจะถูกล้างและเขียนทับใหม่ทั้งหมด (ไม่กระทบกับวันหยุดและวันลาที่บันทึกไว้)\n\nคุณยืนยันที่จะทำรายการนี้หรือไม่?`,
+          action: () => handleAutoAssign(mode)
+      });
+  };
+
   const handleAutoAssign = (mode = 'daily') => {
     setAiLoading(true);
+    
+    // อัปเดตเวลาใช้งานล่าสุด
+    setBranchData(prev => {
+        const nd = { ...prev, lastAutoAssign: Date.now() };
+        if (activeBranchId) setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd).catch(console.error);
+        return nd;
+    });
+
     setTimeout(() => {
         setSchedule(prevSched => {
             const newSched = JSON.parse(JSON.stringify(prevSched));
@@ -5546,7 +5562,7 @@ export default function App() {
              <div className="flex flex-wrap gap-2 w-full xl:w-auto">
                 <button onClick={handleShareToLine} className="flex-1 xl:flex-none bg-[#00B900] hover:bg-[#009900] text-white px-4 sm:px-6 py-4 sm:py-5 rounded-xl sm:rounded-[2rem] font-black flex justify-center items-center gap-2 shadow-lg active:scale-95 transition-all text-[10px] sm:text-sm"><MessageCircle className="w-4 h-4 sm:w-5 sm:h-5" /> <span className="hidden sm:inline">Copy to LINE</span><span className="sm:hidden">Share</span></button>
                 <button onClick={() => { setForecastTc(''); setForecastReason(''); setForecastEvidence(''); setShowForecastModal(true); }} className="flex-1 xl:flex-none bg-indigo-50 text-indigo-600 border border-indigo-200 hover:bg-indigo-100 px-4 sm:px-6 py-4 sm:py-5 rounded-xl sm:rounded-[2rem] font-black flex justify-center items-center gap-2 shadow-sm active:scale-95 transition-all text-[10px] sm:text-sm"><TrendingUp className="w-4 h-4 sm:w-5 sm:h-5" /> <span className="hidden sm:inline">ขอจัดกะพิเศษกรณีมีอีเว้นพิเศษ</span><span className="sm:hidden">กะพิเศษ</span></button>
-                <button onClick={() => handleAutoAssign('daily')} disabled={aiLoading} className="flex-1 xl:flex-none bg-slate-900 text-white px-4 sm:px-6 py-4 sm:py-5 rounded-xl sm:rounded-[2rem] font-black flex justify-center items-center gap-2 sm:gap-3 hover:bg-black shadow-xl active:scale-95 transition-all text-[10px] sm:text-sm">{aiLoading ? <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin text-indigo-400" /> : <Wand2 className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-400" />} จัดกะอัตโนมัติ</button>
+                <button onClick={() => requestAutoAssign('daily')} disabled={aiLoading} className="flex-1 xl:flex-none bg-slate-900 text-white px-4 sm:px-6 py-4 sm:py-5 rounded-xl sm:rounded-[2rem] font-black flex justify-center items-center gap-2 sm:gap-3 hover:bg-black shadow-xl active:scale-95 transition-all text-[10px] sm:text-sm">{aiLoading ? <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin text-indigo-400" /> : <Wand2 className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-400" />} จัดกะอัตโนมัติ</button>
                 <button onClick={() => setConfirmModal({ message: 'ยืนยันการล้างข้อมูลกะงานของ "วันนี้" ใช่หรือไม่?', action: () => handleClearSchedule('daily') })} className="bg-white border-2 border-red-100 text-red-500 hover:bg-red-500 hover:text-white hover:border-red-500 px-4 sm:px-6 py-4 sm:py-5 rounded-xl sm:rounded-[2rem] font-black flex justify-center items-center shadow-sm active:scale-95 transition-all"><Eraser className="w-5 h-5" /></button>
              </div>
           </div>
@@ -6280,7 +6296,7 @@ export default function App() {
                 </div>
                 <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                    {(view === 'manager' || view === 'head_team') && (
-                       <button onClick={() => handleAutoAssign('daily')} disabled={aiLoading} className="flex-1 sm:flex-none justify-center bg-indigo-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-black flex items-center gap-2 hover:bg-indigo-700 shadow-sm active:scale-95 transition-all text-[10px] sm:text-xs uppercase tracking-widest">
+                       <button onClick={() => requestAutoAssign('daily')} disabled={aiLoading} className="flex-1 sm:flex-none justify-center bg-indigo-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-black flex items-center gap-2 hover:bg-indigo-700 shadow-sm active:scale-95 transition-all text-[10px] sm:text-xs uppercase tracking-widest">
                           {aiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />} จัดกะอัตโนมัติ
                        </button>
                    )}
@@ -6373,7 +6389,7 @@ export default function App() {
                    <div className="text-xs font-bold text-indigo-600 uppercase tracking-widest mt-1">{activeDept.toUpperCase()} DEPT</div>
                 </div>
                 <div className="flex gap-2 w-full sm:w-auto">
-                   <button onClick={() => handleAutoAssign('monthly')} disabled={aiLoading} className="flex-1 sm:flex-none bg-slate-900 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-black flex justify-center items-center gap-2 hover:bg-black shadow-lg active:scale-95 transition-all text-[10px] sm:text-xs uppercase tracking-widest">
+                  <button onClick={() => requestAutoAssign('monthly')} disabled={aiLoading} className="flex-1 sm:flex-none bg-slate-900 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-black flex justify-center items-center gap-2 hover:bg-black shadow-lg active:scale-95 transition-all text-[10px] sm:text-xs uppercase tracking-widest">
                       {aiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4 text-yellow-400" />} จัดกะอัตโนมัติ (ทั้งเดือน)
                    </button>
                    <button onClick={() => setConfirmModal({ message: 'ยืนยันการล้างข้อมูลกะงานของ "ทั้งเดือนนี้" ใช่หรือไม่?', action: () => handleClearSchedule('monthly') })} className="bg-white border-2 border-red-100 text-red-500 hover:bg-red-500 hover:text-white hover:border-red-500 px-4 py-2 sm:py-3 rounded-xl flex justify-center items-center shadow-sm active:scale-95 transition-all">
@@ -8272,7 +8288,7 @@ export default function App() {
   } else if (view === 'guide') {
     mainContent = renderGuideView();
   } else if (view === 'print') {
-    mainContent = <PrintMonthlyView CALENDAR_DAYS={CALENDAR_DAYS} branchData={branchData} globalConfig={globalConfig} activeBranchId={activeBranchId} THAI_MONTHS={THAI_MONTHS} selectedMonth={selectedMonth} getStaffDayInfo={getStaffDayInfo} setView={setView} activeDept={activeDept} CURRENT_DUTY_LIST={CURRENT_DUTY_LIST} schedule={schedule} handleToggleLeave={handleToggleLeave} LEAVE_TYPES={LEAVE_TYPES} handleAutoAssign={handleAutoAssign} aiLoading={aiLoading} />;
+    mainContent = <PrintMonthlyView CALENDAR_DAYS={CALENDAR_DAYS} branchData={branchData} globalConfig={globalConfig} activeBranchId={activeBranchId} THAI_MONTHS={THAI_MONTHS} selectedMonth={selectedMonth} getStaffDayInfo={getStaffDayInfo} setView={setView} activeDept={activeDept} CURRENT_DUTY_LIST={CURRENT_DUTY_LIST} schedule={schedule} handleToggleLeave={handleToggleLeave} LEAVE_TYPES={LEAVE_TYPES} handleAutoAssign={requestAutoAssign} aiLoading={aiLoading} />;
   }
 
   return (
