@@ -7697,6 +7697,9 @@ export default function App() {
                     });
                     
                     let totalBasePay = 0;
+                    let totalMonthlyBasePay = 0;
+                    let totalHourlyBasePay = 0;
+                    let totalPtBasePay = 0;
                     let totalOtPay = 0;
                     let totalHolidayPay = 0;
 
@@ -7705,6 +7708,11 @@ export default function App() {
                             const monthlyRate = staff.baseWage || 0;
                             const dailyRate = monthlyRate / (payrollConfig.monthlySalaryDivider || 30);
                             staff.basePay = Math.max(0, monthlyRate - (staff.unpaidLeaveDays * dailyRate));
+                            totalMonthlyBasePay += staff.basePay;
+                        } else if (staff.wageType === 'HOURLY') {
+                            totalHourlyBasePay += staff.basePay;
+                        } else if (staff.wageType === 'PT') {
+                            totalPtBasePay += staff.basePay;
                         }
                         staff.totalPay = staff.basePay + staff.otPay + staff.holidayPay;
 
@@ -7838,7 +7846,15 @@ export default function App() {
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-4 w-full">
-                                    <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100 flex flex-col justify-center"><div className="text-[10px] font-bold text-emerald-600 uppercase">ค่าจ้างปกติ</div><div className="text-xl sm:text-2xl font-black text-emerald-800 mt-1">฿{totalBasePay.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</div></div>
+                                    <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100 flex flex-col justify-center">
+                                        <div className="text-[10px] font-bold text-emerald-600 uppercase">ค่าจ้างปกติรวม</div>
+                                        <div className="text-xl sm:text-2xl font-black text-emerald-800 mt-1 mb-2">฿{totalBasePay.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</div>
+                                        <div className="text-[9px] text-emerald-700/80 font-bold space-y-0.5 border-t border-emerald-200/50 pt-2">
+                                            <div className="flex justify-between"><span>รายเดือน:</span> <span>฿{totalMonthlyBasePay.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</span></div>
+                                            <div className="flex justify-between"><span>รายชั่วโมง:</span> <span>฿{totalHourlyBasePay.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</span></div>
+                                            <div className="flex justify-between"><span>พาร์ทไทม์:</span> <span>฿{totalPtBasePay.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</span></div>
+                                        </div>
+                                    </div>
                                     <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100 flex flex-col justify-center"><div className="text-[10px] font-bold text-indigo-600 uppercase">ค่า OT</div><div className="text-xl sm:text-2xl font-black text-indigo-800 mt-1">฿{totalOtPay.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</div></div>
                                     <div className="bg-orange-50 p-4 rounded-xl border border-orange-100 flex flex-col justify-center"><div className="text-[10px] font-bold text-orange-600 uppercase">ค่าแรงวันหยุด</div><div className="text-xl sm:text-2xl font-black text-orange-800 mt-1">฿{totalHolidayPay.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</div></div>
                                     <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 flex flex-col justify-center"><div className="text-[10px] font-bold text-slate-400 uppercase">รวมค่าแรงรายเดือน+ค่าจ้างพนักงานชั่วคราว+OT สุทธิ</div><div className="text-xl sm:text-2xl font-black text-white mt-1">฿{branchTotalNetPay.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</div></div>
