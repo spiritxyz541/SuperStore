@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { initializeApp } from 'firebase/app';
-import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from 'firebase/auth';
 import { getFirestore, doc, setDoc, onSnapshot, collection, getDoc, getDocs, query, where } from 'firebase/firestore';
 import { 
@@ -30,12 +29,6 @@ import {
     };
 
 const app = initializeApp(firebaseConfig);
-
-const appCheck = initializeAppCheck(app, {
-  provider: new ReCaptchaV3Provider('6LdcnwItAAAAAKOg3RMolAfiEP2ObnDO0gsXKoUO'),
-  isTokenAutoRefreshEnabled: true
-});
-
 const auth = getAuth(app);
 const db = getFirestore(app);
 const appId = "staffsync-v8-stable-prod-final"; 
