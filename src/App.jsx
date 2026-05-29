@@ -511,7 +511,7 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
   });
 
   return (
-    <div className="p-4 sm:p-10 bg-white animate-in fade-in w-full overflow-x-hidden flex-1">
+    <div className="p-4 sm:p-10 bg-white animate-in fade-in w-full overflow-x-hidden print:overflow-visible flex-1">
       <div className="max-w-full mx-auto">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 sm:mb-16 print:hidden border-b pb-6 sm:pb-8 gap-4 sm:gap-0">
           <button onClick={() => { try { const sess = JSON.parse(localStorage.getItem('superstore_session')||'{}'); sess.view = 'manager'; localStorage.setItem('superstore_session', JSON.stringify(sess)); }catch(e){} window.location.reload(); }} className="flex items-center gap-2 sm:gap-4 text-slate-600 font-black bg-slate-100 px-6 sm:px-8 py-3 sm:py-4 rounded-xl sm:rounded-3xl hover:bg-slate-200 transition shadow-sm uppercase text-xs sm:text-sm tracking-widest w-full sm:w-auto justify-center"><ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" /> ย้อนกลับ </button>
@@ -6209,7 +6209,7 @@ export default function App() {
                     </div>
                 </div>
 
-                <div className="overflow-x-auto border-2 border-slate-800 bg-white print:border-none w-full mt-2">
+                <div className="overflow-x-auto border-2 border-slate-800 bg-white print:border-none print:overflow-visible w-full mt-2">
                     <div className="text-center mb-6 mt-6 print:block hidden">
                        <h1 className="font-black uppercase tracking-tighter" style={{ fontSize: `${rs.headlineSize || 24}px` }}>สรุปกำลังคนรายครึ่งชั่วโมง (Headcount Summary)</h1>
                        <p className="font-bold text-slate-600 mt-2" style={{ fontSize: `${rs.subHeadlineSize || 14}px` }}>วัน{activeDay.dayLabel} ที่ <span className="underline underline-offset-4">{activeDay.dayNum}</span> เดือน <span className="underline underline-offset-4">{THAI_MONTHS[selectedMonth]}</span> พ.ศ. <span className="underline underline-offset-4">{selectedYear + 543}</span></p>
@@ -8397,22 +8397,20 @@ export default function App() {
         .snap-center { scroll-snap-align: center; }
         @media print {
             @page { size: A4 ${(view === 'head_team' && dailyViewMode === 'prep') ? 'portrait' : 'landscape'}; margin: 8mm; }
-          html, body { background: white !important; -webkit-print-color-adjust: exact; padding: 0 !important; margin: 0 !important; width: 100% !important; height: 100% !important; display: block !important; }
+            html, body { background: white !important; -webkit-print-color-adjust: exact; padding: 0 !important; margin: 0 !important; width: 100% !important; height: auto !important; min-height: 100% !important; display: block !important; }
           .print\\:hidden { display: none !important; }
           nav, button, footer { display: none !important; }
-          #root { display: block !important; height: 100% !important; }
-          main { padding: 0 !important; margin: 0 !important; width: 100% !important; height: 100% !important; display: flex !important; flex-direction: column !important; justify-content: center !important; align-items: center !important; }
+            #root { display: block !important; height: auto !important; min-height: 100% !important; }
+            main { padding: 0 !important; margin: 0 !important; width: 100% !important; height: auto !important; min-height: 100% !important; display: block !important; }
               .print-roster-wrapper {
-                  display: flex !important;
-                  flex-direction: column !important;
-                  justify-content: center !important;
-                  align-items: center !important;
+                    display: block !important;
               width: 100% !important;
-                  page-break-inside: avoid !important;
               }
           .print-roster-wrapper > div { width: 100% !important; }
           table { width: 100% !important; border-collapse: collapse !important; border: 2px solid #000 !important; margin: 0 auto !important; }
           th, td { border: 1px solid #000 !important; padding: 4px !important; }
+            tr { page-break-inside: avoid !important; break-inside: avoid !important; }
+            thead { display: table-header-group !important; }
         }
       `}} />
 
