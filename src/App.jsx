@@ -3287,7 +3287,7 @@ export default function App() {
   // === RENDER DECLARATION HELPER COMPONENTS ===
 
   function renderDataInspectorModal() {
-    const activeTabs = inspectorBranchId === 'GLOBAL' ? ['guides', 'templates', 'raw_global'] : ['staff', 'duties', 'holidays', 'announcements', 'schedule', 'backups', 'raw'];
+    const activeTabs = inspectorBranchId === 'GLOBAL' ? ['guides', 'templates', 'global_restore', 'raw_global'] : ['staff', 'duties', 'holidays', 'announcements', 'schedule', 'backups', 'raw'];
 
     return (
         <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/70 backdrop-blur-md p-4 animate-in fade-in duration-300 font-sans">
@@ -3404,6 +3404,30 @@ export default function App() {
                                       )) : <tr><td colSpan="4" className="p-4 text-center text-slate-500">No templates found</td></tr>}
                                    </tbody>
                                 </table>
+                            )}
+                            {inspectorTab === 'global_restore' && (
+                                <div className="flex flex-col gap-6 p-6 items-center justify-center text-center h-full max-w-2xl mx-auto mt-10">
+                                    <div className="bg-red-500/20 p-6 rounded-full text-red-400">
+                                        <AlertCircle className="w-16 h-16" />
+                                    </div>
+                                    <h3 className="text-2xl font-black text-white uppercase tracking-wider">กู้คืนข้อมูลทุกสาขา (Global Restore)</h3>
+                                    <p className="text-slate-400 text-sm font-bold leading-relaxed">
+                                        ฟังก์ชันนี้จะทำการดึงข้อมูล Backup ของ "ทุกสาขา" ตามวันที่เลือก<br/>
+                                        แล้วนำกลับมาเขียนทับข้อมูลปัจจุบัน และสร้างรายชื่อสาขากลับเข้าหน้า Login ทันที
+                                    </p>
+                                    <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 w-full flex flex-col gap-4 mt-4 shadow-xl">
+                                        <div>
+                                            <label className="text-xs font-bold text-slate-400 uppercase block mb-2">เลือกวันที่ต้องการกู้คืน (Backup Date)</label>
+                                            <input type="date" id="global_restore_date" className="w-full bg-slate-900 border border-slate-600 rounded-xl px-4 py-3 text-base font-bold text-white outline-none focus:border-indigo-500 text-center" defaultValue={new Date().toISOString().split('T')[0]} />
+                                        </div>
+                                        <button onClick={() => {
+                                            const d = document.getElementById('global_restore_date').value;
+                                            if(d) handleGlobalRestore(d);
+                                        }} className="w-full bg-red-600 hover:bg-red-500 text-white px-6 py-4 rounded-xl font-black uppercase tracking-widest transition-colors shadow-lg mt-2 text-sm">
+                                            🚨 กู้คืนข้อมูลทุกสาขาทันที
+                                        </button>
+                                    </div>
+                                </div>
                             )}
                             {inspectorTab === 'raw_global' && (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-full p-4">
