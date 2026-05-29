@@ -782,6 +782,7 @@ export default function App() {
   const [inspectorTab, setInspectorTab] = useState('staff');
   const [inspectorBackups, setInspectorBackups] = useState([]);
   const [inspectorRestoreMode, setInspectorRestoreMode] = useState('all');
+  const [manualBranchId, setManualBranchId] = useState('');
 
   const CURRENT_DUTY_LIST = useMemo(() => {
     let list = branchData.duties && branchData.duties[activeDept] ? branchData.duties[activeDept] : (activeDept === 'service' ? DEFAULT_SERVICE_DUTIES : DEFAULT_KITCHEN_DUTIES);
@@ -3184,6 +3185,10 @@ export default function App() {
         const branchSnap = await getDoc(branchDocRef);
         const scheduleSnap = await getDoc(scheduleDocRef);
 
+        if (!branchSnap.exists() && !scheduleSnap.exists()) {
+            window.alert(`ไม่พบข้อมูลของสาขารหัส: ${branchId} ในฐานข้อมูล\n\nคำแนะนำ:\n1. ตรวจสอบว่าคัดลอก Branch ID มาถูกต้องหรือไม่ (ห้ามมีช่องว่าง)\n2. ลองค้นหาในแท็บ BACKUPS แทน`);
+        }
+
         setInspectedData({
             branch: branchSnap.exists() ? branchSnap.data() : { error: 'No branch data found.' },
             schedule: scheduleSnap.exists() ? scheduleSnap.data() : { error: 'No schedule data found.' },
@@ -3192,6 +3197,7 @@ export default function App() {
         });
     } catch (e) {
         setInspectedData({ branch: null, schedule: null, loading: false, error: e.message });
+        window.alert(`เกิดข้อผิดพลาดในการดึงข้อมูล: ${e.message}`);
     }
   };
 
@@ -3251,6 +3257,21 @@ export default function App() {
           if (mode === 'all' || mode === 'schedule') {
               await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'schedules', inspectorBranchId), { records: backup.schedule });
           }
+
+          const isBranchInGlobal = globalConfig.branches?.some(b => b.id === inspectorBranchId);
+          if (!isBranchInGlobal && (mode === 'all' || mode === 'branch')) {
+              const newConfig = { ...globalConfig };
+              if (!newConfig.branches) newConfig.branches = [];
+              newConfig.branches.push({
+                  id: inspectorBranchId,
+                  name: backup.branchData?.name || `Branch ${inspectorBranchId}`,
+                  user: backup.branchData?.user || inspectorBranchId,
+                  pass: backup.branchData?.pass || '1234'
+              });
+              await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'master'), newConfig);
+              setGlobalConfig(newConfig);
+          }
+
           setConfirmModal({ message: `กู้คืนข้อมูล (${mode === 'all' ? 'ทั้งหมด' : mode === 'schedule' ? 'เฉพาะกะงาน' : 'เฉพาะข้อมูลสาขา'}) ของวันที่ ${backup.backupDate} สำเร็จแล้ว!` });
           handleInspectBranch(inspectorBranchId);
       } catch(e) { setConfirmModal({ message: `การกู้คืนล้มเหลว: ${e.message}` }); }
@@ -3275,12 +3296,16 @@ export default function App() {
                     <h3 className="text-xl font-black uppercase tracking-wider">Server Data Inspector</h3>
                     <button onClick={() => setShowDataInspector(false)} className="text-slate-400 hover:bg-slate-700 p-2 rounded-full transition"><X className="w-6 h-6"/></button>
                 </div>
-                <div className="flex gap-4 items-center">
-                    <select onChange={(e) => handleInspectBranch(e.target.value)} className="bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-sm font-bold outline-none flex-1">
+                <div className="flex gap-4 items-center flex-wrap">
+                    <select value={globalConfig.branches?.some(b => b.id === inspectorBranchId) || inspectorBranchId === 'GLOBAL' ? inspectorBranchId : ''} onChange={(e) => handleInspectBranch(e.target.value)} className="bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-sm font-bold outline-none flex-1 min-w-[200px]">
                         <option value="">-- Select a Branch to Inspect --</option>
                         <option value="GLOBAL">🌐 GLOBAL DATA (Guides, Configs, Templates)</option>
                         {globalConfig.branches?.map(b => <option key={b.id} value={b.id}>🏠 {b.name}</option>)}
                     </select>
+                    <div className="flex gap-2">
+                        <input type="text" value={manualBranchId} onChange={e => setManualBranchId(e.target.value)} onKeyDown={e => { if(e.key === 'Enter' && manualBranchId.trim()) handleInspectBranch(manualBranchId.trim()); }} placeholder="ระบุ Branch ID (เช่น b170...)" className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm font-bold outline-none text-white placeholder-slate-400 w-48" />
+                        <button onClick={() => { if (manualBranchId.trim()) handleInspectBranch(manualBranchId.trim()); }} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-xs font-black hover:bg-indigo-500 transition shadow-sm">ค้นหาข้อมูล</button>
+                    </div>
                     {inspectorBranchId && inspectorBranchId !== 'GLOBAL' && (
                         <div className="flex gap-2">
                             <button onClick={() => setConfirmModal({ message: 'This will ERASE and RESET the main data (duties, matrix) for this branch, keeping only the staff list. Are you sure?', action: () => handleResetBranchData(inspectorBranchId) })} className="bg-yellow-500 text-black px-4 py-2 rounded-lg text-xs font-black hover:bg-yellow-400 transition">Reset Branch Data</button>
