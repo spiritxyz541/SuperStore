@@ -1594,13 +1594,13 @@ export default function App() {
         }
         setBranchData(data);
       } else { setBranchData({ staff: [], holidays: [], duties: { service: DEFAULT_SERVICE_DUTIES, kitchen: DEFAULT_KITCHEN_DUTIES }, matrix: generateDefaultMatrix(), shiftPresets: DEFAULT_SHIFT_PRESETS, templates: [] }); }
-    });
+    }, (err) => { setLoadError('Branch Data Error: ' + err.message); });
     const unsubSched = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'schedules', activeBranchId), (snap) => {
       if (snap.exists()) setSchedule(snap.data().records || {}); else setSchedule({});
-    });
+    }, (err) => { setLoadError('Schedules Error: ' + err.message); });
     const unsubReq = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'requests', activeBranchId), (snap) => {
       if (snap.exists()) setPendingRequests(snap.data().list || []); else setPendingRequests([]);
-    });
+    }, (err) => { setLoadError('Requests Error: ' + err.message); });
     return () => { unsubBranch(); unsubSched(); unsubReq(); };
   }, [user?.uid, activeBranchId]);
 
@@ -1613,6 +1613,15 @@ export default function App() {
       }
       prevBranchRef.current = activeBranchId;
   }, [activeBranchId]);
+
+  // ป้องกันปัญหาสาขาค้าง (Ghost Branch) เมื่อ Reset ฐานข้อมูล
+  useEffect(() => {
+      if (authRole === 'superadmin' && globalConfig?.branches?.length > 0) {
+          if (!activeBranchId || !globalConfig.branches.some(b => b.id === activeBranchId)) {
+              setActiveBranchId(globalConfig.branches[0].id);
+          }
+      }
+  }, [authRole, globalConfig.branches, activeBranchId]);
 
   // Trigger Landing Page
   useEffect(() => {
