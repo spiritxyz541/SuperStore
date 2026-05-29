@@ -2160,6 +2160,7 @@ export default function App() {
              if (nd.matrix[dt] && nd.matrix[dt].duties) delete nd.matrix[dt].duties[dutyId];
           });
         }
+          if (activeBranchId) setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd).catch(console.error);
         return nd;
      });
   };
@@ -2179,9 +2180,23 @@ export default function App() {
   };
 
   const startEditStaff = (staff) => { setEditingStaffId(staff.id); setEditStaffData({ ...staff }); };
-  const saveEditStaff = () => { setBranchData(prev => ({ ...prev, staff: prev.staff.map(s => s.id === editingStaffId ? editStaffData : s) })); setEditingStaffId(null); };
+  const saveEditStaff = () => { 
+      setBranchData(prev => {
+          const nd = { ...prev, staff: prev.staff.map(s => s.id === editingStaffId ? editStaffData : s) };
+          if (activeBranchId) setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd).catch(console.error);
+          return nd;
+      }); 
+      setEditingStaffId(null); 
+  };
   const startEditBranch = (branch) => { setEditingBranchId(branch.id); setEditBranchData({ ...branch }); };
-  const saveEditBranch = () => { setGlobalConfig(prev => ({ ...prev, branches: prev.branches.map(b => b.id === editingBranchId ? editBranchData : b) })); setEditingBranchId(null); };
+  const saveEditBranch = () => { 
+      setGlobalConfig(prev => {
+          const nc = { ...prev, branches: prev.branches.map(b => b.id === editingBranchId ? editBranchData : b) };
+          setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'master'), nc).catch(console.error);
+          return nc;
+      }); 
+      setEditingBranchId(null); 
+  };
   const startEditAm = (am) => { setEditingAmId(am.id); setEditAmData({ ...am }); };
   const saveEditAm = () => { 
       setGlobalConfig(prev => {
@@ -2536,6 +2551,8 @@ export default function App() {
               }
               newData.matrix = newMatrix;
           }
+
+            if (activeBranchId) setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), newData).catch(console.error);
 
           return newData;
       });
