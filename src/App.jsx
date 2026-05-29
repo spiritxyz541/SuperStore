@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from 'firebase/auth';
-import { getFirestore, doc, setDoc, onSnapshot, collection, getDoc, disableNetwork, enableNetwork } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, onSnapshot, collection, getDoc } from 'firebase/firestore';
 import { 
   Users, AlertCircle, Clock, Save, Plus, Trash2, LayoutDashboard, Printer, ChevronLeft, ChevronRight, 
   Coffee, BarChart3, TrendingUp, Award, PlaneTakeoff, Loader2, Store, ArrowLeftRight, Sparkles, Wand2, Bold, Italic, Underline, Link as LinkIcon, BookOpen,
   Eraser, Filter, ChevronDown, Download, MessageCircle, Bell, UserCircle, SaveAll, FolderOpen, CheckCircle2, Edit2, X, Check, List, TableProperties, GripVertical, LogIn, ShieldCheck, Megaphone,
-  UtensilsCrossed, ConciergeBell, UserPlus, ArrowUpRight, ArrowDownRight, CalendarDays as CalendarDaysIcon, Calendar as CalendarIcon, CheckSquare, KeyRound, Upload, Wifi
+  UtensilsCrossed, ConciergeBell, UserPlus, ArrowUpRight, ArrowDownRight, CalendarDays as CalendarDaysIcon, Calendar as CalendarIcon, CheckSquare, KeyRound, Upload
 } from 'lucide-react';
 
 /**
@@ -745,7 +745,6 @@ export default function App() {
   const [reportFilterMonth, setReportFilterMonth] = useState(new Date().getMonth());
   const [reportFilterStart, setReportFilterStart] = useState(`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`);
   const [reportFilterEnd, setReportFilterEnd] = useState(`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()}`);
-  const [reportWorkloadTab, setReportWorkloadTab] = useState('all');
 
   const [isEditingGuide, setIsEditingGuide] = useState(false);
   const [editGuideSteps, setEditGuideSteps] = useState([]);
@@ -1459,7 +1458,7 @@ export default function App() {
   }, [authRole, activeBranchId, view, authUser]);
 
   useEffect(() => {
-    const timer = setTimeout(() => { setIsTimeout(true); }, 8000);
+    const timer = setTimeout(() => { if (loading) setIsTimeout(true); }, 8000);
     const initAuth = async () => {
       try {
         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -1470,10 +1469,10 @@ export default function App() {
     initAuth();
     const unsub = onAuthStateChanged(auth, setUser);
     return () => { unsub(); clearTimeout(timer); };
-  }, []);
+  }, [loading]);
 
   useEffect(() => {
-    if (!user?.uid) return;
+    if (!user) return;
     const unsub = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'master'), (snap) => {
       if (snap.exists()) {
         const data = snap.data();
@@ -1493,10 +1492,10 @@ export default function App() {
     });
 
     return () => { unsub(); unsubTpl(); };
-  }, [user?.uid]);
+  }, [user]);
 
   useEffect(() => {
-    if (!user?.uid || !activeBranchId) return;
+    if (!user || !activeBranchId) return;
     const unsubBranch = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), (snap) => {
       if (snap.exists()) {
         const data = snap.data();
@@ -1594,15 +1593,15 @@ export default function App() {
         }
         setBranchData(data);
       } else { setBranchData({ staff: [], holidays: [], duties: { service: DEFAULT_SERVICE_DUTIES, kitchen: DEFAULT_KITCHEN_DUTIES }, matrix: generateDefaultMatrix(), shiftPresets: DEFAULT_SHIFT_PRESETS, templates: [] }); }
-    }, (err) => { setLoadError('Branch Data Error: ' + err.message); });
+    });
     const unsubSched = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'schedules', activeBranchId), (snap) => {
       if (snap.exists()) setSchedule(snap.data().records || {}); else setSchedule({});
-    }, (err) => { setLoadError('Schedules Error: ' + err.message); });
+    });
     const unsubReq = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'requests', activeBranchId), (snap) => {
       if (snap.exists()) setPendingRequests(snap.data().list || []); else setPendingRequests([]);
-    }, (err) => { setLoadError('Requests Error: ' + err.message); });
+    });
     return () => { unsubBranch(); unsubSched(); unsubReq(); };
-  }, [user?.uid, activeBranchId]);
+  }, [user, activeBranchId]);
 
   // Reset Landing Page view when branch changes
   const prevBranchRef = useRef(activeBranchId);
@@ -1613,15 +1612,6 @@ export default function App() {
       }
       prevBranchRef.current = activeBranchId;
   }, [activeBranchId]);
-
-  // ป้องกันปัญหาสาขาค้าง (Ghost Branch) เมื่อ Reset ฐานข้อมูล
-  useEffect(() => {
-      if (authRole === 'superadmin' && globalConfig?.branches?.length > 0) {
-          if (!activeBranchId || !globalConfig.branches.some(b => b.id === activeBranchId)) {
-              setActiveBranchId(globalConfig.branches[0].id);
-          }
-      }
-  }, [authRole, globalConfig.branches, activeBranchId]);
 
   // Trigger Landing Page
   useEffect(() => {
@@ -4282,18 +4272,6 @@ export default function App() {
             <div className="text-center w-full">
                <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tighter uppercase">Welcome Back</h2>
                <p className="text-slate-400 text-xs sm:text-sm font-bold mt-2">Sign in to your management account</p>
-               
-               {/* เพิ่มส่วนแสดงสถานะ Firebase Error เพื่อให้เห็นต้นตอของปัญหา */}
-               {loadError && (
-                   <div className="mt-4 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-xs font-bold text-left break-words">
-                       ⚠️ <b>การเชื่อมต่อถูกปฏิเสธ:</b> {loadError}
-                   </div>
-               )}
-               {!user?.uid && !loadError && (
-                   <div className="mt-4 bg-amber-50 border border-amber-200 text-amber-600 px-4 py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2">
-                       <Loader2 className="w-4 h-4 animate-spin" /> <span>กำลังเชื่อมต่อฐานข้อมูล...</span>
-                   </div>
-               )}
             </div>
                 <form onSubmit={handleManagerLogin} className="w-full space-y-4 sm:space-y-5">
                   <div>
@@ -6688,15 +6666,8 @@ export default function App() {
          </div>
 
           <div className="bg-white rounded-[2rem] sm:rounded-[4rem] border border-slate-200 shadow-sm overflow-hidden w-full">
-             <div className="p-6 sm:p-12 border-b border-slate-50 font-black text-slate-900 bg-slate-50/30 uppercase tracking-tighter text-lg sm:text-2xl flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
-                 <div className="flex items-center gap-3 sm:gap-5"><BarChart3 className="w-6 h-6 sm:w-10 sm:h-10 text-indigo-500" /> Employee Workload Summary</div>
-                 <div className="flex bg-slate-200/50 p-1.5 rounded-2xl border border-slate-200 w-full xl:w-auto">
-                    <button onClick={() => setReportWorkloadTab('all')} className={`flex-1 xl:flex-none px-4 py-2 rounded-xl text-[10px] sm:text-xs font-black transition-all ${reportWorkloadTab === 'all' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>ทั้งหมด</button>
-                    <button onClick={() => setReportWorkloadTab('service')} className={`flex-1 xl:flex-none px-4 py-2 rounded-xl text-[10px] sm:text-xs font-black transition-all ${reportWorkloadTab === 'service' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>บริการ (FOH)</button>
-                    <button onClick={() => setReportWorkloadTab('kitchen')} className={`flex-1 xl:flex-none px-4 py-2 rounded-xl text-[10px] sm:text-xs font-black transition-all ${reportWorkloadTab === 'kitchen' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>ครัว (BOH)</button>
-                 </div>
-             </div>
-             {['service', 'kitchen'].filter(d => reportWorkloadTab === 'all' || reportWorkloadTab === d).map(dept => {
+             <div className="p-6 sm:p-12 border-b border-slate-50 font-black text-slate-900 bg-slate-50/30 uppercase tracking-tighter text-lg sm:text-2xl"><div className="flex items-center gap-3 sm:gap-5"><BarChart3 className="w-6 h-6 sm:w-10 sm:h-10 text-indigo-500" /> Employee Workload Summary</div></div>
+             {['service', 'kitchen'].map(dept => {
                 const deptData = reportData.filter(s => s.dept === dept);
                 if (deptData.length === 0) return null;
                 
@@ -8251,7 +8222,7 @@ export default function App() {
                    <div className="flex flex-col">
                       <span className="font-black text-lg sm:text-xl tracking-tighter uppercase leading-none">Super Store</span>
                       <div className="flex items-center gap-1.5 mt-0.5">
-                         <span className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full ${user?.uid && !loadError ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} title={loadError || 'Disconnected'}></span>
+                         <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-green-500 rounded-full animate-pulse"></span>
                          <span className={`text-[8px] sm:text-[9px] font-black uppercase text-slate-400`}>{authRole === 'superadmin' ? 'BAR B Q PLAZA' : authRole === 'areamanager' ? 'AREA MANAGER' : 'BRANCH MANAGEMENT'}</span>
                       </div>
                    </div>
@@ -8276,9 +8247,6 @@ export default function App() {
                           <Bell className="w-5 h-5 text-slate-600" />
                           {pendingRequests.some(r => r.status === 'PENDING_MANAGER') && <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>}
                       </button>
-                      <button onClick={async () => {
-                          try { await disableNetwork(db); await enableNetwork(db); setConfirmModal({ message: 'รีเซ็ตการเชื่อมต่อฐานข้อมูลสำเร็จ! (Reconnected)' }); } catch(e) { setConfirmModal({ message: 'การเชื่อมต่อขัดข้อง: ' + e.message }); }
-                      }} className="text-slate-400 p-2 bg-slate-100 rounded-lg hover:text-emerald-500 transition" title="เชื่อมต่อฐานข้อมูลใหม่ (Force Reconnect)"><Wifi className="w-4 h-4" /></button>
                       {['branch', 'areamanager'].includes(authRole) && (
                           <button onClick={() => setShowChangePasswordModal(true)} className="text-slate-400 p-2 bg-slate-100 rounded-lg hover:text-indigo-500 transition" title="เปลี่ยนรหัสผ่าน"><KeyRound className="w-4 h-4" /></button>
                       )}
@@ -8311,9 +8279,6 @@ export default function App() {
                          <span className="ml-1">{saveStatus === 'saving' ? 'กำลังบันทึก...' : 'บันทึกทั้งหมด'}</span>
                       </button>
                       {saveStatus === 'error' && <div className="text-red-500 text-xs font-bold ml-2">บันทึกไม่สำเร็จ กรุณาลองใหม่</div>}
-                      <button onClick={async () => {
-                          try { await disableNetwork(db); await enableNetwork(db); setConfirmModal({ message: 'รีเซ็ตการเชื่อมต่อฐานข้อมูลสำเร็จ! (Reconnected)' }); } catch(e) { setConfirmModal({ message: 'การเชื่อมต่อขัดข้อง: ' + e.message }); }
-                      }} className="text-slate-400 hover:text-emerald-500 transition p-1" title="เชื่อมต่อฐานข้อมูลใหม่ (Force Reconnect)"><Wifi className="w-5 h-5 sm:w-6 sm:h-6" /></button>
                       {['branch', 'areamanager'].includes(authRole) && (
                           <button onClick={() => setShowChangePasswordModal(true)} className="text-slate-400 hover:text-indigo-500 transition p-1" title="เปลี่ยนรหัสผ่าน"><KeyRound className="w-5 h-5 sm:w-6 sm:h-6" /></button>
                       )}
