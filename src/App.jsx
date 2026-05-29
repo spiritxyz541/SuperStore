@@ -1888,13 +1888,34 @@ export default function App() {
                       for (const b of globalConfig.branches) {
                           const branchRef = doc(db, 'artifacts', appId, 'public', 'data', 'branches', b.id);
                           const schedRef = doc(db, 'artifacts', appId, 'public', 'data', 'schedules', b.id);
-                          const [bSnap, sSnap] = await Promise.all([getDoc(branchRef), getDoc(schedRef)]);
+                          const reqRef = doc(db, 'artifacts', appId, 'public', 'data', 'requests', b.id);
+                          
+                          const [bSnap, sSnap, rSnap] = await Promise.all([getDoc(branchRef), getDoc(schedRef), getDoc(reqRef)]);
                           
                           if (bSnap.exists() && sSnap.exists()) {
                               const backupRef = doc(db, 'artifacts', appId, 'public', 'data', 'backups', `${b.id}_day_${dayOfMonth}`);
-                              await setDoc(backupRef, { backupDate: todayStr, timestamp: Date.now(), branchData: bSnap.data(), schedule: sSnap.data().records || {} });
+                              await setDoc(backupRef, { 
+                                  backupDate: todayStr, 
+                                  timestamp: Date.now(), 
+                                  branchData: bSnap.data(), 
+                                  schedule: sSnap.data().records || {},
+                                  requests: rSnap.exists() ? rSnap.data().list || [] : []
+                              });
                           }
                       }
+
+                      // แบคอัปข้อมูลส่วนกลาง (Global Config & Templates)
+                      const masterRef = doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'master');
+                      const templatesRef = doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'templates');
+                      const [mSnap, tSnap] = await Promise.all([getDoc(masterRef), getDoc(templatesRef)]);
+                      
+                      const globalBackupRef = doc(db, 'artifacts', appId, 'public', 'data', 'backups', `GLOBAL_day_${dayOfMonth}`);
+                      await setDoc(globalBackupRef, {
+                          backupDate: todayStr,
+                          timestamp: Date.now(),
+                          masterConfig: mSnap.exists() ? mSnap.data() : {},
+                          templates: tSnap.exists() ? tSnap.data().list || [] : []
+                      });
                       
                       const newConfig = { ...globalConfig, lastGlobalBackupDate: todayStr };
                       setGlobalConfig(newConfig);
@@ -1929,10 +1950,32 @@ export default function App() {
     if (authRole === 'guest' || authRole === 'staff') return;
     setSaveStatus('saving');
     try {
-      if (authRole === 'superadmin') await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'master'), globalConfig);
+      const now = new Date();
+      const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      const dayOfMonth = now.getDate();
+
+      if (authRole === 'superadmin') {
+          await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'master'), globalConfig);
+          // แบคอัป Global เมื่อ Admin กดบันทึก
+          await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'backups', `GLOBAL_day_${dayOfMonth}`), {
+              backupDate: todayStr,
+              timestamp: Date.now(),
+              masterConfig: globalConfig,
+              templates: globalTemplates
+          });
+      }
       if (activeBranchId) {
         await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData);
         await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'schedules', activeBranchId), { records: schedule });
+        
+        // แบคอัปข้อมูลสาขาทันทีที่มีการกดบันทึก
+        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'backups', `${activeBranchId}_day_${dayOfMonth}`), {
+            backupDate: todayStr,
+            timestamp: Date.now(),
+            branchData: branchData,
+            schedule: schedule,
+            requests: pendingRequests || []
+        });
       }
       setSaveStatus('success'); setShowSuccessModal(true); 
       setTimeout(() => { setSaveStatus(null); setShowSuccessModal(false); }, 2000);
@@ -3308,6 +3351,9 @@ export default function App() {
           if (mode === 'all' || mode === 'schedule') {
               await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'schedules', inspectorBranchId), { records: backup.schedule });
           }
+          if (mode === 'all' && backup.requests) {
+              await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'requests', inspectorBranchId), { list: backup.requests });
+          }
 
           const isBranchInGlobal = globalConfig.branches?.some(b => b.id === inspectorBranchId);
           if (!isBranchInGlobal && (mode === 'all' || mode === 'branch')) {
@@ -3348,11 +3394,19 @@ export default function App() {
 
           for (const documentSnapshot of querySnapshot.docs) {
               const data = documentSnapshot.data();
+              if (documentSnapshot.id.startsWith('GLOBAL_day_')) {
+                  if (data.masterConfig) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'master'), data.masterConfig);
+                  if (data.templates) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'templates'), { list: data.templates });
+                  continue;
+              }
               if (data.branchData) {
                   const bId = documentSnapshot.id.split('_day_')[0];
                   await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', bId), data.branchData);
                   if (data.schedule) {
                       await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'schedules', bId), { records: data.schedule });
+                  }
+                  if (data.requests) {
+                      await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'requests', bId), { list: data.requests });
                   }
                   
                   newBranches.push({ id: bId, name: data.branchData.name || `Branch ${bId}`, user: data.branchData.user || bId, pass: data.branchData.pass || '1234' });
@@ -3645,7 +3699,7 @@ export default function App() {
                                                      <tr key={b.id} className="hover:bg-slate-800/50 transition-colors">
                                                          <td className="p-3 border-b border-slate-700/50 font-black text-amber-300">{b.backupDate}</td>
                                                          <td className="p-3 border-b border-slate-700/50 text-slate-400">{new Date(b.timestamp).toLocaleString('th-TH')}</td>
-                                                         <td className="p-3 border-b border-slate-700/50 text-slate-500 font-bold">{Object.keys(b.schedule || {}).length} Schedule Days, {b.branchData?.staff?.length || 0} Staff</td>
+                                                         <td className="p-3 border-b border-slate-700/50 text-slate-500 font-bold">{Object.keys(b.schedule || {}).length} Schedule Days, {b.branchData?.staff?.length || 0} Staff, {b.requests?.length || 0} Requests</td>
                                                          <td className="p-3 border-b border-slate-700/50 text-right">
                                                              <button onClick={() => {
                                                                  const modeText = inspectorRestoreMode === 'all' ? 'ทั้งหมด (ข้อมูลพนักงาน + กะงาน)' : inspectorRestoreMode === 'schedule' ? 'เฉพาะตารางกะงาน (Schedule Only)' : 'เฉพาะข้อมูลสาขา/พนักงาน (Branch Data Only)';
