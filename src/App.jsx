@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from 'firebase/auth';
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, setDoc, onSnapshot, collection, getDoc, getDocs, query, where } from 'firebase/firestore';
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, setDoc, onSnapshot, collection, getDoc, getDocs, query, where, enableNetwork, disableNetwork } from 'firebase/firestore';
 import { 
   Users, AlertCircle, Clock, Save, Plus, Trash2, LayoutDashboard, Printer, ChevronLeft, ChevronRight, 
   Coffee, BarChart3, TrendingUp, Award, PlaneTakeoff, Loader2, Store, ArrowLeftRight, Sparkles, Wand2, Bold, Italic, Underline, Link as LinkIcon, BookOpen,
   Eraser, Filter, ChevronDown, Download, MessageCircle, Bell, UserCircle, SaveAll, FolderOpen, CheckCircle2, Edit2, X, Check, List, TableProperties, GripVertical, LogIn, ShieldCheck, Megaphone,
-  UtensilsCrossed, ConciergeBell, UserPlus, ArrowUpRight, ArrowDownRight, CalendarDays as CalendarDaysIcon, Calendar as CalendarIcon, CheckSquare, KeyRound, Upload
+  UtensilsCrossed, ConciergeBell, UserPlus, ArrowUpRight, ArrowDownRight, CalendarDays as CalendarDaysIcon, Calendar as CalendarIcon, CheckSquare, KeyRound, Upload, RefreshCw
 } from 'lucide-react';
 
 /**
@@ -1916,6 +1916,43 @@ export default function App() {
       return () => clearInterval(intervalId);
   }, [user, globalConfig.lastGlobalBackupDate, globalConfig.branches]);
 
+  // ระบบกระตุ้น Firestore อัตโนมัติเมื่ออินเทอร์เน็ตกลับมาเชื่อมต่อ (แก้ปัญหาข้อมูลค้าง)
+  useEffect(() => {
+      const handleOnline = async () => {
+          try {
+              await enableNetwork(db);
+              await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'master'));
+              if (activeBranchId) {
+                  await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId));
+              }
+          } catch (e) {
+              console.warn("Auto-sync on reconnect failed", e);
+          }
+      };
+      window.addEventListener('online', handleOnline);
+      return () => window.removeEventListener('online', handleOnline);
+  }, [activeBranchId]);
+
+  const handleForceSync = async () => {
+      setSaveStatus('saving');
+      try {
+          // บังคับตัดและต่อเน็ตใหม่ เพื่อรีเซ็ต Listener ทั้งหมดให้ทำงานใหม่
+          await disableNetwork(db);
+          await enableNetwork(db);
+          // ดึงข้อมูลตรง 1 ครั้งเพื่อกระตุ้น Cache
+          await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'master'));
+          if (activeBranchId) {
+              await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId));
+          }
+          setSaveStatus('success');
+          setTimeout(() => setSaveStatus(null), 1500);
+          setConfirmModal({ message: 'ซิงค์และดึงข้อมูลอัปเดตล่าสุดจากเซิร์ฟเวอร์เรียบร้อยแล้ว!' });
+      } catch (err) {
+          console.error("Force Sync Error:", err);
+          setSaveStatus('error');
+      }
+  };
+
   const autoSaveSchedule = useCallback(async (scheduleData) => {
     const dataToSave = scheduleData || scheduleRef.current;
     if (!activeBranchId) return;
@@ -3358,6 +3395,7 @@ export default function App() {
                     <div className="flex gap-2">
                         <input type="text" value={manualBranchId} onChange={e => setManualBranchId(e.target.value)} onKeyDown={e => { if(e.key === 'Enter' && manualBranchId.trim()) handleInspectBranch(manualBranchId.trim()); }} placeholder="ระบุ Branch ID (เช่น b170...)" className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm font-bold outline-none text-white placeholder-slate-400 w-48" />
                         <button onClick={() => { if (manualBranchId.trim()) handleInspectBranch(manualBranchId.trim()); }} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-xs font-black hover:bg-indigo-500 transition shadow-sm">ค้นหาข้อมูล</button>
+                        <button onClick={handleForceSync} className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-xs font-black hover:bg-emerald-500 transition shadow-sm flex items-center gap-1 whitespace-nowrap"><RefreshCw className="w-3 h-3"/> ดึงข้อมูลล่าสุด (Force Sync)</button>
                     </div>
                     {inspectorBranchId && inspectorBranchId !== 'GLOBAL' && (
                         <div className="flex gap-2">
@@ -4366,7 +4404,10 @@ export default function App() {
           </div>
           <div className="hidden lg:block absolute bottom-8 text-center w-full z-10">
             <p className="text-xs font-bold text-slate-500 tracking-[0.2em] uppercase">Powered by Super Store Team</p>
-            <button onClick={handleOpenInspector} className="mt-2 bg-slate-800 text-slate-400 text-xs font-bold py-1 px-3 rounded-md hover:bg-slate-700 transition">Server Data Inspector</button>
+            <div className="flex items-center justify-center gap-2 mt-2">
+                <button onClick={handleOpenInspector} className="bg-slate-800 text-slate-400 text-xs font-bold py-1 px-3 rounded-md hover:bg-slate-700 transition">Server Data Inspector</button>
+                <button onClick={handleForceSync} className="bg-slate-800 text-emerald-400 text-xs font-bold py-1 px-3 rounded-md hover:bg-slate-700 transition flex items-center gap-1"><RefreshCw className="w-3 h-3"/> Force Sync</button>
+            </div>
           </div>
         </div>
         <div className="w-full lg:w-1/2 flex-1 flex flex-col justify-center items-center p-6 sm:p-12 relative bg-white">
@@ -4390,7 +4431,10 @@ export default function App() {
           </div>
           <div className="lg:hidden mt-12 text-center w-full z-0">
             <p className="text-[10px] font-bold text-slate-400 tracking-[0.2em] uppercase">Powered by Super Store Team</p>
-                <button onClick={handleOpenInspector} className="mt-4 bg-slate-200 text-slate-600 text-xs font-bold py-1 px-3 rounded-md hover:bg-slate-300 transition">Server Data Inspector</button>
+                <div className="flex flex-col items-center gap-2 mt-4">
+                    <button onClick={handleOpenInspector} className="bg-slate-200 text-slate-600 text-xs font-bold py-1 px-3 rounded-md hover:bg-slate-300 transition">Server Data Inspector</button>
+                    <button onClick={handleForceSync} className="bg-emerald-100 text-emerald-600 text-xs font-bold py-1 px-3 rounded-md hover:bg-emerald-200 transition flex items-center gap-1"><RefreshCw className="w-3 h-3"/> Force Sync</button>
+                </div>
           </div>
         </div>
       </div>
@@ -8376,6 +8420,7 @@ export default function App() {
                       {authRole === 'superadmin' && <button onClick={() => handleMenuChange('branches')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'branches' ? 'bg-white text-emerald-600 shadow-sm border border-emerald-50' : 'text-slate-500'}`}>BRANCHES</button>}
                    </div>
                    <div className="hidden lg:flex flex-shrink-0 items-center gap-3 ml-2 pl-5 border-l border-slate-200">
+                  <button onClick={handleForceSync} className="text-slate-400 hover:text-emerald-500 transition p-1 mr-2" title="ซิงค์และดึงข้อมูลล่าสุด (Force Sync)"><RefreshCw className="w-5 h-5 sm:w-6 sm:h-6" /></button>
                       <button onClick={handleGlobalSave} disabled={saveStatus === 'saving'} className="bg-indigo-600 text-white px-4 py-2.5 rounded-2xl font-black text-xs hover:bg-indigo-700 active:scale-95 transition flex items-center gap-2 w-32 justify-center">
                          {saveStatus === 'saving' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                          <span className="ml-1">{saveStatus === 'saving' ? 'กำลังบันทึก...' : 'บันทึกทั้งหมด'}</span>
@@ -8393,6 +8438,9 @@ export default function App() {
               <button onClick={handleGlobalSave} disabled={saveStatus === 'saving'} className="lg:hidden fixed bottom-6 right-6 z-50 bg-indigo-600 text-white p-4 rounded-full shadow-2xl active:scale-90 transition-transform">
                  {saveStatus === 'saving' ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6" />}
               </button>
+          <button onClick={handleForceSync} disabled={saveStatus === 'saving'} className="lg:hidden fixed bottom-24 right-6 z-50 bg-emerald-500 text-white p-4 rounded-full shadow-2xl active:scale-90 transition-transform flex items-center justify-center">
+             <RefreshCw className={`w-6 h-6 ${saveStatus === 'saving' ? 'animate-spin' : ''}`} />
+          </button>
           {saveStatus === 'error' && <div className="lg:hidden fixed bottom-20 right-6 z-50 bg-red-500 text-white px-4 py-2 rounded-xl shadow-2xl text-xs font-bold">บันทึกไม่สำเร็จ</div>}
 
           <main className="flex-1 flex flex-col p-4 sm:p-8 max-w-[1600px] mx-auto w-full print:p-0 print:m-0 relative">
