@@ -1889,6 +1889,20 @@ export default function App() {
                   try {
                       console.log("Starting Global Auto Backup for all branches...");
                       
+                      // Backup Master Config (สำหรับรหัสผ่านสาขา, Area Manager และ Admin)
+                      try {
+                          const mSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'master'));
+                          if (mSnap.exists()) {
+                              await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'backups', `MASTER_day_${dayOfMonth}`), {
+                                  backupDate: todayStr,
+                                  timestamp: Date.now(),
+                                  masterData: mSnap.data()
+                              });
+                          }
+                      } catch (err) {
+                          console.error("Master backup failed", err);
+                      }
+                      
                       for (const b of globalConfig.branches) {
                           const branchRef = doc(db, 'artifacts', appId, 'public', 'data', 'branches', b.id);
                           const schedRef = doc(db, 'artifacts', appId, 'public', 'data', 'schedules', b.id);
@@ -3336,10 +3350,14 @@ export default function App() {
 
           const newBranches = [];
           let restoreCount = 0;
+          let masterBackupData = null;
 
           for (const documentSnapshot of querySnapshot.docs) {
               const data = documentSnapshot.data();
               if (data.branchData) {
+              if (documentSnapshot.id.startsWith('MASTER_')) {
+                  masterBackupData = data.masterData;
+              } else if (data.branchData) {
                   const bId = documentSnapshot.id.split('_day_')[0];
                   await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', bId), data.branchData);
                   if (data.schedule) {
@@ -3351,17 +3369,24 @@ export default function App() {
               }
           }
 
-          if (newBranches.length > 0) {
-              const newConfig = { ...globalConfig };
+          const newConfig = { ...globalConfig };
+
+          // นำเข้าข้อมูล Master (Area Managers, รหัสผ่าน, แอดมิน) กลับมาด้วย
+          if (masterBackupData) {
+              if (masterBackupData.branches) newConfig.branches = masterBackupData.branches;
+              if (masterBackupData.areaManagers) newConfig.areaManagers = masterBackupData.areaManagers;
+              if (masterBackupData.admins) newConfig.admins = masterBackupData.admins;
+          } else if (newBranches.length > 0) {
+              // กรณีที่เป็น Backup แบบเก่าที่ยังไม่มี Master Backup
               const existingMap = new Map((newConfig.branches || []).map(b => [b.id, b]));
               newBranches.forEach(b => existingMap.set(b.id, b));
               newConfig.branches = Array.from(existingMap.values());
-              
-              await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'master'), newConfig);
-              setGlobalConfig(newConfig);
           }
+          
+          await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'master'), newConfig);
+          setGlobalConfig(newConfig);
 
-          setConfirmModal({ message: `✅ กู้คืนข้อมูลสำเร็จทั้งหมด ${restoreCount} สาขา!\nรายชื่อสาขาได้ถูกเพิ่มกลับเข้าสู่ระบบ และนำข้อมูลพนักงาน/กะงานกลับมาเรียบร้อยแล้ว` });
+          setConfirmModal({ message: `✅ กู้คืนข้อมูลสำเร็จทั้งหมด ${restoreCount} สาขา!\n\n${masterBackupData ? 'ดึงบัญชี Area Manager และรหัสผ่านทุกสาขากลับมาครบถ้วนแล้ว' : 'รายชื่อสาขาได้ถูกเพิ่มกลับเข้าสู่ระบบ (แต่อาจต้องตั้งรหัสผ่าน/Area Manager ใหม่เพราะเป็นแบ็คอัปรุ่นเก่า)'}` });
       } catch (e) {
           setConfirmModal({ message: `เกิดข้อผิดพลาดในการดึงข้อมูลทั้งหมด: ${e.message}` });
       }
