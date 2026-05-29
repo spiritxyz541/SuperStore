@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from 'firebase/auth';
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, doc, setDoc, onSnapshot, collection, getDoc, getDocs, query, where, enableNetwork, disableNetwork } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, onSnapshot, collection, getDoc, getDocs, query, where } from 'firebase/firestore';
 import { 
   Users, AlertCircle, Clock, Save, Plus, Trash2, LayoutDashboard, Printer, ChevronLeft, ChevronRight, 
   Coffee, BarChart3, TrendingUp, Award, PlaneTakeoff, Loader2, Store, ArrowLeftRight, Sparkles, Wand2, Bold, Italic, Underline, Link as LinkIcon, BookOpen,
   Eraser, Filter, ChevronDown, Download, MessageCircle, Bell, UserCircle, SaveAll, FolderOpen, CheckCircle2, Edit2, X, Check, List, TableProperties, GripVertical, LogIn, ShieldCheck, Megaphone,
-  UtensilsCrossed, ConciergeBell, UserPlus, ArrowUpRight, ArrowDownRight, CalendarDays as CalendarDaysIcon, Calendar as CalendarIcon, CheckSquare, KeyRound, Upload, RefreshCw
+  UtensilsCrossed, ConciergeBell, UserPlus, ArrowUpRight, ArrowDownRight, CalendarDays as CalendarDaysIcon, Calendar as CalendarIcon, CheckSquare, KeyRound, Upload
 } from 'lucide-react';
 
 /**
@@ -30,10 +30,7 @@ import {
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({tabManager: persistentMultipleTabManager()})
-});
-
+const db = getFirestore(app);
 const appId = "staffsync-v8-stable-prod-final"; 
 const CURRENT_APP_VERSION = "15.7.1"; // เปลี่ยนเลขเวอร์ชันที่นี่ทุกครั้งที่คุณอัปเดตโค้ด
 
@@ -1473,7 +1470,7 @@ export default function App() {
     initAuth();
     const unsub = onAuthStateChanged(auth, setUser);
     return () => { unsub(); clearTimeout(timer); };
-  }, []); // ลบ loading ออก ป้องกันลูปการตัดการเชื่อมต่อ Auth
+  }, [loading]);
 
   useEffect(() => {
     if (!user) return;
@@ -1486,9 +1483,7 @@ export default function App() {
         }
         setGlobalConfig(data);
       }
-      else {
-        console.warn("ไม่พบข้อมูล Master Config หรือการดึงข้อมูลขัดข้อง ข้ามการเขียนทับเพื่อป้องกันข้อมูลพัง");
-      }
+      else setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'master'), { admins: [{ user: 'admin', pass: 'superstore' }], branches: [], latestVersion: CURRENT_APP_VERSION });
       setLoading(false); setIsTimeout(false);
     }, (err) => { setLoadError(err.message); setLoading(false); });
     
@@ -1889,20 +1884,6 @@ export default function App() {
                   try {
                       console.log("Starting Global Auto Backup for all branches...");
                       
-                      // Backup Master Config (สำหรับรหัสผ่านสาขา, Area Manager และ Admin)
-                      try {
-                          const mSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'master'));
-                          if (mSnap.exists()) {
-                              await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'backups', `MASTER_day_${dayOfMonth}`), {
-                                  backupDate: todayStr,
-                                  timestamp: Date.now(),
-                                  masterData: mSnap.data()
-                              });
-                          }
-                      } catch (err) {
-                          console.error("Master backup failed", err);
-                      }
-                      
                       for (const b of globalConfig.branches) {
                           const branchRef = doc(db, 'artifacts', appId, 'public', 'data', 'branches', b.id);
                           const schedRef = doc(db, 'artifacts', appId, 'public', 'data', 'schedules', b.id);
@@ -1929,43 +1910,6 @@ export default function App() {
       const intervalId = setInterval(checkAndBackupAll, 60000); // Check every minute
       return () => clearInterval(intervalId);
   }, [user, globalConfig.lastGlobalBackupDate, globalConfig.branches]);
-
-  // ระบบกระตุ้น Firestore อัตโนมัติเมื่ออินเทอร์เน็ตกลับมาเชื่อมต่อ (แก้ปัญหาข้อมูลค้าง)
-  useEffect(() => {
-      const handleOnline = async () => {
-          try {
-              await enableNetwork(db);
-              await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'master'));
-              if (activeBranchId) {
-                  await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId));
-              }
-          } catch (e) {
-              console.warn("Auto-sync on reconnect failed", e);
-          }
-      };
-      window.addEventListener('online', handleOnline);
-      return () => window.removeEventListener('online', handleOnline);
-  }, [activeBranchId]);
-
-  const handleForceSync = async () => {
-      setSaveStatus('saving');
-      try {
-          // บังคับตัดและต่อเน็ตใหม่ เพื่อรีเซ็ต Listener ทั้งหมดให้ทำงานใหม่
-          await disableNetwork(db);
-          await enableNetwork(db);
-          // ดึงข้อมูลตรง 1 ครั้งเพื่อกระตุ้น Cache
-          await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'master'));
-          if (activeBranchId) {
-              await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId));
-          }
-          setSaveStatus('success');
-          setTimeout(() => setSaveStatus(null), 1500);
-          setConfirmModal({ message: 'ซิงค์และดึงข้อมูลอัปเดตล่าสุดจากเซิร์ฟเวอร์เรียบร้อยแล้ว!' });
-      } catch (err) {
-          console.error("Force Sync Error:", err);
-          setSaveStatus('error');
-      }
-  };
 
   const autoSaveSchedule = useCallback(async (scheduleData) => {
     const dataToSave = scheduleData || scheduleRef.current;
@@ -3350,13 +3294,10 @@ export default function App() {
 
           const newBranches = [];
           let restoreCount = 0;
-          let masterBackupData = null;
 
           for (const documentSnapshot of querySnapshot.docs) {
               const data = documentSnapshot.data();
-              if (documentSnapshot.id.startsWith('MASTER_')) {
-                  masterBackupData = data.masterData;
-              } else if (data.branchData) {
+              if (data.branchData) {
                   const bId = documentSnapshot.id.split('_day_')[0];
                   await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', bId), data.branchData);
                   if (data.schedule) {
@@ -3366,54 +3307,19 @@ export default function App() {
                   newBranches.push({ id: bId, name: data.branchData.name || `Branch ${bId}`, user: data.branchData.user || bId, pass: data.branchData.pass || '1234' });
                   restoreCount++;
               }
-
           }
 
-          // ใช้ข้อมูลปัจจุบัน (Live Data) เป็นฐาน เพื่อไม่ให้ รหัสผ่าน หรือ Area Manager หายไป
-          const newConfig = { ...globalConfig };
-
-          // ดึงข้อมูล Master Backup มาผสาน (ถ้ามี)
-          if (masterBackupData) {
-              if (masterBackupData.areaManagers) {
-                  const amMap = new Map((newConfig.areaManagers || []).map(a => [a.id, a]));
-                  masterBackupData.areaManagers.forEach(a => { if (!amMap.has(a.id)) amMap.set(a.id, a); });
-                  newConfig.areaManagers = Array.from(amMap.values());
-              }
-              if (masterBackupData.admins) {
-                  const adminMap = new Map((newConfig.admins || []).map(a => [a.user, a]));
-                  masterBackupData.admins.forEach(a => { if (!adminMap.has(a.user)) adminMap.set(a.user, a); });
-                  newConfig.admins = Array.from(adminMap.values());
-              }
-              if (masterBackupData.branches) {
-                  const bMap = new Map((newConfig.branches || []).map(b => [b.id, b]));
-                  masterBackupData.branches.forEach(bBackup => {
-                      if (bMap.has(bBackup.id)) {
-                          const live = bMap.get(bBackup.id);
-                          bMap.set(bBackup.id, { ...bBackup, user: live.user || bBackup.user, pass: live.pass || bBackup.pass });
-                      } else { bMap.set(bBackup.id, bBackup); }
-                  });
-                  newConfig.branches = Array.from(bMap.values());
-              }
-          }
-
-          // ผสานข้อมูลสาขาจาก Backup รายสาขา (กรณีเป็นแบ็คอัปเก่าที่ไม่มี Master)
           if (newBranches.length > 0) {
+              const newConfig = { ...globalConfig };
               const existingMap = new Map((newConfig.branches || []).map(b => [b.id, b]));
-              newBranches.forEach(bBackup => {
-                  if (existingMap.has(bBackup.id)) {
-                      const liveBranch = existingMap.get(bBackup.id);
-                      existingMap.set(bBackup.id, { id: bBackup.id, name: bBackup.name, user: liveBranch.user || bBackup.user, pass: liveBranch.pass || bBackup.pass });
-                  } else {
-                      existingMap.set(bBackup.id, bBackup);
-                  }
-              });
+              newBranches.forEach(b => existingMap.set(b.id, b));
               newConfig.branches = Array.from(existingMap.values());
+              
+              await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'master'), newConfig);
+              setGlobalConfig(newConfig);
           }
 
-          await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'master'), newConfig);
-          setGlobalConfig(newConfig);
-
-          setConfirmModal({ message: `✅ กู้คืนข้อมูลสำเร็จทั้งหมด ${restoreCount} สาขา!\n\nระบบได้ดึงข้อมูลพนักงานและตารางกะงานกลับมาให้แล้ว และได้ทำการ "คงรักษา" ข้อมูลบัญชีผู้จัดการเขต (Area Manager) รวมทั้งรหัสผ่านเดิมที่เชื่อมต่ออยู่ปัจจุบันไว้ให้อย่างครบถ้วน 100% (ดึงข้อมูลจากระบบปกติมาเสริมให้แล้วครับ)` });
+          setConfirmModal({ message: `✅ กู้คืนข้อมูลสำเร็จทั้งหมด ${restoreCount} สาขา!\nรายชื่อสาขาได้ถูกเพิ่มกลับเข้าสู่ระบบ และนำข้อมูลพนักงาน/กะงานกลับมาเรียบร้อยแล้ว` });
       } catch (e) {
           setConfirmModal({ message: `เกิดข้อผิดพลาดในการดึงข้อมูลทั้งหมด: ${e.message}` });
       }
@@ -3447,7 +3353,6 @@ export default function App() {
                     <div className="flex gap-2">
                         <input type="text" value={manualBranchId} onChange={e => setManualBranchId(e.target.value)} onKeyDown={e => { if(e.key === 'Enter' && manualBranchId.trim()) handleInspectBranch(manualBranchId.trim()); }} placeholder="ระบุ Branch ID (เช่น b170...)" className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-sm font-bold outline-none text-white placeholder-slate-400 w-48" />
                         <button onClick={() => { if (manualBranchId.trim()) handleInspectBranch(manualBranchId.trim()); }} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-xs font-black hover:bg-indigo-500 transition shadow-sm">ค้นหาข้อมูล</button>
-                        <button onClick={handleForceSync} className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-xs font-black hover:bg-emerald-500 transition shadow-sm flex items-center gap-1 whitespace-nowrap"><RefreshCw className="w-3 h-3"/> ดึงข้อมูลล่าสุด (Force Sync)</button>
                     </div>
                     {inspectorBranchId && inspectorBranchId !== 'GLOBAL' && (
                         <div className="flex gap-2">
@@ -4456,10 +4361,7 @@ export default function App() {
           </div>
           <div className="hidden lg:block absolute bottom-8 text-center w-full z-10">
             <p className="text-xs font-bold text-slate-500 tracking-[0.2em] uppercase">Powered by Super Store Team</p>
-            <div className="flex items-center justify-center gap-2 mt-2">
-                <button onClick={handleOpenInspector} className="bg-slate-800 text-slate-400 text-xs font-bold py-1 px-3 rounded-md hover:bg-slate-700 transition">Server Data Inspector</button>
-                <button onClick={handleForceSync} className="bg-slate-800 text-emerald-400 text-xs font-bold py-1 px-3 rounded-md hover:bg-slate-700 transition flex items-center gap-1"><RefreshCw className="w-3 h-3"/> Force Sync</button>
-            </div>
+            <button onClick={handleOpenInspector} className="mt-2 bg-slate-800 text-slate-400 text-xs font-bold py-1 px-3 rounded-md hover:bg-slate-700 transition">Server Data Inspector</button>
           </div>
         </div>
         <div className="w-full lg:w-1/2 flex-1 flex flex-col justify-center items-center p-6 sm:p-12 relative bg-white">
@@ -4483,10 +4385,7 @@ export default function App() {
           </div>
           <div className="lg:hidden mt-12 text-center w-full z-0">
             <p className="text-[10px] font-bold text-slate-400 tracking-[0.2em] uppercase">Powered by Super Store Team</p>
-                <div className="flex flex-col items-center gap-2 mt-4">
-                    <button onClick={handleOpenInspector} className="bg-slate-200 text-slate-600 text-xs font-bold py-1 px-3 rounded-md hover:bg-slate-300 transition">Server Data Inspector</button>
-                    <button onClick={handleForceSync} className="bg-emerald-100 text-emerald-600 text-xs font-bold py-1 px-3 rounded-md hover:bg-emerald-200 transition flex items-center gap-1"><RefreshCw className="w-3 h-3"/> Force Sync</button>
-                </div>
+                <button onClick={handleOpenInspector} className="mt-4 bg-slate-200 text-slate-600 text-xs font-bold py-1 px-3 rounded-md hover:bg-slate-300 transition">Server Data Inspector</button>
           </div>
         </div>
       </div>
@@ -8472,7 +8371,6 @@ export default function App() {
                       {authRole === 'superadmin' && <button onClick={() => handleMenuChange('branches')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'branches' ? 'bg-white text-emerald-600 shadow-sm border border-emerald-50' : 'text-slate-500'}`}>BRANCHES</button>}
                    </div>
                    <div className="hidden lg:flex flex-shrink-0 items-center gap-3 ml-2 pl-5 border-l border-slate-200">
-                  <button onClick={handleForceSync} className="text-slate-400 hover:text-emerald-500 transition p-1 mr-2" title="ซิงค์และดึงข้อมูลล่าสุด (Force Sync)"><RefreshCw className="w-5 h-5 sm:w-6 sm:h-6" /></button>
                       <button onClick={handleGlobalSave} disabled={saveStatus === 'saving'} className="bg-indigo-600 text-white px-4 py-2.5 rounded-2xl font-black text-xs hover:bg-indigo-700 active:scale-95 transition flex items-center gap-2 w-32 justify-center">
                          {saveStatus === 'saving' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                          <span className="ml-1">{saveStatus === 'saving' ? 'กำลังบันทึก...' : 'บันทึกทั้งหมด'}</span>
@@ -8490,9 +8388,6 @@ export default function App() {
               <button onClick={handleGlobalSave} disabled={saveStatus === 'saving'} className="lg:hidden fixed bottom-6 right-6 z-50 bg-indigo-600 text-white p-4 rounded-full shadow-2xl active:scale-90 transition-transform">
                  {saveStatus === 'saving' ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6" />}
               </button>
-          <button onClick={handleForceSync} disabled={saveStatus === 'saving'} className="lg:hidden fixed bottom-24 right-6 z-50 bg-emerald-500 text-white p-4 rounded-full shadow-2xl active:scale-90 transition-transform flex items-center justify-center">
-             <RefreshCw className={`w-6 h-6 ${saveStatus === 'saving' ? 'animate-spin' : ''}`} />
-          </button>
           {saveStatus === 'error' && <div className="lg:hidden fixed bottom-20 right-6 z-50 bg-red-500 text-white px-4 py-2 rounded-xl shadow-2xl text-xs font-bold">บันทึกไม่สำเร็จ</div>}
 
           <main className="flex-1 flex flex-col p-4 sm:p-8 max-w-[1600px] mx-auto w-full print:p-0 print:m-0 relative">
