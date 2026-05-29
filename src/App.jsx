@@ -5591,7 +5591,7 @@ export default function App() {
 
         {authRole === 'superadmin' && renderMatrixSettings()}
 
-        {authRole === 'superadmin' && renderRosterStyleSettings()}
+        {['superadmin', 'areamanager', 'branch'].includes(authRole) && renderRosterStyleSettings()}
 
      </div>
     );
