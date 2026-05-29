@@ -7609,7 +7609,8 @@ export default function App() {
                             unpaidLeaveDays: 0, workHours: 0,
                             wageType: s.wageType || 'MONTHLY',
                             baseWage: s.baseWage || 0,
-                            pos: s.pos
+                            pos: s.pos,
+                            dept: s.dept || 'service'
                         };
                     });
 
@@ -7696,31 +7697,45 @@ export default function App() {
                         }
                     });
                     
-                    let totalBasePay = 0;
-                    let totalMonthlyBasePay = 0;
-                    let totalHourlyBasePay = 0;
-                    let totalPtBasePay = 0;
-                    let totalOtPay = 0;
-                    let totalHolidayPay = 0;
+                    const payrollSummary = {
+                        service: { basePay: { total: 0, monthly: 0, hourly: 0, pt: 0 }, otPay: { total: 0, monthly: 0, hourly: 0, pt: 0 }, holidayPay: { total: 0, monthly: 0, hourly: 0, pt: 0 }, netPay: 0 },
+                        kitchen: { basePay: { total: 0, monthly: 0, hourly: 0, pt: 0 }, otPay: { total: 0, monthly: 0, hourly: 0, pt: 0 }, holidayPay: { total: 0, monthly: 0, hourly: 0, pt: 0 }, netPay: 0 },
+                        total: { basePay: { total: 0, monthly: 0, hourly: 0, pt: 0 }, otPay: { total: 0, monthly: 0, hourly: 0, pt: 0 }, holidayPay: { total: 0, monthly: 0, hourly: 0, pt: 0 }, netPay: 0 }
+                    };
 
                     Object.values(staffMapPayroll).forEach(staff => {
+                        const dept = staff.dept === 'kitchen' ? 'kitchen' : 'service';
                         if (staff.wageType === 'MONTHLY') {
                             const monthlyRate = staff.baseWage || 0;
                             const dailyRate = monthlyRate / (payrollConfig.monthlySalaryDivider || 30);
                             staff.basePay = Math.max(0, monthlyRate - (staff.unpaidLeaveDays * dailyRate));
-                            totalMonthlyBasePay += staff.basePay;
+                            
+                            payrollSummary[dept].basePay.monthly += staff.basePay;
+                            payrollSummary.total.basePay.monthly += staff.basePay;
+                            payrollSummary[dept].otPay.monthly += staff.otPay;
+                            payrollSummary.total.otPay.monthly += staff.otPay;
                         } else if (staff.wageType === 'HOURLY') {
-                            totalHourlyBasePay += staff.basePay;
+                            payrollSummary[dept].basePay.hourly += staff.basePay;
+                            payrollSummary.total.basePay.hourly += staff.basePay;
+                            payrollSummary[dept].otPay.hourly += staff.otPay;
+                            payrollSummary.total.otPay.hourly += staff.otPay;
                         } else if (staff.wageType === 'PT') {
-                            totalPtBasePay += staff.basePay;
+                            payrollSummary[dept].basePay.pt += staff.basePay;
+                            payrollSummary.total.basePay.pt += staff.basePay;
+                            payrollSummary[dept].otPay.pt += staff.otPay;
+                            payrollSummary.total.otPay.pt += staff.otPay;
                         }
                         staff.totalPay = staff.basePay + staff.otPay + staff.holidayPay;
 
-                        totalBasePay += staff.basePay;
-                        totalOtPay += staff.otPay;
-                        totalHolidayPay += staff.holidayPay;
+                        payrollSummary[dept].basePay.total += staff.basePay;
+                        payrollSummary.total.basePay.total += staff.basePay;
+                        payrollSummary[dept].otPay.total += staff.otPay;
+                        payrollSummary.total.otPay.total += staff.otPay;
+                        payrollSummary[dept].holidayPay.total += staff.holidayPay;
+                        payrollSummary.total.holidayPay.total += staff.holidayPay;
+                        payrollSummary[dept].netPay += staff.totalPay;
+                        payrollSummary.total.netPay += staff.totalPay;
                     });
-                    const branchTotalNetPay = totalBasePay + totalOtPay + totalHolidayPay;
 
                     const baseBudget = bData?.ptConfig?.monthlyBudget || 0;
                     const baseAllowance = ptRate > 0 ? baseBudget / ptRate : 0;
@@ -7845,19 +7860,53 @@ export default function App() {
                                         {hasLimitKitPt && actKitPt > targetKitPt && <p className="text-[9px] text-red-500 font-bold mt-1.5 text-right">🛑 เกินโควตา {actKitPt - targetKitPt} คน</p>}
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-4 w-full">
-                                    <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100 flex flex-col justify-center">
-                                        <div className="text-[10px] font-bold text-emerald-600 uppercase">ค่าจ้างปกติรวม</div>
-                                        <div className="text-xl sm:text-2xl font-black text-emerald-800 mt-1 mb-2">฿{totalBasePay.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</div>
-                                        <div className="text-[9px] text-emerald-700/80 font-bold space-y-0.5 border-t border-emerald-200/50 pt-2">
-                                            <div className="flex justify-between"><span>รายเดือน:</span> <span>฿{totalMonthlyBasePay.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</span></div>
-                                            <div className="flex justify-between"><span>รายชั่วโมง:</span> <span>฿{totalHourlyBasePay.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</span></div>
-                                            <div className="flex justify-between"><span>พาร์ทไทม์:</span> <span>฿{totalPtBasePay.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</span></div>
-                                        </div>
+                                <div className="mt-6 border-t border-slate-100 pt-6 w-full">
+                                    <h4 className="text-[12px] font-black text-slate-700 uppercase tracking-widest mb-4">สรุปค่าใช้จ่ายบุคลากร (Payroll Summary)</h4>
+                                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                                        {[
+                                            { id: 'service', title: 'ฝั่งบริการ (FOH)', data: payrollSummary.service, theme: { wrap: 'bg-indigo-50/50 border-indigo-100', title: 'text-indigo-700', val: 'text-indigo-600', net: 'bg-indigo-600 text-white' } },
+                                            { id: 'kitchen', title: 'ฝั่งครัว (BOH)', data: payrollSummary.kitchen, theme: { wrap: 'bg-orange-50/50 border-orange-100', title: 'text-orange-700', val: 'text-orange-600', net: 'bg-orange-600 text-white' } },
+                                            { id: 'total', title: 'ยอดรวมทั้งหมด (TOTAL)', data: payrollSummary.total, theme: { wrap: 'bg-slate-900 border-slate-800', title: 'text-emerald-400', val: 'text-white', net: 'bg-emerald-500 text-slate-900' } }
+                                        ].map(sec => (
+                                            <div key={sec.id} className={`${sec.theme.wrap} border p-4 sm:p-5 rounded-2xl flex flex-col gap-3 shadow-sm`}>
+                                                <div className={`text-sm font-black uppercase tracking-widest ${sec.theme.title}`}>{sec.title}</div>
+                                                
+                                                <div className={`p-3 rounded-xl shadow-sm border ${sec.id === 'total' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+                                                    <div className="flex justify-between items-end mb-1">
+                                                        <span className={`text-[10px] font-bold uppercase ${sec.id === 'total' ? 'text-slate-400' : 'text-slate-500'}`}>ค่าจ้างปกติรวม</span>
+                                                        <span className={`text-lg font-black ${sec.theme.val}`}>฿{sec.data.basePay.total.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</span>
+                                                    </div>
+                                                    <div className={`text-[9px] font-bold space-y-1 border-t pt-2 mt-1 ${sec.id === 'total' ? 'text-slate-400 border-slate-700' : 'text-slate-500 border-slate-100'}`}>
+                                                        <div className="flex justify-between items-center"><span>- รายเดือน (FT):</span> <span>฿{sec.data.basePay.monthly.toLocaleString()}</span></div>
+                                                        <div className="flex justify-between items-center"><span>- รายชั่วโมง (FT):</span> <span>฿{sec.data.basePay.hourly.toLocaleString()}</span></div>
+                                                        <div className="flex justify-between items-center"><span>- พาร์ทไทม์ (PT):</span> <span>฿{sec.data.basePay.pt.toLocaleString()}</span></div>
+                                                    </div>
+                                                </div>
+
+                                                <div className={`p-3 rounded-xl shadow-sm border ${sec.id === 'total' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+                                                    <div className="flex justify-between items-end mb-1">
+                                                        <span className={`text-[10px] font-bold uppercase ${sec.id === 'total' ? 'text-slate-400' : 'text-slate-500'}`}>ค่า OT รวม</span>
+                                                        <span className={`text-lg font-black ${sec.theme.val}`}>฿{sec.data.otPay.total.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</span>
+                                                    </div>
+                                                    <div className={`text-[9px] font-bold space-y-1 border-t pt-2 mt-1 ${sec.id === 'total' ? 'text-slate-400 border-slate-700' : 'text-slate-500 border-slate-100'}`}>
+                                                        <div className="flex justify-between items-center"><span>- รายเดือน (FT):</span> <span>฿{sec.data.otPay.monthly.toLocaleString()}</span></div>
+                                                        <div className="flex justify-between items-center"><span>- รายชั่วโมง (FT):</span> <span>฿{sec.data.otPay.hourly.toLocaleString()}</span></div>
+                                                        <div className="flex justify-between items-center"><span>- พาร์ทไทม์ (PT):</span> <span>฿{sec.data.otPay.pt.toLocaleString()}</span></div>
+                                                    </div>
+                                                </div>
+
+                                                <div className={`p-3 rounded-xl shadow-sm border flex justify-between items-center ${sec.id === 'total' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+                                                    <span className={`text-[10px] font-bold uppercase ${sec.id === 'total' ? 'text-slate-400' : 'text-slate-500'}`}>ค่าแรงวันหยุด</span>
+                                                    <span className={`text-base font-black ${sec.theme.val}`}>฿{sec.data.holidayPay.total.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</span>
+                                                </div>
+
+                                                <div className={`mt-auto ${sec.theme.net} p-3 sm:p-4 rounded-xl shadow-md flex justify-between items-center`}>
+                                                    <span className="text-[10px] font-bold uppercase opacity-90">สุทธิ (NET)</span>
+                                                    <span className="text-xl sm:text-2xl font-black">฿{sec.data.netPay.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</span>
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
-                                    <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100 flex flex-col justify-center"><div className="text-[10px] font-bold text-indigo-600 uppercase">ค่า OT</div><div className="text-xl sm:text-2xl font-black text-indigo-800 mt-1">฿{totalOtPay.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</div></div>
-                                    <div className="bg-orange-50 p-4 rounded-xl border border-orange-100 flex flex-col justify-center"><div className="text-[10px] font-bold text-orange-600 uppercase">ค่าแรงวันหยุด</div><div className="text-xl sm:text-2xl font-black text-orange-800 mt-1">฿{totalHolidayPay.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</div></div>
-                                    <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 flex flex-col justify-center"><div className="text-[10px] font-bold text-slate-400 uppercase">รวมค่าแรงรายเดือน+ค่าจ้างพนักงานชั่วคราว+OT สุทธิ</div><div className="text-xl sm:text-2xl font-black text-white mt-1">฿{branchTotalNetPay.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}</div></div>
                                 </div>
                             </div>
                             <div className="w-full xl:w-auto flex flex-col sm:flex-row xl:flex-col gap-3">
