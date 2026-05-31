@@ -218,6 +218,25 @@ function getDayType(dateStr, holidays = [], holidayCycles = {}) {
     return 'weekday';
 }
 
+function getDaysInWeek(dateStr, holidays = [], holidayCycles = {}) {
+    const days = [];
+    if (!dateStr) return days;
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const dateObj = new Date(y, m - 1, d);
+    const dayOfWeek = dateObj.getDay(); 
+    const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    const startOfWeek = new Date(dateObj);
+    startOfWeek.setDate(startOfWeek.getDate() + diffToMonday);
+    for (let i = 0; i < 7; i++) {
+        const cur = new Date(startOfWeek);
+        cur.setDate(cur.getDate() + i);
+        const ds = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}-${String(cur.getDate()).padStart(2, '0')}`;
+        const type = getDayType(ds, holidays, holidayCycles);
+        days.push({ dateStr: ds, dayNum: cur.getDate(), dayLabel: cur.toLocaleDateString('th-TH', { weekday: 'short' }), type });
+    }
+    return days;
+}
+
 function getDaysInMonth(year, month, holidays = [], holidayCycles = {}) {
   const days = [];
   const date = new Date(year, month, 1);
@@ -519,6 +538,7 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
         </div>
         <div className="text-center mb-10 sm:mb-16 uppercase">
           <h1 className="text-3xl sm:text-6xl font-black text-slate-900 tracking-tighter leading-none mb-2 sm:mb-4">ROSTER SCHEDULE: {THAI_MONTHS[selectedMonth]} 2026</h1>
+          <h1 className="text-3xl sm:text-6xl font-black text-slate-900 tracking-tighter leading-none mb-2 sm:mb-4">ROSTER SCHEDULE: {CALENDAR_DAYS.length === 7 ? `WEEK OF ${CALENDAR_DAYS[0].dateStr}` : `${THAI_MONTHS[selectedMonth]} 2026`}</h1>
           <p className="text-xs sm:text-sm text-slate-400 font-bold uppercase tracking-[0.3em] sm:tracking-[0.6em] italic">{globalConfig.branches?.find(b=>b.id===activeBranchId)?.name || 'BRANCH NODE'} - {activeDept.toUpperCase()} DEPT</p>
         </div>
         <div className="overflow-x-auto border-2 sm:border-4 border-slate-900 rounded-xl sm:rounded-[2.5rem] shadow-lg sm:shadow-2xl overflow-hidden w-full custom-scrollbar pb-2 sm:pb-0 print:border-none print:shadow-none print:overflow-visible">
@@ -795,6 +815,7 @@ export default function App() {
   }, [activeDept, branchData.duties]);
 
   const CALENDAR_DAYS = useMemo(() => getDaysInMonth(selectedYear, selectedMonth, branchData.holidays || [], branchData.holidayCycles || {}), [selectedMonth, selectedYear, branchData.holidays, branchData.holidayCycles]);
+  const WEEKLY_DAYS = useMemo(() => getDaysInWeek(selectedDateStr, branchData.holidays || [], branchData.holidayCycles || {}), [selectedDateStr, branchData.holidays, branchData.holidayCycles]);
   const activeDay = useMemo(() => CALENDAR_DAYS.find(d => d.dateStr === selectedDateStr) || CALENDAR_DAYS[0], [selectedDateStr, CALENDAR_DAYS]);
 
   const usedStaffIds = useMemo(() => {
@@ -1376,6 +1397,7 @@ export default function App() {
       if (sIdx !== -1) {
         const dayConfig = CALENDAR_DAYS.find(c => c.dateStr === dateStr);
         const dayType = dayConfig ? dayConfig.type : 'weekday';
+        const dayType = getDayType(dateStr, branchData.holidays, branchData.holidayCycles);
         const matrixSlots = branchData.matrix?.[dayType]?.duties?.[d.id] || [];
         const matrixSlot = matrixSlots[sIdx] || { shiftPresetId: slots[sIdx]?.shiftPresetId || branchData.shiftPresets?.[0]?.id };
 
@@ -2947,6 +2969,7 @@ export default function App() {
         catStaff.forEach(s => {
             const rowData = [cat.label.replace('Customer Service ', '').replace('Kitchen ', ''), s.pos, s.name];
             CALENDAR_DAYS.forEach(day => {
+                DISPLAY_DAYS.forEach(day => {
                 const info = getStaffDayInfo(s.id, day.dateStr, CURRENT_DUTY_LIST);
                 if (info?.type === 'work') rowData.push(`${formatTimeAbbreviation(info.slot.startTime)}${info.actual?.otHours > 0 ? ` (O${info.actual.otHours})` : ''}`);
                 else if (info?.type === 'leave') rowData.push(info.info.shortLabel);
@@ -2966,8 +2989,10 @@ export default function App() {
 
   const requestAutoAssign = (mode = 'daily') => {
       const lastTime = branchData.lastAutoAssign ? new Date(branchData.lastAutoAssign).toLocaleString('th-TH') : 'ยังไม่เคยใช้งาน';
+      const modeText = mode === 'daily' ? 'วันนี้' : mode === 'weekly' ? 'ทั้งสัปดาห์นี้' : 'ทั้งเดือนนี้';
       setConfirmModal({
           message: `ใช้งานจัดกะอัตโนมัติครั้งล่าสุดเมื่อ: ${lastTime}\n\nระบบจะทำการจัดกะอัตโนมัติสำหรับ${mode === 'daily' ? 'วันนี้' : 'ทั้งเดือนนี้'} ข้อมูลกะเดิมจะถูกล้างและเขียนทับใหม่ทั้งหมด (ไม่กระทบกับวันหยุดและวันลาที่บันทึกไว้)\n\nคุณยืนยันที่จะทำรายการนี้หรือไม่?`,
+          message: `ใช้งานจัดกะอัตโนมัติครั้งล่าสุดเมื่อ: ${lastTime}\n\nระบบจะทำการจัดกะอัตโนมัติสำหรับ${modeText} ข้อมูลกะเดิมจะถูกล้างและเขียนทับใหม่ทั้งหมด (ไม่กระทบกับวันหยุดและวันลาที่บันทึกไว้)\n\nคุณยืนยันที่จะทำรายการนี้หรือไม่?`,
           action: () => handleAutoAssign(mode)
       });
   };
@@ -2986,6 +3011,7 @@ export default function App() {
         setSchedule(prevSched => {
             const newSched = JSON.parse(JSON.stringify(prevSched));
             const datesToProcess = mode === 'daily' ? [selectedDateStr] : CALENDAR_DAYS.map(d => d.dateStr);
+            const datesToProcess = mode === 'daily' ? [selectedDateStr] : mode === 'weekly' ? WEEKLY_DAYS.map(d => d.dateStr) : CALENDAR_DAYS.map(d => d.dateStr);
 
             const staffOTCount = {};
             const staffDutyCounts = {};
@@ -3013,6 +3039,7 @@ export default function App() {
             datesToProcess.forEach(dateStr => {
                 const dayConfig = CALENDAR_DAYS.find(c => c.dateStr === dateStr);
                 const dayType = dayConfig ? dayConfig.type : 'weekday';
+                const dayType = getDayType(dateStr, branchData.holidays, branchData.holidayCycles);
                 if (!newSched[dateStr]) newSched[dateStr] = { duties: {}, leaves: [] };
                 const dayData = newSched[dateStr];
                 
@@ -3242,6 +3269,7 @@ export default function App() {
       setSchedule(prevSched => {
           const newSched = JSON.parse(JSON.stringify(prevSched));
           const datesToProcess = mode === 'daily' ? [selectedDateStr] : CALENDAR_DAYS.map(d => d.dateStr);
+          const datesToProcess = mode === 'daily' ? [selectedDateStr] : mode === 'weekly' ? WEEKLY_DAYS.map(d => d.dateStr) : CALENDAR_DAYS.map(d => d.dateStr);
           datesToProcess.forEach(dateStr => { 
               if (newSched[dateStr] && newSched[dateStr].duties) {
                   CURRENT_DUTY_LIST.forEach(d => {
@@ -3430,6 +3458,43 @@ export default function App() {
       }
   };
 
+  const handleMasterConfigRestore = async (dateStr) => {
+      if (!dateStr) return;
+      const confirmed = window.confirm(`คำเตือน: การกู้คืนเฉพาะ "ข้อมูลส่วนกลาง (Master Config & Templates)" ของวันที่ ${dateStr}\n\nระบบจะเขียนทับข้อมูลส่วนกลางด้วยข้อมูล Backup ของวันที่เลือก โดยไม่กระทบข้อมูลสาขา\n\nคุณแน่ใจหรือไม่?`);
+      if (!confirmed) return;
+
+      try {
+          const backupsRef = collection(db, 'artifacts', appId, 'public', 'data', 'backups');
+          const q = query(backupsRef, where('backupDate', '==', dateStr));
+          const querySnapshot = await getDocs(q);
+
+          if (querySnapshot.empty) {
+              setConfirmModal({ message: `ไม่พบข้อมูล Backup ของวันที่ ${dateStr} เลยครับ` });
+              return;
+          }
+
+          let restored = false;
+          for (const documentSnapshot of querySnapshot.docs) {
+              const data = documentSnapshot.data();
+              // ค้นหาเฉพาะ Backup ส่วนกลาง
+              if (documentSnapshot.id.startsWith('GLOBAL_day_')) {
+                  if (data.masterConfig) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'master'), data.masterConfig);
+                  if (data.templates) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'templates'), { list: data.templates });
+                  restored = true;
+                  break;
+              }
+          }
+
+          if (restored) {
+              setConfirmModal({ message: `✅ กู้คืนข้อมูลส่วนกลางสำเร็จ!\nระบบได้นำข้อมูล Master Config และ Templates กลับมาเรียบร้อยแล้ว` });
+          } else {
+              setConfirmModal({ message: `ไม่พบข้อมูล Backup ส่วนกลาง (GLOBAL) ในวันที่ ${dateStr}` });
+          }
+      } catch (e) {
+          setConfirmModal({ message: `เกิดข้อผิดพลาดในการดึงข้อมูลส่วนกลาง: ${e.message}` });
+      }
+  };
+
   const scrollDates = (dir) => {
     if (dateBarRef.current) {
       const amt = dir === 'left' ? -350 : 350;
@@ -3578,6 +3643,12 @@ export default function App() {
                                             if(d) handleGlobalRestore(d);
                                         }} className="w-full bg-red-600 hover:bg-red-500 text-white px-6 py-4 rounded-xl font-black uppercase tracking-widest transition-colors shadow-lg mt-2 text-sm">
                                             🚨 กู้คืนข้อมูลทุกสาขาทันที
+                                        </button>
+                                        <button onClick={() => {
+                                            const d = document.getElementById('global_restore_date').value;
+                                            if(d) handleMasterConfigRestore(d);
+                                        }} className="w-full bg-amber-600 hover:bg-amber-500 text-white px-6 py-4 rounded-xl font-black uppercase tracking-widest transition-colors shadow-lg mt-2 text-sm">
+                                            ⚙️ กู้คืนเฉพาะข้อมูลส่วนกลาง (Master Config & Templates)
                                         </button>
                                     </div>
                                 </div>
@@ -6483,12 +6554,14 @@ export default function App() {
                       </button>
                    )}
                    <button onClick={() => setConfirmModal({ message: 'ยืนยันการล้างข้อมูลกะงานของ "ทั้งเดือนนี้" ใช่หรือไม่?', action: () => handleClearSchedule('monthly') })} className="bg-white border-2 border-red-100 text-red-500 hover:bg-red-500 hover:text-white hover:border-red-500 px-4 py-2 sm:py-3 rounded-xl flex justify-center items-center shadow-sm active:scale-95 transition-all">
+                   <button onClick={() => setConfirmModal({ message: `ยืนยันการล้างข้อมูลกะงานของ "${isWeekly ? 'ทั้งสัปดาห์นี้' : 'ทั้งเดือนนี้'}" ใช่หรือไม่?`, action: () => handleClearSchedule(isWeekly ? 'weekly' : 'monthly') })} className="bg-white border-2 border-red-100 text-red-500 hover:bg-red-500 hover:text-white hover:border-red-500 px-4 py-2 sm:py-3 rounded-xl flex justify-center items-center shadow-sm active:scale-95 transition-all">
                       <Eraser className="w-4 h-4" />
                    </button>
                    <button onClick={() => handleMenuChange('print')} className="flex-1 sm:flex-none bg-white text-slate-900 border border-slate-200 px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-black flex justify-center items-center gap-2 hover:bg-slate-50 shadow-sm active:scale-95 transition-all text-[10px] sm:text-xs uppercase tracking-widest">
                       <Printer className="w-4 h-4" /> ไปหน้าพิมพ์
                    </button>
                    <button onClick={handleExportMonthlyRoster} className="flex-1 sm:flex-none bg-green-600 hover:bg-green-700 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-black flex justify-center items-center gap-2 shadow-md active:scale-95 transition-all text-[10px] sm:text-xs uppercase tracking-widest">
+                   <button onClick={handleExportRoster} className="flex-1 sm:flex-none bg-green-600 hover:bg-green-700 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-black flex justify-center items-center gap-2 shadow-md active:scale-95 transition-all text-[10px] sm:text-xs uppercase tracking-widest">
                       <Download className="w-4 h-4" /> Export CSV
                    </button>
                 </div>
@@ -6531,6 +6604,7 @@ export default function App() {
                       <th className="p-4 sm:p-6 border-b border-r border-slate-200 min-w-[150px] sticky left-0 bg-white z-30 font-black text-[10px] text-slate-500 uppercase tracking-widest">กลุ่มงาน (DUTY)</th>
                       <th className="p-4 sm:p-6 border-b border-r border-slate-200 min-w-[250px] sticky left-[150px] bg-white z-30 font-black text-[10px] text-slate-500 uppercase tracking-widest">รายละเอียดงาน</th>
                       {CALENDAR_DAYS.map(day => {
+                      {DISPLAY_DAYS.map(day => {
                          const dayUsedStaffIds = new Set();
                          (schedule[day.dateStr]?.leaves || []).forEach(l => l.staffId && dayUsedStaffIds.add(l.staffId));
                          Object.values(schedule[day.dateStr]?.duties || {}).forEach(sls => sls.forEach(s => s && s.staffId && dayUsedStaffIds.add(s.staffId)));
@@ -6576,11 +6650,13 @@ export default function App() {
                            if (d.category !== cat.id) return false;
                            if (d.isBackup) {
                                const hasAssigned = CALENDAR_DAYS.some(day => {
+                               const hasAssigned = DISPLAY_DAYS.some(day => {
                                    const assigned = schedule[day.dateStr]?.duties?.[d.id] || [];
                                    return assigned.some(a => a && a.staffId);
                                });
                                if (!hasAssigned) {
                                    const hasUnassignedAnyDay = CALENDAR_DAYS.some(day => {
+                                   const hasUnassignedAnyDay = DISPLAY_DAYS.some(day => {
                                        // Check if there are empty primary slots on this day
                                        let emptyPrimaryCount = 0;
                                        CURRENT_DUTY_LIST.forEach(duty => {
@@ -6621,6 +6697,7 @@ export default function App() {
                                        <div className="mt-2 text-[8px] font-black px-1.5 py-0.5 rounded border uppercase bg-slate-50 text-slate-500 inline-block">{(duty.reqPos || ['ALL']).join(', ')}</div>
                                    </td>
                                    {CALENDAR_DAYS.map(day => {
+                                   {DISPLAY_DAYS.map(day => {
                                        const slots = branchData.matrix?.[day.type]?.duties?.[duty.id] || [];
                                        const assigned = schedule[day.dateStr]?.duties?.[duty.id] || [];
                                        const dayUsedStaffIds = new Set();
@@ -8371,6 +8448,7 @@ export default function App() {
           </div>
           {managerViewMode === 'daily' && renderManagerDailyCards()}
           {managerViewMode === 'monthly' && renderManagerMonthly()}
+          {(managerViewMode === 'monthly' || managerViewMode === 'weekly') && renderManagerCalendar()}
        </div>
     );
   } else if (view === 'report') {
@@ -8379,6 +8457,8 @@ export default function App() {
     mainContent = renderGuideView();
   } else if (view === 'print') {
     mainContent = <PrintMonthlyView CALENDAR_DAYS={CALENDAR_DAYS} branchData={branchData} globalConfig={globalConfig} activeBranchId={activeBranchId} THAI_MONTHS={THAI_MONTHS} selectedMonth={selectedMonth} getStaffDayInfo={getStaffDayInfo} setView={setView} activeDept={activeDept} CURRENT_DUTY_LIST={CURRENT_DUTY_LIST} schedule={schedule} handleToggleLeave={handleToggleLeave} LEAVE_TYPES={LEAVE_TYPES} handleAutoAssign={requestAutoAssign} aiLoading={aiLoading} />;
+    const DISPLAY_DAYS = managerViewMode === 'weekly' ? WEEKLY_DAYS : CALENDAR_DAYS;
+    mainContent = <PrintMonthlyView CALENDAR_DAYS={DISPLAY_DAYS} branchData={branchData} globalConfig={globalConfig} activeBranchId={activeBranchId} THAI_MONTHS={THAI_MONTHS} selectedMonth={selectedMonth} getStaffDayInfo={getStaffDayInfo} setView={setView} activeDept={activeDept} CURRENT_DUTY_LIST={CURRENT_DUTY_LIST} schedule={schedule} handleToggleLeave={handleToggleLeave} LEAVE_TYPES={LEAVE_TYPES} handleAutoAssign={requestAutoAssign} aiLoading={aiLoading} />;
   }
 
   return (
@@ -8521,6 +8601,7 @@ export default function App() {
                   {view === 'manager' && (
                     <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
                        <button onClick={() => setManagerViewMode('daily')} className={`px-3 py-2 rounded-xl text-[10px] sm:text-xs font-black transition-all ${managerViewMode === 'daily' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}><CalendarDaysIcon className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1 sm:mr-2"/><span className="hidden sm:inline">จัดกะแบบรายวัน</span><span className="sm:hidden">รายวัน</span></button>
+                       <button onClick={() => setManagerViewMode('weekly')} className={`px-3 py-2 rounded-xl text-[10px] sm:text-xs font-black transition-all ${managerViewMode === 'weekly' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}><CalendarDaysIcon className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1 sm:mr-2"/><span className="hidden sm:inline">จัดกะแบบรายสัปดาห์</span><span className="sm:hidden">สัปดาห์</span></button>
                        <button onClick={() => setManagerViewMode('monthly')} className={`px-3 py-2 rounded-xl text-[10px] sm:text-xs font-black transition-all ${managerViewMode === 'monthly' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}><CalendarIcon className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1 sm:mr-2"/><span className="hidden sm:inline">จัดกะแบบรายเดือน</span><span className="sm:hidden">รายเดือน</span></button>
                     </div>
                   )}
