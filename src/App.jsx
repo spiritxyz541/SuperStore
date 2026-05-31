@@ -1394,8 +1394,6 @@ export default function App() {
       const slots = dayData.duties?.[d.id] || [];
       const sIdx = slots.findIndex(s => s && s.staffId === staffId);
       if (sIdx !== -1) {
-        const dayConfig = CALENDAR_DAYS.find(c => c.dateStr === dateStr);
-        const dayType = dayConfig ? dayConfig.type : 'weekday';
         const dayType = getDayType(dateStr, branchData.holidays, branchData.holidayCycles);
         const matrixSlots = branchData.matrix?.[dayType]?.duties?.[d.id] || [];
         const matrixSlot = matrixSlots[sIdx] || { shiftPresetId: slots[sIdx]?.shiftPresetId || branchData.shiftPresets?.[0]?.id };
@@ -3050,8 +3048,6 @@ export default function App() {
             });
 
             datesToProcess.forEach(dateStr => {
-                const dayConfig = CALENDAR_DAYS.find(c => c.dateStr === dateStr);
-                const dayType = dayConfig ? dayConfig.type : 'weekday';
                 const dayType = getDayType(dateStr, branchData.holidays, branchData.holidayCycles);
                 if (!newSched[dateStr]) newSched[dateStr] = { duties: {}, leaves: [] };
                 const dayData = newSched[dateStr];
