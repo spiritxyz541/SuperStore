@@ -4749,6 +4749,26 @@ export default function App() {
              </div>
           </div>
        </div>
+
+       <div className="bg-rose-50 rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-rose-200 shadow-sm mt-6 sm:mt-10">
+          <h2 className="text-lg sm:text-xl font-black text-rose-800 mb-4 flex items-center gap-2 sm:gap-4 uppercase tracking-tighter"><AlertCircle className="w-6 h-6 sm:w-7 sm:h-7 text-rose-500" /> ศูนย์กู้คืนข้อมูล (Global Data Recovery)</h2>
+          <p className="text-sm font-bold text-rose-600 mb-6">ดึงข้อมูล Backup อัตโนมัติกลับมาใช้งาน (ระบบจะ Backup ให้ทุกครั้งที่มีการกดบันทึกในแต่ละวัน)</p>
+          <div className="flex flex-col sm:flex-row gap-4">
+              <input type="date" id="global_admin_restore_date" className="border-2 border-white rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-rose-500 bg-white" defaultValue={new Date().toISOString().split('T')[0]} />
+              <button onClick={() => {
+                  const d = document.getElementById('global_admin_restore_date').value;
+                  if(d) handleMasterConfigRestore(d);
+              }} className="bg-amber-500 hover:bg-amber-600 text-white px-6 py-3 rounded-xl font-black text-sm transition shadow-sm">
+                  ⚙️ กู้คืนเฉพาะข้อมูลส่วนกลาง (Master Config & Templates)
+              </button>
+              <button onClick={() => {
+                  const d = document.getElementById('global_admin_restore_date').value;
+                  if(d) handleGlobalRestore(d);
+              }} className="bg-rose-600 hover:bg-rose-700 text-white px-6 py-3 rounded-xl font-black text-sm transition shadow-sm">
+                  🚨 กู้คืนข้อมูลทุกสาขาทันที (All Branches)
+              </button>
+          </div>
+       </div>
      </div>
     );
   }
