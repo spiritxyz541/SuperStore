@@ -3660,7 +3660,7 @@ export default function App() {
                                             const d = document.getElementById('global_restore_date').value;
                                             if(d) handleMasterConfigRestore(d);
                                         }} className="w-full bg-amber-600 hover:bg-amber-500 text-white px-6 py-4 rounded-xl font-black uppercase tracking-widest transition-colors shadow-lg mt-2 text-sm">
-                                            ⚙️ กู้คืนเฉพาะข้อมูลส่วนกลาง (Master Config & Templates)
+                                            ⚙️ กู้คืนเฉพาะข้อมูลส่วนกลาง (Master Config &amp; Templates)
                                         </button>
                                     </div>
                                 </div>
@@ -4755,7 +4755,7 @@ export default function App() {
                   const d = document.getElementById('global_admin_restore_date').value;
                   if(d) handleMasterConfigRestore(d);
               }} className="bg-amber-500 hover:bg-amber-600 text-white px-6 py-3 rounded-xl font-black text-sm transition shadow-sm">
-                  ⚙️ กู้คืนเฉพาะข้อมูลส่วนกลาง (Master Config & Templates)
+                  ⚙️ กู้คืนเฉพาะข้อมูลส่วนกลาง (Master Config &amp; Templates)
               </button>
               <button onClick={() => {
                   const d = document.getElementById('global_admin_restore_date').value;
@@ -5040,7 +5040,7 @@ export default function App() {
                      return (
                          <div className="flex flex-col gap-0 p-1 rounded-xl bg-slate-50 border border-slate-200 shadow-sm relative mt-2">
                              <div className="flex justify-between items-center px-3 pt-3 pb-1 border-b border-slate-200/50 mx-2">
-                                <div className="text-[10px] font-black text-slate-600 uppercase">Part-Time (โควตาร่วม)</div>
+                                <div className="text-[10px] font-black text-slate-600 uppercase">Staff &amp; Support Team (โควตาร่วม)</div>
                                 <div className="flex items-center gap-2">
                                    <span className={`text-[10px] font-bold ${isCombinedFull ? 'text-red-500' : 'text-slate-500'}`}>จำนวนรวม {combinedCount}/{combinedLimit !== undefined && combinedLimit !== null ? combinedLimit : '∞'}</span>
                                    <input 
@@ -6884,7 +6884,7 @@ export default function App() {
                 <div className="bg-yellow-400 p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] shadow-xl sm:shadow-2xl shadow-yellow-100"><TrendingUp className="w-6 h-6 sm:w-10 sm:h-10 text-white" /></div>
                 <div>
                 <h2 className="text-2xl sm:text-4xl font-black text-slate-800 tracking-tighter uppercase">Analytical Insight</h2>
-                <p className="text-slate-400 font-bold uppercase text-[10px] sm:text-sm tracking-widest mt-0.5 sm:mt-1">Performance & OT Efficiency Report</p>
+                <p className="text-slate-400 font-bold uppercase text-[10px] sm:text-sm tracking-widest mt-0.5 sm:mt-1">Performance &amp; OT Efficiency Report</p>
                 </div>
              </div>
              <div className="flex items-center gap-2 w-full sm:w-auto mt-4 sm:mt-0">
@@ -7157,7 +7157,7 @@ export default function App() {
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="space-y-4 bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100 md:col-span-3">
-                    <h3 className="font-black text-slate-700 text-sm uppercase tracking-widest border-b border-slate-200 pb-2">1. สีและหัวข้อ (Colors & Headers)</h3>
+                    <h3 className="font-black text-slate-700 text-sm uppercase tracking-widest border-b border-slate-200 pb-2">1. สีและหัวข้อ (Colors &amp; Headers)</h3>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                         <div>
                             <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">ขนาดหัวข้อหลัก (px)</label>
