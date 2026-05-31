@@ -537,7 +537,6 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
           <button onClick={() => window.print()} className="bg-indigo-600 text-white px-8 sm:px-12 py-4 sm:py-5 rounded-xl sm:rounded-3xl font-black shadow-xl sm:shadow-2xl hover:bg-indigo-700 active:scale-95 transition-all flex items-center justify-center gap-3 sm:gap-4 uppercase text-xs sm:text-sm tracking-widest w-full sm:w-auto"><Printer className="w-5 h-5 sm:w-6 sm:h-6" /> สั่งพิมพ์รายงาน </button>
         </div>
         <div className="text-center mb-10 sm:mb-16 uppercase">
-          <h1 className="text-3xl sm:text-6xl font-black text-slate-900 tracking-tighter leading-none mb-2 sm:mb-4">ROSTER SCHEDULE: {THAI_MONTHS[selectedMonth]} 2026</h1>
           <h1 className="text-3xl sm:text-6xl font-black text-slate-900 tracking-tighter leading-none mb-2 sm:mb-4">ROSTER SCHEDULE: {CALENDAR_DAYS.length === 7 ? `WEEK OF ${CALENDAR_DAYS[0].dateStr}` : `${THAI_MONTHS[selectedMonth]} 2026`}</h1>
           <p className="text-xs sm:text-sm text-slate-400 font-bold uppercase tracking-[0.3em] sm:tracking-[0.6em] italic">{globalConfig.branches?.find(b=>b.id===activeBranchId)?.name || 'BRANCH NODE'} - {activeDept.toUpperCase()} DEPT</p>
         </div>
@@ -2971,7 +2970,8 @@ export default function App() {
   };
 
   const handleExportMonthlyRoster = () => {
-    const headers = ['แผนก', 'ตำแหน่ง', 'ชื่อพนักงาน', ...CALENDAR_DAYS.map(d => `${d.dayNum} ${d.dayLabel}`)];
+    const exportDays = managerViewMode === 'weekly' ? WEEKLY_DAYS : CALENDAR_DAYS;
+    const headers = ['แผนก', 'ตำแหน่ง', 'ชื่อพนักงาน', ...exportDays.map(d => `${d.dayNum} ${d.dayLabel}`)];
     const rows = [];
     const filteredStaff = branchData.staff?.filter(s => s.dept === activeDept) || [];
     const sortedStaff = [...filteredStaff].sort((a, b) => {
@@ -2984,8 +2984,7 @@ export default function App() {
         const catStaff = sortedStaff.filter(s => getStaffLayer(s.dept, s.pos).id === cat.id);
         catStaff.forEach(s => {
             const rowData = [cat.label.replace('Customer Service ', '').replace('Kitchen ', ''), s.pos, s.name];
-            CALENDAR_DAYS.forEach(day => {
-                DISPLAY_DAYS.forEach(day => {
+            exportDays.forEach(day => {
                 const info = getStaffDayInfo(s.id, day.dateStr, CURRENT_DUTY_LIST);
                 if (info?.type === 'work') rowData.push(`${formatTimeAbbreviation(info.slot.startTime)}${info.actual?.otHours > 0 ? ` (O${info.actual.otHours})` : ''}`);
                 else if (info?.type === 'leave') rowData.push(info.info.shortLabel);
@@ -3007,7 +3006,6 @@ export default function App() {
       const lastTime = branchData.lastAutoAssign ? new Date(branchData.lastAutoAssign).toLocaleString('th-TH') : 'ยังไม่เคยใช้งาน';
       const modeText = mode === 'daily' ? 'วันนี้' : mode === 'weekly' ? 'ทั้งสัปดาห์นี้' : 'ทั้งเดือนนี้';
       setConfirmModal({
-          message: `ใช้งานจัดกะอัตโนมัติครั้งล่าสุดเมื่อ: ${lastTime}\n\nระบบจะทำการจัดกะอัตโนมัติสำหรับ${mode === 'daily' ? 'วันนี้' : 'ทั้งเดือนนี้'} ข้อมูลกะเดิมจะถูกล้างและเขียนทับใหม่ทั้งหมด (ไม่กระทบกับวันหยุดและวันลาที่บันทึกไว้)\n\nคุณยืนยันที่จะทำรายการนี้หรือไม่?`,
           message: `ใช้งานจัดกะอัตโนมัติครั้งล่าสุดเมื่อ: ${lastTime}\n\nระบบจะทำการจัดกะอัตโนมัติสำหรับ${modeText} ข้อมูลกะเดิมจะถูกล้างและเขียนทับใหม่ทั้งหมด (ไม่กระทบกับวันหยุดและวันลาที่บันทึกไว้)\n\nคุณยืนยันที่จะทำรายการนี้หรือไม่?`,
           action: () => handleAutoAssign(mode)
       });
@@ -3026,7 +3024,6 @@ export default function App() {
     setTimeout(() => {
         setSchedule(prevSched => {
             const newSched = JSON.parse(JSON.stringify(prevSched));
-            const datesToProcess = mode === 'daily' ? [selectedDateStr] : CALENDAR_DAYS.map(d => d.dateStr);
             const datesToProcess = mode === 'daily' ? [selectedDateStr] : mode === 'weekly' ? WEEKLY_DAYS.map(d => d.dateStr) : CALENDAR_DAYS.map(d => d.dateStr);
 
             const staffOTCount = {};
@@ -3284,7 +3281,6 @@ export default function App() {
       let newSchedToSave = null;
       setSchedule(prevSched => {
           const newSched = JSON.parse(JSON.stringify(prevSched));
-          const datesToProcess = mode === 'daily' ? [selectedDateStr] : CALENDAR_DAYS.map(d => d.dateStr);
           const datesToProcess = mode === 'daily' ? [selectedDateStr] : mode === 'weekly' ? WEEKLY_DAYS.map(d => d.dateStr) : CALENDAR_DAYS.map(d => d.dateStr);
           datesToProcess.forEach(dateStr => { 
               if (newSched[dateStr] && newSched[dateStr].duties) {
@@ -6572,6 +6568,9 @@ export default function App() {
   }
 
   function renderManagerMonthly() {
+    const isWeekly = managerViewMode === 'weekly';
+    const DISPLAY_DAYS = isWeekly ? WEEKLY_DAYS : CALENDAR_DAYS;
+
     return (
        <div className="w-full animate-in fade-in duration-500">
           <div className="bg-white rounded-[2rem] sm:rounded-[3rem] border border-slate-200 shadow-sm overflow-hidden w-full">
@@ -6589,15 +6588,13 @@ export default function App() {
                          <Undo2 className="w-4 h-4" /> เลิกทำ (Undo)
                       </button>
                    )}
-                   <button onClick={() => setConfirmModal({ message: 'ยืนยันการล้างข้อมูลกะงานของ "ทั้งเดือนนี้" ใช่หรือไม่?', action: () => handleClearSchedule('monthly') })} className="bg-white border-2 border-red-100 text-red-500 hover:bg-red-500 hover:text-white hover:border-red-500 px-4 py-2 sm:py-3 rounded-xl flex justify-center items-center shadow-sm active:scale-95 transition-all">
                    <button onClick={() => setConfirmModal({ message: `ยืนยันการล้างข้อมูลกะงานของ "${isWeekly ? 'ทั้งสัปดาห์นี้' : 'ทั้งเดือนนี้'}" ใช่หรือไม่?`, action: () => handleClearSchedule(isWeekly ? 'weekly' : 'monthly') })} className="bg-white border-2 border-red-100 text-red-500 hover:bg-red-500 hover:text-white hover:border-red-500 px-4 py-2 sm:py-3 rounded-xl flex justify-center items-center shadow-sm active:scale-95 transition-all">
                       <Eraser className="w-4 h-4" />
                    </button>
                    <button onClick={() => handleMenuChange('print')} className="flex-1 sm:flex-none bg-white text-slate-900 border border-slate-200 px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-black flex justify-center items-center gap-2 hover:bg-slate-50 shadow-sm active:scale-95 transition-all text-[10px] sm:text-xs uppercase tracking-widest">
                       <Printer className="w-4 h-4" /> ไปหน้าพิมพ์
                    </button>
-                   <button onClick={handleExportMonthlyRoster} className="flex-1 sm:flex-none bg-green-600 hover:bg-green-700 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-black flex justify-center items-center gap-2 shadow-md active:scale-95 transition-all text-[10px] sm:text-xs uppercase tracking-widest">
-                   <button onClick={handleExportRoster} className="flex-1 sm:flex-none bg-green-600 hover:bg-green-700 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-black flex justify-center items-center gap-2 shadow-md active:scale-95 transition-all text-[10px] sm:text-xs uppercase tracking-widest">
+            <button onClick={handleExportMonthlyRoster} className="flex-1 sm:flex-none bg-green-600 hover:bg-green-700 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-black flex justify-center items-center gap-2 shadow-md active:scale-95 transition-all text-[10px] sm:text-xs uppercase tracking-widest">
                       <Download className="w-4 h-4" /> Export CSV
                    </button>
                 </div>
@@ -6639,7 +6636,6 @@ export default function App() {
                    <tr>
                       <th className="p-4 sm:p-6 border-b border-r border-slate-200 min-w-[150px] sticky left-0 bg-white z-30 font-black text-[10px] text-slate-500 uppercase tracking-widest">กลุ่มงาน (DUTY)</th>
                       <th className="p-4 sm:p-6 border-b border-r border-slate-200 min-w-[250px] sticky left-[150px] bg-white z-30 font-black text-[10px] text-slate-500 uppercase tracking-widest">รายละเอียดงาน</th>
-                      {CALENDAR_DAYS.map(day => {
                       {DISPLAY_DAYS.map(day => {
                          const dayUsedStaffIds = new Set();
                          (schedule[day.dateStr]?.leaves || []).forEach(l => l.staffId && dayUsedStaffIds.add(l.staffId));
@@ -6685,13 +6681,11 @@ export default function App() {
                        const catDuties = CURRENT_DUTY_LIST.filter(d => {
                            if (d.category !== cat.id) return false;
                            if (d.isBackup) {
-                               const hasAssigned = CALENDAR_DAYS.some(day => {
                                const hasAssigned = DISPLAY_DAYS.some(day => {
                                    const assigned = schedule[day.dateStr]?.duties?.[d.id] || [];
                                    return assigned.some(a => a && a.staffId);
                                });
                                if (!hasAssigned) {
-                                   const hasUnassignedAnyDay = CALENDAR_DAYS.some(day => {
                                    const hasUnassignedAnyDay = DISPLAY_DAYS.some(day => {
                                        // Check if there are empty primary slots on this day
                                        let emptyPrimaryCount = 0;
@@ -6732,7 +6726,6 @@ export default function App() {
                                        <div className="font-bold text-[9px] text-slate-500 leading-tight whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: duty.jobB || '-' }}></div>
                                        <div className="mt-2 text-[8px] font-black px-1.5 py-0.5 rounded border uppercase bg-slate-50 text-slate-500 inline-block">{(duty.reqPos || ['ALL']).join(', ')}</div>
                                    </td>
-                                   {CALENDAR_DAYS.map(day => {
                                    {DISPLAY_DAYS.map(day => {
                                        const slots = branchData.matrix?.[day.type]?.duties?.[duty.id] || [];
                                        const assigned = schedule[day.dateStr]?.duties?.[duty.id] || [];
@@ -8492,7 +8485,6 @@ export default function App() {
   } else if (view === 'guide') {
     mainContent = renderGuideView();
   } else if (view === 'print') {
-    mainContent = <PrintMonthlyView CALENDAR_DAYS={CALENDAR_DAYS} branchData={branchData} globalConfig={globalConfig} activeBranchId={activeBranchId} THAI_MONTHS={THAI_MONTHS} selectedMonth={selectedMonth} getStaffDayInfo={getStaffDayInfo} setView={setView} activeDept={activeDept} CURRENT_DUTY_LIST={CURRENT_DUTY_LIST} schedule={schedule} handleToggleLeave={handleToggleLeave} LEAVE_TYPES={LEAVE_TYPES} handleAutoAssign={requestAutoAssign} aiLoading={aiLoading} />;
     const DISPLAY_DAYS = managerViewMode === 'weekly' ? WEEKLY_DAYS : CALENDAR_DAYS;
     mainContent = <PrintMonthlyView CALENDAR_DAYS={DISPLAY_DAYS} branchData={branchData} globalConfig={globalConfig} activeBranchId={activeBranchId} THAI_MONTHS={THAI_MONTHS} selectedMonth={selectedMonth} getStaffDayInfo={getStaffDayInfo} setView={setView} activeDept={activeDept} CURRENT_DUTY_LIST={CURRENT_DUTY_LIST} schedule={schedule} handleToggleLeave={handleToggleLeave} LEAVE_TYPES={LEAVE_TYPES} handleAutoAssign={requestAutoAssign} aiLoading={aiLoading} />;
   }
