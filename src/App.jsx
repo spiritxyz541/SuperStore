@@ -1970,6 +1970,21 @@ export default function App() {
 
   const handleGlobalSave = async () => {
     if (authRole === 'guest' || authRole === 'staff') return;
+
+    // 1. Validation Safeguard: ป้องกันการเซฟข้อมูลว่างเปล่า (Empty State) ไปทับบนฐานข้อมูล
+    if (authRole === 'superadmin') {
+        if (!globalConfig || !globalConfig.admins || globalConfig.admins.length === 0) {
+            setConfirmModal({ message: '❌ ไม่สามารถบันทึกข้อมูลส่วนกลางได้ เนื่องจากข้อมูลส่วนกลาง (Master Config) ยังโหลดไม่สมบูรณ์' });
+            return;
+        }
+    }
+    if (activeBranchId) {
+        if (!branchData || !branchData.matrix || !branchData.duties) {
+            setConfirmModal({ message: '❌ ไม่สามารถบันทึกข้อมูลสาขาได้ เนื่องจากข้อมูลสาขายังโหลดไม่สมบูรณ์' });
+            return;
+        }
+    }
+
     setSaveStatus('saving');
     try {
       const now = new Date();
@@ -1977,18 +1992,19 @@ export default function App() {
       const dayOfMonth = now.getDate();
 
       if (authRole === 'superadmin') {
-          await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'master'), globalConfig);
+          // 2. เพิ่ม { merge: true } เพื่อเซฟแบบผสานข้อมูล ลดความเสี่ยงการเผลอลบฟิลด์ที่ไม่ตั้งใจ
+          await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'master'), globalConfig, { merge: true });
           // แบคอัป Global เมื่อ Admin กดบันทึก
           await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'backups', `GLOBAL_day_${dayOfMonth}`), {
               backupDate: todayStr,
               timestamp: Date.now(),
               masterConfig: globalConfig,
               templates: globalTemplates
-          });
+          }, { merge: true });
       }
       if (activeBranchId) {
-        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData);
-        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'schedules', activeBranchId), { records: schedule });
+        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData, { merge: true });
+        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'schedules', activeBranchId), { records: schedule }, { merge: true });
         
         // แบคอัปข้อมูลสาขาทันทีที่มีการกดบันทึก
         await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'backups', `${activeBranchId}_day_${dayOfMonth}`), {
@@ -1997,7 +2013,7 @@ export default function App() {
             branchData: branchData,
             schedule: schedule,
             requests: pendingRequests || []
-        });
+        }, { merge: true });
       }
       setSaveStatus('success'); setShowSuccessModal(true); 
       setTimeout(() => { setSaveStatus(null); setShowSuccessModal(false); }, 2000);
