@@ -8472,8 +8472,7 @@ export default function App() {
               {renderOtLedgerWidget()}
           </div>
           {managerViewMode === 'daily' && renderManagerDailyCards()}
-          {managerViewMode === 'monthly' && renderManagerMonthly()}
-          {(managerViewMode === 'monthly' || managerViewMode === 'weekly') && renderManagerCalendar()}
+          {(managerViewMode === 'monthly' || managerViewMode === 'weekly') && renderManagerMonthly()}
        </div>
     );
   } else if (view === 'report') {
