@@ -5109,7 +5109,7 @@ export default function App() {
                             onChange={setNewStaffDayOff}
                             dayOffCounts={dayOffCounts[newStaffDept] || {}}
                             limits={branchData.dayOffLimits?.[newStaffDept] || {}}
-                            isPT={newStaffPos.includes('PT') || newStaffWageType === 'PT'}
+                            isPT={newStaffPos.includes('PT') || newStaffPos.includes('EDC') || newStaffPos.includes('DVT') || newStaffWageType === 'PT'}
                             className="flex-1 min-w-[100px]"
                             triggerClassName={`w-full bg-slate-50 border-2 border-slate-100 rounded-xl sm:rounded-2xl px-3 sm:px-4 py-3 text-[10px] sm:text-xs font-black uppercase outline-none flex justify-between items-center cursor-pointer transition-colors ${newStaffDayOff.length > 0 ? 'text-indigo-700 border-indigo-300 bg-indigo-50/30' : 'text-slate-500 hover:border-indigo-300'}`}
                         />
@@ -5192,7 +5192,7 @@ export default function App() {
                               onChange={val => setEditStaffData({...editStaffData, regularDayOff: val})}
                               dayOffCounts={dayOffCounts[s.dept] || {}}
                               limits={branchData.dayOffLimits?.[s.dept] || {}}
-                              isPT={editStaffData.pos.includes('PT') || editStaffData.wageType === 'PT'}
+                              isPT={editStaffData.pos.includes('PT') || editStaffData.pos.includes('EDC') || editStaffData.pos.includes('DVT') || editStaffData.wageType === 'PT'}
                               className="w-24 sm:w-auto min-w-[100px]"
                               triggerClassName="border rounded px-2 py-1 text-[10px] w-full bg-white flex justify-between items-center cursor-pointer outline-none"
                           />
