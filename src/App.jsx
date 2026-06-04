@@ -704,8 +704,13 @@ export default function App() {
   const [showImportStaffModal, setShowImportStaffModal] = useState(false);
   const [importStaffText, setImportStaffText] = useState('');
 
-  const [userInput, setUserInput] = useState('');
+  const [userInput, setUserInput] = useState(() => {
+      try { return localStorage.getItem('superstore_savedUsername') || ''; } catch(e) { return ''; }
+  });
   const [passInput, setPassInput] = useState('');
+  const [rememberMe, setRememberMe] = useState(() => {
+      try { return !!localStorage.getItem('superstore_savedUsername'); } catch(e) { return false; }
+  });
   const [loginError, setLoginError] = useState('');
   
   const [newStaffName, setNewStaffName] = useState('');
@@ -1854,14 +1859,25 @@ export default function App() {
   const handleManagerLogin = (e) => {
     e.preventDefault();
     setLoginError('');
+    
+    const saveRememberMe = () => {
+        try {
+            if (rememberMe) {
+                localStorage.setItem('superstore_savedUsername', userInput);
+            } else {
+                localStorage.removeItem('superstore_savedUsername');
+            }
+        } catch(e){}
+    };
+
     const admin = globalConfig.admins?.find(a => a.user === userInput && a.pass === passInput);
-    if (admin) { setAuthRole('superadmin'); setAuthUser(userInput); if (globalConfig.branches?.length > 0) setActiveBranchId(globalConfig.branches[0].id); setView('manager'); setHasSeenLanding(false); sessionStorage.removeItem('superstore_hasSeenLanding'); return; }
+    if (admin) { saveRememberMe(); setAuthRole('superadmin'); setAuthUser(userInput); if (globalConfig.branches?.length > 0) setActiveBranchId(globalConfig.branches[0].id); setView('manager'); setHasSeenLanding(false); sessionStorage.removeItem('superstore_hasSeenLanding'); return; }
     
     const am = globalConfig.areaManagers?.find(a => a.user === userInput && a.pass === passInput);
-    if (am) { setAuthRole('areamanager'); setAuthUser(userInput); setActiveBranchId(am.branches[0] || null); setView('area_dashboard'); setHasSeenLanding(false); sessionStorage.removeItem('superstore_hasSeenLanding'); return; }
+    if (am) { saveRememberMe(); setAuthRole('areamanager'); setAuthUser(userInput); setActiveBranchId(am.branches[0] || null); setView('area_dashboard'); setHasSeenLanding(false); sessionStorage.removeItem('superstore_hasSeenLanding'); return; }
 
     const branch = globalConfig.branches?.find(b => b.user === userInput && b.pass === passInput);
-    if (branch) { setAuthRole('branch'); setAuthUser(userInput); setActiveBranchId(branch.id); setView('manager'); setHasSeenLanding(false); sessionStorage.removeItem('superstore_hasSeenLanding'); return; }
+    if (branch) { saveRememberMe(); setAuthRole('branch'); setAuthUser(userInput); setActiveBranchId(branch.id); setView('manager'); setHasSeenLanding(false); sessionStorage.removeItem('superstore_hasSeenLanding'); return; }
     setLoginError('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
   };
 
@@ -4562,6 +4578,12 @@ export default function App() {
                   <div>
                     <label className="block text-[10px] sm:text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-4">Password</label>
                     <input type="password" placeholder="รหัสผ่าน" className="w-full bg-slate-50 border-2 border-slate-100 rounded-[1.5rem] px-5 py-3 sm:py-4 text-sm font-bold focus:border-indigo-500 focus:bg-white outline-none transition" value={passInput} onChange={(e) => setPassInput(e.target.value)} />
+                  </div>
+                  <div className="flex items-center ml-4 mt-2">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                          <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500" />
+                          <span className="text-xs font-bold text-slate-500 select-none">จำชื่อผู้ใช้งาน</span>
+                      </label>
                   </div>
                   {loginError && <p className="text-xs sm:text-sm text-red-500 font-bold bg-red-50 px-4 py-3 rounded-xl w-full text-center">{loginError}</p>}
                   <button type="submit" className="w-full bg-indigo-600 text-white py-4 sm:py-5 rounded-[1.5rem] font-black text-sm shadow-xl shadow-indigo-200 hover:bg-indigo-700 hover:shadow-indigo-300 active:scale-95 transition-all mt-4">LOGIN TO SYSTEM</button>
