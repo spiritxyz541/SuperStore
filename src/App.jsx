@@ -2024,8 +2024,7 @@ export default function App() {
     });
   };
 
-  const handlePrintMonthly = async () => {
-    await saveScheduleVersion('PRINT_SNAPSHOT_MONTHLY', schedule);
+  const handlePrintMonthly = () => {
     window.print();
   };
 
@@ -6602,8 +6601,7 @@ export default function App() {
                       <button onClick={() => setDailyViewMode('roster')} className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-[10px] sm:text-xs font-black transition-all ${dailyViewMode === 'roster' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>ตารางกะงาน</button>
                       <button onClick={() => setDailyViewMode('headcount')} className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-[10px] sm:text-xs font-black transition-all ${dailyViewMode === 'headcount' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>สรุปกำลังคน</button>
                       <button onClick={() => setDailyViewMode('prep')} className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-[10px] sm:text-xs font-black transition-all ${dailyViewMode === 'prep' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>ใบเตรียมของ</button>
-                   </div>                   <button onClick={async () => {
-                       await saveScheduleVersion('PRINT_SNAPSHOT_DAILY', schedule);
+                   </div>                   <button onClick={() => {
                        window.print();
                    }} className="flex-1 sm:flex-none justify-center bg-slate-900 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-black flex items-center gap-2 hover:bg-black shadow-lg active:scale-95 transition-all text-[10px] sm:text-xs uppercase tracking-widest"><Printer className="w-4 h-4" /> พิมพ์ตารางนี้</button>
                 </div>
