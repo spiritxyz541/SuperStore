@@ -534,7 +534,7 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
       <div className="max-w-full mx-auto">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 sm:mb-16 print:hidden border-b pb-6 sm:pb-8 gap-4 sm:gap-0">
           <button onClick={() => { try { const sess = JSON.parse(localStorage.getItem('superstore_session')||'{}'); sess.view = 'manager'; localStorage.setItem('superstore_session', JSON.stringify(sess)); }catch(e){} window.location.reload(); }} className="flex items-center gap-2 sm:gap-4 text-slate-600 font-black bg-slate-100 px-6 sm:px-8 py-3 sm:py-4 rounded-xl sm:rounded-3xl hover:bg-slate-200 transition shadow-sm uppercase text-xs sm:text-sm tracking-widest w-full sm:w-auto justify-center"><ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" /> ย้อนกลับ </button>
-          <button onClick={() => window.print()} className="bg-indigo-600 text-white px-8 sm:px-12 py-4 sm:py-5 rounded-xl sm:rounded-3xl font-black shadow-xl sm:shadow-2xl hover:bg-indigo-700 active:scale-95 transition-all flex items-center justify-center gap-3 sm:gap-4 uppercase text-xs sm:text-sm tracking-widest w-full sm:w-auto"><Printer className="w-5 h-5 sm:w-6 sm:h-6" /> สั่งพิมพ์รายงาน </button>
+          <button onClick={onPrint} className="bg-indigo-600 text-white px-8 sm:px-12 py-4 sm:py-5 rounded-xl sm:rounded-3xl font-black shadow-xl sm:shadow-2xl hover:bg-indigo-700 active:scale-95 transition-all flex items-center justify-center gap-3 sm:gap-4 uppercase text-xs sm:text-sm tracking-widest w-full sm:w-auto"><Printer className="w-5 h-5 sm:w-6 sm:h-6" /> สั่งพิมพ์รายงาน </button>
         </div>
         <div className="text-center mb-10 sm:mb-16 uppercase">
           <h1 className="text-3xl sm:text-6xl font-black text-slate-900 tracking-tighter leading-none mb-2 sm:mb-4">ROSTER SCHEDULE: {CALENDAR_DAYS.length === 7 ? `WEEK OF ${CALENDAR_DAYS[0].dateStr}` : `${THAI_MONTHS[selectedMonth]} 2026`}</h1>
@@ -661,6 +661,8 @@ export default function App() {
   const [branchData, setBranchData] = useState({ staff: [], holidays: [], matrix: generateDefaultMatrix(), duties: { service: DEFAULT_SERVICE_DUTIES, kitchen: DEFAULT_KITCHEN_DUTIES }, templates: [] });
   const [schedule, setSchedule] = useState({});
   const [scheduleHistory, setScheduleHistory] = useState(null);
+  const [scheduleVersions, setScheduleVersions] = useState([]);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [pendingRequests, setPendingRequests] = useState([]); 
   
   const [selectedDateStr, setSelectedDateStr] = useState(() => {
@@ -1623,10 +1625,17 @@ export default function App() {
     const unsubSched = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'schedules', activeBranchId), (snap) => {
       if (snap.exists()) setSchedule(snap.data().records || {}); else setSchedule({});
     });
+    const unsubVersions = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'schedule_versions', activeBranchId), (snap) => {
+      if (snap.exists()) {
+        setScheduleVersions(snap.data().versions || []);
+      } else {
+        setScheduleVersions([]);
+      }
+    });
     const unsubReq = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'requests', activeBranchId), (snap) => {
       if (snap.exists()) setPendingRequests(snap.data().list || []); else setPendingRequests([]);
     });
-    return () => { unsubBranch(); unsubSched(); unsubReq(); };
+    return () => { unsubBranch(); unsubSched(); unsubReq(); unsubVersions(); };
   }, [user, activeBranchId]);
 
   // Reset Landing Page view when branch changes
@@ -3026,6 +3035,7 @@ export default function App() {
   };
 
   const handleAutoAssign = (mode = 'daily') => {
+    saveScheduleVersion(`AUTO_ASSIGN_${mode.toUpperCase()}`, scheduleRef.current);
     setAiLoading(true);
     
     // อัปเดตเวลาใช้งานล่าสุด
@@ -4375,6 +4385,46 @@ export default function App() {
                         </table>
                     </div>
                 </div>
+             </div>
+          </div>
+        )}
+        {showHistoryModal && (
+          <div className="fixed inset-0 z-[400] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 sm:p-6 animate-in fade-in duration-300">
+             <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 max-w-2xl w-full shadow-2xl relative flex flex-col gap-4 sm:gap-6 animate-in zoom-in-95 font-sans max-h-[80vh] overflow-hidden">
+               <div className="flex justify-between items-center border-b border-slate-100 pb-4">
+                   <div className="flex items-center gap-3">
+                      <div className="bg-indigo-100 p-3 rounded-full"><FolderOpen className="w-6 h-6 text-indigo-500"/></div>
+                      <div><h3 className="text-xl font-black text-slate-800 uppercase tracking-tighter">ประวัติการจัดกะ</h3><p className="text-[10px] sm:text-xs font-bold text-slate-400">ระบบจะบันทึก 10 เวอร์ชันล่าสุดโดยอัตโนมัติ</p></div>
+                   </div>
+                   <button onClick={() => setShowHistoryModal(false)} className="text-slate-400 hover:bg-slate-100 p-2 rounded-full transition"><X className="w-6 h-6"/></button>
+               </div>
+               <div className="overflow-y-auto custom-scrollbar flex-1 pr-2">
+                  {scheduleVersions.length === 0 ? (
+                      <div className="text-center py-10 text-slate-400 font-bold text-sm bg-slate-50 rounded-2xl border border-slate-100">ไม่มีประวัติการจัดกะ 💾</div>
+                  ) : (
+                      <div className="space-y-3">
+                          {scheduleVersions.map(version => {
+                              const typeLabels = {
+                                  'AUTO_ASSIGN_DAILY': { label: 'จัดกะอัตโนมัติ (รายวัน)', icon: <Wand2 className="w-4 h-4 text-indigo-500"/> },
+                                  'AUTO_ASSIGN_WEEKLY': { label: 'จัดกะอัตโนมัติ (รายสัปดาห์)', icon: <Wand2 className="w-4 h-4 text-indigo-500"/> },
+                                  'AUTO_ASSIGN_MONTHLY': { label: 'จัดกะอัตโนมัติ (รายเดือน)', icon: <Wand2 className="w-4 h-4 text-indigo-500"/> },
+                                  'PRINT_SNAPSHOT_DAILY': { label: 'บันทึกจากการพิมพ์ (รายวัน)', icon: <Printer className="w-4 h-4 text-slate-500"/> },
+                                  'PRINT_SNAPSHOT_MONTHLY': { label: 'บันทึกจากการพิมพ์ (รายเดือน)', icon: <Printer className="w-4 h-4 text-slate-500"/> },
+                              };
+                              const typeInfo = typeLabels[version.type] || { label: version.type, icon: <Save className="w-4 h-4 text-slate-500"/> };
+                              return (
+                                  <div key={version.id} className="bg-white border border-slate-200 p-4 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-sm">
+                                      <div>
+                                          <h4 className="font-black text-slate-800 flex items-center gap-2">{typeInfo.icon} {typeInfo.label}</h4>
+                                          <p className="text-xs font-bold text-slate-500 mt-1">{new Date(version.timestamp).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })}</p>
+                                      </div>
+                                      <button onClick={() => handleRestoreVersion(version)} className="w-full sm:w-auto bg-emerald-50 text-emerald-600 px-4 py-2 rounded-xl text-xs font-black hover:bg-emerald-500 hover:text-white transition shadow-sm border border-emerald-200">กู้คืนเวอร์ชันนี้</button>
+                                  </div>
+                              );
+                          })}
+                      </div>
+                  )}
+               </div>
              </div>
           </div>
         )}
@@ -5755,6 +5805,9 @@ export default function App() {
              <div className="flex flex-wrap gap-2 w-full xl:w-auto">
                 <button onClick={handleShareToLine} className="flex-1 xl:flex-none bg-[#00B900] hover:bg-[#009900] text-white px-4 sm:px-6 py-4 sm:py-5 rounded-xl sm:rounded-[2rem] font-black flex justify-center items-center gap-2 shadow-lg active:scale-95 transition-all text-[10px] sm:text-sm"><MessageCircle className="w-4 h-4 sm:w-5 sm:h-5" /> <span className="hidden sm:inline">Copy to LINE</span><span className="sm:hidden">Share</span></button>
                 <button onClick={() => { setForecastTc(''); setForecastReason(''); setForecastEvidence(''); setShowForecastModal(true); }} className="flex-1 xl:flex-none bg-indigo-50 text-indigo-600 border border-indigo-200 hover:bg-indigo-100 px-4 sm:px-6 py-4 sm:py-5 rounded-xl sm:rounded-[2rem] font-black flex justify-center items-center gap-2 shadow-sm active:scale-95 transition-all text-[10px] sm:text-sm"><TrendingUp className="w-4 h-4 sm:w-5 sm:h-5" /> <span className="hidden sm:inline">ขอจัดกะพิเศษกรณีมีอีเว้นพิเศษ</span><span className="sm:hidden">กะพิเศษ</span></button>
+                <button onClick={() => setShowHistoryModal(true)} className="flex-1 xl:flex-none bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 px-4 sm:px-6 py-4 sm:py-5 rounded-xl sm:rounded-[2rem] font-black flex justify-center items-center gap-2 shadow-sm active:scale-95 transition-all text-[10px] sm:text-sm">
+                    <FolderOpen className="w-4 h-4 sm:w-5 sm:h-5" /> ประวัติ
+                </button>
                 <button onClick={() => requestAutoAssign('daily')} disabled={aiLoading} className="flex-1 xl:flex-none bg-slate-900 text-white px-4 sm:px-6 py-4 sm:py-5 rounded-xl sm:rounded-[2rem] font-black flex justify-center items-center gap-2 sm:gap-3 hover:bg-black shadow-xl active:scale-95 transition-all text-[10px] sm:text-sm">{aiLoading ? <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin text-indigo-400" /> : <Wand2 className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-400" />} จัดกะอัตโนมัติ</button>
                 {scheduleHistory && (
                    <button onClick={handleUndoSchedule} disabled={aiLoading} className="flex-1 xl:flex-none bg-indigo-100 text-indigo-600 hover:bg-indigo-200 px-4 sm:px-6 py-4 sm:py-5 rounded-xl sm:rounded-[2rem] font-black flex justify-center items-center gap-2 shadow-sm active:scale-95 transition-all text-[10px] sm:text-sm">
@@ -6510,8 +6563,10 @@ export default function App() {
                       <button onClick={() => setDailyViewMode('roster')} className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-[10px] sm:text-xs font-black transition-all ${dailyViewMode === 'roster' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>ตารางกะงาน</button>
                       <button onClick={() => setDailyViewMode('headcount')} className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-[10px] sm:text-xs font-black transition-all ${dailyViewMode === 'headcount' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>สรุปกำลังคน</button>
                       <button onClick={() => setDailyViewMode('prep')} className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-[10px] sm:text-xs font-black transition-all ${dailyViewMode === 'prep' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>ใบเตรียมของ</button>
-                   </div>
-                   <button onClick={() => window.print()} className="flex-1 sm:flex-none justify-center bg-slate-900 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-black flex items-center gap-2 hover:bg-black shadow-lg active:scale-95 transition-all text-[10px] sm:text-xs uppercase tracking-widest"><Printer className="w-4 h-4" /> พิมพ์ตารางนี้</button>
+                   </div>                   <button onClick={async () => {
+                       await saveScheduleVersion('PRINT_SNAPSHOT_DAILY', schedule);
+                       window.print();
+                   }} className="flex-1 sm:flex-none justify-center bg-slate-900 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-black flex items-center gap-2 hover:bg-black shadow-lg active:scale-95 transition-all text-[10px] sm:text-xs uppercase tracking-widest"><Printer className="w-4 h-4" /> พิมพ์ตารางนี้</button>
                 </div>
              </div>
              <div className="p-4 sm:p-8 overflow-x-auto w-full">
@@ -6600,6 +6655,9 @@ export default function App() {
                 <div className="flex gap-2 w-full sm:w-auto">
                   <button onClick={() => requestAutoAssign('monthly')} disabled={aiLoading} className="flex-1 sm:flex-none bg-slate-900 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-black flex justify-center items-center gap-2 hover:bg-black shadow-lg active:scale-95 transition-all text-[10px] sm:text-xs uppercase tracking-widest">
                       {aiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4 text-yellow-400" />} จัดกะอัตโนมัติ (ทั้งเดือน)
+                   </button>
+                   <button onClick={() => setShowHistoryModal(true)} className="flex-1 sm:flex-none bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 px-4 py-2 sm:py-3 rounded-xl flex justify-center items-center gap-2 shadow-sm active:scale-95 transition-all text-[10px] sm:text-xs font-black uppercase tracking-widest">
+                       <FolderOpen className="w-4 h-4" /> ประวัติ
                    </button>
                    {scheduleHistory && (
                       <button onClick={handleUndoSchedule} disabled={aiLoading} className="flex-1 sm:flex-none bg-indigo-100 text-indigo-600 hover:bg-indigo-200 px-4 py-2 sm:py-3 rounded-xl flex justify-center items-center gap-2 shadow-sm active:scale-95 transition-all text-[10px] sm:text-xs font-black uppercase tracking-widest">
@@ -8503,7 +8561,7 @@ export default function App() {
     mainContent = renderGuideView();
   } else if (view === 'print') {
     const DISPLAY_DAYS = managerViewMode === 'weekly' ? WEEKLY_DAYS : CALENDAR_DAYS;
-    mainContent = <PrintMonthlyView CALENDAR_DAYS={DISPLAY_DAYS} branchData={branchData} globalConfig={globalConfig} activeBranchId={activeBranchId} THAI_MONTHS={THAI_MONTHS} selectedMonth={selectedMonth} getStaffDayInfo={getStaffDayInfo} setView={setView} activeDept={activeDept} CURRENT_DUTY_LIST={CURRENT_DUTY_LIST} schedule={schedule} handleToggleLeave={handleToggleLeave} LEAVE_TYPES={LEAVE_TYPES} handleAutoAssign={requestAutoAssign} aiLoading={aiLoading} />;
+    mainContent = <PrintMonthlyView onPrint={handlePrintMonthly} CALENDAR_DAYS={DISPLAY_DAYS} branchData={branchData} globalConfig={globalConfig} activeBranchId={activeBranchId} THAI_MONTHS={THAI_MONTHS} selectedMonth={selectedMonth} getStaffDayInfo={getStaffDayInfo} setView={setView} activeDept={activeDept} CURRENT_DUTY_LIST={CURRENT_DUTY_LIST} schedule={schedule} handleToggleLeave={handleToggleLeave} LEAVE_TYPES={LEAVE_TYPES} />;
   }
 
   return (
