@@ -544,9 +544,9 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
           <table className="w-full border-collapse text-[6px] sm:text-[8px] table-fixed min-w-[800px] sm:min-w-none bg-white print:border-2 print:border-black">
             <thead>
               <tr className="bg-slate-900 text-white print:bg-slate-200 print:text-black">
-                <th className="border-r border-slate-700 p-2 sm:p-3 text-center sticky left-0 bg-slate-900 z-30 w-16 sm:w-20 font-black uppercase border-b-2 border-slate-600 print:border-black print:bg-transparent">Duty Layer</th>
-                <th className="border-r border-slate-700 p-2 sm:p-3 text-center sticky left-[4rem] sm:left-[5rem] bg-slate-900 z-30 w-12 sm:w-16 font-black uppercase border-b-2 border-slate-600 print:border-black print:bg-transparent">Pos</th>
-                <th className="border-r border-slate-700 p-2 sm:p-3 text-left sticky left-[7rem] sm:left-[9rem] bg-slate-900 z-30 w-24 sm:w-40 font-black uppercase border-b-2 border-slate-600 print:border-black print:bg-transparent">Employee Name</th>
+                <th className="border-r border-slate-700 p-2 sm:p-3 text-center sticky left-0 bg-slate-900 z-30 w-16 sm:w-20 font-black uppercase border-b-2 border-slate-600 print:border-black print:bg-transparent print:text-black">Duty Layer</th>
+                <th className="border-r border-slate-700 p-2 sm:p-3 text-center sticky left-[4rem] sm:left-[5rem] bg-slate-900 z-30 w-12 sm:w-16 font-black uppercase border-b-2 border-slate-600 print:border-black print:bg-transparent print:text-black">Pos</th>
+                <th className="border-r border-slate-700 p-2 sm:p-3 text-left sticky left-[7rem] sm:left-[9rem] bg-slate-900 z-30 w-24 sm:w-40 font-black uppercase border-b-2 border-slate-600 print:border-black print:bg-transparent print:text-black">Employee Name</th>
                 {CALENDAR_DAYS.map(day => (
                   <th key={day.dateStr} className={`border-r border-slate-700 p-1.5 sm:p-3 min-w-[30px] sm:min-w-[45px] text-center border-b-2 border-slate-600 print:border-black ${(day.type === 'saturday' || day.type === 'sunday') || isDateHoliday(day.dateStr, branchData.holidays) ? 'bg-slate-800 text-indigo-300 print:text-black print:bg-slate-100' : ''}`}>
                     <div className="font-black text-[10px] sm:text-sm mb-0.5 sm:mb-1">{day.dayNum}</div><div className="text-[6px] sm:text-[8px] opacity-70 uppercase tracking-tighter">{day.dayLabel}</div>
@@ -563,14 +563,14 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
                      {catStaff.map((s, dIdx) => (
                         <tr key={s.id} className="h-10 sm:h-14 transition-colors border-b border-slate-200 print:border-black">
                           {dIdx === 0 && (
-                            <td rowSpan={catStaff.length} className={`border-r border-slate-900 p-1 font-black sticky left-0 z-10 text-[5px] sm:text-[7px] uppercase leading-tight text-center print:border-black print:bg-transparent ${cat.color.split(' ')[0]} ${cat.color.split(' ')[1]}`}>
+                            <td rowSpan={catStaff.length} className={`border-r border-slate-900 p-1 font-black sticky left-0 z-10 text-[5px] sm:text-[7px] uppercase leading-tight text-center print:border-black print:bg-transparent print:text-black ${cat.color.split(' ')[0]} ${cat.color.split(' ')[1]}`}>
                                {cat.label.replace('Customer Service ', '').replace('Kitchen ', '')}
                             </td>
                           )}
-                          <td className="border-r-2 sm:border-r-4 border-slate-900 p-1 sm:p-2 font-black sticky left-[4rem] sm:left-[5rem] bg-white z-10 text-[7px] sm:text-[9px] uppercase leading-tight text-center print:border-black print:bg-transparent">
+                          <td className="border-r-2 sm:border-r-4 border-slate-900 p-1 sm:p-2 font-black sticky left-[4rem] sm:left-[5rem] bg-white z-10 text-[7px] sm:text-[9px] uppercase leading-tight text-center print:border-black print:bg-transparent print:text-black">
                              {s.pos}
                           </td>
-                          <td className="border-r-2 sm:border-r-4 border-slate-900 p-2 sm:p-3 font-black sticky left-[7rem] sm:left-[9rem] bg-white z-10 text-[8px] sm:text-[10px] uppercase leading-tight truncate max-w-[100px] sm:max-w-[150px] print:border-black print:bg-transparent">
+                          <td className="border-r-2 sm:border-r-4 border-slate-900 p-2 sm:p-3 font-black sticky left-[7rem] sm:left-[9rem] bg-white z-10 text-[8px] sm:text-[10px] uppercase leading-tight truncate max-w-[100px] sm:max-w-[150px] print:border-black print:bg-transparent print:text-black">
                              {s.name}
                           </td>
                           {CALENDAR_DAYS.map(day => {
@@ -6379,24 +6379,24 @@ export default function App() {
          const timeText = (
              <div className="flex flex-col items-center justify-center leading-tight">
                  <span>{formatTimeAbbreviation(startTime)}-{formatTimeAbbreviation(endTime)}</span>
-                 {assignedData.otHours > 0 && <span className="text-[8px] sm:text-[9px] text-rose-600 font-black mt-0.5 bg-rose-50 px-1 rounded shadow-sm border border-rose-100">OT {assignedData.otHours} ชม.</span>}
+                 {assignedData.otHours > 0 && <span className="text-[8px] sm:text-[9px] text-rose-600 font-black mt-0.5 bg-rose-50 px-1 rounded shadow-sm border border-rose-100 print:text-black print:border-black print:bg-transparent">OT {assignedData.otHours} ชม.</span>}
              </div>
          );
          const pendingExtraOt = pendingRequests.find(r => r.reqType === 'EXTRA_OT' && r.dateStr === selectedDateStr && r.dutyId === duty.id && r.slotIdx === originalIdx && r.status === 'PENDING_MANAGER');
-         const otBadge = pendingExtraOt ? <span className="text-[7px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 ml-1 whitespace-nowrap shadow-sm">รออนุมัติ {pendingExtraOt.requestedOt} ชม.</span> : (assignedData.otHours > 0 ? ` (O${assignedData.otHours})` : '');
+         const otBadge = pendingExtraOt ? <span className="text-[7px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 ml-1 whitespace-nowrap shadow-sm print:text-black print:border-black print:bg-transparent">รออนุมัติ {pendingExtraOt.requestedOt} ชม.</span> : (assignedData.otHours > 0 ? ` (O${assignedData.otHours})` : '');
 
          return (
-            <tr key={`${duty.id}-${originalIdx}`} className={`text-center h-10 sm:h-12 border border-slate-800 ${cat.color.split(' ')[0]} ${cat.color.split(' ')[1]}`}>
+            <tr key={`${duty.id}-${originalIdx}`} className={`text-center h-10 sm:h-12 border border-slate-800 ${cat.color.split(' ')[0]} ${cat.color.split(' ')[1]} print:bg-white print:text-black`}>
                {isFirstOfCat && (
-                  <td rowSpan={catSlotCount} className="border border-slate-800 p-2 font-black uppercase leading-tight bg-black/10" style={{ fontSize: `${rs.fontDuty || rs.fontSize}px` }}>{cat.label}</td>
+                  <td rowSpan={catSlotCount} className="border border-slate-800 p-2 font-black uppercase leading-tight bg-black/10 print:bg-transparent" style={{ fontSize: `${rs.fontDuty || rs.fontSize}px` }}>{cat.label}</td>
                )}
                {isFirstOfXpDna && (
-                  <td rowSpan={xpDnaRowSpans[idx]} className="border border-slate-800 p-2 text-left whitespace-pre-wrap leading-tight opacity-90" style={{ fontSize: `${rs.fontXpDna || (rs.fontSize * 0.8)}px` }} dangerouslySetInnerHTML={{ __html: duty.xpDna || '-' }}></td>
+                  <td rowSpan={xpDnaRowSpans[idx]} className="border border-slate-800 p-2 text-left whitespace-pre-wrap leading-tight opacity-90 print:opacity-100" style={{ fontSize: `${rs.fontXpDna || (rs.fontSize * 0.8)}px` }} dangerouslySetInnerHTML={{ __html: duty.xpDna || '-' }}></td>
                )}
                {isFirstOfDuty && (
                   <React.Fragment>
-                     <td rowSpan={dutySlotCount} className="border border-slate-800 p-2 text-left leading-tight bg-white/40" style={{ fontSize: `${rs.fontJobA || rs.fontSize}px` }}>
-                        <div className={`font-black whitespace-pre-wrap ${duty.isBackup ? 'text-red-600' : 'text-slate-900'}`} dangerouslySetInnerHTML={{ __html: duty.jobA }}></div>
+                     <td rowSpan={dutySlotCount} className="border border-slate-800 p-2 text-left leading-tight bg-white/40 print:bg-transparent" style={{ fontSize: `${rs.fontJobA || rs.fontSize}px` }}>
+                        <div className={`font-black whitespace-pre-wrap ${duty.isBackup ? 'text-red-600 print:text-black' : 'text-slate-900 print:text-black'}`} dangerouslySetInnerHTML={{ __html: duty.jobA }}></div>
                         {duty.prepItems && duty.prepItems.length > 0 && (
                             <div className="mt-2 flex flex-col gap-1.5">
                                 {duty.prepItems.map(p => {
@@ -6424,22 +6424,22 @@ export default function App() {
                             </div>
                         )}
                      </td>
-                     <td rowSpan={dutySlotCount} className="border border-slate-800 p-2 text-left leading-tight opacity-80 whitespace-pre-wrap" style={{ fontSize: `${rs.fontJobB || (rs.fontSize * 0.8)}px` }} dangerouslySetInnerHTML={{ __html: duty.jobB || '-' }}></td>
+                     <td rowSpan={dutySlotCount} className="border border-slate-800 p-2 text-left leading-tight opacity-80 print:opacity-100 whitespace-pre-wrap" style={{ fontSize: `${rs.fontJobB || (rs.fontSize * 0.8)}px` }} dangerouslySetInnerHTML={{ __html: duty.jobB || '-' }}></td>
                      <td rowSpan={dutySlotCount} className="border border-slate-800 p-2 font-black" style={{ fontSize: `${rs.fontCount || (rs.fontSize * 1.2)}px` }}><u className="underline-offset-2">{dutySlotCount}</u></td>
                   </React.Fragment>
                )}
                <td className="border border-slate-800 p-2 text-left font-bold" style={{ fontSize: `${rs.fontName || rs.fontSize}px` }}>
                    <div className="flex justify-between items-center">
-                       <span className="flex items-center">{staffName}<span className="opacity-80 ml-1 font-black">{otBadge}</span></span>
-                       {staff && <span className={`px-1.5 py-0.5 rounded font-black uppercase bg-black/10 border border-current opacity-80`} style={{ fontSize: `${(rs.fontName || rs.fontSize) * 0.8}px` }}>{staff.pos}</span>}
+                       <span className="flex items-center">{staffName}<span className="opacity-80 print:opacity-100 ml-1 font-black">{otBadge}</span></span>
+                       {staff && <span className={`px-1.5 py-0.5 rounded font-black uppercase bg-black/10 print:bg-transparent border border-current opacity-80 print:opacity-100`} style={{ fontSize: `${(rs.fontName || rs.fontSize) * 0.8}px` }}>{staff.pos}</span>}
                    </div>
                </td>
-               {activeDayShiftVisibilities.hasMorning && <td className={`border border-slate-800 p-2 font-bold ${isMorning ? 'shadow-inner' : 'opacity-30'}`} style={{ fontSize: `${rs.fontShift || rs.fontSize}px` }}>{isMorning ? timeText : ''}</td>}
-               {activeDayShiftVisibilities.hasLateMorning && <td className={`border border-slate-800 p-2 font-bold ${isLateMorning ? 'shadow-inner' : 'opacity-30'}`} style={{ fontSize: `${rs.fontShift || rs.fontSize}px` }}>{isLateMorning ? timeText : ''}</td>}
-               {activeDayShiftVisibilities.hasAfternoon && <td className={`border border-slate-800 p-2 font-bold ${isAfternoon ? 'shadow-inner' : 'opacity-30'}`} style={{ fontSize: `${rs.fontShift || rs.fontSize}px` }}>{isAfternoon ? timeText : ''}</td>}
-               {activeDayShiftVisibilities.hasEvening && <td className={`border border-slate-800 p-2 font-bold ${isEvening ? 'shadow-inner' : 'opacity-30'}`} style={{ fontSize: `${rs.fontShift || rs.fontSize}px` }}>{isEvening ? timeText : ''}</td>}
-               {activeDayShiftVisibilities.hasNight && <td className={`border border-slate-800 p-2 font-bold ${isNight ? 'shadow-inner' : 'opacity-30'}`} style={{ fontSize: `${rs.fontShift || rs.fontSize}px` }}>{isNight ? timeText : ''}</td>}
-               <td className="border border-slate-800 p-1.5 bg-white font-black text-indigo-700 tracking-tighter whitespace-nowrap print:p-2">
+               {activeDayShiftVisibilities.hasMorning && <td className={`border border-slate-800 p-2 font-bold ${isMorning ? 'shadow-inner' : 'opacity-30 print:opacity-100'}`} style={{ fontSize: `${rs.fontShift || rs.fontSize}px` }}>{isMorning ? timeText : ''}</td>}
+               {activeDayShiftVisibilities.hasLateMorning && <td className={`border border-slate-800 p-2 font-bold ${isLateMorning ? 'shadow-inner' : 'opacity-30 print:opacity-100'}`} style={{ fontSize: `${rs.fontShift || rs.fontSize}px` }}>{isLateMorning ? timeText : ''}</td>}
+               {activeDayShiftVisibilities.hasAfternoon && <td className={`border border-slate-800 p-2 font-bold ${isAfternoon ? 'shadow-inner' : 'opacity-30 print:opacity-100'}`} style={{ fontSize: `${rs.fontShift || rs.fontSize}px` }}>{isAfternoon ? timeText : ''}</td>}
+               {activeDayShiftVisibilities.hasEvening && <td className={`border border-slate-800 p-2 font-bold ${isEvening ? 'shadow-inner' : 'opacity-30 print:opacity-100'}`} style={{ fontSize: `${rs.fontShift || rs.fontSize}px` }}>{isEvening ? timeText : ''}</td>}
+               {activeDayShiftVisibilities.hasNight && <td className={`border border-slate-800 p-2 font-bold ${isNight ? 'shadow-inner' : 'opacity-30 print:opacity-100'}`} style={{ fontSize: `${rs.fontShift || rs.fontSize}px` }}>{isNight ? timeText : ''}</td>}
+               <td className="border border-slate-800 p-1.5 bg-white font-black text-indigo-700 print:text-black tracking-tighter whitespace-nowrap print:p-2">
                    <BreakTimeInput 
                        computedValue={slotItem.breakTime}
                        manualValue={slotItem.assignedData.breakTime}
