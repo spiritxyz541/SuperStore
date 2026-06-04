@@ -1990,6 +1990,45 @@ export default function App() {
     }
   }, [activeBranchId]);
 
+  const saveScheduleVersion = async (type, scheduleData) => {
+    if (!activeBranchId) return;
+    const versionsRef = doc(db, 'artifacts', appId, 'public', 'data', 'schedule_versions', activeBranchId);
+    
+    const newVersion = {
+        id: 'v' + Date.now(),
+        timestamp: Date.now(),
+        type: type,
+        schedule: scheduleData
+    };
+
+    const currentVersions = scheduleVersions;
+    const updatedVersions = [newVersion, ...currentVersions].slice(0, 10);
+
+    try {
+        await setDoc(versionsRef, { versions: updatedVersions });
+    } catch (e) {
+        console.error("Failed to save schedule version:", e);
+    }
+  };
+
+  const handleRestoreVersion = (versionToRestore) => {
+    if (!versionToRestore || !versionToRestore.schedule) return;
+    setConfirmModal({
+        message: `คุณต้องการกู้คืนตารางกะงานของเวอร์ชันที่บันทึกไว้เมื่อ ${new Date(versionToRestore.timestamp).toLocaleString('th-TH')} ใช่หรือไม่? ข้อมูลปัจจุบันจะถูกเขียนทับ`,
+        action: async () => {
+            setSchedule(versionToRestore.schedule);
+            await autoSaveSchedule(versionToRestore.schedule);
+            setShowHistoryModal(false);
+            setConfirmModal({ message: 'กู้คืนข้อมูลสำเร็จ!' });
+        }
+    });
+  };
+
+  const handlePrintMonthly = async () => {
+    await saveScheduleVersion('PRINT_SNAPSHOT_MONTHLY', schedule);
+    window.print();
+  };
+
   const handleGlobalSave = async () => {
     if (authRole === 'guest' || authRole === 'staff') return;
 
