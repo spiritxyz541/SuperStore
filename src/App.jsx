@@ -521,7 +521,7 @@ const BreakTimeInput = ({ computedValue, manualValue, onSave, onReset, rsFontSiz
 //   - Leave short label e.g. "ย", "พร", "ป่วย"           → staff is on leave
 //   - "-"                                                  → no data
 
-const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranchId, THAI_MONTHS, selectedMonth, getStaffDayInfo, setView, activeDept, CURRENT_DUTY_LIST, handleToggleLeave, LEAVE_TYPES }) => {
+const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranchId, THAI_MONTHS, selectedMonth, getStaffDayInfo, setView, activeDept, CURRENT_DUTY_LIST, handleToggleLeave, LEAVE_TYPES, onPrint }) => {
   const filteredStaff = branchData.staff?.filter(s => s.dept === activeDept) || [];
   const sortedStaff = [...filteredStaff].sort((a, b) => {
       const rankA = POSITIONS[activeDept].indexOf(a.pos);
