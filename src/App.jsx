@@ -560,10 +560,8 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
                  if (catStaff.length === 0) return null;
                  return (
                    <React.Fragment key={cat.id}>
-                     {catStaff.map((s, dIdx) => {
-                        const isLastOfCat = dIdx === catStaff.length - 1;
-                        return (
-                        <tr key={s.id} className={`h-10 sm:h-14 transition-colors border-b border-slate-200 print:border-black ${isLastOfCat ? 'print-category-divider' : ''}`}>
+                     {catStaff.map((s, dIdx) => (
+                        <tr key={s.id} className="h-10 sm:h-14 transition-colors border-b border-slate-200 print:border-black">
                           {dIdx === 0 && (
                             <td rowSpan={catStaff.length} className={`border-r border-slate-900 p-1 font-black sticky left-0 z-10 text-[5px] sm:text-[7px] uppercase leading-tight text-center print:border-black print:bg-transparent print:text-black ${cat.color.split(' ')[0]} ${cat.color.split(' ')[1]}`}>
                                {cat.label.replace('Customer Service ', '').replace('Kitchen ', '')}
@@ -605,8 +603,7 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
                              );
                           })}
                         </tr>
-                        );
-                     })}
+                     ))}
                    </React.Fragment>
                  );
               })}
@@ -6366,8 +6363,6 @@ export default function App() {
          const { cat, duty, slotItem, isFirstOfCat, catSlotCount, isFirstOfDuty, dutySlotCount, originalIdx, isFirstOfXpDna } = tr;
          const { slot, assignedData } = slotItem;
          
-         const isLastOfCat = idx === allTrs.length - 1 || allTrs[idx + 1].cat.id !== tr.cat.id;
-         
          const actualStaffId = assignedData.staffId?.startsWith('COVER_BY_') ? assignedData.staffId.replace('COVER_BY_', '') : assignedData.staffId;
          const staff = branchData.staff?.find(s => s.id === actualStaffId);
          const staffName = staff ? staff.name : '-';
@@ -6391,7 +6386,7 @@ export default function App() {
          const otBadge = pendingExtraOt ? <span className="text-[7px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 ml-1 whitespace-nowrap shadow-sm print:text-black print:border-black print:bg-transparent">รออนุมัติ {pendingExtraOt.requestedOt} ชม.</span> : (assignedData.otHours > 0 ? ` (O${assignedData.otHours})` : '');
 
          return (
-            <tr key={`${duty.id}-${originalIdx}`} className={`text-center h-10 sm:h-12 border border-slate-800 ${cat.color.split(' ')[0]} ${cat.color.split(' ')[1]} ${isLastOfCat ? 'print-category-divider' : ''}`}>
+            <tr key={`${duty.id}-${originalIdx}`} className={`text-center h-10 sm:h-12 border border-slate-800 ${cat.color.split(' ')[0]} ${cat.color.split(' ')[1]} print:bg-white print:text-black`}>
                {isFirstOfCat && (
                   <td rowSpan={catSlotCount} className="border border-slate-800 p-2 font-black uppercase leading-tight bg-black/10 print:bg-transparent" style={{ fontSize: `${rs.fontDuty || rs.fontSize}px` }}>{cat.label}</td>
                )}
@@ -8516,10 +8511,7 @@ export default function App() {
               }
           .print-roster-wrapper > div { width: 100% !important; }
           table { width: 100% !important; border-collapse: collapse !important; border: 2px solid #000 !important; margin: 0 auto !important; }
-          table th, table td { border: 1px solid #000 !important; padding: 4px !important; background-color: transparent !important; color: #000 !important; }
-          table th { border-bottom: 3px solid #000 !important; }
-          table tr.print-category-divider > td { border-bottom: 3px solid #000 !important; }
-          table * { color: #000 !important; }
+          th, td { border: 1px solid #000 !important; padding: 4px !important; }
             tr { page-break-inside: avoid !important; break-inside: avoid !important; }
             thead { display: table-header-group !important; }
         }
