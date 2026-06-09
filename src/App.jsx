@@ -531,17 +531,15 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
       const rankA = POSITIONS[activeDept].indexOf(a.pos);
       const rankB = POSITIONS[activeDept].indexOf(b.pos);
       return (rankA === -1 ? 999 : rankA) - (rankB === -1 ? 999 : rankB);
-  });
-
-  const isWeeklyPrint = CALENDAR_DAYS.length === 7;
-  const printTableFontSize = isWeeklyPrint ? '10px' : '7.5px';
-  const printCellWorkTimeSize = isWeeklyPrint ? '10px' : '7.5px';
-  const printEmployeeNameSize = isWeeklyPrint ? '10.5px' : '8px';
-  const printEmployeePosSize = isWeeklyPrint ? '10px' : '7.5px';
-  const printDutyLayerSize = isWeeklyPrint ? '9px' : '6.5px';
-  const printTdPadding = isWeeklyPrint ? '6px 4px' : '2px 1px';
-  const printThPadding = isWeeklyPrint ? '8px 4px' : '3px 1.5px';
-  const printRowHeight = isWeeklyPrint ? '40px' : '28px';
+  });  const isWeeklyPrint = CALENDAR_DAYS.length === 7;
+  const printTableFontSize = isWeeklyPrint ? '12px' : '9px';
+  const printCellWorkTimeSize = isWeeklyPrint ? '12.5px' : '9.5px';
+  const printEmployeeNameSize = isWeeklyPrint ? '12.5px' : '9.5px';
+  const printEmployeePosSize = isWeeklyPrint ? '12px' : '9px';
+  const printDutyLayerSize = isWeeklyPrint ? '11px' : '8px';
+  const printTdPadding = isWeeklyPrint ? '8px 6px' : '4px 2px';
+  const printThPadding = isWeeklyPrint ? '10px 6px' : '5px 3px';
+  const printRowHeight = isWeeklyPrint ? '50px' : '35px';
 
   return (
     <div className="p-4 sm:p-10 bg-white animate-in fade-in w-full overflow-x-hidden print:overflow-visible flex-1 print-container">
