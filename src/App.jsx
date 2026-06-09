@@ -2292,20 +2292,39 @@ export default function App() {
       checkAndBackupAll();
       const intervalId = setInterval(checkAndBackupAll, 60000); // Check every minute
       return () => clearInterval(intervalId);
-  }, [user, globalConfig.lastGlobalBackupDate, globalConfig.branches]);  const autoSaveSchedule = useCallback((scheduleData, immediate = false) => {
-    const dataToSave = scheduleData || scheduleRef.current;
+  }, [user, globalConfig.lastGlobalBackupDate, globalConfig.branches]);
+
+  // OPTIMIZED: Day-Level Merge Auto Save
+  // changedDateStr = null means save entire schedule (for multi-day ops like auto-assign)
+  // changedDateStr = 'YYYY-MM-DD' means only save that specific day (fast, ~1-5KB)
+  const autoSaveSchedule = useCallback((scheduleData, immediate = false, changedDateStr = null) => {
+    const fullSchedule = scheduleData || scheduleRef.current;
     if (!activeBranchId) return Promise.resolve();
-    
+
     setSaveStatus('saving');
-    
+
     if (autoSaveTimerRef.current) {
         clearTimeout(autoSaveTimerRef.current);
     }
-    
+
     return new Promise((resolve, reject) => {
         const performSave = async () => {
             try {
-                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'schedules', activeBranchId), { records: dataToSave });
+                if (changedDateStr) {
+                    // Fast path: merge only the changed day (payload ~1-5KB instead of ~300KB+)
+                    const dayData = fullSchedule[changedDateStr] || null;
+                    await setDoc(
+                        doc(db, 'artifacts', appId, 'public', 'data', 'schedules', activeBranchId),
+                        { records: { [changedDateStr]: dayData } },
+                        { merge: true }
+                    );
+                } else {
+                    // Full save: for multi-day changes (auto-assign, undo, clear all)
+                    await setDoc(
+                        doc(db, 'artifacts', appId, 'public', 'data', 'schedules', activeBranchId),
+                        { records: fullSchedule }
+                    );
+                }
                 setSaveStatus('success');
                 setTimeout(() => { setSaveStatus(null); }, 1500);
                 resolve();
@@ -2314,11 +2333,12 @@ export default function App() {
                 reject(err);
             }
         };
-        
+
         if (immediate) {
             performSave();
         } else {
-            autoSaveTimerRef.current = setTimeout(performSave, 1000);
+            // Increased debounce: 2000ms to reduce Firestore writes when editing multiple cells quickly
+            autoSaveTimerRef.current = setTimeout(performSave, 2000);
             resolve();
         }
     });
@@ -2360,12 +2380,10 @@ export default function App() {
 
   const handlePrintMonthly = () => {
     window.print();
-  };
-
-  const handleGlobalSave = async () => {
+  };  const handleGlobalSave = async () => {
     if (authRole === 'guest' || authRole === 'staff') return;
 
-    // 1. Validation Safeguard: ป้องกันการเซฟข้อมูลว่างเปล่า (Empty State) ไปทับบนฐานข้อมูล
+    // Validation: ป้องกันการเซฟข้อมูลว่างเปล่าไปทับฐานข้อมูล
     if (authRole === 'superadmin') {
         if (!globalConfig || !globalConfig.admins || globalConfig.admins.length === 0) {
             setConfirmModal({ message: '❌ ไม่สามารถบันทึกข้อมูลส่วนกลางได้ เนื่องจากข้อมูลส่วนกลาง (Master Config) ยังโหลดไม่สมบูรณ์' });
@@ -2385,33 +2403,60 @@ export default function App() {
       const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
       const dayOfMonth = now.getDate();
 
+      // OPTIMIZED: Build parallel save tasks (only critical data, backup runs in background)
+      const saveTasks = [];
+
       if (authRole === 'superadmin') {
-          // 2. เพิ่ม { merge: true } เพื่อเซฟแบบผสานข้อมูล ลดความเสี่ยงการเผลอลบฟิลด์ที่ไม่ตั้งใจ
-          await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'master'), globalConfig, { merge: true });
-          // แบคอัป Global เมื่อ Admin กดบันทึก
-          await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'backups', `GLOBAL_day_${dayOfMonth}`), {
-              backupDate: todayStr,
-              timestamp: Date.now(),
-              masterConfig: globalConfig,
-              templates: globalTemplates
-          }, { merge: true });
+          saveTasks.push(
+              setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'master'), globalConfig, { merge: true })
+          );
       }
       if (activeBranchId) {
-        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData, { merge: true });
-        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'schedules', activeBranchId), { records: schedule }, { merge: true });
-        
-        // แบคอัปข้อมูลสาขาทันทีที่มีการกดบันทึก
-        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'backups', `${activeBranchId}_day_${dayOfMonth}`), {
-            backupDate: todayStr,
-            timestamp: Date.now(),
-            branchData: branchData,
-            schedule: schedule,
-            requests: pendingRequests || []
-        }, { merge: true });
+          saveTasks.push(
+              setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData, { merge: true }),
+              setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'schedules', activeBranchId), { records: schedule }, { merge: true })
+          );
       }
-      setSaveStatus('success'); setShowSuccessModal(true); 
+
+      // Run all critical saves in PARALLEL (not sequential)
+      await Promise.all(saveTasks);
+
+      // Show success immediately - user doesn't need to wait for backups
+      setSaveStatus('success');
+      setShowSuccessModal(true);
       setTimeout(() => { setSaveStatus(null); setShowSuccessModal(false); }, 2000);
-    } catch (err) { setSaveStatus('error'); }
+
+      // Backups run in BACKGROUND (fire-and-forget, non-blocking)
+      const runBackups = async () => {
+          const backupTasks = [];
+          if (authRole === 'superadmin') {
+              backupTasks.push(
+                  setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'backups', `GLOBAL_day_${dayOfMonth}`), {
+                      backupDate: todayStr,
+                      timestamp: Date.now(),
+                      masterConfig: globalConfig,
+                      templates: globalTemplates
+                  }, { merge: true })
+              );
+          }
+          if (activeBranchId) {
+              backupTasks.push(
+                  setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'backups', `${activeBranchId}_day_${dayOfMonth}`), {
+                      backupDate: todayStr,
+                      timestamp: Date.now(),
+                      branchData: branchData,
+                      schedule: schedule,
+                      requests: pendingRequests || []
+                  }, { merge: true })
+              );
+          }
+          await Promise.all(backupTasks);
+      };
+      runBackups().catch(err => console.warn('Background backup failed (non-critical):', err));
+
+    } catch (err) {
+      setSaveStatus('error');
+    }
   };
 
   const handleScheduleUpdate = (dateStr, dutyId, slotIndex, field, value, defaultOt = 0) => {
@@ -2436,11 +2481,9 @@ export default function App() {
 
       newSchedToSave = newSched;
       return newSched;
-    });
-
-    setTimeout(() => {
+    });    setTimeout(() => {
         if ((field === 'staffId' || field === 'breakTime') && activeBranchId && newSchedToSave) {
-            autoSaveSchedule(newSchedToSave);
+            autoSaveSchedule(newSchedToSave, false, dateStr);
         }
     }, 0);
   };
@@ -2464,20 +2507,16 @@ export default function App() {
           otHours: 0,
           isEventExtra: isEventExtra,
           shiftPresetId: branchData.shiftPresets?.[0]?.id || 'S1'
-      });
-
-      if (activeBranchId) autoSaveSchedule(newSched);
+      });      if (activeBranchId) autoSaveSchedule(newSched, false, dateStr);
       return newSched;
     });
-  };
-
-  const handleRemoveExtraSlot = (dateStr, dutyId, slotIdx) => {
+  };  const handleRemoveExtraSlot = (dateStr, dutyId, slotIdx) => {
     setSchedule(prev => {
       const newSched = JSON.parse(JSON.stringify(prev));
       if (newSched[dateStr] && newSched[dateStr].duties && newSched[dateStr].duties[dutyId]) {
           newSched[dateStr].duties[dutyId].splice(slotIdx, 1);
       }
-      if (activeBranchId) autoSaveSchedule(newSched);
+      if (activeBranchId) autoSaveSchedule(newSched, false, dateStr);
       return newSched;
     });
   };
@@ -2500,9 +2539,7 @@ export default function App() {
                     }
                 });
             });
-        }
-
-        if (activeBranchId) autoSaveSchedule(newSched);
+        }        if (activeBranchId) autoSaveSchedule(newSched, false, dateStr);
         return newSched;
     });
   }, [activeBranchId, autoSaveSchedule]);
@@ -2530,8 +2567,7 @@ export default function App() {
                       });
                   });
               }
-          }
-          if (activeBranchId) autoSaveSchedule(newSched);
+          }          if (activeBranchId) autoSaveSchedule(newSched, false, dateStr);
           return newSched;
       });
   }, [activeBranchId, autoSaveSchedule]);
@@ -3211,9 +3247,7 @@ export default function App() {
           } else {
               newSched[dateStr].duties[dutyId][idx].otHours = parsed;
           }
-          newSched[dateStr].duties[dutyId][idx].otUpdated = true;
-          
-          if (activeBranchId) autoSaveSchedule(newSched);
+          newSched[dateStr].duties[dutyId][idx].otUpdated = true;          if (activeBranchId) autoSaveSchedule(newSched, false, dateStr);
           return newSched;
       });
 
@@ -3657,9 +3691,8 @@ export default function App() {
                             staffDutyCounts[candidate.id][duty.category] = (staffDutyCounts[candidate.id][duty.category] || 0) + 1;
                         }
                 });
-            });            setAiLoading(false);
-            if (activeBranchId) autoSaveSchedule(newSched, true);
-            return newSched;
+            });            setAiLoading(false);                                                     if (activeBranchId) autoSaveSchedule(newSched, true, activeDay.dateStr);
+                                                     return newSched;
         });
     }, 500); 
   };
@@ -3691,12 +3724,11 @@ export default function App() {
                       delete newSched[dateStr].duties[d.id];
                   });
               } 
-          });
-          if (activeBranchId) autoSaveSchedule(newSched);
+          });          if (activeBranchId) autoSaveSchedule(newSched, false, mode === 'daily' ? selectedDateStr : null);
           newSchedToSave = newSched;
           return newSched;
       });      setTimeout(() => {
-          if (activeBranchId && newSchedToSave) autoSaveSchedule(newSchedToSave, true);
+          if (activeBranchId && newSchedToSave) autoSaveSchedule(newSchedToSave, true, mode === 'daily' ? selectedDateStr : null);
       }, 0);
   };
 
