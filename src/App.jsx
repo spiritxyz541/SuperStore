@@ -533,19 +533,134 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
       return (rankA === -1 ? 999 : rankA) - (rankB === -1 ? 999 : rankB);
   });
 
+  const isWeeklyPrint = CALENDAR_DAYS.length === 7;
+  const printTableFontSize = isWeeklyPrint ? '10px' : '7.5px';
+  const printCellWorkTimeSize = isWeeklyPrint ? '10px' : '7.5px';
+  const printEmployeeNameSize = isWeeklyPrint ? '10.5px' : '8px';
+  const printEmployeePosSize = isWeeklyPrint ? '10px' : '7.5px';
+  const printDutyLayerSize = isWeeklyPrint ? '9px' : '6.5px';
+  const printTdPadding = isWeeklyPrint ? '6px 4px' : '2px 1px';
+  const printThPadding = isWeeklyPrint ? '8px 4px' : '3px 1.5px';
+  const printRowHeight = isWeeklyPrint ? '40px' : '28px';
+
   return (
-    <div className="p-4 sm:p-10 bg-white animate-in fade-in w-full overflow-x-hidden print:overflow-visible flex-1">
+    <div className="p-4 sm:p-10 bg-white animate-in fade-in w-full overflow-x-hidden print:overflow-visible flex-1 print-container">
+      <style>{`
+        @media print {
+          @page {
+            size: A4 landscape;
+            margin: 6mm 6mm;
+          }
+          body {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            background-color: #ffffff !important;
+          }
+          .print-container {
+            padding: 0 !important;
+            margin: 0 !important;
+            width: 100% !important;
+          }
+          .print-header {
+            margin-bottom: 12px !important;
+          }
+          .print-title {
+            font-size: 16px !important;
+            margin-bottom: 2px !important;
+            color: #000000 !important;
+          }
+          .print-subtitle {
+            font-size: 9px !important;
+            letter-spacing: 0.2em !important;
+            color: #475569 !important;
+          }
+          table.print-table {
+            font-size: ${printTableFontSize} !important;
+            width: 100% !important;
+            table-layout: fixed !important;
+            border-collapse: collapse !important;
+            border: 2px solid #000000 !important;
+          }
+          table.print-table th {
+            font-size: ${printTableFontSize} !important;
+            padding: ${printThPadding} !important;
+            font-weight: 900 !important;
+            border: 1px solid #000000 !important;
+            background-color: #f8fafc !important;
+            color: #000000 !important;
+          }
+          table.print-table td {
+            padding: ${printTdPadding} !important;
+            border: 1px solid #e2e8f0 !important;
+            border-right: 1px solid #cbd5e1 !important;
+            height: ${printRowHeight} !important;
+            vertical-align: middle !important;
+          }
+          table.print-table tr {
+            page-break-inside: avoid !important;
+          }
+          .print-duty-layer {
+            font-size: ${printDutyLayerSize} !important;
+            font-weight: 900 !important;
+            text-align: center !important;
+            border: 1px solid #000000 !important;
+            color: #000000 !important;
+          }
+          .print-employee-pos {
+            font-size: ${printEmployeePosSize} !important;
+            font-weight: 900 !important;
+            text-align: center !important;
+            background-color: #ffffff !important;
+            color: #000000 !important;
+            border-right: 2px solid #000000 !important;
+          }
+          .print-employee-name {
+            font-size: ${printEmployeeNameSize} !important;
+            font-weight: 900 !important;
+            max-width: none !important;
+            white-space: nowrap !important;
+            background-color: #ffffff !important;
+            color: #000000 !important;
+            border-right: 2px solid #000000 !important;
+          }
+          .print-cell-work-time {
+            font-size: ${printCellWorkTimeSize} !important;
+            font-weight: 900 !important;
+            color: #000000 !important;
+            line-height: 1 !important;
+          }
+          .print-cell-ot {
+            font-size: 6.5px !important;
+            font-weight: 900 !important;
+            color: #dc2626 !important;
+            margin-top: 1px !important;
+          }
+          .print-cell-leave {
+            font-size: ${printCellWorkTimeSize} !important;
+            font-weight: 900 !important;
+            border: 1px solid #cbd5e1 !important;
+            background-color: #f1f5f9 !important;
+            color: #000000 !important;
+            border-radius: 4px !important;
+          }
+          .print-cell-off {
+            font-size: 6px !important;
+            color: #94a3b8 !important;
+            opacity: 0.3 !important;
+          }
+        }
+      `}</style>
       <div className="max-w-full mx-auto">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 sm:mb-16 print:hidden border-b pb-6 sm:pb-8 gap-4 sm:gap-0">
           <button onClick={() => { try { const sess = JSON.parse(localStorage.getItem('superstore_session')||'{}'); sess.view = 'manager'; localStorage.setItem('superstore_session', JSON.stringify(sess)); }catch(e){} window.location.reload(); }} className="flex items-center gap-2 sm:gap-4 text-slate-600 font-black bg-slate-100 px-6 sm:px-8 py-3 sm:py-4 rounded-xl sm:rounded-3xl hover:bg-slate-200 transition shadow-sm uppercase text-xs sm:text-sm tracking-widest w-full sm:w-auto justify-center"><ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" /> ย้อนกลับ </button>
           <button onClick={onPrint} className="bg-indigo-600 text-white px-8 sm:px-12 py-4 sm:py-5 rounded-xl sm:rounded-3xl font-black shadow-xl sm:shadow-2xl hover:bg-indigo-700 active:scale-95 transition-all flex items-center justify-center gap-3 sm:gap-4 uppercase text-xs sm:text-sm tracking-widest w-full sm:w-auto"><Printer className="w-5 h-5 sm:w-6 sm:h-6" /> สั่งพิมพ์รายงาน </button>
         </div>
-        <div className="text-center mb-10 sm:mb-16 uppercase">
-          <h1 className="text-3xl sm:text-6xl font-black text-slate-900 tracking-tighter leading-none mb-2 sm:mb-4">ROSTER SCHEDULE: {CALENDAR_DAYS.length === 7 ? `WEEK OF ${CALENDAR_DAYS[0].dateStr}` : `${THAI_MONTHS[selectedMonth]} 2026`}</h1>
-          <p className="text-xs sm:text-sm text-slate-400 font-bold uppercase tracking-[0.3em] sm:tracking-[0.6em] italic">{globalConfig.branches?.find(b=>b.id===activeBranchId)?.name || 'BRANCH NODE'} - {activeDept.toUpperCase()} DEPT</p>
+        <div className="text-center mb-10 sm:mb-16 uppercase print-header">
+          <h1 className="text-3xl sm:text-6xl font-black text-slate-900 tracking-tighter leading-none mb-2 sm:mb-4 print-title">ROSTER SCHEDULE: {CALENDAR_DAYS.length === 7 ? `WEEK OF ${CALENDAR_DAYS[0].dateStr}` : `${THAI_MONTHS[selectedMonth]} 2026`}</h1>
+          <p className="text-xs sm:text-sm text-slate-400 font-bold uppercase tracking-[0.3em] sm:tracking-[0.6em] italic print-subtitle">{globalConfig.branches?.find(b=>b.id===activeBranchId)?.name || 'BRANCH NODE'} - {activeDept.toUpperCase()} DEPT</p>
         </div>
         <div className="overflow-x-auto border-2 sm:border-4 border-slate-900 rounded-xl sm:rounded-[2.5rem] shadow-lg sm:shadow-2xl overflow-hidden w-full custom-scrollbar pb-2 sm:pb-0 print:border-none print:shadow-none print:overflow-visible">
-          <table className="w-full border-collapse text-[6px] sm:text-[8px] table-fixed min-w-[800px] sm:min-w-none bg-white print:border-2 print:border-black">
+          <table className="w-full border-collapse text-[6px] sm:text-[8px] table-fixed min-w-[800px] sm:min-w-none bg-white print:border-2 print:border-black print-table">
             <thead>
               <tr className="bg-slate-900 text-white print:bg-slate-200 print:text-black">
                 <th className="border-r border-slate-700 p-2 sm:p-3 text-center sticky left-0 bg-slate-900 z-30 w-16 sm:w-20 font-black uppercase border-b-2 border-slate-600 print:border-black print:bg-transparent print:text-black">Duty Layer</th>
@@ -567,14 +682,14 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
                      {catStaff.map((s, dIdx) => (
                         <tr key={s.id} className="h-10 sm:h-14 transition-colors border-b border-slate-200 print:border-black">
                           {dIdx === 0 && (
-                            <td rowSpan={catStaff.length} className={`border-r border-slate-900 p-1 font-black sticky left-0 z-10 text-[5px] sm:text-[7px] uppercase leading-tight text-center print:border-black print:bg-transparent print:text-black ${cat.color.split(' ')[0]} ${cat.color.split(' ')[1]}`}>
+                            <td rowSpan={catStaff.length} className={`border-r border-slate-900 p-1 font-black sticky left-0 z-10 text-[5px] sm:text-[7px] uppercase leading-tight text-center print:border-black print:bg-transparent print:text-black print-duty-layer ${cat.color.split(' ')[0]} ${cat.color.split(' ')[1]}`}>
                                {cat.label.replace('Customer Service ', '').replace('Kitchen ', '')}
                             </td>
                           )}
-                          <td className="border-r-2 sm:border-r-4 border-slate-900 p-1 sm:p-2 font-black sticky left-[4rem] sm:left-[5rem] bg-white z-10 text-[7px] sm:text-[9px] uppercase leading-tight text-center print:border-black print:bg-transparent print:text-black">
+                          <td className="border-r-2 sm:border-r-4 border-slate-900 p-1 sm:p-2 font-black sticky left-[4rem] sm:left-[5rem] bg-white z-10 text-[7px] sm:text-[9px] uppercase leading-tight text-center print:border-black print:bg-transparent print:text-black print-employee-pos">
                              {s.pos}
                           </td>
-                          <td className="border-r-2 sm:border-r-4 border-slate-900 p-2 sm:p-3 font-black sticky left-[7rem] sm:left-[9rem] bg-white z-10 text-[8px] sm:text-[10px] uppercase leading-tight truncate max-w-[100px] sm:max-w-[150px] print:border-black print:bg-transparent print:text-black">
+                          <td className="border-r-2 sm:border-r-4 border-slate-900 p-2 sm:p-3 font-black sticky left-[7rem] sm:left-[9rem] bg-white z-10 text-[8px] sm:text-[10px] uppercase leading-tight truncate max-w-[100px] sm:max-w-[150px] print:border-black print:bg-transparent print:text-black print-employee-name">
                              {s.name}
                           </td>
                           {CALENDAR_DAYS.map(day => {
@@ -585,12 +700,12 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
                                  <div className="w-full h-full flex flex-col items-center justify-center p-0.5 sm:p-1 pointer-events-none group-hover:opacity-40 transition-opacity print:group-hover:opacity-100">
                                    {info?.type === 'work' ? (
                                      <div className="flex flex-col items-center justify-center leading-tight w-full h-full">
-                                       <span className="font-black text-slate-800 text-[8px] sm:text-[10px] leading-none tracking-tighter print:text-black">{formatTimeAbbreviation(info.slot?.startTime)}</span>
-                                       {info.actual?.otHours > 0 && <div className="text-[6px] sm:text-[7px] font-black text-rose-600 truncate w-full px-0.5 uppercase tracking-tighter mt-0.5 print:text-black">O{info.actual.otHours}</div>}
+                                       <span className="font-black text-slate-800 text-[8px] sm:text-[10px] leading-none tracking-tighter print:text-black print-cell-work-time">{formatTimeAbbreviation(info.slot?.startTime)}</span>
+                                       {info.actual?.otHours > 0 && <div className="text-[6px] sm:text-[7px] font-black text-rose-600 truncate w-full px-0.5 uppercase tracking-tighter mt-0.5 print:text-black print-cell-ot">O{info.actual.otHours}</div>}
                                      </div>
                                    ) : info?.type === 'leave' ? (
-                                     <div className={`w-full h-full flex items-center justify-center font-black ${info.info?.color || 'bg-slate-100 text-slate-800'} rounded-md sm:rounded-xl border sm:border-2 border-white shadow-inner text-[8px] sm:text-[10px] print:bg-transparent print:text-black print:border-none`}><span className="text-center leading-none uppercase p-0.5 sm:p-1">{info.info?.shortLabel || 'ย'}</span></div>
-                                   ) : <span className="text-[5px] sm:text-[7px] font-black opacity-10 uppercase tracking-widest print:text-transparent">OFF</span>}
+                                     <div className={`w-full h-full flex items-center justify-center font-black ${info.info?.color || 'bg-slate-100 text-slate-800'} rounded-md sm:rounded-xl border sm:border-2 border-white shadow-inner text-[8px] sm:text-[10px] print:bg-transparent print:text-black print:border-none print-cell-leave`}><span className="text-center leading-none uppercase p-0.5 sm:p-1">{info.info?.shortLabel || 'ย'}</span></div>
+                                   ) : <span className="text-[5px] sm:text-[7px] font-black opacity-10 uppercase tracking-widest print:text-transparent print-cell-off">OFF</span>}
                                  </div>
                                  <select
                                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer print:hidden z-10"
