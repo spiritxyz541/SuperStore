@@ -33,7 +33,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const appId = "staffsync-v8-stable-prod-final";
-const CURRENT_APP_VERSION = "15.8.0"; // เปลี่ยนเลขเวอร์ชันที่นี่ทุกครั้งที่คุณอัปเดตโค้ด
+const CURRENT_APP_VERSION = "15.8.1"; // เปลี่ยนเลขเวอร์ชันที่นี่ทุกครั้งที่คุณอัปเดตโค้ด
 
 // --- Constants & Layers ---
 const POSITIONS = {
@@ -717,6 +717,34 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
                                                         currentValue = `DUTY_ASSIGN_${info.duty.id}_${info.slotIdx}`;
                                                     }
 
+                                                    // คำนวณจำนวนพนักงานประจำที่ยังไม่ถูกจัดหน้าที่ในวันนี้
+                                                    const dayData = schedule?.[day.dateStr];
+                                                    const usedIds = new Set();
+                                                    if (dayData?.leaves) {
+                                                        dayData.leaves.forEach(l => l.staffId && usedIds.add(l.staffId));
+                                                    }
+                                                    if (dayData?.duties) {
+                                                        Object.values(dayData.duties).forEach(slots => {
+                                                            slots.forEach(sSlot => sSlot && sSlot.staffId && usedIds.add(sSlot.staffId));
+                                                        });
+                                                    }
+                                                    const [y, m, dNum] = day.dateStr.split('-').map(Number);
+                                                    const dateObj = new Date(y, m - 1, dNum);
+                                                    const dayOfWeek = dateObj.getDay();
+                                                    const isHoliday = isDateHoliday(day.dateStr, branchData.holidays);
+                                                    
+                                                    let unassignedFTCount = 0;
+                                                    (branchData.staff || []).forEach(staff => {
+                                                        if (staff.dept === activeDept && !staff.pos.includes('PT') && isStaffActiveOnDate(staff, day.dateStr)) {
+                                                            const onLeave = usedIds.has(staff.id);
+                                                            const daysOff = Array.isArray(staff.regularDayOff) ? staff.regularDayOff : (staff.regularDayOff !== null && staff.regularDayOff !== undefined && staff.regularDayOff !== '' ? [staff.regularDayOff] : []);
+                                                            const isRegularOff = !isHoliday && daysOff.includes(dayOfWeek);
+                                                            if (!onLeave && !isRegularOff) {
+                                                                unassignedFTCount++;
+                                                            }
+                                                        }
+                                                    });
+
                                                     // ดึงสิทธิ์ในการทำหน้าที่ต่างๆ ของพนักงานในวันนี้
                                                     const vacantDutiesOptions = [];
                                                     CURRENT_DUTY_LIST.forEach(d => {
@@ -729,6 +757,11 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
                                                                 const slotData = assignedSlots[slotIdx];
                                                                 const isAssignedToOther = slotData && slotData.staffId && slotData.staffId !== s.id;
                                                                 if (!isAssignedToOther) {
+                                                                    const isCurrentAssignment = slotData && slotData.staffId === s.id;
+                                                                    // ในหน้านี้จะไม่ขึ้นกะสำรองให้เลือกจนกว่าจะมีพนักงานประจำที่ยังไม่ได้จัดหน้าที่งาน
+                                                                    if (d.isBackup && unassignedFTCount === 0 && !isCurrentAssignment) {
+                                                                        return;
+                                                                    }
                                                                     const preset = branchData.shiftPresets?.find(p => p.id === slot.shiftPresetId);
                                                                     const times = getShiftTimesForStaff(s.pos, preset);
                                                                     const timeStr = times ? ` (${formatTimeAbbreviation(times.startTime)}-${formatTimeAbbreviation(times.endTime)})` : '';
