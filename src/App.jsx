@@ -697,6 +697,7 @@ export default function App() {
   const [forecastEvidence, setForecastEvidence] = useState('');
   const [showPtLedgerDetails, setShowPtLedgerDetails] = useState(false);
   const [showOtLedgerDetails, setShowOtLedgerDetails] = useState(false);
+  const [ptLedgerActiveTab, setPtLedgerActiveTab] = useState('overview');
   
   const [newAmName, setNewAmName] = useState('');
   const [newAmUser, setNewAmUser] = useState('');
@@ -971,24 +972,59 @@ export default function App() {
   const deltaOT = totalActualOT - totalPlannedOT;
 
   const ptLedger = useMemo(() => {
-      let baseAllowance = 0;
-      if (branchData.ptConfig?.monthlyBudget && branchData.ptConfig?.hourlyRate) {
-          baseAllowance = branchData.ptConfig.monthlyBudget / branchData.ptConfig.hourlyRate;
+      const hourlyRate = Number(branchData.ptConfig?.hourlyRate || 0);
+
+      const budgetService = branchData.ptConfig?.monthlyBudgetService !== undefined ? Number(branchData.ptConfig.monthlyBudgetService) : null;
+      const budgetKitchen = branchData.ptConfig?.monthlyBudgetKitchen !== undefined ? Number(branchData.ptConfig.monthlyBudgetKitchen) : null;
+
+      let baseAllowanceSvc = 0;
+      let baseAllowanceKit = 0;
+
+      if (hourlyRate > 0) {
+          if (budgetService !== null && budgetKitchen !== null) {
+              baseAllowanceSvc = budgetService / hourlyRate;
+              baseAllowanceKit = budgetKitchen / hourlyRate;
+          } else {
+              const legacyBudget = Number(branchData.ptConfig?.monthlyBudget || 0);
+              baseAllowanceSvc = (legacyBudget / 2) / hourlyRate;
+              baseAllowanceKit = (legacyBudget / 2) / hourlyRate;
+          }
       }
 
-      let leaveRefunds = 0;
-      let eventExtras = 0;
-      let usedBaseHours = 0;
-      let usedEventHours = 0;
-      let dailyEventQuota = 0;
-      let dailyEventUsed = 0;
+      const daysInMonth = CALENDAR_DAYS.length || 30;
+      const dailyBaseAvgSvc = baseAllowanceSvc / daysInMonth;
+      const dailyBaseAvgKit = baseAllowanceKit / daysInMonth;
+
+      let leaveRefundsSvc = 0;
+      let leaveRefundsKit = 0;
+
+      let vacancyCompensationsSvc = 0;
+      let vacancyCompensationsKit = 0;
+
+      let eventExtrasSvc = 0;
+      let eventExtrasKit = 0;
+
+      let usedBaseHoursSvc = 0;
+      let usedBaseHoursKit = 0;
+
+      let usedEventHoursSvc = 0;
+      let usedEventHoursKit = 0;
+
+      let dailyEventQuotaSvc = 0;
+      let dailyEventQuotaKit = 0;
+
+      let dailyEventUsedSvc = 0;
+      let dailyEventUsedKit = 0;
+
       let staffUsage = {};
-      let dailyUsage = {};
-      let dailyAllowance = {};
+      let dailyUsageSvc = {};
+      let dailyUsageKit = {};
+      let dailyAllowanceSvc = {};
+      let dailyAllowanceKit = {};
+
       const staffMap = {};
       (branchData.staff || []).forEach(s => staffMap[s.id] = s);
 
-      let vacancyCompensations = 0;
       const compHoursPerDayService = branchData.ptConfig?.compHoursPerDayService ?? 8;
       const compHoursPerDayKitchen = branchData.ptConfig?.compHoursPerDayKitchen ?? 8;
 
@@ -1004,30 +1040,32 @@ export default function App() {
       const staffSupportKitchenLimit = branchData.staffLimits?.['KITCHEN_STAFF_SUPPORT_FT'];
       if (staffSupportKitchenLimit) targetFtHeadcountKitchen += parseInt(staffSupportKitchenLimit, 10);
 
-      const daysInMonth = CALENDAR_DAYS.length || 30;
-      const dailyBaseAvg = baseAllowance / daysInMonth;
-
       CALENDAR_DAYS.forEach(day => {
-           let activeFtCountService = 0;
-           let activeFtCountKitchen = 0;
-           (branchData.staff || []).forEach(s => {
-               if (s.pos.includes('PT')) return; 
-               if (s.isActive === false && !s.resignDate) return; 
-               
-               const started = !s.startDate || s.startDate <= day.dateStr;
-               const notResignedYet = !s.resignDate || s.resignDate >= day.dateStr;
-               
-               if (started && notResignedYet) {
-                   if (s.dept === 'service') activeFtCountService++;
-                   if (s.dept === 'kitchen') activeFtCountKitchen++;
-               }
-           });
-           const gapService = Math.max(0, targetFtHeadcountService - activeFtCountService);
-           const gapKitchen = Math.max(0, targetFtHeadcountKitchen - activeFtCountKitchen);
-           
-           const dayVacancy = (gapService * compHoursPerDayService) + (gapKitchen * compHoursPerDayKitchen);
-           vacancyCompensations += dayVacancy;
-           dailyAllowance[day.dateStr] = { baseAvg: dailyBaseAvg, leave: 0, vacancy: dayVacancy, event: 0, total: dailyBaseAvg + dayVacancy };
+            let activeFtCountService = 0;
+            let activeFtCountKitchen = 0;
+            (branchData.staff || []).forEach(s => {
+                if (s.pos.includes('PT')) return; 
+                if (s.isActive === false && !s.resignDate) return; 
+                
+                const started = !s.startDate || s.startDate <= day.dateStr;
+                const notResignedYet = !s.resignDate || s.resignDate >= day.dateStr;
+                
+                if (started && notResignedYet) {
+                    if (s.dept === 'service') activeFtCountService++;
+                    if (s.dept === 'kitchen') activeFtCountKitchen++;
+                }
+            });
+            const gapService = Math.max(0, targetFtHeadcountService - activeFtCountService);
+            const gapKitchen = Math.max(0, targetFtHeadcountKitchen - activeFtCountKitchen);
+            
+            const dayVacancySvc = gapService * compHoursPerDayService;
+            const dayVacancyKit = gapKitchen * compHoursPerDayKitchen;
+            
+            vacancyCompensationsSvc += dayVacancySvc;
+            vacancyCompensationsKit += dayVacancyKit;
+
+            dailyAllowanceSvc[day.dateStr] = { baseAvg: dailyBaseAvgSvc, leave: 0, vacancy: dayVacancySvc, event: 0, total: dailyBaseAvgSvc + dayVacancySvc };
+            dailyAllowanceKit[day.dateStr] = { baseAvg: dailyBaseAvgKit, leave: 0, vacancy: dayVacancyKit, event: 0, total: dailyBaseAvgKit + dayVacancyKit };
       });
 
       Object.keys(schedule).forEach(dateStr => {
@@ -1035,14 +1073,29 @@ export default function App() {
           if (parseInt(mStr, 10) - 1 !== selectedMonth || parseInt(yStr, 10) !== selectedYear) return;
           const dayData = schedule[dateStr];
           
-          if (dayData.eventExtraHours) {
-              eventExtras += dayData.eventExtraHours;
-              if (dailyAllowance[dateStr]) {
-                  dailyAllowance[dateStr].event = dayData.eventExtraHours;
-                  dailyAllowance[dateStr].total += dayData.eventExtraHours;
+          const eventHrsSvc = dayData.eventExtraHoursService !== undefined 
+              ? dayData.eventExtraHoursService 
+              : (dayData.eventExtraHoursKitchen !== undefined ? 0 : (dayData.eventExtraHours || 0));
+          const eventHrsKit = dayData.eventExtraHoursKitchen || 0;
+
+          if (eventHrsSvc > 0) {
+              eventExtrasSvc += eventHrsSvc;
+              if (dailyAllowanceSvc[dateStr]) {
+                  dailyAllowanceSvc[dateStr].event = eventHrsSvc;
+                  dailyAllowanceSvc[dateStr].total += eventHrsSvc;
               }
               if (dateStr === selectedDateStr) {
-                  dailyEventQuota += dayData.eventExtraHours;
+                  dailyEventQuotaSvc += eventHrsSvc;
+              }
+          }
+          if (eventHrsKit > 0) {
+              eventExtrasKit += eventHrsKit;
+              if (dailyAllowanceKit[dateStr]) {
+                  dailyAllowanceKit[dateStr].event = eventHrsKit;
+                  dailyAllowanceKit[dateStr].total += eventHrsKit;
+              }
+              if (dateStr === selectedDateStr) {
+                  dailyEventQuotaKit += eventHrsKit;
               }
           }
 
@@ -1051,10 +1104,18 @@ export default function App() {
                   const staff = staffMap[l.staffId];
                   if (staff && !staff.pos.includes('PT')) {
                       if (['AL', 'SL', 'SL_UNPAID', 'PL', 'PL_UNPAID', 'MATERNITY', 'MARRIAGE', 'TRAINING', 'MY_DAY', 'FAMILY_DAY', 'CO'].includes(l.type)) {
-                          leaveRefunds += 8;
-                          if (dailyAllowance[dateStr]) {
-                              dailyAllowance[dateStr].leave += 8;
-                              dailyAllowance[dateStr].total += 8;
+                          if (staff.dept === 'kitchen') {
+                              leaveRefundsKit += 8;
+                              if (dailyAllowanceKit[dateStr]) {
+                                  dailyAllowanceKit[dateStr].leave += 8;
+                                  dailyAllowanceKit[dateStr].total += 8;
+                              }
+                          } else {
+                              leaveRefundsSvc += 8;
+                              if (dailyAllowanceSvc[dateStr]) {
+                                  dailyAllowanceSvc[dateStr].leave += 8;
+                                  dailyAllowanceSvc[dateStr].total += 8;
+                              }
                           }
                       }
                   }
@@ -1080,20 +1141,39 @@ export default function App() {
                               const shiftHrs = getNetWorkHours(times.startTime, times.endTime, staff.pos);
                               const totalSlotHrs = shiftHrs + Number(slot.otHours || 0);
                               
-                              if (!staffUsage[staff.id]) staffUsage[staff.id] = { name: staff.name, pos: staff.pos, base: 0, event: 0 };
-                              if (!dailyUsage[dateStr]) dailyUsage[dateStr] = { base: 0, event: 0 };
+                              if (!staffUsage[staff.id]) {
+                                  staffUsage[staff.id] = { name: staff.name, pos: staff.pos, base: 0, event: 0, dept: staff.dept || 'service' };
+                              }
                               
-                              if (slot.isEventExtra) {
-                                  usedEventHours += totalSlotHrs;
-                                  staffUsage[staff.id].event += totalSlotHrs;
-                                  dailyUsage[dateStr].event += totalSlotHrs;
-                                  if (dateStr === selectedDateStr) {
-                                      dailyEventUsed += totalSlotHrs;
+                              const isKit = staff.dept === 'kitchen';
+                              if (isKit) {
+                                  if (!dailyUsageKit[dateStr]) dailyUsageKit[dateStr] = { base: 0, event: 0 };
+                                  if (slot.isEventExtra) {
+                                      usedEventHoursKit += totalSlotHrs;
+                                      staffUsage[staff.id].event += totalSlotHrs;
+                                      dailyUsageKit[dateStr].event += totalSlotHrs;
+                                      if (dateStr === selectedDateStr) {
+                                          dailyEventUsedKit += totalSlotHrs;
+                                      }
+                                  } else {
+                                      usedBaseHoursKit += totalSlotHrs;
+                                      staffUsage[staff.id].base += totalSlotHrs;
+                                      dailyUsageKit[dateStr].base += totalSlotHrs;
                                   }
                               } else {
-                                  usedBaseHours += totalSlotHrs;
-                                  staffUsage[staff.id].base += totalSlotHrs;
-                                  dailyUsage[dateStr].base += totalSlotHrs;
+                                  if (!dailyUsageSvc[dateStr]) dailyUsageSvc[dateStr] = { base: 0, event: 0 };
+                                  if (slot.isEventExtra) {
+                                      usedEventHoursSvc += totalSlotHrs;
+                                      staffUsage[staff.id].event += totalSlotHrs;
+                                      dailyUsageSvc[dateStr].event += totalSlotHrs;
+                                      if (dateStr === selectedDateStr) {
+                                          dailyEventUsedSvc += totalSlotHrs;
+                                      }
+                                  } else {
+                                      usedBaseHoursSvc += totalSlotHrs;
+                                      staffUsage[staff.id].base += totalSlotHrs;
+                                      dailyUsageSvc[dateStr].base += totalSlotHrs;
+                                  }
                               }
                           }
                       }
@@ -1101,11 +1181,105 @@ export default function App() {
               });
           }
       });
-      const baseTotalAllowance = baseAllowance + leaveRefunds + vacancyCompensations;
-      const totalAllowance = baseTotalAllowance + eventExtras;
-      const usedHours = usedBaseHours + usedEventHours;
-      const usagePercent = totalAllowance > 0 ? (usedHours / totalAllowance) * 100 : 0;
-      return { baseAllowance, leaveRefunds, vacancyCompensations, baseTotalAllowance, eventExtras, totalAllowance, usedHours, usedBaseHours, usedEventHours, dailyEventQuota, dailyEventUsed, usagePercent, staffUsage, dailyUsage, dailyAllowance };
+
+      const baseTotalAllowanceSvc = baseAllowanceSvc + leaveRefundsSvc + vacancyCompensationsSvc;
+      const totalAllowanceSvc = baseTotalAllowanceSvc + eventExtrasSvc;
+      const usedHoursSvc = usedBaseHoursSvc + usedEventHoursSvc;
+      const usagePercentSvc = totalAllowanceSvc > 0 ? (usedHoursSvc / totalAllowanceSvc) * 100 : 0;
+
+      const baseTotalAllowanceKit = baseAllowanceKit + leaveRefundsKit + vacancyCompensationsKit;
+      const totalAllowanceKit = baseTotalAllowanceKit + eventExtrasKit;
+      const usedHoursKit = usedBaseHoursKit + usedEventHoursKit;
+      const usagePercentKit = totalAllowanceKit > 0 ? (usedHoursKit / totalAllowanceKit) * 100 : 0;
+
+      const baseAllowanceGlobal = baseAllowanceSvc + baseAllowanceKit;
+      const leaveRefundsGlobal = leaveRefundsSvc + leaveRefundsKit;
+      const vacancyCompensationsGlobal = vacancyCompensationsSvc + vacancyCompensationsKit;
+      const baseTotalAllowanceGlobal = baseTotalAllowanceSvc + baseTotalAllowanceKit;
+      const eventExtrasGlobal = eventExtrasSvc + eventExtrasKit;
+      const totalAllowanceGlobal = totalAllowanceSvc + totalAllowanceKit;
+      const usedHoursGlobal = usedHoursSvc + usedHoursKit;
+      const usedBaseHoursGlobal = usedBaseHoursSvc + usedBaseHoursKit;
+      const usedEventHoursGlobal = usedEventHoursSvc + usedEventHoursKit;
+      const dailyEventQuotaGlobal = dailyEventQuotaSvc + dailyEventQuotaKit;
+      const dailyEventUsedGlobal = dailyEventUsedSvc + dailyEventUsedKit;
+      const usagePercentGlobal = totalAllowanceGlobal > 0 ? (usedHoursGlobal / totalAllowanceGlobal) * 100 : 0;
+
+      const dailyUsageGlobal = {};
+      const dailyAllowanceGlobal = {};
+      CALENDAR_DAYS.forEach(day => {
+          const dateStr = day.dateStr;
+          
+          const aSvc = dailyAllowanceSvc[dateStr] || { baseAvg: 0, leave: 0, vacancy: 0, event: 0, total: 0 };
+          const aKit = dailyAllowanceKit[dateStr] || { baseAvg: 0, leave: 0, vacancy: 0, event: 0, total: 0 };
+          
+          dailyAllowanceGlobal[dateStr] = {
+              baseAvg: aSvc.baseAvg + aKit.baseAvg,
+              leave: aSvc.leave + aKit.leave,
+              vacancy: aSvc.vacancy + aKit.vacancy,
+              event: aSvc.event + aKit.event,
+              total: aSvc.total + aKit.total
+          };
+
+          const uSvc = dailyUsageSvc[dateStr] || { base: 0, event: 0 };
+          const uKit = dailyUsageKit[dateStr] || { base: 0, event: 0 };
+
+          dailyUsageGlobal[dateStr] = {
+              base: uSvc.base + uKit.base,
+              event: uSvc.event + uKit.event
+          };
+      });
+
+      return {
+          baseAllowance: baseAllowanceGlobal,
+          leaveRefunds: leaveRefundsGlobal,
+          vacancyCompensations: vacancyCompensationsGlobal,
+          baseTotalAllowance: baseTotalAllowanceGlobal,
+          eventExtras: eventExtrasGlobal,
+          totalAllowance: totalAllowanceGlobal,
+          usedHours: usedHoursGlobal,
+          usedBaseHours: usedBaseHoursGlobal,
+          usedEventHours: usedEventHoursGlobal,
+          dailyEventQuota: dailyEventQuotaGlobal,
+          dailyEventUsed: dailyEventUsedGlobal,
+          usagePercent: usagePercentGlobal,
+          staffUsage,
+          dailyUsage: dailyUsageGlobal,
+          dailyAllowance: dailyAllowanceGlobal,
+
+          service: {
+              baseAllowance: baseAllowanceSvc,
+              leaveRefunds: leaveRefundsSvc,
+              vacancyCompensations: vacancyCompensationsSvc,
+              baseTotalAllowance: baseTotalAllowanceSvc,
+              eventExtras: eventExtrasSvc,
+              totalAllowance: totalAllowanceSvc,
+              usedHours: usedHoursSvc,
+              usedBaseHours: usedBaseHoursSvc,
+              usedEventHours: usedEventHoursSvc,
+              dailyEventQuota: dailyEventQuotaSvc,
+              dailyEventUsed: dailyEventUsedSvc,
+              usagePercent: usagePercentSvc,
+              dailyUsage: dailyUsageSvc,
+              dailyAllowance: dailyAllowanceSvc
+          },
+          kitchen: {
+              baseAllowance: baseAllowanceKit,
+              leaveRefunds: leaveRefundsKit,
+              vacancyCompensations: vacancyCompensationsKit,
+              baseTotalAllowance: baseTotalAllowanceKit,
+              eventExtras: eventExtrasKit,
+              totalAllowance: totalAllowanceKit,
+              usedHours: usedHoursKit,
+              usedBaseHours: usedBaseHoursKit,
+              usedEventHours: usedEventHoursKit,
+              dailyEventQuota: dailyEventQuotaKit,
+              dailyEventUsed: dailyEventUsedKit,
+              usagePercent: usagePercentKit,
+              dailyUsage: dailyUsageKit,
+              dailyAllowance: dailyAllowanceKit
+          }
+      };
   }, [schedule, branchData, selectedMonth, selectedYear, selectedDateStr, CALENDAR_DAYS]);
 
   const otLedger = useMemo(() => {
@@ -1374,9 +1548,10 @@ export default function App() {
     return breaks;
   }, [schedule, selectedDateStr, branchData, CALENDAR_DAYS]);
 
-  const getBaseManHours = useCallback((dayType) => {
+  const getBaseManHours = useCallback((dayType, deptFilter) => {
       let total = 0;
-      ['service', 'kitchen'].forEach(dept => {
+      const depts = deptFilter ? [deptFilter] : ['service', 'kitchen'];
+      depts.forEach(dept => {
           const list = branchData.duties?.[dept] || [];
           list.forEach(duty => {
               const slots = branchData.matrix?.[dayType]?.duties?.[duty.id] || [];
@@ -2826,7 +3001,7 @@ export default function App() {
      } catch (e) { setConfirmModal({ message: 'เกิดข้อผิดพลาดในการส่งคำขอ' }); }
   };
 
-  const handleSubmitForecastRequest = async (dateStr, fTc, diffMh) => {
+  const handleSubmitForecastRequest = async (dateStr, fTc, diffMh, dept) => {
       const newReq = { 
           id: 'R'+Date.now(), 
           reqType: 'EXTRA_PT', 
@@ -2837,7 +3012,8 @@ export default function App() {
           reason: forecastReason.trim(),
           evidence: forecastEvidence.trim(),
           status: 'PENDING_MANAGER', 
-          timestamp: Date.now() 
+          timestamp: Date.now(),
+          dept: dept || activeDept
       };
       const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'requests', activeBranchId);
       try {
@@ -2963,6 +3139,12 @@ export default function App() {
           }
           else if (req.reqType === 'EXTRA_PT') {
               if (!newSched[req.dateStr]) newSched[req.dateStr] = { duties: {}, leaves: [] };
+              const dept = req.dept || 'service';
+              if (dept === 'kitchen') {
+                  newSched[req.dateStr].eventExtraHoursKitchen = (newSched[req.dateStr].eventExtraHoursKitchen || 0) + req.requestedHours;
+              } else {
+                  newSched[req.dateStr].eventExtraHoursService = (newSched[req.dateStr].eventExtraHoursService || 0) + req.requestedHours;
+              }
               newSched[req.dateStr].eventExtraHours = (newSched[req.dateStr].eventExtraHours || 0) + req.requestedHours;
           }
           else if (req.reqType === 'EXTRA_OT') {
@@ -3983,6 +4165,7 @@ export default function App() {
                                  detailHtml = (
                                    <div className="mt-2 text-xs font-bold text-slate-600 bg-emerald-50 p-3 rounded-lg border border-emerald-100">
                                      ขอโควตาพิเศษ (Event): <span className="text-emerald-700 font-black">+{req.requestedHours.toFixed(1)} ชม.</span> <br/>
+                                     แผนก: <span className="text-indigo-700 font-black">{(req.dept === 'kitchen' ? 'ครัว (BOH)' : 'บริการ (FOH)')}</span> <br/>
                                      ประจำวันที่: <span className="text-emerald-700">{req.dateStr}</span> <br/>
                                      เหตุผล: <span className="text-emerald-700">{req.reason}</span> <br/>
                                      หลักฐาน: <span className="text-emerald-700">{req.evidence || '-'}</span> <br/>
@@ -4183,8 +4366,8 @@ export default function App() {
                    <button onClick={() => setShowForecastModal(false)} className="text-slate-400 hover:bg-slate-100 p-2 rounded-full transition"><X className="w-5 h-5"/></button>
                 </div>
                 {(() => {
-                    const pendingExtraPtReq = pendingRequests.find(r => r.reqType === 'EXTRA_PT' && r.dateStr === activeDay.dateStr && r.status === 'PENDING_MANAGER');
-                    const alreadyApprovedHours = schedule[activeDay.dateStr]?.eventExtraHours || 0;
+                    const pendingExtraPtReq = pendingRequests.find(r => r.reqType === 'EXTRA_PT' && r.dateStr === activeDay.dateStr && (r.dept || 'service') === activeDept && r.status === 'PENDING_MANAGER');
+                    const alreadyApprovedHours = activeDept === 'kitchen' ? (schedule[activeDay.dateStr]?.eventExtraHoursKitchen || 0) : (schedule[activeDay.dateStr]?.eventExtraHoursService || schedule[activeDay.dateStr]?.eventExtraHours || 0);
                     
                     if (pendingExtraPtReq) {
                         return (
@@ -4218,11 +4401,11 @@ export default function App() {
                                            action: () => {
                                                setSchedule(prev => {
                                                    const newSched = JSON.parse(JSON.stringify(prev));
-                                                   if (newSched[activeDay.dateStr]) newSched[activeDay.dateStr].eventExtraHours = 0;
+                                                   if (newSched[activeDay.dateStr]) { if (activeDept === "kitchen") { newSched[activeDay.dateStr].eventExtraHoursKitchen = 0; } else { newSched[activeDay.dateStr].eventExtraHoursService = 0; newSched[activeDay.dateStr].eventExtraHours = 0; } }
                                                    if (activeBranchId) autoSaveSchedule(newSched);
                                                    return newSched;
                                                });
-                                               const req = pendingRequests.find(r => r.reqType === 'EXTRA_PT' && r.dateStr === activeDay.dateStr && r.status === 'APPROVED');
+                                               const req = pendingRequests.find(r => r.reqType === 'EXTRA_PT' && r.dateStr === activeDay.dateStr && (r.dept || 'service') === activeDept && r.status === 'APPROVED');
                                                if (req) {
                                                    const newList = pendingRequests.map(r => r.id === req.id ? { ...r, status: 'REJECTED', rejectReason: 'Manager Cancelled', updatedTimestamp: Date.now() } : r);
                                                    setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'requests', activeBranchId), { list: newList });
@@ -4238,7 +4421,7 @@ export default function App() {
                     }
 
                    const baseTc = Object.values(branchData.matrix?.[activeDay.type]?.hourlyTc || {}).reduce((sum, val) => sum + (parseInt(val) || 0), 0);
-                    const baseMh = getBaseManHours(activeDay.type);
+                    const baseMh = getBaseManHours(activeDay.type, activeDept);
                     const ratio = baseTc > 0 ? (baseMh / baseTc) : 0;
                     
                     const fTc = parseFloat(forecastTc) || 0;
@@ -4274,7 +4457,7 @@ export default function App() {
                                        <span className="text-[10px] font-bold text-slate-500 uppercase">ระบบแนะนำให้เพิ่มชั่วโมงพนักงาน</span>
                                        <span className={`text-3xl font-black ${diffMh > 0 ? 'text-indigo-600' : 'text-slate-400'}`}>+{diffMh.toFixed(1)} <span className="text-sm">ชม.</span></span>
                                    </div>
-                                   <button onClick={() => handleSubmitForecastRequest(activeDay.dateStr, fTc, diffMh)} disabled={diffMh <= 0 || !forecastReason.trim() || !forecastEvidence.trim()} className="w-full bg-indigo-600 text-white py-3.5 rounded-xl font-black text-xs sm:text-sm hover:bg-indigo-700 transition disabled:opacity-50 shadow-lg mt-2 uppercase tracking-widest">ส่งคำขออนุมัติโควตา</button>
+                                   <button onClick={() => handleSubmitForecastRequest(activeDay.dateStr, fTc, diffMh, activeDept)} disabled={diffMh <= 0 || !forecastReason.trim() || !forecastEvidence.trim()} className="w-full bg-indigo-600 text-white py-3.5 rounded-xl font-black text-xs sm:text-sm hover:bg-indigo-700 transition disabled:opacity-50 shadow-lg mt-2 uppercase tracking-widest">ส่งคำขออนุมัติโควตา</button>
                                </React.Fragment>
                            )}
                         </div>
@@ -4285,86 +4468,223 @@ export default function App() {
         )}
         {showPtLedgerDetails && (
           <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300 font-sans">
-             <div className="bg-white rounded-[2rem] p-6 sm:p-8 max-w-2xl w-full shadow-2xl relative flex flex-col gap-4 animate-in zoom-in-95 max-h-[85vh]">
+             <div className="bg-white rounded-[2rem] p-6 sm:p-8 max-w-3xl w-full shadow-2xl relative flex flex-col gap-4 animate-in zoom-in-95 max-h-[85vh]">
                 <div className="flex justify-between items-center border-b border-slate-100 pb-3">
                    <h3 className="text-xl font-black text-slate-800 uppercase tracking-tighter flex items-center gap-2"><BarChart3 className="w-6 h-6 text-indigo-500"/> รายละเอียดการใช้ชั่วโมง PT</h3>
                    <button onClick={() => setShowPtLedgerDetails(false)} className="text-slate-400 hover:bg-slate-100 p-2 rounded-full transition"><X className="w-5 h-5"/></button>
                 </div>
+
+                {/* Tabs */}
+                <div className="flex border-b border-slate-100 mb-2 gap-2">
+                    <button 
+                        onClick={() => setPtLedgerActiveTab('overview')} 
+                        className={`px-4 py-2 text-xs font-black uppercase tracking-wider border-b-2 transition-all ${ptLedgerActiveTab === 'overview' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                    >
+                        ภาพรวมสาขา
+                    </button>
+                    <button 
+                        onClick={() => setPtLedgerActiveTab('service')} 
+                        className={`px-4 py-2 text-xs font-black uppercase tracking-wider border-b-2 transition-all ${ptLedgerActiveTab === 'service' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                    >
+                        แผนกบริการ (FOH)
+                    </button>
+                    <button 
+                        onClick={() => setPtLedgerActiveTab('kitchen')} 
+                        className={`px-4 py-2 text-xs font-black uppercase tracking-wider border-b-2 transition-all ${ptLedgerActiveTab === 'kitchen' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                    >
+                        แผนกครัว (BOH)
+                    </button>
+                </div>
                 
                 <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-6">
-                    <div>
-                        <h4 className="font-black text-slate-700 text-sm mb-3 uppercase tracking-widest border-b border-slate-100 pb-2">สรุปชั่วโมงตามรายบุคคล (PT Staff)</h4>
-                        {Object.keys(ptLedger.staffUsage || {}).length === 0 ? (
-                            <div className="text-center text-xs text-slate-400 font-bold py-4">ยังไม่มีการจ่ายงานให้ PT</div>
-                        ) : (
-                            <table className="w-full text-xs text-left border-collapse">
-                                <thead>
-                                    <tr className="bg-slate-50 text-slate-500">
-                                        <th className="p-2 border-b border-slate-200 font-black">ชื่อพนักงาน</th>
-                                        <th className="p-2 border-b border-slate-200 font-black text-center">ตำแหน่ง</th>
-                                        <th className="p-2 border-b border-slate-200 font-black text-center">ชม. ปกติ</th>
-                                        <th className="p-2 border-b border-slate-200 font-black text-center">ชม. พิเศษ (Event)</th>
-                                        <th className="p-2 border-b border-slate-200 font-black text-center text-indigo-600">รวม</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {Object.values(ptLedger.staffUsage).sort((a,b) => (b.base + b.event) - (a.base + a.event)).map((s, idx) => (
-                                        <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                                            <td className="p-2 font-bold text-slate-700">{s.name}</td>
-                                            <td className="p-2 text-center"><span className="bg-slate-100 px-2 py-0.5 rounded text-[9px] font-black text-slate-600">{s.pos}</span></td>
-                                            <td className="p-2 text-center font-bold text-slate-600">{s.base > 0 ? s.base.toFixed(1) : '-'}</td>
-                                            <td className="p-2 text-center font-bold text-amber-600">{s.event > 0 ? s.event.toFixed(1) : '-'}</td>
-                                            <td className="p-2 text-center font-black text-indigo-600">{(s.base + s.event).toFixed(1)}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        )}
-                    </div>
-                    <div>
-                        <h4 className="font-black text-slate-700 text-sm mb-3 uppercase tracking-widest border-b border-slate-100 pb-2">สรุปโควตาและการใช้งานรายวัน (Daily Quota vs Usage)</h4>
-                            <table className="w-full text-xs text-left border-collapse">
-                                <thead>
-                                    <tr className="bg-slate-50 text-slate-500">
-                                        <th className="p-2 border-b border-slate-200 font-black text-center w-12">วันที่</th>
-                                        <th className="p-2 border-b border-slate-200 font-black text-center">โควตารวม (H)</th>
-                                        <th className="p-2 border-b border-slate-200 font-black text-center">ใช้ไป (H)</th>
-                                        <th className="p-2 border-b border-slate-200 font-black text-center">คงเหลือ (H)</th>
-                                        <th className="p-2 border-b border-slate-200 font-black text-center w-20">สถานะ</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {CALENDAR_DAYS.map(day => {
-                                        const dateStr = day.dateStr;
-                                        const u = ptLedger.dailyUsage[dateStr] || { base: 0, event: 0 };
-                                        const a = ptLedger.dailyAllowance?.[dateStr] || { baseAvg: 0, leave: 0, vacancy: 0, event: 0, total: 0 };
-                                        const totalUsed = u.base + u.event;
-                                        const diff = a.total - totalUsed;
-                                        const isOver = diff < 0 && totalUsed > 0;
-                                        
-                                        return (
-                                            <tr key={dateStr} className={`border-b border-slate-100 hover:bg-slate-50 transition-colors ${isOver ? 'bg-rose-50/30' : ''}`}>
-                                                <td className="p-2 font-bold text-slate-700 text-center">{day.dayNum}</td>
-                                                <td className="p-2 text-center">
-                                                    <div className="font-black text-slate-700">{a.total.toFixed(1)}</div>
-                                                    <div className="text-[8px] text-slate-400 leading-tight mt-0.5">เฉลี่ย {a.baseAvg.toFixed(1)} + ขาด {a.vacancy.toFixed(1)} + ลา {a.leave.toFixed(1)} + พิเศษ {a.event.toFixed(1)}</div>
-                                                </td>
-                                                <td className="p-2 text-center">
-                                                    <div className="font-black text-indigo-600">{totalUsed.toFixed(1)}</div>
-                                                    <div className="text-[8px] text-slate-400 leading-tight mt-0.5">ปกติ {u.base.toFixed(1)} + พิเศษ {u.event.toFixed(1)}</div>
-                                                </td>
-                                                <td className={`p-2 text-center font-black ${isOver ? 'text-red-500' : 'text-emerald-500'}`}>
-                                                    {diff > 0 ? '+' : ''}{diff.toFixed(1)}
-                                                </td>
-                                                <td className="p-2 text-center">
-                                                    {isOver ? <span className="bg-red-100 text-red-600 px-2 py-0.5 rounded text-[9px] font-black shadow-sm">เกินโควตา</span> : <span className="bg-emerald-100 text-emerald-600 px-2 py-0.5 rounded text-[9px] font-black">ปกติ</span>}
-                                                </td>
+                    {ptLedgerActiveTab === 'overview' && (
+                        <div className="space-y-6">
+                            {/* Branch summary cards */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col gap-1">
+                                    <span className="text-[10px] font-black text-slate-400 uppercase">งบชั่วโมง PT ทั้งหมด</span>
+                                    <span className="text-xl font-black text-slate-800">{(ptLedger.totalAllowance || 0).toFixed(1)} ชม.</span>
+                                </div>
+                                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col gap-1">
+                                    <span className="text-[10px] font-black text-slate-400 uppercase">ใช้งานสะสมจริง</span>
+                                    <span className="text-xl font-black text-indigo-600">{(ptLedger.usedHours || 0).toFixed(1)} ชม.</span>
+                                </div>
+                                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col gap-1">
+                                    <span className="text-[10px] font-black text-slate-400 uppercase">อัตราการใช้งาน</span>
+                                    <span className={`text-xl font-black ${(ptLedger.usagePercent || 0) > 100 ? 'text-red-500' : 'text-emerald-500'}`}>{(ptLedger.usagePercent || 0).toFixed(1)}%</span>
+                                </div>
+                            </div>
+                            
+                            {/* Staff list */}
+                            <div>
+                                <h4 className="font-black text-slate-700 text-sm mb-3 uppercase tracking-widest border-b border-slate-100 pb-2">สรุปชั่วโมงตามรายบุคคล (PT Staff)</h4>
+                                {Object.keys(ptLedger.staffUsage || {}).length === 0 ? (
+                                    <div className="text-center text-xs text-slate-400 font-bold py-4">ยังไม่มีการจ่ายงานให้ PT</div>
+                                ) : (
+                                    <table className="w-full text-xs text-left border-collapse">
+                                        <thead>
+                                            <tr className="bg-slate-50 text-slate-500">
+                                                <th className="p-2 border-b border-slate-200 font-black">ชื่อพนักงาน</th>
+                                                <th className="p-2 border-b border-slate-200 font-black text-center">แผนก</th>
+                                                <th className="p-2 border-b border-slate-200 font-black text-center">ตำแหน่ง</th>
+                                                <th className="p-2 border-b border-slate-200 font-black text-center">ชม. ปกติ</th>
+                                                <th className="p-2 border-b border-slate-200 font-black text-center">ชม. พิเศษ (Event)</th>
+                                                <th className="p-2 border-b border-slate-200 font-black text-center text-indigo-600">รวม</th>
                                             </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                    </div>
+                                        </thead>
+                                        <tbody>
+                                            {Object.values(ptLedger.staffUsage).sort((a,b) => (b.base + b.event) - (a.base + a.event)).map((s, idx) => (
+                                                <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                                                    <td className="p-2 font-bold text-slate-700">{s.name}</td>
+                                                    <td className="p-2 text-center">
+                                                        <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${s.dept === 'kitchen' ? 'bg-orange-50 text-orange-700' : 'bg-indigo-50 text-indigo-700'}`}>
+                                                            {s.dept === 'kitchen' ? 'ครัว' : 'บริการ'}
+                                                        </span>
+                                                    </td>
+                                                    <td className="p-2 text-center"><span className="bg-slate-100 px-2 py-0.5 rounded text-[9px] font-black text-slate-600">{s.pos}</span></td>
+                                                    <td className="p-2 text-center font-bold text-slate-600">{s.base > 0 ? s.base.toFixed(1) : '-'}</td>
+                                                    <td className="p-2 text-center font-bold text-amber-600">{s.event > 0 ? s.event.toFixed(1) : '-'}</td>
+                                                    <td className="p-2 text-center font-black text-indigo-600">{(s.base + s.event).toFixed(1)}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {ptLedgerActiveTab === 'service' && (
+                        <div className="space-y-6">
+                            {/* Service summary cards */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col gap-1">
+                                    <span className="text-[10px] font-black text-slate-400 uppercase">งบชั่วโมง PT บริการ</span>
+                                    <span className="text-xl font-black text-slate-800">{(ptLedger.service.totalAllowance || 0).toFixed(1)} ชม.</span>
+                                </div>
+                                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col gap-1">
+                                    <span className="text-[10px] font-black text-slate-400 uppercase">ใช้งานบริการจริง</span>
+                                    <span className="text-xl font-black text-indigo-600">{(ptLedger.service.usedHours || 0).toFixed(1)} ชม.</span>
+                                </div>
+                                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col gap-1">
+                                    <span className="text-[10px] font-black text-slate-400 uppercase">อัตราการใช้งาน</span>
+                                    <span className={`text-xl font-black ${(ptLedger.service.usagePercent || 0) > 100 ? 'text-red-500' : 'text-emerald-500'}`}>{(ptLedger.service.usagePercent || 0).toFixed(1)}%</span>
+                                </div>
+                            </div>
+                            
+                            {/* Service Daily table */}
+                            <div>
+                                <h4 className="font-black text-slate-700 text-sm mb-3 uppercase tracking-widest border-b border-slate-100 pb-2">ตารางโควตาและการใช้บริการรายวัน (Service Daily Quota vs Usage)</h4>
+                                <table className="w-full text-xs text-left border-collapse">
+                                    <thead>
+                                        <tr className="bg-slate-50 text-slate-500">
+                                            <th className="p-2 border-b border-slate-200 font-black text-center w-12">วันที่</th>
+                                            <th className="p-2 border-b border-slate-200 font-black text-center">โควตารวม (H)</th>
+                                            <th className="p-2 border-b border-slate-200 font-black text-center">ใช้ไป (H)</th>
+                                            <th className="p-2 border-b border-slate-200 font-black text-center">คงเหลือ (H)</th>
+                                            <th className="p-2 border-b border-slate-200 font-black text-center w-20">สถานะ</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {CALENDAR_DAYS.map(day => {
+                                            const dateStr = day.dateStr;
+                                            const u = ptLedger.service.dailyUsage[dateStr] || { base: 0, event: 0 };
+                                            const a = ptLedger.service.dailyAllowance?.[dateStr] || { baseAvg: 0, leave: 0, vacancy: 0, event: 0, total: 0 };
+                                            const totalUsed = u.base + u.event;
+                                            const diff = a.total - totalUsed;
+                                            const isOver = diff < 0 && totalUsed > 0;
+                                            
+                                            return (
+                                                <tr key={dateStr} className={`border-b border-slate-100 hover:bg-slate-50 transition-colors ${isOver ? 'bg-rose-50/30' : ''}`}>
+                                                    <td className="p-2 font-bold text-slate-700 text-center">{day.dayNum}</td>
+                                                    <td className="p-2 text-center">
+                                                        <div className="font-black text-slate-700">{a.total.toFixed(1)}</div>
+                                                        <div className="text-[8px] text-slate-400 leading-tight mt-0.5">เฉลี่ย {a.baseAvg.toFixed(1)} + ชดว่าง {a.vacancy.toFixed(1)} + ชดลา {a.leave.toFixed(1)} + พิเศษ {a.event.toFixed(1)}</div>
+                                                    </td>
+                                                    <td className="p-2 text-center">
+                                                        <div className="font-black text-indigo-600">{totalUsed.toFixed(1)}</div>
+                                                        <div className="text-[8px] text-slate-400 leading-tight mt-0.5">ปกติ {u.base.toFixed(1)} + พิเศษ {u.event.toFixed(1)}</div>
+                                                    </td>
+                                                    <td className={`p-2 text-center font-black ${isOver ? 'text-red-500' : 'text-emerald-500'}`}>
+                                                        {diff > 0 ? '+' : ''}{diff.toFixed(1)}
+                                                    </td>
+                                                    <td className="p-2 text-center">
+                                                        {isOver ? <span className="bg-red-100 text-red-600 px-2 py-0.5 rounded text-[9px] font-black shadow-sm">เกินโควตา</span> : <span className="bg-emerald-100 text-emerald-600 px-2 py-0.5 rounded text-[9px] font-black">ปกติ</span>}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+
+                    {ptLedgerActiveTab === 'kitchen' && (
+                        <div className="space-y-6">
+                            {/* Kitchen summary cards */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col gap-1">
+                                    <span className="text-[10px] font-black text-slate-400 uppercase">งบชั่วโมง PT ครัว</span>
+                                    <span className="text-xl font-black text-slate-800">{(ptLedger.kitchen.totalAllowance || 0).toFixed(1)} ชม.</span>
+                                </div>
+                                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col gap-1">
+                                    <span className="text-[10px] font-black text-slate-400 uppercase">ใช้งานครัวจริง</span>
+                                    <span className="text-xl font-black text-orange-600">{(ptLedger.kitchen.usedHours || 0).toFixed(1)} ชม.</span>
+                                </div>
+                                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col gap-1">
+                                    <span className="text-[10px] font-black text-slate-400 uppercase">อัตราการใช้งาน</span>
+                                    <span className={`text-xl font-black ${(ptLedger.kitchen.usagePercent || 0) > 100 ? 'text-red-500' : 'text-emerald-500'}`}>{(ptLedger.kitchen.usagePercent || 0).toFixed(1)}%</span>
+                                </div>
+                            </div>
+                            
+                            {/* Kitchen Daily table */}
+                            <div>
+                                <h4 className="font-black text-slate-700 text-sm mb-3 uppercase tracking-widest border-b border-slate-100 pb-2">ตารางโควตาและการใช้ครัวรายวัน (Kitchen Daily Quota vs Usage)</h4>
+                                <table className="w-full text-xs text-left border-collapse">
+                                    <thead>
+                                        <tr className="bg-slate-50 text-slate-500">
+                                            <th className="p-2 border-b border-slate-200 font-black text-center w-12">วันที่</th>
+                                            <th className="p-2 border-b border-slate-200 font-black text-center">โควตารวม (H)</th>
+                                            <th className="p-2 border-b border-slate-200 font-black text-center">ใช้ไป (H)</th>
+                                            <th className="p-2 border-b border-slate-200 font-black text-center">คงเหลือ (H)</th>
+                                            <th className="p-2 border-b border-slate-200 font-black text-center w-20">สถานะ</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {CALENDAR_DAYS.map(day => {
+                                            const dateStr = day.dateStr;
+                                            const u = ptLedger.kitchen.dailyUsage[dateStr] || { base: 0, event: 0 };
+                                            const a = ptLedger.kitchen.dailyAllowance?.[dateStr] || { baseAvg: 0, leave: 0, vacancy: 0, event: 0, total: 0 };
+                                            const totalUsed = u.base + u.event;
+                                            const diff = a.total - totalUsed;
+                                            const isOver = diff < 0 && totalUsed > 0;
+                                            
+                                            return (
+                                                <tr key={dateStr} className={`border-b border-slate-100 hover:bg-slate-50 transition-colors ${isOver ? 'bg-rose-50/30' : ''}`}>
+                                                    <td className="p-2 font-bold text-slate-700 text-center">{day.dayNum}</td>
+                                                    <td className="p-2 text-center">
+                                                        <div className="font-black text-slate-700">{a.total.toFixed(1)}</div>
+                                                        <div className="text-[8px] text-slate-400 leading-tight mt-0.5">เฉลี่ย {a.baseAvg.toFixed(1)} + ชดว่าง {a.vacancy.toFixed(1)} + ชดลา {a.leave.toFixed(1)} + พิเศษ {a.event.toFixed(1)}</div>
+                                                    </td>
+                                                    <td className="p-2 text-center">
+                                                        <div className="font-black text-orange-600">{totalUsed.toFixed(1)}</div>
+                                                        <div className="text-[8px] text-slate-400 leading-tight mt-0.5">ปกติ {u.base.toFixed(1)} + พิเศษ {u.event.toFixed(1)}</div>
+                                                    </td>
+                                                    <td className={`p-2 text-center font-black ${isOver ? 'text-red-500' : 'text-emerald-500'}`}>
+                                                        {diff > 0 ? '+' : ''}{diff.toFixed(1)}
+                                                    </td>
+                                                    <td className="p-2 text-center">
+                                                        {isOver ? <span className="bg-red-100 text-red-600 px-2 py-0.5 rounded text-[9px] font-black shadow-sm">เกินโควตา</span> : <span className="bg-emerald-100 text-emerald-600 px-2 py-0.5 rounded text-[9px] font-black">ปกติ</span>}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
                 </div>
              </div>
           </div>
@@ -5724,8 +6044,12 @@ export default function App() {
                  <input type="number" inputMode="numeric" disabled={authRole !== 'superadmin'} value={branchData.totalTables || ''} onChange={(e) => setBranchData(prev => ({...prev, totalTables: parseInt(e.target.value) || 0}))} onBlur={async () => { if(activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" placeholder="เช่น 30" />
               </div>
               <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
-                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">งบประมาณ PT รายเดือน (บาท)</label>
-                 <input type="text" inputMode="numeric" disabled={authRole !== 'superadmin'} value={branchData.ptConfig?.monthlyBudget === 0 ? '' : (branchData.ptConfig?.monthlyBudget ?? '')} onChange={(e) => handleUpdatePtConfig('monthlyBudget', e.target.value.replace(/[^0-9.]/g, ''))} onBlur={(e) => handleSavePtConfig('monthlyBudget', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-indigo-700 disabled:opacity-70 disabled:bg-white" placeholder="เช่น 20000" />
+                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">งบ PT บริการ รายเดือน (บาท) (FOH)</label>
+                 <input type="text" inputMode="numeric" disabled={authRole !== 'superadmin'} value={branchData.ptConfig?.monthlyBudgetService === 0 ? '' : (branchData.ptConfig?.monthlyBudgetService ?? '')} onChange={(e) => handleUpdatePtConfig('monthlyBudgetService', e.target.value.replace(/[^0-9.]/g, ''))} onBlur={(e) => handleSavePtConfig('monthlyBudgetService', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-indigo-700 disabled:opacity-70 disabled:bg-white" placeholder="เช่น 10000" />
+              </div>
+              <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                 <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">งบ PT ครัว รายเดือน (บาท) (BOH)</label>
+                 <input type="text" inputMode="numeric" disabled={authRole !== 'superadmin'} value={branchData.ptConfig?.monthlyBudgetKitchen === 0 ? '' : (branchData.ptConfig?.monthlyBudgetKitchen ?? '')} onChange={(e) => handleUpdatePtConfig('monthlyBudgetKitchen', e.target.value.replace(/[^0-9.]/g, ''))} onBlur={(e) => handleSavePtConfig('monthlyBudgetKitchen', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-indigo-700 disabled:opacity-70 disabled:bg-white" placeholder="เช่น 10000" />
               </div>
               <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
                  <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">อัตราค่าจ้าง PT ต่อชม. (บาท)</label>
@@ -6025,13 +6349,17 @@ export default function App() {
                             const totalSlotsCount = Math.max(slots.length, assigned.length);
                             if (totalSlotsCount === 0) return null;
                             const renderSlots = Array.from({ length: totalSlotsCount });
-                            const dailyEventQuota = schedule[selectedDateStr]?.eventExtraHours || 0;
+                            const dailyEventQuota = activeDept === 'kitchen' 
+                                ? (schedule[selectedDateStr]?.eventExtraHoursKitchen || 0) 
+                                : (schedule[selectedDateStr]?.eventExtraHoursService !== undefined 
+                                    ? schedule[selectedDateStr].eventExtraHoursService 
+                                    : (schedule[selectedDateStr]?.eventExtraHoursKitchen !== undefined ? 0 : (schedule[selectedDateStr]?.eventExtraHours || 0)));
                             let dailyEventUsed = 0;
                             Object.values(schedule[selectedDateStr]?.duties || {}).forEach(dutySlots => {
                                 dutySlots.forEach(s => {
                                         if (s && s.isEventExtra && s.staffId) {
                                         const staff = branchData.staff?.find(x => x.id === s.staffId);
-                                        if (staff && staff.pos.includes('PT')) {
+                                        if (staff && staff.pos.includes('PT') && (staff.dept || 'service') === activeDept) {
                                             const shiftPreset = branchData.shiftPresets?.find(p => p.id === (s.shiftPresetId || branchData.shiftPresets[0].id));
                                             const times = getShiftTimesForStaff(staff.pos, shiftPreset);
                                             const shiftHrs = getNetWorkHours(times.startTime, times.endTime, staff.pos);
@@ -6962,7 +7290,7 @@ export default function App() {
                                                           {(!duty.isBackup || unassignedFT.length > 0) && (
                                                               <button onClick={() => handleAddExtraSlot(day.dateStr, duty.id, slots, false)} className="w-full bg-slate-50 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 border border-dashed border-slate-200 hover:border-indigo-200 py-1.5 rounded-lg text-[8px] font-black transition-colors flex items-center justify-center gap-1 shadow-sm">+ Extra (Base)</button>
                                                           )}
-                                                          {(schedule[day.dateStr]?.eventExtraHours > 0) && (
+                                                          {((activeDept === 'kitchen' ? (schedule[day.dateStr]?.eventExtraHoursKitchen > 0) : (schedule[day.dateStr]?.eventExtraHoursService > 0 || (schedule[day.dateStr]?.eventExtraHoursKitchen === undefined && schedule[day.dateStr]?.eventExtraHours > 0)))) && (
                                                               <button onClick={() => handleAddExtraSlot(day.dateStr, duty.id, slots, true)} className="w-full bg-amber-50 hover:bg-amber-100 text-amber-600 hover:text-amber-700 border border-dashed border-amber-200 hover:border-amber-300 py-1.5 rounded-lg text-[8px] font-black transition-colors flex items-center justify-center gap-1 shadow-sm">+ Extra (Event)</button>
                                                           )}
                                                       </div>
@@ -7894,58 +8222,211 @@ export default function App() {
   }
 
   function renderPtLedgerWidget() {
-      if (!branchData.ptConfig?.monthlyBudget) return null;
+      const config = branchData.ptConfig;
+      if (!config?.monthlyBudget && !config?.monthlyBudgetService && !config?.monthlyBudgetKitchen) return null;
 
+      // 1. DAILY VIEW WIDGET
+      if (managerViewMode === 'daily') {
+          const allowanceSvc = ptLedger.service.dailyAllowance[selectedDateStr] || { total: 0, baseAvg: 0, leave: 0, vacancy: 0, event: 0 };
+          const usageSvc = ptLedger.service.dailyUsage[selectedDateStr] || { base: 0, event: 0 };
+          const usedSvcTotal = usageSvc.base + usageSvc.event;
+          const limitSvcPercent = allowanceSvc.total > 0 ? (usedSvcTotal / allowanceSvc.total) * 100 : 0;
+          
+          const allowanceKit = ptLedger.kitchen.dailyAllowance[selectedDateStr] || { total: 0, baseAvg: 0, leave: 0, vacancy: 0, event: 0 };
+          const usageKit = ptLedger.kitchen.dailyUsage[selectedDateStr] || { base: 0, event: 0 };
+          const usedKitTotal = usageKit.base + usageKit.event;
+          const limitKitPercent = allowanceKit.total > 0 ? (usedKitTotal / allowanceKit.total) * 100 : 0;
+
+          let colorSvc = 'bg-emerald-500';
+          if (usedSvcTotal > allowanceSvc.total) colorSvc = 'bg-red-500';
+          else if (limitSvcPercent >= 80) colorSvc = 'bg-amber-500';
+
+          let colorKit = 'bg-orange-500';
+          if (usedKitTotal > allowanceKit.total) colorKit = 'bg-red-500';
+          else if (limitKitPercent >= 80) colorKit = 'bg-amber-500';
+
+          const pendingExtraPtSvc = pendingRequests.find(r => r.reqType === 'EXTRA_PT' && r.dateStr === selectedDateStr && (r.dept || 'service') === 'service' && r.status === 'PENDING_MANAGER');
+          const pendingExtraPtKit = pendingRequests.find(r => r.reqType === 'EXTRA_PT' && r.dateStr === selectedDateStr && r.dept === 'kitchen' && r.status === 'PENDING_MANAGER');
+
+          return (
+              <div className="bg-white p-5 sm:p-6 rounded-[2rem] border border-slate-200 shadow-sm print:hidden w-full flex-1 flex flex-col justify-between gap-4 animate-in fade-in duration-500">
+                  <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+                      <h3 className="text-base sm:text-lg font-black text-slate-800 uppercase tracking-tighter flex items-center gap-2">
+                          <TrendingUp className="w-5 h-5 text-emerald-500" /> กระเป๋าชั่วโมง PT รายวัน
+                      </h3>
+                      <span className="bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider">{new Date(selectedDateStr + "T00:00:00").toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 my-2">
+                      {/* Service Section */}
+                      <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col gap-2 relative">
+                          <div className="flex justify-between items-start">
+                              <div>
+                                  <span className="text-[10px] sm:text-xs font-black text-slate-500 uppercase block">แผนกบริการ (FOH)</span>
+                                  <span className="text-[8px] font-bold text-slate-400 block mt-0.5">งบเฉลี่ย {allowanceSvc.baseAvg.toFixed(1)}H + ลา {allowanceSvc.leave.toFixed(1)}H + ว่าง {allowanceSvc.vacancy.toFixed(1)}H + พิเศษ {allowanceSvc.event.toFixed(1)}H</span>
+                              </div>
+                                  <span className="text-sm font-black text-slate-800">{usedSvcTotal.toFixed(1)} <span className="text-[10px] text-slate-400">/ {allowanceSvc.total.toFixed(1)} ชม.</span></span>
+                          </div>
+                          <div className="h-2 w-full bg-slate-200 rounded-full overflow-hidden mt-1">
+                              <div className={`h-full ${colorSvc} transition-all duration-500 rounded-full`} style={{ width: `${Math.min(limitSvcPercent, 100)}%` }}></div>
+                          </div>
+
+                          {usedSvcTotal > allowanceSvc.total && (
+                              <div className="mt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 border-t border-red-100 pt-2 bg-red-50/50 p-2 rounded-lg">
+                                  <span className="text-[9px] font-black text-red-500 uppercase flex items-center gap-1"><AlertCircle className="w-3.5 h-3.5"/> ชั่วโมงเกินโควตา +{(usedSvcTotal - allowanceSvc.total).toFixed(1)} ชม.</span>
+                                  {pendingExtraPtSvc ? (
+                                      <span className="text-[8px] font-black text-amber-600 bg-amber-50 border border-amber-200 px-2 py-1 rounded-md text-center">⏳ รอ AM อนุมัติ ({pendingExtraPtSvc.requestedHours.toFixed(1)}H)</span>
+                                  ) : (
+                                      <button onClick={() => { setForecastTc(''); setForecastReason(''); setForecastEvidence(''); setActiveDept('service'); setShowForecastModal(true); }} className="bg-red-500 hover:bg-red-600 text-white px-2.5 py-1 rounded-md text-[8px] font-black transition-colors self-end">ขออนุมัติ</button>
+                                  )}
+                              </div>
+                          )}
+                      </div>
+
+                      {/* Kitchen Section */}
+                      <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col gap-2 relative">
+                          <div className="flex justify-between items-start">
+                              <div>
+                                  <span className="text-[10px] sm:text-xs font-black text-slate-500 uppercase block">แผนกครัว (BOH)</span>
+                                  <span className="text-[8px] font-bold text-slate-400 block mt-0.5">งบเฉลี่ย {allowanceKit.baseAvg.toFixed(1)}H + ลา {allowanceKit.leave.toFixed(1)}H + ว่าง {allowanceKit.vacancy.toFixed(1)}H + พิเศษ {allowanceKit.event.toFixed(1)}H</span>
+                              </div>
+                                  <span className="text-sm font-black text-slate-800">{usedKitTotal.toFixed(1)} <span className="text-[10px] text-slate-400 font-bold">/ {allowanceKit.total.toFixed(1)} ชม.</span></span>
+                          </div>
+                          <div className="h-2 w-full bg-slate-200 rounded-full overflow-hidden mt-1">
+                              <div className={`h-full ${colorKit} transition-all duration-500 rounded-full`} style={{ width: `${Math.min(limitKitPercent, 100)}%` }}></div>
+                          </div>
+
+                          {usedKitTotal > allowanceKit.total && (
+                              <div className="mt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 border-t border-red-100 pt-2 bg-red-50/50 p-2 rounded-lg">
+                                  <span className="text-[9px] font-black text-red-500 uppercase flex items-center gap-1"><AlertCircle className="w-3.5 h-3.5"/> ชั่วโมงเกินโควตา +{(usedKitTotal - allowanceKit.total).toFixed(1)} ชม.</span>
+                                  {pendingExtraPtKit ? (
+                                      <span className="text-[8px] font-black text-amber-600 bg-amber-50 border border-amber-200 px-2 py-1 rounded-md text-center">⏳ รอ AM อนุมัติ ({pendingExtraPtKit.requestedHours.toFixed(1)}H)</span>
+                                  ) : (
+                                      <button onClick={() => { setForecastTc(''); setForecastReason(''); setForecastEvidence(''); setActiveDept('kitchen'); setShowForecastModal(true); }} className="bg-red-500 hover:bg-red-600 text-white px-2.5 py-1 rounded-md text-[8px] font-black transition-colors self-end">ขออนุมัติ</button>
+                                  )}
+                              </div>
+                          )}
+                      </div>
+                  </div>
+
+                  <div className="flex justify-between items-center border-t border-slate-100 pt-2">
+                      <button onClick={() => setShowPtLedgerDetails(true)} className="text-[10px] sm:text-xs font-bold text-indigo-500 hover:text-indigo-700 underline flex items-center gap-1"><BarChart3 className="w-3 h-3"/> ดูรายละเอียดการใช้ PT</button>
+                      {(usedSvcTotal > allowanceSvc.total || usedKitTotal > allowanceKit.total) && <p className="text-[10px] sm:text-xs font-black text-red-500 uppercase animate-pulse">⚠️ เกินโควตาประจำวัน กรุณาส่งขออนุมัติ</p>}
+                  </div>
+              </div>
+          );
+      }
+
+      // 2. WEEKLY VIEW WIDGET (Shows all 7 days)
+      if (managerViewMode === 'weekly') {
+          const daysOfWeek = WEEKLY_DAYS || [];
+          return (
+              <div className="bg-white p-5 sm:p-6 rounded-[2rem] border border-slate-200 shadow-sm print:hidden w-full flex-1 flex flex-col gap-4 animate-in fade-in duration-500">
+                  <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+                      <h3 className="text-base sm:text-lg font-black text-slate-800 uppercase tracking-tighter flex items-center gap-2">
+                          <TrendingUp className="w-5 h-5 text-indigo-500" /> กระเป๋าชั่วโมง PT รายสัปดาห์ (7 วัน)
+                      </h3>
+                      <span className="bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider">Weekly Overview</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 my-1">
+                      {daysOfWeek.map(day => {
+                          const dateStr = day.dateStr;
+                          const aSvc = ptLedger.service.dailyAllowance[dateStr]?.total || 0;
+                          const uSvc = (ptLedger.service.dailyUsage[dateStr]?.base || 0) + (ptLedger.service.dailyUsage[dateStr]?.event || 0);
+                          const aKit = ptLedger.kitchen.dailyAllowance[dateStr]?.total || 0;
+                          const uKit = (ptLedger.kitchen.dailyUsage[dateStr]?.base || 0) + (ptLedger.kitchen.dailyUsage[dateStr]?.event || 0);
+
+                          const isSvcOver = uSvc > aSvc;
+                          const isKitOver = uKit > aKit;
+                          const isToday = selectedDateStr === dateStr;
+
+                          return (
+                              <button key={dateStr} onClick={() => setSelectedDateStr(dateStr)} className={`p-3 rounded-2xl border text-left transition flex flex-col justify-between min-h-[100px] ${isToday ? 'border-indigo-500 bg-indigo-50/20 ring-2 ring-indigo-100' : 'border-slate-100 bg-slate-50 hover:bg-slate-100'}`}>
+                                  <div>
+                                      <div className="text-[9px] font-black uppercase tracking-wider text-slate-400">{day.dayLabel}</div>
+                                      <div className="text-xs font-black text-slate-700">{day.dayNum} {THAI_MONTHS[selectedMonth]?.substring(0,3)}</div>
+                                  </div>
+                                  <div className="mt-2 space-y-1 w-full text-[9px] font-bold">
+                                      <div className="flex justify-between">
+                                          <span className="text-slate-500">บริการ:</span>
+                                          <span className={isSvcOver ? 'text-red-600 font-black' : 'text-slate-700'}>{uSvc.toFixed(0)}/{aSvc.toFixed(0)}H</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                          <span className="text-slate-500">ครัว:</span>
+                                          <span className={isKitOver ? 'text-red-600 font-black' : 'text-slate-700'}>{uKit.toFixed(0)}/{aKit.toFixed(0)}H</span>
+                                      </div>
+                                  </div>
+                              </button>
+                          );
+                      })}
+                  </div>
+
+                  <div className="flex justify-between items-center border-t border-slate-100 pt-2">
+                      <button onClick={() => setShowPtLedgerDetails(true)} className="text-[10px] sm:text-xs font-bold text-indigo-500 hover:text-indigo-700 underline flex items-center gap-1"><BarChart3 className="w-3 h-3"/> ดูรายละเอียดการใช้ PT</button>
+                      <p className="text-[10px] font-bold text-slate-400">รวมใช้งานสัปดาห์นี้: <span className="text-slate-700 font-black">{daysOfWeek.reduce((sum, d) => sum + (ptLedger.dailyUsage[d.dateStr]?.base || 0) + (ptLedger.dailyUsage[d.dateStr]?.event || 0), 0).toFixed(1)}H</span></p>
+                  </div>
+              </div>
+          );
+      }
+
+      // 3. MONTHLY VIEW WIDGET (Default overall overview)
       const usedBaseAll = ptLedger.usedBaseHours;
       const baseTotalAllowance = ptLedger.baseTotalAllowance;
       const usedEvent = ptLedger.usedEventHours;
       const eventExtras = ptLedger.eventExtras;
-      const dailyEventQuota = ptLedger.dailyEventQuota;
-      const dailyEventUsed = ptLedger.dailyEventUsed;
       
       const baseUsagePercent = baseTotalAllowance > 0 ? (usedBaseAll / baseTotalAllowance) * 100 : 0;
       const eventUsagePercent = eventExtras > 0 ? (usedEvent / eventExtras) * 100 : (usedEvent > 0 ? 100 : 0);
 
-      let baseColor = 'bg-emerald-500';
+      let baseColor = 'bg-indigo-500';
       if (baseUsagePercent >= 100) baseColor = 'bg-red-500';
       else if (baseUsagePercent >= 80) baseColor = 'bg-amber-500';
 
-      let eventColor = 'bg-yellow-500';
+      let eventColor = 'bg-amber-500';
       if (eventUsagePercent >= 100) eventColor = 'bg-red-500';
 
       return (
-          <div className="bg-white p-5 sm:p-6 rounded-[2rem] border border-slate-200 shadow-sm print:hidden w-full flex-1 flex flex-col justify-between gap-4 animate-in fade-in duration-500 min-h-[200px]">
-              <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+          <div className="bg-white p-5 sm:p-6 rounded-[2rem] border border-slate-200 shadow-sm print:hidden w-full flex-1 flex flex-col justify-between gap-4 animate-in fade-in duration-500 min-h-[220px]">
+              <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 border-b border-slate-100 pb-2">
                   <div>
-                      <h3 className="text-base sm:text-lg font-black text-slate-800 uppercase tracking-tighter flex items-center gap-2"><TrendingUp className="w-5 h-5 text-emerald-500" /> กระเป๋าชั่วโมง PT</h3>
-                      <p className="text-[10px] sm:text-xs font-bold text-slate-500 mt-1">ยอดรวมชั่วโมงที่ใช้ไป: <span className="text-slate-800">{ptLedger.usedHours.toFixed(1)} / {ptLedger.totalAllowance.toFixed(1)} ชม.</span></p>
+                      <h3 className="text-base sm:text-lg font-black text-slate-800 uppercase tracking-tighter flex items-center gap-2">
+                          <TrendingUp className="w-5 h-5 text-emerald-500" /> กระเป๋าชั่วโมง PT รายเดือน
+                      </h3>
+                      <p className="text-[10px] sm:text-xs font-bold text-slate-500 mt-1">ยอดรวมชั่วโมงที่ใช้ไป: <span className="text-slate-800 font-black">{ptLedger.usedHours.toFixed(1)} / {ptLedger.totalAllowance.toFixed(1)} ชม.</span></p>
+                  </div>
+                  <span className="bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider">{THAI_MONTHS[selectedMonth]} {selectedYear + 543}</span>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-1">
+                  {/* Service Division */}
+                  <div className="bg-slate-50 p-3 sm:p-4 rounded-xl border border-slate-100 flex flex-col gap-1.5">
+                      <div className="flex justify-between items-end">
+                          <span className="text-[10px] sm:text-xs font-black text-indigo-700 uppercase">บริการ (FOH)</span>
+                          <span className="text-xs font-black text-slate-800">{ptLedger.service.usedHours.toFixed(1)} <span className="text-[9px] text-slate-400">/ {ptLedger.service.totalAllowance.toFixed(1)} ชม.</span></span>
+                      </div>
+                      <div className="h-2 w-full bg-slate-200 rounded-full overflow-hidden">
+                          <div className="h-full bg-indigo-500 transition-all duration-500 rounded-full" style={{ width: `${Math.min(ptLedger.service.totalAllowance > 0 ? (ptLedger.service.usedHours / ptLedger.service.totalAllowance) * 100 : 0, 100)}%` }}></div>
+                      </div>
+                      <span className="text-[8px] font-bold text-slate-400 mt-0.5">งบตั้งต้น {(ptLedger.service.baseAllowance || 0).toFixed(0)}H | ชดลา {(ptLedger.service.leaveRefunds || 0).toFixed(0)}H | ชดว่าง {(ptLedger.service.vacancyCompensations || 0).toFixed(0)}H | พิเศษ {(ptLedger.service.eventExtras || 0).toFixed(0)}H</span>
+                  </div>
+
+                  {/* Kitchen Division */}
+                  <div className="bg-slate-50 p-3 sm:p-4 rounded-xl border border-slate-100 flex flex-col gap-1.5">
+                      <div className="flex justify-between items-end">
+                          <span className="text-[10px] sm:text-xs font-black text-orange-700 uppercase">ครัว (BOH)</span>
+                          <span className="text-xs font-black text-slate-800">{ptLedger.kitchen.usedHours.toFixed(1)} <span className="text-[9px] text-slate-400">/ {ptLedger.kitchen.totalAllowance.toFixed(1)} ชม.</span></span>
+                      </div>
+                      <div className="h-2 w-full bg-slate-200 rounded-full overflow-hidden">
+                          <div className="h-full bg-orange-500 transition-all duration-500 rounded-full" style={{ width: `${Math.min(ptLedger.kitchen.totalAllowance > 0 ? (ptLedger.kitchen.usedHours / ptLedger.kitchen.totalAllowance) * 100 : 0, 100)}%` }}></div>
+                      </div>
+                      <span className="text-[8px] font-bold text-slate-400 mt-0.5">งบตั้งต้น {(ptLedger.kitchen.baseAllowance || 0).toFixed(0)}H | ชดลา {(ptLedger.kitchen.leaveRefunds || 0).toFixed(0)}H | ชดว่าง {(ptLedger.kitchen.vacancyCompensations || 0).toFixed(0)}H | พิเศษ {(ptLedger.kitchen.eventExtras || 0).toFixed(0)}H</span>
                   </div>
               </div>
               
-              <div className={`grid grid-cols-1 ${dailyEventQuota > 0 ? 'md:grid-cols-2' : ''} gap-4 mt-2`}>
-                  <div className="bg-slate-50 p-3 sm:p-4 rounded-xl border border-slate-100 flex flex-col gap-2">
-                      <div className="flex justify-between items-end">
-                          <div className="flex flex-col">
-                              <span className="text-[10px] sm:text-xs font-black text-slate-500 uppercase">งบปกติ + ทุนคนลา + ทุนขาดคน (Vacancy)</span>
-                              <span className="text-[9px] font-bold text-slate-400">Budget: {(ptLedger.baseAllowance || 0).toFixed(1)}H | Leave: {(ptLedger.leaveRefunds || 0).toFixed(1)}H | Vacancy: {(ptLedger.vacancyCompensations || 0).toFixed(1)}H</span>
-                          </div>
-                          <span className="text-sm font-black text-slate-800">{usedBaseAll.toFixed(1)} <span className="text-[10px] text-slate-400">/ {baseTotalAllowance.toFixed(1)} ชม.</span></span>
-                      </div>
-                      <div className="h-2.5 sm:h-3 w-full bg-slate-200 rounded-full overflow-hidden"><div className={`h-full ${baseColor} transition-all duration-500 rounded-full`} style={{ width: `${Math.min(baseUsagePercent, 100)}%` }}></div></div>
-                  </div>
-                  {dailyEventQuota > 0 && (
-                  <div className="bg-slate-50 p-3 sm:p-4 rounded-xl border border-amber-100 flex flex-col gap-2">
-                      <div className="flex justify-between items-end">
-                          <span className="text-[10px] sm:text-xs font-black text-amber-600 uppercase flex items-center gap-1"><Sparkles className="w-3 h-3"/> โควตาพิเศษ (Event)</span>
-                          <span className="text-sm font-black text-slate-800">{dailyEventUsed.toFixed(1)} <span className="text-[10px] text-slate-400">/ {dailyEventQuota.toFixed(1)} ชม.</span></span>
-                      </div>
-                      <div className="h-2.5 sm:h-3 w-full bg-slate-200 rounded-full overflow-hidden"><div className={`h-full ${eventColor} transition-all duration-500 rounded-full`} style={{ width: `${Math.min(eventUsagePercent, 100)}%` }}></div></div>
-                  </div>
-                  )}
-              </div>
               <div className="flex justify-between items-center mt-1">
                   <button onClick={() => setShowPtLedgerDetails(true)} className="text-[10px] sm:text-xs font-bold text-indigo-500 hover:text-indigo-700 underline flex items-center gap-1"><BarChart3 className="w-3 h-3"/> ดูรายละเอียดการใช้ PT</button>
-                  {ptLedger.usedHours > ptLedger.totalAllowance && <p className="text-[10px] sm:text-xs font-black text-red-500 uppercase animate-pulse">⚠️ โควตาเกินกำหนด กรุณาตรวจสอบ</p>}
+                  {ptLedger.usedHours > ptLedger.totalAllowance && <p className="text-[10px] sm:text-xs font-black text-red-500 uppercase animate-pulse">⚠️ โควตาทะลุงบรายเดือน กรุณาตรวจสอบ</p>}
               </div>
           </div>
       );
@@ -8092,7 +8573,11 @@ export default function App() {
                         if (parseInt(m, 10) - 1 !== selectedMonth || parseInt(y, 10) !== selectedYear) return;
 
                         const dayData = sData[dateStr];
-                        if (dayData.eventExtraHours) eventExtras += dayData.eventExtraHours;
+                        const eventHrsSvc = dayData.eventExtraHoursService !== undefined 
+                            ? dayData.eventExtraHoursService 
+                            : (dayData.eventExtraHoursKitchen !== undefined ? 0 : (dayData.eventExtraHours || 0));
+                        const eventHrsKit = dayData.eventExtraHoursKitchen || 0;
+                        eventExtras += eventHrsSvc + eventHrsKit;
 
                         if (dayData.leaves) {
                             totalLeaves += dayData.leaves.length;
@@ -8274,11 +8759,125 @@ export default function App() {
                     const svcPtPercent = hasLimitSvcPt && targetSvcPt > 0 ? (actSvcPt / targetSvcPt) * 100 : 100;
                     const kitPtPercent = hasLimitKitPt && targetKitPt > 0 ? (actKitPt / targetKitPt) * 100 : 100;
 
+                    // Calculate daily quota and usage for each day in bDays to find if any day has unapproved over-quota PT hours
+                    let hasUnapprovedOverQuota = false;
+                    let overQuotaDaysCount = 0;
+                    
+                    const monthlyBudgetSvc = bData?.ptConfig?.monthlyBudgetService !== undefined ? Number(bData.ptConfig.monthlyBudgetService) : null;
+                    const monthlyBudgetKit = bData?.ptConfig?.monthlyBudgetKitchen !== undefined ? Number(bData.ptConfig.monthlyBudgetKitchen) : null;
+                    const hourlyRateVal = Number(bData?.ptConfig?.hourlyRate || 0);
+
+                    let baseAllSvc = 0;
+                    let baseAllKit = 0;
+                    if (hourlyRateVal > 0) {
+                        if (monthlyBudgetSvc !== null && monthlyBudgetKit !== null) {
+                            baseAllSvc = monthlyBudgetSvc / hourlyRateVal;
+                            baseAllKit = monthlyBudgetKit / hourlyRateVal;
+                        } else {
+                            const legacyBudget = Number(bData?.ptConfig?.monthlyBudget || 0);
+                            baseAllSvc = (legacyBudget / 2) / hourlyRateVal;
+                            baseAllKit = (legacyBudget / 2) / hourlyRateVal;
+                        }
+                    }
+                    
+                    const daysInMonthCount = bDays.length || 30;
+                    const dailyBaseAvgSvc = baseAllSvc / daysInMonthCount;
+                    const dailyBaseAvgKit = baseAllKit / daysInMonthCount;
+
+                    bDays.forEach(day => {
+                        const dateStr = day.dateStr;
+                        const dayData = sData[dateStr] || {};
+                        
+                        // 1. Vacancy
+                        let activeFtCountSvc = 0;
+                        let activeFtCountKit = 0;
+                        (bData?.staff || []).forEach(s => {
+                            if (s.pos.includes('PT') || (s.isActive === false && !s.resignDate)) return;
+                            const started = !s.startDate || s.startDate <= dateStr;
+                            const notResigned = !s.resignDate || s.resignDate >= dateStr;
+                            if (started && notResigned) {
+                                if (s.dept === 'service') activeFtCountSvc++;
+                                if (s.dept === 'kitchen') activeFtCountKit++;
+                            }
+                        });
+                        const gapSvc = Math.max(0, targetFtService - activeFtCountSvc);
+                        const gapKit = Math.max(0, targetFtKitchen - activeFtCountKit);
+                        const dayVacancySvc = gapSvc * compHrSvc;
+                        const dayVacancyKit = gapKit * compHrKit;
+
+                        // 2. Leaves
+                        let leaveRefundsSvc = 0;
+                        let leaveRefundsKit = 0;
+                        if (dayData.leaves) {
+                            dayData.leaves.forEach(l => {
+                                const staff = staffMap[l.staffId];
+                                if (staff && !staff.pos.includes('PT') && ['AL', 'SL', 'SL_UNPAID', 'PL', 'PL_UNPAID', 'MATERNITY', 'MARRIAGE', 'TRAINING', 'MY_DAY', 'FAMILY_DAY', 'CO'].includes(l.type)) {
+                                    if (staff.dept === 'kitchen') leaveRefundsKit += 8;
+                                    else leaveRefundsSvc += 8;
+                                }
+                            });
+                        }
+
+                        // 3. Event Extra hours
+                        const eventHrsSvc = dayData.eventExtraHoursService !== undefined 
+                            ? dayData.eventExtraHoursService 
+                            : (dayData.eventExtraHoursKitchen !== undefined ? 0 : (dayData.eventExtraHours || 0));
+                        const eventHrsKit = dayData.eventExtraHoursKitchen || 0;
+
+                        // Daily allowances
+                        const allowanceSvc = dailyBaseAvgSvc + dayVacancySvc + leaveRefundsSvc + eventHrsSvc;
+                        const allowanceKit = dailyBaseAvgKit + dayVacancyKit + leaveRefundsKit + eventHrsKit;
+
+                        // 4. Used Hours
+                        let usedHoursSvc = 0;
+                        let usedHoursKit = 0;
+                        if (dayData.duties) {
+                            const dayType = getDayType(dateStr, bData?.holidays, bData?.holidayCycles);
+                            Object.keys(dayData.duties).forEach(dutyId => {
+                                const slots = dayData.duties[dutyId] || [];
+                                const matrixSlots = bData?.matrix?.[dayType]?.duties?.[dutyId] || [];
+                                slots.forEach((slot, idx) => {
+                                    if (slot && slot.staffId) {
+                                        const actualStaffId = slot.staffId.startsWith('COVER_BY_') ? slot.staffId.replace('COVER_BY_', '') : slot.staffId;
+                                        const staff = staffMap[actualStaffId];
+                                        if (staff && staff.pos.includes('PT')) {
+                                            const mSlot = matrixSlots[idx];
+                                            const shiftPreset = bData?.shiftPresets?.find(p => p.id === (slot.shiftPresetId || mSlot?.shiftPresetId));
+                                            const times = getShiftTimesForStaff(staff.pos, shiftPreset);
+                                            const shiftHrs = getNetWorkHours(times.startTime, times.endTime, staff.pos);
+                                            const totalSlotHrs = shiftHrs + Number(slot.otHours || 0);
+                                            if (staff.dept === 'kitchen') {
+                                                usedHoursKit += totalSlotHrs;
+                                            } else {
+                                                usedHoursSvc += totalSlotHrs;
+                                            }
+                                        }
+                                    }
+                                });
+                            });
+                        }
+
+                        // Check over-quota
+                        const isSvcOver = usedHoursSvc > allowanceSvc;
+                        const isKitOver = usedHoursKit > allowanceKit;
+                        if (isSvcOver || isKitOver) {
+                            hasUnapprovedOverQuota = true;
+                            overQuotaDaysCount++;
+                        }
+                    });
+
                     return (
                         <div key={bId} className="bg-white p-6 sm:p-8 rounded-[2rem] border border-slate-200 shadow-sm flex flex-col gap-6 transition hover:border-indigo-300">
                           <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-6">
                             <div className="flex-1 w-full">
-                                <h3 className="text-xl font-black text-slate-800 uppercase flex items-center gap-3"><Store className="w-6 h-6 text-indigo-500"/> {branchName}</h3>
+                                <div className="flex flex-wrap items-center gap-3 justify-between">
+                                    <h3 className="text-xl font-black text-slate-800 uppercase flex items-center gap-3"><Store className="w-6 h-6 text-indigo-500"/> {branchName}</h3>
+                                    {hasUnapprovedOverQuota && (
+                                        <span className="bg-red-50 border border-red-200 text-red-600 px-3.5 py-1.5 rounded-full text-xs font-black uppercase tracking-wider flex items-center gap-1.5 animate-pulse">
+                                            <AlertCircle className="w-4 h-4 text-red-500"/> มีวันใช้งานเกินโควตา ({overQuotaDaysCount} วัน)
+                                        </span>
+                                    )}
+                                </div>
                                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-5 w-full">
                                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col justify-center"><div className="text-[10px] font-bold text-slate-400 uppercase">พนักงานรวม</div><div className="text-xl sm:text-2xl font-black text-slate-800 mt-1">{staffCount} <span className="text-[10px] font-bold text-slate-500">คน</span></div></div>
                                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col justify-center"><div className="text-[10px] font-bold text-slate-400 uppercase">พนักงานพาร์ทไทม์ (PT)</div><div className="text-xl sm:text-2xl font-black text-emerald-600 mt-1">{ptCount} <span className="text-[10px] font-bold text-emerald-600/50">คน</span></div></div>
