@@ -7143,8 +7143,57 @@ export default function App() {
        <div className="w-full animate-in fade-in duration-500">
           <div className="bg-white rounded-[2rem] sm:rounded-[3rem] border border-slate-200 shadow-sm overflow-hidden w-full">
              <div className="p-6 sm:p-8 bg-slate-50 border-b border-slate-100 flex justify-between items-center flex-wrap gap-4">
-                <div className="flex flex-col">
-                   <h2 className="text-xl sm:text-2xl font-black text-slate-900 uppercase tracking-tighter">Monthly Schedule: {THAI_MONTHS[selectedMonth]}</h2>
+                <div className="flex flex-col gap-1">
+                   <div className="flex items-center gap-3">
+                      <h2 className="text-xl sm:text-2xl font-black text-slate-900 uppercase tracking-tighter">
+                         {isWeekly ? `Weekly Schedule: ${(() => {
+                             if (!WEEKLY_DAYS || WEEKLY_DAYS.length === 0) return '';
+                             const start = WEEKLY_DAYS[0];
+                             const end = WEEKLY_DAYS[WEEKLY_DAYS.length - 1];
+                             const startDate = new Date(start.dateStr + "T00:00:00");
+                             const endDate = new Date(end.dateStr + "T00:00:00");
+                             const startMonth = THAI_MONTHS[startDate.getMonth()];
+                             const endMonth = THAI_MONTHS[endDate.getMonth()];
+                             if (startDate.getMonth() === endDate.getMonth()) {
+                                 return `${startDate.getDate()} - ${endDate.getDate()} ${startMonth}`;
+                             } else {
+                                 return `${startDate.getDate()} ${startMonth.substring(0,3)} - ${endDate.getDate()} ${endMonth.substring(0,3)}`;
+                             }
+                         })()}` : `Monthly Schedule: ${THAI_MONTHS[selectedMonth]}`}
+                      </h2>
+                      {isWeekly && (
+                         <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl p-1 shadow-sm">
+                            <button 
+                               onClick={() => {
+                                   const currentDate = new Date(selectedDateStr + 'T00:00:00');
+                                   currentDate.setDate(currentDate.getDate() - 7);
+                                   const y = currentDate.getFullYear();
+                                   const m = String(currentDate.getMonth() + 1).padStart(2, '0');
+                                   const d = String(currentDate.getDate()).padStart(2, '0');
+                                   setSelectedDateStr(`${y}-${m}-${d}`);
+                               }}
+                               className="p-1.5 hover:bg-slate-50 rounded-lg text-slate-600 active:scale-95 transition-all"
+                               title="สัปดาห์ก่อนหน้า"
+                            >
+                               <ChevronLeft className="w-4 h-4" />
+                            </button>
+                            <button 
+                               onClick={() => {
+                                   const currentDate = new Date(selectedDateStr + 'T00:00:00');
+                                   currentDate.setDate(currentDate.getDate() + 7);
+                                   const y = currentDate.getFullYear();
+                                   const m = String(currentDate.getMonth() + 1).padStart(2, '0');
+                                   const d = String(currentDate.getDate()).padStart(2, '0');
+                                   setSelectedDateStr(`${y}-${m}-${d}`);
+                               }}
+                               className="p-1.5 hover:bg-slate-50 rounded-lg text-slate-600 active:scale-95 transition-all"
+                               title="สัปดาห์ถัดไป"
+                            >
+                               <ChevronRight className="w-4 h-4" />
+                            </button>
+                         </div>
+                      )}
+                   </div>
                    <div className="text-xs font-bold text-indigo-600 uppercase tracking-widest mt-1">{activeDept.toUpperCase()} DEPT</div>
                 </div>
                 <div className="flex gap-2 w-full sm:w-auto">
