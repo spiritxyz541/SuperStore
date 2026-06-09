@@ -595,9 +595,8 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
           }
           table.print-table tr {
             page-break-inside: avoid !important;
-          }
-          tr.print-category-last-row td {
-            border-bottom: 2.5px solid #000000 !important;
+          }          tr.print-category-last-row td {
+            border-bottom: 3.5px solid #000000 !important;
           }
           .print-duty-layer {
             font-size: ${printDutyLayerSize} !important;
@@ -606,23 +605,27 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
             border: 1px solid #000000 !important;
             border-right: 2px solid #000000 !important;
             color: #000000 !important;
+            position: static !important;
+            background-color: transparent !important;
           }
           .print-employee-pos {
             font-size: ${printEmployeePosSize} !important;
             font-weight: 900 !important;
             text-align: center !important;
-            background-color: #ffffff !important;
+            background-color: transparent !important;
             color: #000000 !important;
             border-right: 2px solid #000000 !important;
+            position: static !important;
           }
           .print-employee-name {
             font-size: ${printEmployeeNameSize} !important;
             font-weight: 900 !important;
             max-width: none !important;
             white-space: nowrap !important;
-            background-color: #ffffff !important;
+            background-color: transparent !important;
             color: #000000 !important;
             border-right: 3px solid #000000 !important;
+            position: static !important;
           }
           .print-cell-work-time {
             font-size: ${printCellWorkTimeSize} !important;
