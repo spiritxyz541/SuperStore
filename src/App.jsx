@@ -7637,8 +7637,8 @@ export default function App() {
                             <div className="text-xs font-bold text-indigo-600 uppercase tracking-widest mt-1">{activeDept.toUpperCase()} DEPT</div>
                         </div>
                         <div className="flex gap-2 w-full sm:w-auto">
-                            <button onClick={() => requestAutoAssign('monthly')} disabled={aiLoading} className="flex-1 sm:flex-none bg-slate-900 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-black flex justify-center items-center gap-2 hover:bg-black shadow-lg active:scale-95 transition-all text-[10px] sm:text-xs uppercase tracking-widest">
-                                {aiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4 text-yellow-400" />} จัดกะอัตโนมัติ (ทั้งเดือน)
+                            <button onClick={() => requestAutoAssign(isWeekly ? 'weekly' : 'monthly')} disabled={aiLoading} className="flex-1 sm:flex-none bg-slate-900 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-black flex justify-center items-center gap-2 hover:bg-black shadow-lg active:scale-95 transition-all text-[10px] sm:text-xs uppercase tracking-widest">
+                                {aiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4 text-yellow-400" />} จัดกะอัตโนมัติ ({isWeekly ? 'ทั้งสัปดาห์นี้' : 'ทั้งเดือนนี้'})
                             </button>
                             <button onClick={() => setShowHistoryModal(true)} className="flex-1 sm:flex-none bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 px-4 py-2 sm:py-3 rounded-xl flex justify-center items-center gap-2 shadow-sm active:scale-95 transition-all text-[10px] sm:text-xs font-black uppercase tracking-widest">
                                 <FolderOpen className="w-4 h-4" /> ประวัติ
