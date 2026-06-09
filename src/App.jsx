@@ -692,6 +692,7 @@ export default function App() {
   const [extraOtReason, setExtraOtReason] = useState('');
 
   const [showForecastModal, setShowForecastModal] = useState(false);
+  const [ptRequestMode, setPtRequestMode] = useState('EVENT'); // 'EVENT' or 'OVER_BUDGET'
   const [forecastTc, setForecastTc] = useState('');
   const [forecastReason, setForecastReason] = useState('');
   const [forecastEvidence, setForecastEvidence] = useState('');
@@ -3001,19 +3002,20 @@ export default function App() {
      } catch (e) { setConfirmModal({ message: 'เกิดข้อผิดพลาดในการส่งคำขอ' }); }
   };
 
-  const handleSubmitForecastRequest = async (dateStr, fTc, diffMh, dept) => {
+  const handleSubmitForecastRequest = async (dateStr, fTc, diffMh, dept, mode = ptRequestMode) => {
       const newReq = { 
           id: 'R'+Date.now(), 
           reqType: 'EXTRA_PT', 
           staffId: 'MANAGER', 
           dateStr: dateStr, 
-          forecastTc: fTc, 
+          forecastTc: mode === 'OVER_BUDGET' ? 0 : fTc, 
           requestedHours: diffMh, 
           reason: forecastReason.trim(),
-          evidence: forecastEvidence.trim(),
+          evidence: mode === 'OVER_BUDGET' ? '' : forecastEvidence.trim(),
           status: 'PENDING_MANAGER', 
           timestamp: Date.now(),
-          dept: dept || activeDept
+          dept: dept || activeDept,
+          mode: mode
       };
       const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'requests', activeBranchId);
       try {
@@ -3021,7 +3023,10 @@ export default function App() {
           const currentList = snap.exists() ? (snap.data().list || []) : [];
           await setDoc(docRef, { list: [...currentList, newReq] });
           setShowForecastModal(false);
-          setConfirmModal({ message: 'ส่งคำขออนุมัติชั่วโมงพิเศษ (Event) เรียบร้อยแล้ว รอการตรวจสอบจาก Coach' });
+          const confirmMsg = mode === 'OVER_BUDGET' 
+              ? 'ส่งคำขออนุมัติชั่วโมงเกินโควตาเรียบร้อยแล้ว รอการตรวจสอบจาก Area Manager'
+              : 'ส่งคำขออนุมัติชั่วโมงพิเศษ (Event) เรียบร้อยแล้ว รอการตรวจสอบจาก Coach';
+          setConfirmModal({ message: confirmMsg });
       } catch (e) { 
           setConfirmModal({ message: 'เกิดข้อผิดพลาดในการส่งคำขอ' }); 
       }
@@ -4162,14 +4167,19 @@ export default function App() {
                                    </div>
                                  );
                               } else if (req.reqType === 'EXTRA_PT') {
+                                 const isOverBudget = req.mode === 'OVER_BUDGET' || (!req.forecastTc && !req.evidence);
                                  detailHtml = (
                                    <div className="mt-2 text-xs font-bold text-slate-600 bg-emerald-50 p-3 rounded-lg border border-emerald-100">
-                                     ขอโควตาพิเศษ (Event): <span className="text-emerald-700 font-black">+{req.requestedHours.toFixed(1)} ชม.</span> <br/>
+                                     {isOverBudget ? 'ขออนุมัติชั่วโมงเกินโควตา:' : 'ขอโควตาพิเศษ (Event):'} <span className="text-emerald-700 font-black">+{req.requestedHours.toFixed(1)} ชม.</span> <br/>
                                      แผนก: <span className="text-indigo-700 font-black">{(req.dept === 'kitchen' ? 'ครัว (BOH)' : 'บริการ (FOH)')}</span> <br/>
                                      ประจำวันที่: <span className="text-emerald-700">{req.dateStr}</span> <br/>
                                      เหตุผล: <span className="text-emerald-700">{req.reason}</span> <br/>
-                                     หลักฐาน: <span className="text-emerald-700">{req.evidence || '-'}</span> <br/>
-                                     <span className="text-[10px] text-slate-400 font-normal">(อ้างอิง Forecast: {req.forecastTc} บิล)</span>
+                                     {!isOverBudget && (
+                                       <>
+                                         หลักฐาน: <span className="text-emerald-700">{req.evidence || '-'}</span> <br/>
+                                         <span className="text-[10px] text-slate-400 font-normal">(อ้างอิง Forecast: {req.forecastTc} บิล)</span>
+                                       </>
+                                     )}
                                    </div>
                                  );
                               } else {
@@ -4268,7 +4278,7 @@ export default function App() {
                                   } else if (req.reqType === 'EXTRA_PT') {
                                      detailHtml = (
                                        <div className="mt-1 text-xs font-bold text-slate-500">
-                                         โควตาพิเศษ (Event): <span className="text-emerald-600 font-black">+{req.requestedHours.toFixed(1)} ชม.</span> (วันที่: {req.dateStr})
+                                         {(req.mode === 'OVER_BUDGET' || (!req.forecastTc && !req.evidence)) ? 'ขออนุมัติชั่วโมงเกินโควตา:' : 'โควตาพิเศษ (Event):'} <span className="text-emerald-600 font-black">+{req.requestedHours.toFixed(1)} ชม.</span> (วันที่: {req.dateStr})
                                        </div>
                                      );
                                   } else {
@@ -4362,7 +4372,7 @@ export default function App() {
           <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300 font-sans">
              <div className="bg-white rounded-[2rem] p-6 sm:p-8 max-w-md w-full shadow-2xl relative flex flex-col gap-4 animate-in zoom-in-95">
                 <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-                   <h3 className="text-xl font-black text-slate-800 uppercase tracking-tighter flex items-center gap-2"><TrendingUp className="w-6 h-6 text-indigo-500"/> ขอจัดกะพิเศษ (Event)</h3>
+                   <h3 className="text-xl font-black text-slate-800 uppercase tracking-tighter flex items-center gap-2"><TrendingUp className="w-6 h-6 text-indigo-500"/> {ptRequestMode === 'OVER_BUDGET' ? 'ขออนุมัติชั่วโมงเกินโควตา' : 'ขอจัดกะพิเศษ (Event)'}</h3>
                    <button onClick={() => setShowForecastModal(false)} className="text-slate-400 hover:bg-slate-100 p-2 rounded-full transition"><X className="w-5 h-5"/></button>
                 </div>
                 {(() => {
@@ -4420,7 +4430,39 @@ export default function App() {
                         );
                     }
 
-                   const baseTc = Object.values(branchData.matrix?.[activeDay.type]?.hourlyTc || {}).reduce((sum, val) => sum + (parseInt(val) || 0), 0);
+                    if (ptRequestMode === 'OVER_BUDGET') {
+                        const allowance = activeDept === 'kitchen' 
+                            ? (ptLedger.kitchen.dailyAllowance[activeDay.dateStr] || { total: 0 }) 
+                            : (ptLedger.service.dailyAllowance[activeDay.dateStr] || { total: 0 });
+                        const usage = activeDept === 'kitchen' 
+                            ? (ptLedger.kitchen.dailyUsage[activeDay.dateStr] || { base: 0, event: 0 }) 
+                            : (ptLedger.service.dailyUsage[activeDay.dateStr] || { base: 0, event: 0 });
+                        const usedTotal = usage.base + usage.event;
+                        const excessHours = Math.max(0, usedTotal - allowance.total);
+
+                        return (
+                            <div className="space-y-4">
+                               <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 grid grid-cols-2 gap-2 text-[10px] sm:text-xs">
+                                   <div className="text-slate-500 font-bold col-span-2">ประเภทคำขอ: <span className="text-red-600 font-black">ขออนุมัติชั่วโมงเกินโควตาประจำวัน</span></div>
+                                   <div className="text-slate-500 font-bold">วันที่ขอ: <span className="text-slate-800 font-black">{activeDay.dateStr}</span></div>
+                                   <div className="text-slate-500 font-bold">แผนก: <span className="text-indigo-600 font-black">{activeDept === 'kitchen' ? 'ครัว (BOH)' : 'บริการ (FOH)'}</span></div>
+                                   <div className="text-slate-500 font-bold">โควตาปัจจุบัน: <span className="text-slate-800">{allowance.total.toFixed(1)} ชม.</span></div>
+                                   <div className="text-slate-500 font-bold">ชั่วโมงใช้งานจริง: <span className="text-slate-800">{usedTotal.toFixed(1)} ชม.</span></div>
+                               </div>
+                               <div>
+                                   <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">เหตุผลการขออนุมัติชั่วโมงเกินโควตา (จำเป็นต้องกรอก)</label>
+                                   <input type="text" value={forecastReason} onChange={(e) => setForecastReason(e.target.value)} placeholder="ระบุเหตุผล เช่น ลูกค้าเยอะกว่าปกติ..." className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 bg-white shadow-sm" />
+                               </div>
+                               <div className="p-4 rounded-xl border flex flex-col items-center justify-center gap-1 bg-red-50 border-red-200 shadow-inner">
+                                   <span className="text-[10px] font-bold text-red-500 uppercase">ชั่วโมงส่วนเกินที่ขออนุมัติ</span>
+                                   <span className="text-3xl font-black text-red-600">+{excessHours.toFixed(1)} <span className="text-sm">ชม.</span></span>
+                               </div>
+                               <button onClick={() => handleSubmitForecastRequest(activeDay.dateStr, 0, excessHours, activeDept, 'OVER_BUDGET')} disabled={excessHours <= 0 || !forecastReason.trim()} className="w-full bg-red-600 hover:bg-red-700 text-white py-3.5 rounded-xl font-black text-xs sm:text-sm transition disabled:opacity-50 shadow-lg mt-2 uppercase tracking-widest">ส่งคำขออนุมัติชั่วโมงส่วนเกิน</button>
+                            </div>
+                        );
+                    }
+
+                    const baseTc = Object.values(branchData.matrix?.[activeDay.type]?.hourlyTc || {}).reduce((sum, val) => sum + (parseInt(val) || 0), 0);
                     const baseMh = getBaseManHours(activeDay.type, activeDept);
                     const ratio = baseTc > 0 ? (baseMh / baseTc) : 0;
                     
@@ -4457,7 +4499,7 @@ export default function App() {
                                        <span className="text-[10px] font-bold text-slate-500 uppercase">ระบบแนะนำให้เพิ่มชั่วโมงพนักงาน</span>
                                        <span className={`text-3xl font-black ${diffMh > 0 ? 'text-indigo-600' : 'text-slate-400'}`}>+{diffMh.toFixed(1)} <span className="text-sm">ชม.</span></span>
                                    </div>
-                                   <button onClick={() => handleSubmitForecastRequest(activeDay.dateStr, fTc, diffMh, activeDept)} disabled={diffMh <= 0 || !forecastReason.trim() || !forecastEvidence.trim()} className="w-full bg-indigo-600 text-white py-3.5 rounded-xl font-black text-xs sm:text-sm hover:bg-indigo-700 transition disabled:opacity-50 shadow-lg mt-2 uppercase tracking-widest">ส่งคำขออนุมัติโควตา</button>
+                                   <button onClick={() => handleSubmitForecastRequest(activeDay.dateStr, fTc, diffMh, activeDept, 'EVENT')} disabled={diffMh <= 0 || !forecastReason.trim() || !forecastEvidence.trim()} className="w-full bg-indigo-600 text-white py-3.5 rounded-xl font-black text-xs sm:text-sm hover:bg-indigo-700 transition disabled:opacity-50 shadow-lg mt-2 uppercase tracking-widest">ส่งคำขออนุมัติโควตา</button>
                                </React.Fragment>
                            )}
                         </div>
@@ -4465,8 +4507,7 @@ export default function App() {
                 })()}
              </div>
           </div>
-        )}
-        {showPtLedgerDetails && (
+        )}        {showPtLedgerDetails && (
           <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300 font-sans">
              <div className="bg-white rounded-[2rem] p-6 sm:p-8 max-w-3xl w-full shadow-2xl relative flex flex-col gap-4 animate-in zoom-in-95 max-h-[85vh]">
                 <div className="flex justify-between items-center border-b border-slate-100 pb-3">
@@ -6182,7 +6223,7 @@ export default function App() {
              </div>
              <div className="flex flex-wrap gap-2 w-full xl:w-auto">
                 <button onClick={handleShareToLine} className="flex-1 xl:flex-none bg-[#00B900] hover:bg-[#009900] text-white px-4 sm:px-6 py-4 sm:py-5 rounded-xl sm:rounded-[2rem] font-black flex justify-center items-center gap-2 shadow-lg active:scale-95 transition-all text-[10px] sm:text-sm"><MessageCircle className="w-4 h-4 sm:w-5 sm:h-5" /> <span className="hidden sm:inline">Copy to LINE</span><span className="sm:hidden">Share</span></button>
-                <button onClick={() => { setForecastTc(''); setForecastReason(''); setForecastEvidence(''); setShowForecastModal(true); }} className="flex-1 xl:flex-none bg-indigo-50 text-indigo-600 border border-indigo-200 hover:bg-indigo-100 px-4 sm:px-6 py-4 sm:py-5 rounded-xl sm:rounded-[2rem] font-black flex justify-center items-center gap-2 shadow-sm active:scale-95 transition-all text-[10px] sm:text-sm"><TrendingUp className="w-4 h-4 sm:w-5 sm:h-5" /> <span className="hidden sm:inline">ขอจัดกะพิเศษกรณีมีอีเว้นพิเศษ</span><span className="sm:hidden">กะพิเศษ</span></button>
+                <button onClick={() => { setForecastTc(''); setForecastReason(''); setForecastEvidence(''); setPtRequestMode('EVENT'); setShowForecastModal(true); }} className="flex-1 xl:flex-none bg-indigo-50 text-indigo-600 border border-indigo-200 hover:bg-indigo-100 px-4 sm:px-6 py-4 sm:py-5 rounded-xl sm:rounded-[2rem] font-black flex justify-center items-center gap-2 shadow-sm active:scale-95 transition-all text-[10px] sm:text-sm"><TrendingUp className="w-4 h-4 sm:w-5 sm:h-5" /> <span className="hidden sm:inline">ขอจัดกะพิเศษกรณีมีอีเว้นพิเศษ</span><span className="sm:hidden">กะพิเศษ</span></button>
                 <button onClick={() => setShowHistoryModal(true)} className="flex-1 xl:flex-none bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 px-4 sm:px-6 py-4 sm:py-5 rounded-xl sm:rounded-[2rem] font-black flex justify-center items-center gap-2 shadow-sm active:scale-95 transition-all text-[10px] sm:text-sm">
                     <FolderOpen className="w-4 h-4 sm:w-5 sm:h-5" /> ประวัติ
                 </button>
@@ -8277,7 +8318,7 @@ export default function App() {
                                   {pendingExtraPtSvc ? (
                                       <span className="text-[8px] font-black text-amber-600 bg-amber-50 border border-amber-200 px-2 py-1 rounded-md text-center">⏳ รอ AM อนุมัติ ({pendingExtraPtSvc.requestedHours.toFixed(1)}H)</span>
                                   ) : (
-                                      <button onClick={() => { setForecastTc(''); setForecastReason(''); setForecastEvidence(''); setActiveDept('service'); setShowForecastModal(true); }} className="bg-red-500 hover:bg-red-600 text-white px-2.5 py-1 rounded-md text-[8px] font-black transition-colors self-end">ขออนุมัติ</button>
+                                      <button onClick={() => { setForecastTc(''); setForecastReason(''); setForecastEvidence(''); setActiveDept('service'); setPtRequestMode('OVER_BUDGET'); setShowForecastModal(true); }} className="bg-red-500 hover:bg-red-600 text-white px-2.5 py-1 rounded-md text-[8px] font-black transition-colors self-end">ขออนุมัติ</button>
                                   )}
                               </div>
                           )}
@@ -8302,7 +8343,7 @@ export default function App() {
                                   {pendingExtraPtKit ? (
                                       <span className="text-[8px] font-black text-amber-600 bg-amber-50 border border-amber-200 px-2 py-1 rounded-md text-center">⏳ รอ AM อนุมัติ ({pendingExtraPtKit.requestedHours.toFixed(1)}H)</span>
                                   ) : (
-                                      <button onClick={() => { setForecastTc(''); setForecastReason(''); setForecastEvidence(''); setActiveDept('kitchen'); setShowForecastModal(true); }} className="bg-red-500 hover:bg-red-600 text-white px-2.5 py-1 rounded-md text-[8px] font-black transition-colors self-end">ขออนุมัติ</button>
+                                      <button onClick={() => { setForecastTc(''); setForecastReason(''); setForecastEvidence(''); setActiveDept('kitchen'); setPtRequestMode('OVER_BUDGET'); setShowForecastModal(true); }} className="bg-red-500 hover:bg-red-600 text-white px-2.5 py-1 rounded-md text-[8px] font-black transition-colors self-end">ขออนุมัติ</button>
                                   )}
                               </div>
                           )}
