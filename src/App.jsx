@@ -525,7 +525,7 @@ const BreakTimeInput = ({ computedValue, manualValue, onSave, onReset, rsFontSiz
 //   - Leave short label e.g. "ย", "พร", "ป่วย"           → staff is on leave
 //   - "-"                                                  → no data
 
-const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranchId, THAI_MONTHS, selectedMonth, getStaffDayInfo, setView, activeDept, CURRENT_DUTY_LIST, handleToggleLeave, LEAVE_TYPES, onPrint, pendingRequests }) => {
+const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranchId, THAI_MONTHS, selectedMonth, getStaffDayInfo, setView, activeDept, CURRENT_DUTY_LIST, handleToggleLeave, LEAVE_TYPES, onPrint, pendingRequests, isPtPendingApproval }) => {
   const filteredStaff = branchData.staff?.filter(s => s.dept === activeDept) || [];
   const sortedStaff = [...filteredStaff].sort((a, b) => {
       const rankA = POSITIONS[activeDept].indexOf(a.pos);
@@ -1413,6 +1413,39 @@ export default function App() {
           }
       };
   }, [schedule, branchData, selectedMonth, selectedYear, selectedDateStr, CALENDAR_DAYS]);
+
+  const isPtPendingApproval = useCallback((staff, dateStr) => {
+      if (!staff || !staff.pos) return false;
+      const isPt = staff.pos.includes('PT') || staff.pos.includes('PT ครัว');
+      if (!isPt) return false;
+      
+      const dept = staff.dept || 'service';
+      
+      // 1. Check if there is an active pending request for EXTRA_PT on this date and department
+      const hasPendingReq = pendingRequests.some(r => r.reqType === 'EXTRA_PT' && r.dateStr === dateStr && (r.dept || 'service') === dept && r.status === 'PENDING_MANAGER');
+      if (hasPendingReq) return true;
+      
+      // 2. Check if the PT hours scheduled for this department on this date exceed the allowance
+      const allowance = dept === 'kitchen'
+          ? (ptLedger.kitchen.dailyAllowance[dateStr]?.total || 0)
+          : (ptLedger.service.dailyAllowance[dateStr]?.total || 0);
+          
+      const usage = dept === 'kitchen'
+          ? ((ptLedger.kitchen.dailyUsage[dateStr]?.base || 0) + (ptLedger.kitchen.dailyUsage[dateStr]?.event || 0))
+          : ((ptLedger.service.dailyUsage[dateStr]?.base || 0) + (ptLedger.service.dailyUsage[dateStr]?.event || 0));
+          
+      const isOverQuota = usage > allowance;
+      
+      // 3. Check if there is an approved request for EXTRA_PT on this date and department
+      const hasApprovedReq = pendingRequests.some(r => r.reqType === 'EXTRA_PT' && r.dateStr === dateStr && (r.dept || 'service') === dept && r.status === 'APPROVED');
+      
+      // If it's over quota and not approved, it is waiting/pending approval!
+      if (isOverQuota && !hasApprovedReq) {
+          return true;
+      }
+      
+      return false;
+  }, [pendingRequests, ptLedger]);
 
   const otLedger = useMemo(() => {
       let totalOtHours = 0;
@@ -6801,7 +6834,7 @@ export default function App() {
                                                     const isUsed = usedStaffIds.includes(s.id) && data.staffId !== s.id;
                                                     const wrongPos = !checkPositionEligibility(s.pos, reqArr, activeDept) && data.staffId !== s.id;
                                                     if (isExtra && data.isEventExtra && !s.pos.includes('PT')) return null;
-                                                    const isSStaffPendingPt = s.pos.includes('PT') && pendingRequests.some(r => r.reqType === 'EXTRA_PT' && r.dateStr === selectedDateStr && (r.dept || 'service') === (s.dept || 'service') && r.status === 'PENDING_MANAGER');
+                                                    const isSStaffPendingPt = isPtPendingApproval(s, selectedDateStr);
                                                     return (isUsed || wrongPos) ? null : <option key={s.id} value={s.id}>{s.name} ({s.pos}){isSStaffPendingPt ? ' (รออนุมัติ)' : ''}</option>
                                                  })}
                                               </select>
@@ -6816,7 +6849,7 @@ export default function App() {
                                               </div>
                                               {(() => {
                                                   const assignedStaffInfo = data.staffId ? branchData.staff?.find(s => s.id === (data.staffId.startsWith('COVER_BY_') ? data.staffId.replace('COVER_BY_', '') : data.staffId)) : null;
-                                                  const isAssignedPendingPt = assignedStaffInfo && assignedStaffInfo.pos.includes('PT') && pendingRequests.some(r => r.reqType === 'EXTRA_PT' && r.dateStr === selectedDateStr && (r.dept || 'service') === (assignedStaffInfo.dept || 'service') && r.status === 'PENDING_MANAGER');
+                                                  const isAssignedPendingPt = isPtPendingApproval(assignedStaffInfo, selectedDateStr);
                                                   return isAssignedPendingPt ? (
                                                       <div className="text-[10px] font-black text-amber-600 bg-amber-50 px-2 py-1 rounded border border-amber-200 mt-1.5 animate-pulse flex items-center gap-1.5 justify-center print:text-black print:border-black print:bg-transparent">
                                                           ⏳ โควตา PT พิเศษของวันนี้ รออนุมัติ
@@ -7176,7 +7209,7 @@ export default function App() {
          const actualStaffId = assignedData.staffId?.startsWith('COVER_BY_') ? assignedData.staffId.replace('COVER_BY_', '') : assignedData.staffId;
          const staff = branchData.staff?.find(s => s.id === actualStaffId);
          const staffName = staff ? staff.name : '-';
-         const isPendingPtStaff = staff && staff.pos.includes('PT') && pendingRequests.some(r => r.reqType === 'EXTRA_PT' && r.dateStr === selectedDateStr && (r.dept || 'service') === (staff.dept || 'service') && r.status === 'PENDING_MANAGER');
+         const isPendingPtStaff = isPtPendingApproval(staff, selectedDateStr);
          const shiftPreset = branchData.shiftPresets?.find(p => p.id === slot.shiftPresetId);
          const { startTime, endTime } = getShiftTimesForStaff(staff?.pos, shiftPreset);
 
@@ -7721,13 +7754,13 @@ export default function App() {
                                                                    const isUsed = dayUsedStaffIds.has(s.id) && data.staffId !== s.id;
                                                                    const wrongPos = !checkPositionEligibility(s.pos, reqArr, activeDept) && data.staffId !== s.id;
                                                                    if (isExtra && data.isEventExtra && !s.pos.includes('PT')) return null;
-                                                                   const isSStaffPendingPt = s.pos.includes('PT') && pendingRequests.some(r => r.reqType === 'EXTRA_PT' && r.dateStr === day.dateStr && (r.dept || 'service') === (s.dept || 'service') && r.status === 'PENDING_MANAGER');
+                                                                   const isSStaffPendingPt = isPtPendingApproval(s, day.dateStr);
                                                                    return (isUsed || wrongPos) ? null : <option key={s.id} value={s.id}>{s.name}{isSStaffPendingPt ? ' (รออนุมัติ)' : ''}</option>
                                                                 })}
                                                              </select>
                                                              {(() => {
                                                                  const sInfo = data.staffId ? branchData.staff?.find(s => s.id === (data.staffId.startsWith('COVER_BY_') ? data.staffId.replace('COVER_BY_', '') : data.staffId)) : null;
-                                                                 const isCellPendingPt = sInfo && sInfo.pos.includes('PT') && pendingRequests.some(r => r.reqType === 'EXTRA_PT' && r.dateStr === day.dateStr && (r.dept || 'service') === (sInfo.dept || 'service') && r.status === 'PENDING_MANAGER');
+                                                                 const isCellPendingPt = isPtPendingApproval(sInfo, day.dateStr);
                                                                  return isCellPendingPt ? (
                                                                      <div className="text-[7px] font-bold text-amber-600 bg-amber-50 px-1 py-0.5 rounded border border-amber-200 mt-1 text-center animate-pulse">
                                                                          ⏳ รออนุมัติ
