@@ -33,7 +33,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const appId = "staffsync-v8-stable-prod-final";
-const CURRENT_APP_VERSION = "15.8.2"; // เปลี่ยนเลขเวอร์ชันที่นี่ทุกครั้งที่คุณอัปเดตโค้ด
+const CURRENT_APP_VERSION = "15.8.3"; // เปลี่ยนเลขเวอร์ชันที่นี่ทุกครั้งที่คุณอัปเดตโค้ด
 
 // --- Constants & Layers ---
 const POSITIONS = {
@@ -3938,7 +3938,7 @@ export default function App() {
                             staffDutyCounts[candidate.id][duty.category] = (staffDutyCounts[candidate.id][duty.category] || 0) + 1;
                         }
                     });
-                }); setAiLoading(false); if (activeBranchId) autoSaveSchedule(newSched, true, activeDay.dateStr);
+                }); setAiLoading(false); if (activeBranchId) autoSaveSchedule(newSched, true, mode === 'daily' ? activeDay.dateStr : null);
                 return newSched;
             });
         }, 500);
