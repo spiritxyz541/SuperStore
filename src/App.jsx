@@ -525,7 +525,7 @@ const BreakTimeInput = ({ computedValue, manualValue, onSave, onReset, rsFontSiz
 //   - Leave short label e.g. "ย", "พร", "ป่วย"           → staff is on leave
 //   - "-"                                                  → no data
 
-const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranchId, THAI_MONTHS, selectedMonth, getStaffDayInfo, setView, activeDept, CURRENT_DUTY_LIST, handleToggleLeave, LEAVE_TYPES, onPrint }) => {
+const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranchId, THAI_MONTHS, selectedMonth, getStaffDayInfo, setView, activeDept, CURRENT_DUTY_LIST, handleToggleLeave, LEAVE_TYPES, onPrint, pendingRequests }) => {
   const filteredStaff = branchData.staff?.filter(s => s.dept === activeDept) || [];
   const sortedStaff = [...filteredStaff].sort((a, b) => {
       const rankA = POSITIONS[activeDept].indexOf(a.pos);
@@ -6801,7 +6801,8 @@ export default function App() {
                                                     const isUsed = usedStaffIds.includes(s.id) && data.staffId !== s.id;
                                                     const wrongPos = !checkPositionEligibility(s.pos, reqArr, activeDept) && data.staffId !== s.id;
                                                     if (isExtra && data.isEventExtra && !s.pos.includes('PT')) return null;
-                                                    return (isUsed || wrongPos) ? null : <option key={s.id} value={s.id}>{s.name} ({s.pos})</option>
+                                                    const isSStaffPendingPt = s.pos.includes('PT') && pendingRequests.some(r => r.reqType === 'EXTRA_PT' && r.dateStr === selectedDateStr && (r.dept || 'service') === (s.dept || 'service') && r.status === 'PENDING_MANAGER');
+                                                    return (isUsed || wrongPos) ? null : <option key={s.id} value={s.id}>{s.name} ({s.pos}){isSStaffPendingPt ? ' (รออนุมัติ)' : ''}</option>
                                                  })}
                                               </select>
                                               <div className={`w-full sm:flex-1 flex flex-row sm:flex-col justify-between sm:justify-center items-center border rounded-xl bg-white transition-all px-3 py-1 ${((data.otHours === 0 && !data.otUpdated && dynMaxOt > 0) ? dynMaxOt : data.otHours) >= dynMaxOt && dynMaxOt > 0 ? 'border-indigo-500 bg-indigo-50/20' : 'border-slate-200'}`}>
@@ -6813,6 +6814,15 @@ export default function App() {
                                                  )}
                                               </div>
                                               </div>
+                                              {(() => {
+                                                  const assignedStaffInfo = data.staffId ? branchData.staff?.find(s => s.id === (data.staffId.startsWith('COVER_BY_') ? data.staffId.replace('COVER_BY_', '') : data.staffId)) : null;
+                                                  const isAssignedPendingPt = assignedStaffInfo && assignedStaffInfo.pos.includes('PT') && pendingRequests.some(r => r.reqType === 'EXTRA_PT' && r.dateStr === selectedDateStr && (r.dept || 'service') === (assignedStaffInfo.dept || 'service') && r.status === 'PENDING_MANAGER');
+                                                  return isAssignedPendingPt ? (
+                                                      <div className="text-[10px] font-black text-amber-600 bg-amber-50 px-2 py-1 rounded border border-amber-200 mt-1.5 animate-pulse flex items-center gap-1.5 justify-center print:text-black print:border-black print:bg-transparent">
+                                                          ⏳ โควตา PT พิเศษของวันนี้ รออนุมัติ
+                                                      </div>
+                                                  ) : null;
+                                              })()}
                                              <div className="flex items-center gap-2 mt-1 pt-2 border-t border-slate-200/50">
                                                 <span className="text-[9px] font-black text-slate-400 uppercase w-12 text-right flex-shrink-0">รอบพัก :</span>
                                                 <div className="flex-1 bg-white rounded-lg">
@@ -7711,9 +7721,19 @@ export default function App() {
                                                                    const isUsed = dayUsedStaffIds.has(s.id) && data.staffId !== s.id;
                                                                    const wrongPos = !checkPositionEligibility(s.pos, reqArr, activeDept) && data.staffId !== s.id;
                                                                    if (isExtra && data.isEventExtra && !s.pos.includes('PT')) return null;
-                                                                   return (isUsed || wrongPos) ? null : <option key={s.id} value={s.id}>{s.name}</option>
+                                                                   const isSStaffPendingPt = s.pos.includes('PT') && pendingRequests.some(r => r.reqType === 'EXTRA_PT' && r.dateStr === day.dateStr && (r.dept || 'service') === (s.dept || 'service') && r.status === 'PENDING_MANAGER');
+                                                                   return (isUsed || wrongPos) ? null : <option key={s.id} value={s.id}>{s.name}{isSStaffPendingPt ? ' (รออนุมัติ)' : ''}</option>
                                                                 })}
                                                              </select>
+                                                             {(() => {
+                                                                 const sInfo = data.staffId ? branchData.staff?.find(s => s.id === (data.staffId.startsWith('COVER_BY_') ? data.staffId.replace('COVER_BY_', '') : data.staffId)) : null;
+                                                                 const isCellPendingPt = sInfo && sInfo.pos.includes('PT') && pendingRequests.some(r => r.reqType === 'EXTRA_PT' && r.dateStr === day.dateStr && (r.dept || 'service') === (sInfo.dept || 'service') && r.status === 'PENDING_MANAGER');
+                                                                 return isCellPendingPt ? (
+                                                                     <div className="text-[7px] font-bold text-amber-600 bg-amber-50 px-1 py-0.5 rounded border border-amber-200 mt-1 text-center animate-pulse">
+                                                                         ⏳ รออนุมัติ
+                                                                     </div>
+                                                                 ) : null;
+                                                             })()}
                                                           </div>
                                                       )
                                                   })}
@@ -9828,7 +9848,7 @@ export default function App() {
     mainContent = renderGuideView();
   } else if (view === 'print') {
     const DISPLAY_DAYS = managerViewMode === 'weekly' ? WEEKLY_DAYS : CALENDAR_DAYS;
-    mainContent = <PrintMonthlyView onPrint={handlePrintMonthly} CALENDAR_DAYS={DISPLAY_DAYS} branchData={branchData} globalConfig={globalConfig} activeBranchId={activeBranchId} THAI_MONTHS={THAI_MONTHS} selectedMonth={selectedMonth} getStaffDayInfo={getStaffDayInfo} setView={setView} activeDept={activeDept} CURRENT_DUTY_LIST={CURRENT_DUTY_LIST} schedule={schedule} handleToggleLeave={handleToggleLeave} LEAVE_TYPES={LEAVE_TYPES} />;
+    mainContent = <PrintMonthlyView onPrint={handlePrintMonthly} CALENDAR_DAYS={DISPLAY_DAYS} branchData={branchData} globalConfig={globalConfig} activeBranchId={activeBranchId} THAI_MONTHS={THAI_MONTHS} selectedMonth={selectedMonth} getStaffDayInfo={getStaffDayInfo} setView={setView} activeDept={activeDept} CURRENT_DUTY_LIST={CURRENT_DUTY_LIST} schedule={schedule} handleToggleLeave={handleToggleLeave} LEAVE_TYPES={LEAVE_TYPES} pendingRequests={pendingRequests} />;
   }
 
   return (
