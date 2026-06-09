@@ -7135,6 +7135,10 @@ export default function App() {
                       <th className="p-4 sm:p-6 border-b border-r border-slate-200 min-w-[150px] sticky left-0 bg-white z-30 font-black text-[10px] text-slate-500 uppercase tracking-widest">กลุ่มงาน (DUTY)</th>
                       <th className="p-4 sm:p-6 border-b border-r border-slate-200 min-w-[250px] sticky left-[150px] bg-white z-30 font-black text-[10px] text-slate-500 uppercase tracking-widest">รายละเอียดงาน</th>
                       {DISPLAY_DAYS.map(day => {
+                         const isPendingPTInHeader = pendingRequests.some(r => r.reqType === 'EXTRA_PT' && r.dateStr === day.dateStr && (r.dept || 'service') === activeDept && r.status === 'PENDING_MANAGER');
+                         const approvedHrsInHeader = activeDept === 'kitchen' 
+                             ? (schedule[day.dateStr]?.eventExtraHoursKitchen || 0) 
+                             : (schedule[day.dateStr]?.eventExtraHoursService || schedule[day.dateStr]?.eventExtraHours || 0);
                          const dayUsedStaffIds = new Set();
                          (schedule[day.dateStr]?.leaves || []).forEach(l => l.staffId && dayUsedStaffIds.add(l.staffId));
                          Object.values(schedule[day.dateStr]?.duties || {}).forEach(sls => sls.forEach(s => s && s.staffId && dayUsedStaffIds.add(s.staffId)));
@@ -7159,6 +7163,16 @@ export default function App() {
                              <div className="text-lg font-black text-slate-800">{day.dayNum}</div>
                              <div className="text-[9px] font-bold text-slate-400 uppercase mb-1">{day.dayLabel}</div>
                              <div className="flex flex-col gap-1 items-center w-full">
+                                  {isPendingPTInHeader && (
+                                      <div className="text-[8px] font-black px-1.5 py-0.5 rounded-md w-full bg-amber-50 text-amber-600 border border-amber-200 animate-pulse shadow-sm" title="มีคำขอรออนุมัติชั่วโมง PT ส่วนเกิน">
+                                          ⏳ รออนุมัติ
+                                      </div>
+                                  )}
+                                  {approvedHrsInHeader > 0 && (
+                                      <div className="text-[8px] font-black px-1.5 py-0.5 rounded-md w-full bg-emerald-50 text-emerald-600 border border-emerald-200 shadow-sm" title={`ได้รับโควตาพิเศษ +${approvedHrsInHeader.toFixed(1)} ชม.`}>
+                                          ✨ พิเศษ +${approvedHrsInHeader.toFixed(1)}H
+                                      </div>
+                                  )}
                                  <div className={`text-[9px] font-black px-2 py-0.5 rounded-md w-full border ${unassignedFTCount > 0 ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200'}`} title={`มีพนักงานประจำ ${unassignedFTCount} คนที่ยังไม่ได้ถูกจัดกะในวันนี้`}>
                                     {unassignedFTCount > 0 ? `ประจำว่าง ${unassignedFTCount}` : '✓ ประจำครบ'}
                                  </div>
@@ -8373,6 +8387,10 @@ export default function App() {
                   <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 my-1">
                       {daysOfWeek.map(day => {
                           const dateStr = day.dateStr;
+                          const pReqSvc = pendingRequests.find(r => r.reqType === 'EXTRA_PT' && r.dateStr === dateStr && (r.dept || 'service') === 'service' && r.status === 'PENDING_MANAGER');
+                          const pReqKit = pendingRequests.find(r => r.reqType === 'EXTRA_PT' && r.dateStr === dateStr && r.dept === 'kitchen' && r.status === 'PENDING_MANAGER');
+                          const approvedSvc = ptLedger.service.dailyAllowance[dateStr]?.event || 0;
+                          const approvedKit = ptLedger.kitchen.dailyAllowance[dateStr]?.event || 0;
                           const aSvc = ptLedger.service.dailyAllowance[dateStr]?.total || 0;
                           const uSvc = (ptLedger.service.dailyUsage[dateStr]?.base || 0) + (ptLedger.service.dailyUsage[dateStr]?.event || 0);
                           const aKit = ptLedger.kitchen.dailyAllowance[dateStr]?.total || 0;
@@ -8389,12 +8407,20 @@ export default function App() {
                                       <div className="text-xs font-black text-slate-700">{day.dayNum} {THAI_MONTHS[selectedMonth]?.substring(0,3)}</div>
                                   </div>
                                   <div className="mt-2 space-y-1 w-full text-[9px] font-bold">
-                                      <div className="flex justify-between">
-                                          <span className="text-slate-500">บริการ:</span>
+                                      <div className="flex justify-between items-center">
+                                          <span className="text-slate-500 flex items-center gap-1">
+                                              บริการ:
+                                              {pReqSvc && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" title="รออนุมัติชั่วโมง"></span>}
+                                              {approvedSvc > 0 && <span className="text-[8px] text-emerald-600 font-black" title={`โควตาพิเศษ +${approvedSvc}H`}>✨</span>}
+                                          </span>
                                           <span className={isSvcOver ? 'text-red-600 font-black' : 'text-slate-700'}>{uSvc.toFixed(0)}/{aSvc.toFixed(0)}H</span>
                                       </div>
-                                      <div className="flex justify-between">
-                                          <span className="text-slate-500">ครัว:</span>
+                                      <div className="flex justify-between items-center">
+                                          <span className="text-slate-500 flex items-center gap-1">
+                                              ครัว:
+                                              {pReqKit && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" title="รออนุมัติชั่วโมง"></span>}
+                                              {approvedKit > 0 && <span className="text-[8px] text-emerald-600 font-black" title={`โควตาพิเศษ +${approvedKit}H`}>✨</span>}
+                                          </span>
                                           <span className={isKitOver ? 'text-red-600 font-black' : 'text-slate-700'}>{uKit.toFixed(0)}/{aKit.toFixed(0)}H</span>
                                       </div>
                                   </div>
