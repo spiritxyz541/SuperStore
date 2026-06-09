@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from 'firebase/auth';
-import { getFirestore, doc, setDoc, onSnapshot, collection, getDoc, getDocs, query, where } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, onSnapshot, collection, getDoc, getDocs, query, where, deleteDoc, orderBy, limit } from 'firebase/firestore';
 import {
     Users, AlertCircle, Clock, Save, Plus, Trash2, LayoutDashboard, Printer, ChevronLeft, ChevronRight,
     Coffee, BarChart3, TrendingUp, Award, PlaneTakeoff, Loader2, Store, ArrowLeftRight, Sparkles, Wand2, Bold, Italic, Underline, Link as LinkIcon, BookOpen,
@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 
 /**
- * SUPER STORE Manager Assistant - V15.8 (PRE-ASSIGN & LOCK DUTIES)
+ * SUPER STORE Manager Assistant - V15.8.2 (FIX VERSION HISTORY SIZE)
  * อัปเดต:
  * 1. ขจัดปัญหา ReferenceError 100% ด้วยการทำ Function Declaration ให้อยู่ใน Scope อย่างถูกต้อง
  * 2. โครงสร้างเมนู ADMIN: รวบรวม "จัดการพนักงาน", "จัดการหน้าที่", "วันหยุดสาขา", "แม่แบบ" และ "โครงสร้างกะงาน" ครบถ้วน
@@ -33,7 +33,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const appId = "staffsync-v8-stable-prod-final";
-const CURRENT_APP_VERSION = "15.8.1"; // เปลี่ยนเลขเวอร์ชันที่นี่ทุกครั้งที่คุณอัปเดตโค้ด
+const CURRENT_APP_VERSION = "15.8.2"; // เปลี่ยนเลขเวอร์ชันที่นี่ทุกครั้งที่คุณอัปเดตโค้ด
 
 // --- Constants & Layers ---
 const POSITIONS = {
@@ -2061,12 +2061,10 @@ export default function App() {
         const unsubSched = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'schedules', activeBranchId), (snap) => {
             if (snap.exists()) setSchedule(snap.data().records || {}); else setSchedule({});
         });
-        const unsubVersions = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'schedule_versions', activeBranchId), (snap) => {
-            if (snap.exists()) {
-                setScheduleVersions(snap.data().versions || []);
-            } else {
-                setScheduleVersions([]);
-            }
+        const versionsColRef = collection(db, 'artifacts', appId, 'public', 'data', 'schedule_versions', activeBranchId, 'items');
+        const versionsQuery = query(versionsColRef, orderBy('timestamp', 'desc'), limit(5));
+        const unsubVersions = onSnapshot(versionsQuery, (snap) => {
+            setScheduleVersions(snap.docs.map(d => ({ id: d.id, ...d.data() })));
         });
         const unsubReq = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'requests', activeBranchId), (snap) => {
             if (snap.exists()) setPendingRequests(snap.data().list || []); else setPendingRequests([]);
@@ -2465,20 +2463,23 @@ export default function App() {
 
     const saveScheduleVersion = async (type, scheduleData) => {
         if (!activeBranchId) return;
-        const versionsRef = doc(db, 'artifacts', appId, 'public', 'data', 'schedule_versions', activeBranchId);
-
-        const newVersion = {
-            id: 'v' + Date.now(),
-            timestamp: Date.now(),
-            type: type,
-            schedule: scheduleData
-        };
-
-        const currentVersions = scheduleVersions;
-        const updatedVersions = [newVersion, ...currentVersions].slice(0, 10);
-
         try {
-            await setDoc(versionsRef, { versions: updatedVersions });
+            // Write each version as its own document in a sub-collection to avoid the 1MB Firestore limit
+            const versionId = 'v' + Date.now();
+            const versionsColRef = collection(db, 'artifacts', appId, 'public', 'data', 'schedule_versions', activeBranchId, 'items');
+            const newVersionRef = doc(versionsColRef, versionId);
+            await setDoc(newVersionRef, {
+                id: versionId,
+                timestamp: Date.now(),
+                type: type,
+                schedule: scheduleData
+            });
+
+            // Prune: delete versions older than the 5 most recent
+            const allVersionsQuery = query(versionsColRef, orderBy('timestamp', 'desc'));
+            const allSnap = await getDocs(allVersionsQuery);
+            const toDelete = allSnap.docs.slice(5); // keep first 5 (newest), delete the rest
+            await Promise.all(toDelete.map(d => deleteDoc(d.ref)));
         } catch (e) {
             console.error("Failed to save schedule version:", e);
         }
