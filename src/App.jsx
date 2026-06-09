@@ -803,6 +803,7 @@ export default function App() {
   });
   
   const [saveStatus, setSaveStatus] = useState(null);
+  const [autoSaveStatus, setAutoSaveStatus] = useState(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [confirmModal, setConfirmModal] = useState(null);
   const [showRequestsModal, setShowRequestsModal] = useState(false);
@@ -926,10 +927,10 @@ export default function App() {
   const [newVersionAvailable, setNewVersionAvailable] = useState(null);
 
   const dateBarRef = useRef(null);
-  const selectedYear = 2026;
-  const autoAssignedDates = useRef(new Set()); 
+  const selectedYear = 2026;  const autoAssignedDates = useRef(new Set()); 
   const scheduleRef = useRef();
   scheduleRef.current = schedule;
+  const autoSaveTimerRef = useRef(null);
 
   // Data Inspector State
   const [showDataInspector, setShowDataInspector] = useState(false);
@@ -2292,19 +2293,36 @@ export default function App() {
       checkAndBackupAll();
       const intervalId = setInterval(checkAndBackupAll, 60000); // Check every minute
       return () => clearInterval(intervalId);
-  }, [user, globalConfig.lastGlobalBackupDate, globalConfig.branches]);
-
-  const autoSaveSchedule = useCallback(async (scheduleData) => {
+  }, [user, globalConfig.lastGlobalBackupDate, globalConfig.branches]);  const autoSaveSchedule = useCallback((scheduleData, immediate = false) => {
     const dataToSave = scheduleData || scheduleRef.current;
-    if (!activeBranchId) return;
-    setSaveStatus('saving');
-    try {
-      await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'schedules', activeBranchId), { records: dataToSave });
-      setSaveStatus('success');
-      setTimeout(() => { setSaveStatus(null); }, 1500);
-    } catch (err) {
-      setSaveStatus('error');
+    if (!activeBranchId) return Promise.resolve();
+    
+    setAutoSaveStatus('saving');
+    
+    if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
     }
+    
+    return new Promise((resolve, reject) => {
+        const performSave = async () => {
+            try {
+                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'schedules', activeBranchId), { records: dataToSave });
+                setAutoSaveStatus('success');
+                setTimeout(() => { setAutoSaveStatus(null); }, 2000);
+                resolve();
+            } catch (err) {
+                setAutoSaveStatus('error');
+                reject(err);
+            }
+        };
+        
+        if (immediate) {
+            performSave();
+        } else {
+            autoSaveTimerRef.current = setTimeout(performSave, 500);
+            resolve();
+        }
+    });
   }, [activeBranchId]);
 
   const saveScheduleVersion = async (type, scheduleData) => {
@@ -2334,7 +2352,7 @@ export default function App() {
         message: `คุณต้องการกู้คืนตารางกะงานของเวอร์ชันที่บันทึกไว้เมื่อ ${new Date(versionToRestore.timestamp).toLocaleString('th-TH')} ใช่หรือไม่? ข้อมูลปัจจุบันจะถูกเขียนทับ`,
         action: async () => {
             setSchedule(versionToRestore.schedule);
-            await autoSaveSchedule(versionToRestore.schedule);
+            await autoSaveSchedule(versionToRestore.schedule, true);
             setShowHistoryModal(false);
             setConfirmModal({ message: 'กู้คืนข้อมูลสำเร็จ!' });
         }
@@ -2360,6 +2378,10 @@ export default function App() {
             setConfirmModal({ message: '❌ ไม่สามารถบันทึกข้อมูลสาขาได้ เนื่องจากข้อมูลสาขายังโหลดไม่สมบูรณ์' });
             return;
         }
+    }
+
+    if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
     }
 
     setSaveStatus('saving');
@@ -3290,7 +3312,7 @@ export default function App() {
           return newSched;
       });      setTimeout(() => {
           if (activeBranchId && newSchedToSave) {
-              autoSaveSchedule(newSchedToSave);
+              autoSaveSchedule(newSchedToSave, true);
           }
       }, 0);
 
@@ -3640,9 +3662,8 @@ export default function App() {
                             staffDutyCounts[candidate.id][duty.category] = (staffDutyCounts[candidate.id][duty.category] || 0) + 1;
                         }
                 });
-            });
-            setAiLoading(false);
-            if (activeBranchId) autoSaveSchedule(newSched);
+            });            setAiLoading(false);
+            if (activeBranchId) autoSaveSchedule(newSched, true);
             return newSched;
         });
     }, 500); 
@@ -3652,9 +3673,8 @@ export default function App() {
       if (scheduleHistory) {
           setConfirmModal({
               message: 'ยืนยันการยกเลิก (Undo) การจัดกะครั้งล่าสุดและกลับไปใช้ข้อมูลก่อนหน้าใช่หรือไม่?',
-              action: () => {
-                  setSchedule(scheduleHistory);
-                  if (activeBranchId) autoSaveSchedule(scheduleHistory);
+              action: () => {                  setSchedule(scheduleHistory);
+                  if (activeBranchId) autoSaveSchedule(scheduleHistory, true);
                   setScheduleHistory(null);
                   setConfirmModal({ message: 'ยกเลิกการจัดกะและกู้คืนข้อมูลสำเร็จ!' });
               }
@@ -3680,9 +3700,8 @@ export default function App() {
           if (activeBranchId) autoSaveSchedule(newSched);
           newSchedToSave = newSched;
           return newSched;
-      });
-      setTimeout(() => {
-          if (activeBranchId && newSchedToSave) autoSaveSchedule(newSchedToSave);
+      });      setTimeout(() => {
+          if (activeBranchId && newSchedToSave) autoSaveSchedule(newSchedToSave, true);
       }, 0);
   };
 
@@ -4540,10 +4559,9 @@ export default function App() {
                                            message: `ยืนยันการยกเลิกใบงานพิเศษของวันที่ ${activeDay.dateStr} และคืนโควตา ${alreadyApprovedHours.toFixed(1)} ชม. กลับคืนระบบหรือไม่?`,
                                            action: () => {
                                                setSchedule(prev => {
-                                                   const newSched = JSON.parse(JSON.stringify(prev));
-                                                   if (newSched[activeDay.dateStr]) { if (activeDept === "kitchen") { newSched[activeDay.dateStr].eventExtraHoursKitchen = 0; } else { newSched[activeDay.dateStr].eventExtraHoursService = 0; newSched[activeDay.dateStr].eventExtraHours = 0; } }
-                                                   if (activeBranchId) autoSaveSchedule(newSched);
-                                                   return newSched;
+                                                   const newSched = JSON.parse(JSON.stringify(prev));                                                    if (newSched[activeDay.dateStr]) { if (activeDept === "kitchen") { newSched[activeDay.dateStr].eventExtraHoursKitchen = 0; } else { newSched[activeDay.dateStr].eventExtraHoursService = 0; newSched[activeDay.dateStr].eventExtraHours = 0; } }
+                                                    if (activeBranchId) autoSaveSchedule(newSched, true);
+                                                    return newSched;
                                                });
                                                const req = pendingRequests.find(r => r.reqType === 'EXTRA_PT' && r.dateStr === activeDay.dateStr && (r.dept || 'service') === activeDept && r.status === 'APPROVED');
                                                if (req) {
@@ -8233,9 +8251,8 @@ export default function App() {
                                                                hasSchedChanges = true;
                                                            }
                                                        }
-                                                   });
-                                                   if (hasSchedChanges && activeBranchId) autoSaveSchedule(newSched);
-                                                   return newSched;
+                                                   });                                                    if (hasSchedChanges && activeBranchId) autoSaveSchedule(newSched, true);
+                                                    return newSched;
                                                });
                                       }
                                   }} className="absolute -top-2 -right-2 bg-red-100 text-red-500 hover:bg-red-500 hover:text-white rounded-full p-1.5 transition"><X className="w-3 h-3"/></button>}
@@ -9747,8 +9764,28 @@ export default function App() {
                 <div className="flex items-center justify-between w-full lg:w-auto">
                    <div className="flex items-center gap-3 sm:gap-4">
                    <img src="https://img1.pic.in.th/images/ChatGPT-Image-6-..-2569-19_46_07.png" alt="Logo" className="w-10 h-10 sm:w-12 sm:h-12 rounded-full shadow-md object-cover border-2 border-slate-100 bg-white transition hover:scale-105 duration-500" onError={(e) => { e.target.onerror = null; e.target.src = "https://via.placeholder.com/150?text=GON"; }} />
-                   <div className="flex flex-col">
-                      <span className="font-black text-lg sm:text-xl tracking-tighter uppercase leading-none">Super Store</span>
+                                       <div className="flex flex-col">
+                       <div className="flex items-center gap-2">
+                          <span className="font-black text-lg sm:text-xl tracking-tighter uppercase leading-none">Super Store</span>
+                          {autoSaveStatus === 'saving' && (
+                             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] sm:text-[9px] font-black bg-indigo-50 text-indigo-600 border border-indigo-100 animate-pulse">
+                                <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                                <span>กำลังบันทึก...</span>
+                             </span>
+                          )}
+                          {autoSaveStatus === 'success' && (
+                             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] sm:text-[9px] font-black bg-emerald-50 text-emerald-600 border border-emerald-100">
+                                <Check className="w-2.5 h-2.5" />
+                                <span>บันทึกแล้ว</span>
+                             </span>
+                          )}
+                          {autoSaveStatus === 'error' && (
+                             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] sm:text-[9px] font-black bg-red-50 text-red-600 border border-red-100">
+                                <AlertCircle className="w-2.5 h-2.5" />
+                                <span>ล้มเหลว</span>
+                             </span>
+                          )}
+                       </div>
                       <div className="flex items-center gap-1.5 mt-0.5">
                          <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-green-500 rounded-full animate-pulse"></span>
                          <span className={`text-[8px] sm:text-[9px] font-black uppercase text-slate-400`}>{authRole === 'superadmin' ? 'BAR B Q PLAZA' : authRole === 'areamanager' ? 'AREA MANAGER' : 'BRANCH MANAGEMENT'}</span>
