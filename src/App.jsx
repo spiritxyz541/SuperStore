@@ -3165,11 +3165,11 @@ export default function App() {
           }
           newSchedToSave = newSched;
           return newSched;
-      });
-      
-      if (activeBranchId && newSchedToSave) {
-          autoSaveSchedule(newSchedToSave);
-      }
+      });      setTimeout(() => {
+          if (activeBranchId && newSchedToSave) {
+              autoSaveSchedule(newSchedToSave);
+          }
+      }, 0);
 
       const newList = pendingRequests.map(r => r.id === req.id ? { ...r, status: 'APPROVED', updatedTimestamp: Date.now() } : r);
       await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'requests', activeBranchId), { list: newList });
