@@ -7213,7 +7213,14 @@ export default function App() {
                              ? (schedule[day.dateStr]?.eventExtraHoursKitchen || 0) 
                              : (schedule[day.dateStr]?.eventExtraHoursService || schedule[day.dateStr]?.eventExtraHours || 0);
                          const approvedReqInHeader = pendingRequests.find(r => r.reqType === 'EXTRA_PT' && r.dateStr === day.dateStr && (r.dept || 'service') === activeDept && r.status === 'APPROVED');
-                         const dayUsedStaffIds = new Set();
+                          const dayAllowanceTotal = activeDept === 'kitchen'
+                              ? (ptLedger.kitchen.dailyAllowance[day.dateStr]?.total || 0)
+                              : (ptLedger.service.dailyAllowance[day.dateStr]?.total || 0);
+                          const dayUsageTotal = activeDept === 'kitchen'
+                              ? ((ptLedger.kitchen.dailyUsage[day.dateStr]?.base || 0) + (ptLedger.kitchen.dailyUsage[day.dateStr]?.event || 0))
+                              : ((ptLedger.service.dailyUsage[day.dateStr]?.base || 0) + (ptLedger.service.dailyUsage[day.dateStr]?.event || 0));
+                          const isOverDailyQuota = dayUsageTotal > dayAllowanceTotal;
+                          const dayUsedStaffIds = new Set();
                          (schedule[day.dateStr]?.leaves || []).forEach(l => l.staffId && dayUsedStaffIds.add(l.staffId));
                          Object.values(schedule[day.dateStr]?.duties || {}).forEach(sls => sls.forEach(s => s && s.staffId && dayUsedStaffIds.add(s.staffId)));
                          const unassignedStaff = branchData.staff?.filter(s => s.dept === activeDept && !dayUsedStaffIds.has(s.id) && isStaffActiveOnDate(s, day.dateStr)) || [];
@@ -7246,6 +7253,11 @@ export default function App() {
                                       <div className="text-[8px] font-black px-1.5 py-0.5 rounded-md w-full bg-emerald-50 text-emerald-600 border border-emerald-200 shadow-sm" title={`ได้รับโควตาพิเศษ +${approvedHrsInHeader.toFixed(1)} ชม.${approvedReqInHeader?.reason ? ` (เหตุผล: ${approvedReqInHeader.reason})` : ''}`}>
                                           ✨ พิเศษ +${approvedHrsInHeader.toFixed(1)}H
                                       </div>
+                                  )}
+                                  {isOverDailyQuota && !isPendingPTInHeader && approvedHrsInHeader === 0 && (
+                                      <button onClick={() => { setForecastTc(''); setForecastReason(''); setForecastEvidence(''); setActiveDept(activeDept); setPtRequestMode('OVER_BUDGET'); setSelectedDateStr(day.dateStr); setShowForecastModal(true); }} className="text-[8px] font-black px-1.5 py-0.5 rounded-md w-full bg-red-500 text-white hover:bg-red-600 shadow-sm animate-pulse" title="จัดกะเกินโควตาประจำวัน คลิกเพื่อขออนุมัติ">
+                                          ⚠️ ขออนุมัติ
+                                      </button>
                                   )}
                                  <div className={`text-[9px] font-black px-2 py-0.5 rounded-md w-full border ${unassignedFTCount > 0 ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200'}`} title={`มีพนักงานประจำ ${unassignedFTCount} คนที่ยังไม่ได้ถูกจัดกะในวันนี้`}>
                                     {unassignedFTCount > 0 ? `ประจำว่าง ${unassignedFTCount}` : '✓ ประจำครบ'}
@@ -8538,36 +8550,7 @@ export default function App() {
                       </div>
                   </div>
 
-                  {(() => {
-                      const approvedSvcOnSelected = ptLedger.service.dailyAllowance[selectedDateStr]?.event || 0;
-                      const approvedKitOnSelected = ptLedger.kitchen.dailyAllowance[selectedDateStr]?.event || 0;
-                      const approvedReqSvcOnSelected = pendingRequests.find(r => r.reqType === 'EXTRA_PT' && r.dateStr === selectedDateStr && (r.dept || 'service') === 'service' && r.status === 'APPROVED');
-                      const approvedReqKitOnSelected = pendingRequests.find(r => r.reqType === 'EXTRA_PT' && r.dateStr === selectedDateStr && r.dept === 'kitchen' && r.status === 'APPROVED');
-                      
-                      if (approvedSvcOnSelected === 0 && approvedKitOnSelected === 0) return null;
-                      
-                      return (
-                          <div className="bg-slate-50 border border-slate-200/60 p-3 rounded-2xl text-[10px] font-bold flex flex-col gap-1.5 mt-1 w-full text-left">
-                              <div className="text-slate-500 font-black flex items-center gap-1">
-                                  <span>📅 โควตาพิเศษของวันที่ {new Date(selectedDateStr + "T00:00:00").toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}:</span>
-                              </div>
-                              <div className="flex flex-col sm:flex-row gap-3 w-full">
-                                  {approvedSvcOnSelected > 0 && (
-                                      <div className="flex-1 bg-emerald-50 border border-emerald-100 p-2 rounded-lg text-emerald-800">
-                                          <div className="font-black">บริการ (FOH): +{approvedSvcOnSelected.toFixed(1)} ชม.</div>
-                                          {approvedReqSvcOnSelected?.reason && <div className="text-[9px] text-emerald-600 mt-0.5"><span className="font-semibold text-emerald-700">เหตุผล:</span> {approvedReqSvcOnSelected.reason}</div>}
-                                      </div>
-                                  )}
-                                  {approvedKitOnSelected > 0 && (
-                                      <div className="flex-1 bg-emerald-50 border border-emerald-100 p-2 rounded-lg text-emerald-800">
-                                          <div className="font-black">ครัว (BOH): +{approvedKitOnSelected.toFixed(1)} ชม.</div>
-                                          {approvedReqKitOnSelected?.reason && <div className="text-[9px] text-emerald-600 mt-0.5"><span className="font-semibold text-emerald-700">เหตุผล:</span> {approvedReqKitOnSelected.reason}</div>}
-                                      </div>
-                                  )}
-                              </div>
-                          </div>
-                      );
-                  })()}
+                  
 
                   <div className="flex justify-between items-center border-t border-slate-100 pt-2 w-full mt-2">
                       <button onClick={() => setShowPtLedgerDetails(true)} className="text-[10px] sm:text-xs font-bold text-indigo-500 hover:text-indigo-700 underline flex items-center gap-1"><BarChart3 className="w-3 h-3"/> ดูรายละเอียดการใช้ PT</button>
@@ -8613,22 +8596,39 @@ export default function App() {
                                       <div className="text-[9px] font-black uppercase tracking-wider text-slate-400">{day.dayLabel}</div>
                                       <div className="text-xs font-black text-slate-700">{day.dayNum} {THAI_MONTHS[selectedMonth]?.substring(0,3)}</div>
                                   </div>
-                                  <div className="mt-2 space-y-1 w-full text-[9px] font-bold">
-                                      <div className="flex justify-between items-center">
-                                          <span className="text-slate-500 flex items-center gap-1">
+                                  <div className="mt-2 space-y-1 w-full text-[9px] font-bold">                                      <div className="flex justify-between items-center gap-1">
+                                          <span className="text-slate-500 flex items-center gap-0.5 truncate">
                                               บริการ:
-                                              {pReqSvc && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" title="รออนุมัติชั่วโมง"></span>}
-                                              {approvedSvc > 0 && <span className="text-[8px] text-emerald-600 font-black" title={`โควตาพิเศษ +${approvedSvc}H${approvedReqSvc?.reason ? ` (เหตุผล: ${approvedReqSvc.reason})` : ''}`}>✨</span>}
+                                              {pReqSvc && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse flex-shrink-0" title="รออนุมัติชั่วโมง"></span>}
+                                              {approvedSvc > 0 && <span className="text-[8px] text-emerald-600 font-black flex-shrink-0" title={`โควตาพิเศษ +${approvedSvc}H${approvedReqSvc?.reason ? ` (เหตุผล: ${approvedReqSvc.reason})` : ''}`}>✨</span>}
                                           </span>
-                                          <span className={isSvcOver ? 'text-red-600 font-black' : 'text-slate-700'}>{uSvc.toFixed(0)}/{aSvc.toFixed(0)}H</span>
+                                          <div className="flex items-center gap-1 flex-shrink-0">
+                                              <span className={isSvcOver ? 'text-red-600 font-black' : 'text-slate-700'}>{uSvc.toFixed(0)}/{aSvc.toFixed(0)}H</span>
+                                              {isSvcOver && (
+                                                  pReqSvc ? (
+                                                      <span className="text-[8px] text-amber-600 font-black" title="รอ AM อนุมัติ">⏳</span>
+                                                  ) : (
+                                                      <button onClick={(e) => { e.stopPropagation(); setForecastTc(''); setForecastReason(''); setForecastEvidence(''); setActiveDept('service'); setPtRequestMode('OVER_BUDGET'); setSelectedDateStr(dateStr); setShowForecastModal(true); }} className="bg-red-500 hover:bg-red-600 text-white px-1 py-0.5 rounded text-[8px] font-black transition-colors">ขอ</button>
+                                                  )
+                                              )}
+                                          </div>
                                       </div>
-                                      <div className="flex justify-between items-center">
-                                          <span className="text-slate-500 flex items-center gap-1">
+                                      <div className="flex justify-between items-center gap-1">
+                                          <span className="text-slate-500 flex items-center gap-0.5 truncate">
                                               ครัว:
-                                              {pReqKit && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" title="รออนุมัติชั่วโมง"></span>}
-                                              {approvedKit > 0 && <span className="text-[8px] text-emerald-600 font-black" title={`โควตาพิเศษ +${approvedKit}H${approvedReqKit?.reason ? ` (เหตุผล: ${approvedReqKit.reason})` : ''}`}>✨</span>}
+                                              {pReqKit && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse flex-shrink-0" title="รออนุมัติชั่วโมง"></span>}
+                                              {approvedKit > 0 && <span className="text-[8px] text-emerald-600 font-black flex-shrink-0" title={`โควตาพิเศษ +${approvedKit}H${approvedReqKit?.reason ? ` (เหตุผล: ${approvedReqKit.reason})` : ''}`}>✨</span>}
                                           </span>
-                                          <span className={isKitOver ? 'text-red-600 font-black' : 'text-slate-700'}>{uKit.toFixed(0)}/{aKit.toFixed(0)}H</span>
+                                          <div className="flex items-center gap-1 flex-shrink-0">
+                                              <span className={isKitOver ? 'text-red-600 font-black' : 'text-slate-700'}>{uKit.toFixed(0)}/{aKit.toFixed(0)}H</span>
+                                              {isKitOver && (
+                                                  pReqKit ? (
+                                                      <span className="text-[8px] text-amber-600 font-black" title="รอ AM อนุมัติ">⏳</span>
+                                                  ) : (
+                                                      <button onClick={(e) => { e.stopPropagation(); setForecastTc(''); setForecastReason(''); setForecastEvidence(''); setActiveDept('kitchen'); setPtRequestMode('OVER_BUDGET'); setSelectedDateStr(dateStr); setShowForecastModal(true); }} className="bg-red-500 hover:bg-red-600 text-white px-1 py-0.5 rounded text-[8px] font-black transition-colors">ขอ</button>
+                                                  )
+                                              )}
+                                          </div>
                                       </div>
                                   </div>
                               </button>
@@ -8636,7 +8636,38 @@ export default function App() {
                       })}
                   </div>
 
-                  <div className="flex justify-between items-center border-t border-slate-100 pt-2">
+                  {(() => {
+                      const approvedSvcOnSelected = ptLedger.service.dailyAllowance[selectedDateStr]?.event || 0;
+                      const approvedKitOnSelected = ptLedger.kitchen.dailyAllowance[selectedDateStr]?.event || 0;
+                      const approvedReqSvcOnSelected = pendingRequests.find(r => r.reqType === 'EXTRA_PT' && r.dateStr === selectedDateStr && (r.dept || 'service') === 'service' && r.status === 'APPROVED');
+                      const approvedReqKitOnSelected = pendingRequests.find(r => r.reqType === 'EXTRA_PT' && r.dateStr === selectedDateStr && r.dept === 'kitchen' && r.status === 'APPROVED');
+                      
+                      if (approvedSvcOnSelected === 0 && approvedKitOnSelected === 0) return null;
+                      
+                      return (
+                          <div className="bg-slate-50 border border-slate-200/60 p-3 rounded-2xl text-[10px] font-bold flex flex-col gap-1.5 mt-1 w-full text-left">
+                              <div className="text-slate-500 font-black flex items-center gap-1">
+                                  <span>📅 โควตาพิเศษของวันที่ {new Date(selectedDateStr + "T00:00:00").toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}:</span>
+                              </div>
+                              <div className="flex flex-col sm:flex-row gap-3 w-full">
+                                  {approvedSvcOnSelected > 0 && (
+                                      <div className="flex-1 bg-emerald-50 border border-emerald-100 p-2 rounded-lg text-emerald-800">
+                                          <div className="font-black">บริการ (FOH): +{approvedSvcOnSelected.toFixed(1)} ชม.</div>
+                                          {approvedReqSvcOnSelected?.reason && <div className="text-[9px] text-emerald-600 mt-0.5"><span className="font-semibold text-emerald-700">เหตุผล:</span> {approvedReqSvcOnSelected.reason}</div>}
+                                      </div>
+                                  )}
+                                  {approvedKitOnSelected > 0 && (
+                                      <div className="flex-1 bg-emerald-50 border border-emerald-100 p-2 rounded-lg text-emerald-800">
+                                          <div className="font-black">ครัว (BOH): +{approvedKitOnSelected.toFixed(1)} ชม.</div>
+                                          {approvedReqKitOnSelected?.reason && <div className="text-[9px] text-emerald-600 mt-0.5"><span className="font-semibold text-emerald-700">เหตุผล:</span> {approvedReqKitOnSelected.reason}</div>}
+                                      </div>
+                                  )}
+                              </div>
+                          </div>
+                      );
+                  })()}
+
+                  <div className="flex justify-between items-center border-t border-slate-100 pt-2 w-full mt-2">
                       <button onClick={() => setShowPtLedgerDetails(true)} className="text-[10px] sm:text-xs font-bold text-indigo-500 hover:text-indigo-700 underline flex items-center gap-1"><BarChart3 className="w-3 h-3"/> ดูรายละเอียดการใช้ PT</button>
                       <p className="text-[10px] font-bold text-slate-400">รวมใช้งานสัปดาห์นี้: <span className="text-slate-700 font-black">{daysOfWeek.reduce((sum, d) => sum + (ptLedger.dailyUsage[d.dateStr]?.base || 0) + (ptLedger.dailyUsage[d.dateStr]?.event || 0), 0).toFixed(1)}H</span></p>
                   </div>
@@ -8698,36 +8729,7 @@ export default function App() {
                   </div>
               </div>
               
-              {(() => {
-                      const approvedSvcOnSelected = ptLedger.service.dailyAllowance[selectedDateStr]?.event || 0;
-                      const approvedKitOnSelected = ptLedger.kitchen.dailyAllowance[selectedDateStr]?.event || 0;
-                      const approvedReqSvcOnSelected = pendingRequests.find(r => r.reqType === 'EXTRA_PT' && r.dateStr === selectedDateStr && (r.dept || 'service') === 'service' && r.status === 'APPROVED');
-                      const approvedReqKitOnSelected = pendingRequests.find(r => r.reqType === 'EXTRA_PT' && r.dateStr === selectedDateStr && r.dept === 'kitchen' && r.status === 'APPROVED');
-                      
-                      if (approvedSvcOnSelected === 0 && approvedKitOnSelected === 0) return null;
-                      
-                      return (
-                          <div className="bg-slate-50 border border-slate-200/60 p-3 rounded-2xl text-[10px] font-bold flex flex-col gap-1.5 mt-1 w-full text-left">
-                              <div className="text-slate-500 font-black flex items-center gap-1">
-                                  <span>📅 โควตาพิเศษของวันที่ {new Date(selectedDateStr + "T00:00:00").toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}:</span>
-                              </div>
-                              <div className="flex flex-col sm:flex-row gap-3 w-full">
-                                  {approvedSvcOnSelected > 0 && (
-                                      <div className="flex-1 bg-emerald-50 border border-emerald-100 p-2 rounded-lg text-emerald-800">
-                                          <div className="font-black">บริการ (FOH): +{approvedSvcOnSelected.toFixed(1)} ชม.</div>
-                                          {approvedReqSvcOnSelected?.reason && <div className="text-[9px] text-emerald-600 mt-0.5"><span className="font-semibold text-emerald-700">เหตุผล:</span> {approvedReqSvcOnSelected.reason}</div>}
-                                      </div>
-                                  )}
-                                  {approvedKitOnSelected > 0 && (
-                                      <div className="flex-1 bg-emerald-50 border border-emerald-100 p-2 rounded-lg text-emerald-800">
-                                          <div className="font-black">ครัว (BOH): +{approvedKitOnSelected.toFixed(1)} ชม.</div>
-                                          {approvedReqKitOnSelected?.reason && <div className="text-[9px] text-emerald-600 mt-0.5"><span className="font-semibold text-emerald-700">เหตุผล:</span> {approvedReqKitOnSelected.reason}</div>}
-                                      </div>
-                                  )}
-                              </div>
-                          </div>
-                      );
-                  })()}
+              
 
                   <div className="flex justify-between items-center mt-1 w-full border-t border-slate-100 pt-2">
                       <button onClick={() => setShowPtLedgerDetails(true)} className="text-[10px] sm:text-xs font-bold text-indigo-500 hover:text-indigo-700 underline flex items-center gap-1"><BarChart3 className="w-3 h-3"/> ดูรายละเอียดการใช้ PT</button>
