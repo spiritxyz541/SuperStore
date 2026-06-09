@@ -698,7 +698,12 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
                              {s.pos}
                           </td>
                           <td className="border-r-2 sm:border-r-4 border-slate-900 p-2 sm:p-3 font-black sticky left-[7rem] sm:left-[9rem] bg-white z-10 text-[8px] sm:text-[10px] uppercase leading-tight truncate max-w-[100px] sm:max-w-[150px] print:border-black print:bg-transparent print:text-black print-employee-name">
-                             {s.name}
+                             <div className="flex items-center gap-1">
+                                 <span>{s.name}</span>
+                                 {s.pos.includes('PT') && CALENDAR_DAYS.some(day => pendingRequests.some(r => r.reqType === 'EXTRA_PT' && r.dateStr === day.dateStr && (r.dept || 'service') === (s.dept || 'service') && r.status === 'PENDING_MANAGER')) && (
+                                     <span className="text-[6px] sm:text-[8px] font-bold text-amber-600 bg-amber-50 px-1 py-0.5 rounded border border-amber-200 print:text-black print:border-black print:bg-transparent animate-pulse flex-shrink-0" title="มีกะรออนุมัติในสัปดาห์/เดือนนี้">⏳ รออนุมัติ</span>
+                                 )}
+                             </div>
                           </td>
                           {CALENDAR_DAYS.map(day => {
                              const info = getStaffDayInfo(s.id, day.dateStr, CURRENT_DUTY_LIST);
@@ -709,6 +714,9 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
                                    {info?.type === 'work' ? (
                                      <div className="flex flex-col items-center justify-center leading-tight w-full h-full">
                                        <span className="font-black text-slate-800 text-[8px] sm:text-[10px] leading-none tracking-tighter print:text-black print-cell-work-time">{formatTimeAbbreviation(info.slot?.startTime)}</span>
+                                       {s.pos.includes('PT') && pendingRequests.some(r => r.reqType === 'EXTRA_PT' && r.dateStr === day.dateStr && (r.dept || 'service') === (s.dept || 'service') && r.status === 'PENDING_MANAGER') && (
+                                           <div className="text-[6px] sm:text-[7px] font-black text-amber-600 truncate w-full px-0.5 uppercase tracking-tighter mt-0.5 print:text-black print-cell-ot animate-pulse">⏳ รออนุมัติ</div>
+                                       )}
                                        {info.actual?.otHours > 0 && <div className="text-[6px] sm:text-[7px] font-black text-rose-600 truncate w-full px-0.5 uppercase tracking-tighter mt-0.5 print:text-black print-cell-ot">O{info.actual.otHours}</div>}
                                      </div>
                                    ) : info?.type === 'leave' ? (
@@ -7158,6 +7166,7 @@ export default function App() {
          const actualStaffId = assignedData.staffId?.startsWith('COVER_BY_') ? assignedData.staffId.replace('COVER_BY_', '') : assignedData.staffId;
          const staff = branchData.staff?.find(s => s.id === actualStaffId);
          const staffName = staff ? staff.name : '-';
+         const isPendingPtStaff = staff && staff.pos.includes('PT') && pendingRequests.some(r => r.reqType === 'EXTRA_PT' && r.dateStr === selectedDateStr && (r.dept || 'service') === (staff.dept || 'service') && r.status === 'PENDING_MANAGER');
          const shiftPreset = branchData.shiftPresets?.find(p => p.id === slot.shiftPresetId);
          const { startTime, endTime } = getShiftTimesForStaff(staff?.pos, shiftPreset);
 
@@ -7222,7 +7231,13 @@ export default function App() {
                )}
                <td className="border border-slate-800 p-2 text-left font-bold" style={{ fontSize: `${rs.fontName || rs.fontSize}px` }}>
                    <div className="flex justify-between items-center">
-                       <span className="flex items-center">{staffName}<span className="opacity-80 print:opacity-100 ml-1 font-black">{otBadge}</span></span>
+                       <span className="flex items-center">
+                           {staffName}
+                           {isPendingPtStaff && (
+                               <span className="text-[7px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 ml-1 whitespace-nowrap shadow-sm print:text-black print:border-black print:bg-transparent animate-pulse" title="รออนุมัติโควตาพิเศษ">⏳ รออนุมัติ</span>
+                           )}
+                           <span className="opacity-80 print:opacity-100 ml-1 font-black">{otBadge}</span>
+                       </span>
                        {staff && <span className={`px-1.5 py-0.5 rounded font-black uppercase bg-black/10 print:bg-transparent border border-current opacity-80 print:opacity-100`} style={{ fontSize: `${(rs.fontName || rs.fontSize) * 0.8}px` }}>{staff.pos}</span>}
                    </div>
                </td>
