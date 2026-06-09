@@ -3350,6 +3350,59 @@ export default function App() {
   };
 
   const handleRejectRequest = async (reqId, reason = '') => {
+      const req = pendingRequests.find(r => r.id === reqId);
+      let newSchedToSave = null;
+      if (req) {
+          if (req.reqType === 'EXTRA_PT') {
+              setSchedule(prev => {
+                  const newSched = JSON.parse(JSON.stringify(prev));
+                  const dateStr = req.dateStr;
+                  const dept = req.dept || 'service';
+                  if (newSched[dateStr] && newSched[dateStr].duties) {
+                      Object.keys(newSched[dateStr].duties).forEach(dutyId => {
+                          const slots = newSched[dateStr].duties[dutyId];
+                          if (Array.isArray(slots)) {
+                              slots.forEach(slot => {
+                                  if (slot && slot.staffId) {
+                                      const staff = branchData.staff?.find(s => s.id === slot.staffId);
+                                      if (staff && staff.pos.includes('PT') && (staff.dept || 'service') === dept) {
+                                          slot.staffId = "";
+                                      }
+                                  }
+                              });
+                          }
+                      });
+                  }
+                  newSchedToSave = newSched;
+                  return newSched;
+              });
+              setTimeout(() => {
+                  if (activeBranchId && newSchedToSave) {
+                      autoSaveSchedule(newSchedToSave, true, req.dateStr);
+                  }
+              }, 0);
+          } else if (req.reqType === 'EXTRA_OT') {
+              setSchedule(prev => {
+                  const newSched = JSON.parse(JSON.stringify(prev));
+                  const dateStr = req.dateStr;
+                  const dutyId = req.dutyId;
+                  const slotIdx = req.slotIdx;
+                  if (newSched[dateStr] && newSched[dateStr].duties && newSched[dateStr].duties[dutyId] && newSched[dateStr].duties[dutyId][slotIdx]) {
+                      newSched[dateStr].duties[dutyId][slotIdx].staffId = "";
+                      newSched[dateStr].duties[dutyId][slotIdx].otHours = 0;
+                      newSched[dateStr].duties[dutyId][slotIdx].otUpdated = true;
+                  }
+                  newSchedToSave = newSched;
+                  return newSched;
+              });
+              setTimeout(() => {
+                  if (activeBranchId && newSchedToSave) {
+                      autoSaveSchedule(newSchedToSave, true, req.dateStr);
+                  }
+              }, 0);
+          }
+      }
+
       const newList = pendingRequests.map(r => r.id === reqId ? { ...r, status: 'REJECTED', rejectReason: reason, updatedTimestamp: Date.now() } : r);
       await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'requests', activeBranchId), { list: newList });
   };
@@ -7426,6 +7479,7 @@ export default function App() {
                       <th className="p-4 sm:p-6 border-b border-r border-slate-200 min-w-[250px] sticky left-[150px] bg-white z-30 font-black text-[10px] text-slate-500 uppercase tracking-widest">รายละเอียดงาน</th>
                       {DISPLAY_DAYS.map(day => {
                          const isPendingPTInHeader = pendingRequests.some(r => r.reqType === 'EXTRA_PT' && r.dateStr === day.dateStr && (r.dept || 'service') === activeDept && r.status === 'PENDING_MANAGER');
+                          const isRejectedPTInHeader = pendingRequests.some(r => r.reqType === 'EXTRA_PT' && r.dateStr === day.dateStr && (r.dept || 'service') === activeDept && r.status === 'REJECTED');
                          const approvedHrsInHeader = activeDept === 'kitchen' 
                              ? (schedule[day.dateStr]?.eventExtraHoursKitchen || 0) 
                              : (schedule[day.dateStr]?.eventExtraHoursService || schedule[day.dateStr]?.eventExtraHours || 0);
@@ -7466,6 +7520,11 @@ export default function App() {
                                           ⏳ รออนุมัติ
                                       </div>
                                   )}
+                                   {isRejectedPTInHeader && !isPendingPTInHeader && approvedHrsInHeader === 0 && (
+                                       <div className="text-[8px] font-black px-1.5 py-0.5 rounded-md w-full bg-red-50 text-red-600 border border-red-200 shadow-sm text-center font-bold" title="คำขอโควตาพิเศษถูกปฏิเสธ">
+                                           ❌ ถูกปฏิเสธ
+                                       </div>
+                                   )}
                                   {approvedHrsInHeader > 0 && (
                                       <div className="text-[8px] font-black px-1.5 py-0.5 rounded-md w-full bg-emerald-50 text-emerald-600 border border-emerald-200 shadow-sm" title={`ได้รับโควตาพิเศษ +${approvedHrsInHeader.toFixed(1)} ชม.${approvedReqInHeader?.reason ? ` (เหตุผล: ${approvedReqInHeader.reason})` : ''}`}>
                                           ✨ พิเศษ +${approvedHrsInHeader.toFixed(1)}H
@@ -8680,6 +8739,8 @@ export default function App() {
           const pendingExtraPtKit = pendingRequests.find(r => r.reqType === 'EXTRA_PT' && r.dateStr === selectedDateStr && r.dept === 'kitchen' && r.status === 'PENDING_MANAGER');
           const approvedExtraPtSvc = pendingRequests.find(r => r.reqType === 'EXTRA_PT' && r.dateStr === selectedDateStr && (r.dept || 'service') === 'service' && r.status === 'APPROVED');
           const approvedExtraPtKit = pendingRequests.find(r => r.reqType === 'EXTRA_PT' && r.dateStr === selectedDateStr && r.dept === 'kitchen' && r.status === 'APPROVED');
+          const rejectedExtraPtSvc = pendingRequests.find(r => r.reqType === 'EXTRA_PT' && r.dateStr === selectedDateStr && (r.dept || 'service') === 'service' && r.status === 'REJECTED');
+          const rejectedExtraPtKit = pendingRequests.find(r => r.reqType === 'EXTRA_PT' && r.dateStr === selectedDateStr && r.dept === 'kitchen' && r.status === 'REJECTED');
 
           return (
               <div className="bg-white p-5 sm:p-6 rounded-[2rem] border border-slate-200 shadow-sm print:hidden w-full flex-1 flex flex-col justify-between gap-4 animate-in fade-in duration-500">
@@ -8726,6 +8787,12 @@ export default function App() {
                                   )}
                               </div>
                           )}
+                           {rejectedExtraPtSvc && (
+                               <div className="mt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 border border-red-200 bg-red-50 p-2 rounded-lg">
+                                   <span className="text-[9px] font-black text-red-600 uppercase flex items-center gap-1"><AlertCircle className="w-3.5 h-3.5"/> คำขอโควตาพิเศษถูกปฏิเสธ (+{rejectedExtraPtSvc.requestedHours.toFixed(1)} ชม.)</span>
+                                   <span className="text-[8px] font-black text-red-700 bg-red-100 border border-red-200 px-2 py-1 rounded-md text-center font-bold">ถูกปฏิเสธ</span>
+                               </div>
+                           )}
                       </div>
 
                       {/* Kitchen Section */}
@@ -8763,6 +8830,12 @@ export default function App() {
                                   )}
                               </div>
                           )}
+                           {rejectedExtraPtKit && (
+                               <div className="mt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 border border-red-200 bg-red-50 p-2 rounded-lg">
+                                   <span className="text-[9px] font-black text-red-600 uppercase flex items-center gap-1"><AlertCircle className="w-3.5 h-3.5"/> คำขอโควตาพิเศษถูกปฏิเสธ (+{rejectedExtraPtKit.requestedHours.toFixed(1)} ชม.)</span>
+                                   <span className="text-[8px] font-black text-red-700 bg-red-100 border border-red-200 px-2 py-1 rounded-md text-center font-bold">ถูกปฏิเสธ</span>
+                               </div>
+                           )}
                       </div>
                   </div>
 
@@ -8797,6 +8870,8 @@ export default function App() {
                           const approvedKit = ptLedger.kitchen.dailyAllowance[dateStr]?.event || 0;
                           const approvedReqSvc = pendingRequests.find(r => r.reqType === 'EXTRA_PT' && r.dateStr === dateStr && (r.dept || 'service') === 'service' && r.status === 'APPROVED');
                           const approvedReqKit = pendingRequests.find(r => r.reqType === 'EXTRA_PT' && r.dateStr === dateStr && r.dept === 'kitchen' && r.status === 'APPROVED');
+                           const rReqSvc = pendingRequests.find(r => r.reqType === 'EXTRA_PT' && r.dateStr === dateStr && (r.dept || 'service') === 'service' && r.status === 'REJECTED');
+                           const rReqKit = pendingRequests.find(r => r.reqType === 'EXTRA_PT' && r.dateStr === dateStr && r.dept === 'kitchen' && r.status === 'REJECTED');
                           const aSvc = ptLedger.service.dailyAllowance[dateStr]?.total || 0;
                           const uSvc = (ptLedger.service.dailyUsage[dateStr]?.base || 0) + (ptLedger.service.dailyUsage[dateStr]?.event || 0);
                           const aKit = ptLedger.kitchen.dailyAllowance[dateStr]?.total || 0;
@@ -8816,13 +8891,16 @@ export default function App() {
                                           <span className="text-slate-500 flex items-center gap-0.5 truncate">
                                               บริการ:
                                               {pReqSvc && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse flex-shrink-0" title="รออนุมัติชั่วโมง"></span>}
-                                              {approvedSvc > 0 && <span className="text-[8px] text-emerald-600 font-black flex-shrink-0" title={`โควตาพิเศษ +${approvedSvc}H${approvedReqSvc?.reason ? ` (เหตุผล: ${approvedReqSvc.reason})` : ''}`}>✨</span>}
+                                              {!pReqSvc && approvedSvc > 0 && <span className="text-[8px] text-emerald-600 font-black flex-shrink-0" title={`โควตาพิเศษ +${approvedSvc}H${approvedReqSvc?.reason ? ` (เหตุผล: ${approvedReqSvc.reason})` : ''}`}>✨</span>}
+                                              {!pReqSvc && approvedSvc === 0 && rReqSvc && <span className="text-[8px] text-red-500 font-black flex-shrink-0" title="ถูกปฏิเสธ">❌</span>}
                                           </span>
                                           <div className="flex items-center gap-1 flex-shrink-0">
                                               <span className={isSvcOver ? 'text-red-600 font-black' : 'text-slate-700'}>{uSvc.toFixed(0)}/{aSvc.toFixed(0)}H</span>
                                               {isSvcOver && (
                                                   pReqSvc ? (
                                                       <span className="text-[8px] text-amber-600 font-black" title="รอ AM อนุมัติ">⏳</span>
+                                                  ) : rReqSvc ? (
+                                                      <span className="text-[8px] text-red-600 font-black" title="ถูกปฏิเสธ">❌</span>
                                                   ) : (
                                                       <button onClick={(e) => { e.stopPropagation(); setForecastTc(''); setForecastReason(''); setForecastEvidence(''); setActiveDept('service'); setPtRequestMode('OVER_BUDGET'); setSelectedDateStr(dateStr); setShowForecastModal(true); }} className="bg-red-500 hover:bg-red-600 text-white px-1 py-0.5 rounded text-[8px] font-black transition-colors">ขอ</button>
                                                   )
@@ -8833,13 +8911,16 @@ export default function App() {
                                           <span className="text-slate-500 flex items-center gap-0.5 truncate">
                                               ครัว:
                                               {pReqKit && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse flex-shrink-0" title="รออนุมัติชั่วโมง"></span>}
-                                              {approvedKit > 0 && <span className="text-[8px] text-emerald-600 font-black flex-shrink-0" title={`โควตาพิเศษ +${approvedKit}H${approvedReqKit?.reason ? ` (เหตุผล: ${approvedReqKit.reason})` : ''}`}>✨</span>}
+                                              {!pReqKit && approvedKit > 0 && <span className="text-[8px] text-emerald-600 font-black flex-shrink-0" title={`โควตาพิเศษ +${approvedKit}H${approvedReqKit?.reason ? ` (เหตุผล: ${approvedReqKit.reason})` : ''}`}>✨</span>}
+                                              {!pReqKit && approvedKit === 0 && rReqKit && <span className="text-[8px] text-red-500 font-black flex-shrink-0" title="ถูกปฏิเสธ">❌</span>}
                                           </span>
                                           <div className="flex items-center gap-1 flex-shrink-0">
                                               <span className={isKitOver ? 'text-red-600 font-black' : 'text-slate-700'}>{uKit.toFixed(0)}/{aKit.toFixed(0)}H</span>
                                               {isKitOver && (
                                                   pReqKit ? (
                                                       <span className="text-[8px] text-amber-600 font-black" title="รอ AM อนุมัติ">⏳</span>
+                                                  ) : rReqKit ? (
+                                                      <span className="text-[8px] text-red-600 font-black" title="ถูกปฏิเสธ">❌</span>
                                                   ) : (
                                                       <button onClick={(e) => { e.stopPropagation(); setForecastTc(''); setForecastReason(''); setForecastEvidence(''); setActiveDept('kitchen'); setPtRequestMode('OVER_BUDGET'); setSelectedDateStr(dateStr); setShowForecastModal(true); }} className="bg-red-500 hover:bg-red-600 text-white px-1 py-0.5 rounded text-[8px] font-black transition-colors">ขอ</button>
                                                   )
