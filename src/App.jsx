@@ -586,22 +586,24 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
             border: 1px solid #000000 !important;
             background-color: #f8fafc !important;
             color: #000000 !important;
-          }
-          table.print-table td {
+          }          table.print-table td {
             padding: ${printTdPadding} !important;
-            border: 1px solid #e2e8f0 !important;
-            border-right: 1px solid #cbd5e1 !important;
+            border: 1px solid #000000 !important;
             height: ${printRowHeight} !important;
             vertical-align: middle !important;
           }
           table.print-table tr {
             page-break-inside: avoid !important;
           }
+          tr.print-category-last-row td {
+            border-bottom: 2.5px solid #000000 !important;
+          }
           .print-duty-layer {
             font-size: ${printDutyLayerSize} !important;
             font-weight: 900 !important;
             text-align: center !important;
             border: 1px solid #000000 !important;
+            border-right: 2px solid #000000 !important;
             color: #000000 !important;
           }
           .print-employee-pos {
@@ -619,7 +621,7 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
             white-space: nowrap !important;
             background-color: #ffffff !important;
             color: #000000 !important;
-            border-right: 2px solid #000000 !important;
+            border-right: 3px solid #000000 !important;
           }
           .print-cell-work-time {
             font-size: ${printCellWorkTimeSize} !important;
@@ -636,7 +638,7 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
           .print-cell-leave {
             font-size: ${printCellWorkTimeSize} !important;
             font-weight: 900 !important;
-            border: 1px solid #cbd5e1 !important;
+            border: 1px solid #000000 !important;
             background-color: #f1f5f9 !important;
             color: #000000 !important;
             border-radius: 4px !important;
@@ -678,7 +680,7 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
                  return (
                    <React.Fragment key={cat.id}>
                      {catStaff.map((s, dIdx) => (
-                        <tr key={s.id} className="h-10 sm:h-14 transition-colors border-b border-slate-200 print:border-black">
+                        <tr key={s.id} className={`h-10 sm:h-14 transition-colors border-b border-slate-200 print:border-black ${dIdx === catStaff.length - 1 ? 'print-category-last-row' : ''}`}>
                           {dIdx === 0 && (
                             <td rowSpan={catStaff.length} className={`border-r border-slate-900 p-1 font-black sticky left-0 z-10 text-[5px] sm:text-[7px] uppercase leading-tight text-center print:border-black print:bg-transparent print:text-black print-duty-layer ${cat.color.split(' ')[0]} ${cat.color.split(' ')[1]}`}>
                                {cat.label.replace('Customer Service ', '').replace('Kitchen ', '')}
