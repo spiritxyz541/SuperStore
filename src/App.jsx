@@ -4395,6 +4395,7 @@ export default function App() {
                     }
 
                     if (alreadyApprovedHours > 0) {
+                        const approvedReqInModal = pendingRequests.find(r => r.reqType === 'EXTRA_PT' && r.dateStr === activeDay.dateStr && (r.dept || 'service') === activeDept && r.status === 'APPROVED');
                         return (
                            <div className="space-y-4">
                                <div className="bg-emerald-50 border border-emerald-200 p-6 rounded-xl text-center flex flex-col items-center gap-3">
@@ -4402,6 +4403,12 @@ export default function App() {
                                    <div>
                                       <p className="text-sm font-black text-emerald-700">คำขอของวันนี้ได้รับการอนุมัติแล้ว</p>
                                       <p className="text-xs font-bold text-emerald-600 mt-1">ได้รับโควตาพิเศษเพิ่ม +{alreadyApprovedHours.toFixed(1)} ชั่วโมง<br/>(บันทึกเป็นประวัติใบงานเรียบร้อยแล้ว ไม่สามารถขอซ้ำได้)</p>
+                                      {approvedReqInModal?.reason && (
+                                          <div className="mt-3 text-left p-3 rounded bg-white/60 border border-emerald-100 text-[11px] text-emerald-700 font-bold">
+                                              <span className="text-[10px] text-emerald-600 block mb-0.5 font-bold">เหตุผลที่ขออนุมัติ:</span>
+                                              “{approvedReqInModal.reason}”
+                                          </div>
+                                      )}
                                    </div>
                                </div>
                                <div className="flex gap-2 w-full mt-2">
@@ -4631,6 +4638,7 @@ export default function App() {
                                             const dateStr = day.dateStr;
                                             const u = ptLedger.service.dailyUsage[dateStr] || { base: 0, event: 0 };
                                             const a = ptLedger.service.dailyAllowance?.[dateStr] || { baseAvg: 0, leave: 0, vacancy: 0, event: 0, total: 0 };
+                                            const approvedReq = pendingRequests.find(r => r.reqType === 'EXTRA_PT' && r.dateStr === dateStr && (r.dept || 'service') === 'service' && r.status === 'APPROVED');
                                             const totalUsed = u.base + u.event;
                                             const diff = a.total - totalUsed;
                                             const isOver = diff < 0 && totalUsed > 0;
@@ -4644,14 +4652,19 @@ export default function App() {
                                                     </td>
                                                     <td className="p-2 text-center">
                                                         <div className="font-black text-indigo-600">{totalUsed.toFixed(1)}</div>
-                                                        <div className="text-[8px] text-slate-400 leading-tight mt-0.5">ปกติ {u.base.toFixed(1)} + พิเศษ {u.event.toFixed(1)}</div>
-                                                    </td>
-                                                    <td className={`p-2 text-center font-black ${isOver ? 'text-red-500' : 'text-emerald-500'}`}>
-                                                        {diff > 0 ? '+' : ''}{diff.toFixed(1)}
-                                                    </td>
-                                                    <td className="p-2 text-center">
-                                                        {isOver ? <span className="bg-red-100 text-red-600 px-2 py-0.5 rounded text-[9px] font-black shadow-sm">เกินโควตา</span> : <span className="bg-emerald-100 text-emerald-600 px-2 py-0.5 rounded text-[9px] font-black">ปกติ</span>}
-                                                    </td>
+                                                         <div className="text-[8px] text-slate-400 leading-tight mt-0.5">ปกติ {u.base.toFixed(1)} + พิเศษ {u.event.toFixed(1)}</div>
+                                                     </td>
+                                                     <td className={`p-2 text-center font-black ${isOver ? 'text-red-500' : 'text-emerald-500'}`}>
+                                                         {diff > 0 ? '+' : ''}{diff.toFixed(1)}
+                                                     </td>
+                                                     <td className="p-2 text-center">
+                                                         {isOver ? <span className="bg-red-100 text-red-600 px-2 py-0.5 rounded text-[9px] font-black shadow-sm">เกินโควตา</span> : <span className="bg-emerald-100 text-emerald-600 px-2 py-0.5 rounded text-[9px] font-black">ปกติ</span>}
+                                                         {approvedReq && (
+                                                             <div className="text-[8px] text-emerald-600 font-bold mt-1" title={approvedReq.reason}>
+                                                                 ✨ อนุมัติ ({approvedReq.reason})
+                                                             </div>
+                                                         )}
+                                                     </td>
                                                 </tr>
                                             );
                                         })}
@@ -4697,6 +4710,7 @@ export default function App() {
                                             const dateStr = day.dateStr;
                                             const u = ptLedger.kitchen.dailyUsage[dateStr] || { base: 0, event: 0 };
                                             const a = ptLedger.kitchen.dailyAllowance?.[dateStr] || { baseAvg: 0, leave: 0, vacancy: 0, event: 0, total: 0 };
+                                            const approvedReq = pendingRequests.find(r => r.reqType === 'EXTRA_PT' && r.dateStr === dateStr && r.dept === 'kitchen' && r.status === 'APPROVED');
                                             const totalUsed = u.base + u.event;
                                             const diff = a.total - totalUsed;
                                             const isOver = diff < 0 && totalUsed > 0;
@@ -4710,14 +4724,19 @@ export default function App() {
                                                     </td>
                                                     <td className="p-2 text-center">
                                                         <div className="font-black text-orange-600">{totalUsed.toFixed(1)}</div>
-                                                        <div className="text-[8px] text-slate-400 leading-tight mt-0.5">ปกติ {u.base.toFixed(1)} + พิเศษ {u.event.toFixed(1)}</div>
-                                                    </td>
-                                                    <td className={`p-2 text-center font-black ${isOver ? 'text-red-500' : 'text-emerald-500'}`}>
-                                                        {diff > 0 ? '+' : ''}{diff.toFixed(1)}
-                                                    </td>
-                                                    <td className="p-2 text-center">
-                                                        {isOver ? <span className="bg-red-100 text-red-600 px-2 py-0.5 rounded text-[9px] font-black shadow-sm">เกินโควตา</span> : <span className="bg-emerald-100 text-emerald-600 px-2 py-0.5 rounded text-[9px] font-black">ปกติ</span>}
-                                                    </td>
+                                                         <div className="text-[8px] text-slate-400 leading-tight mt-0.5">ปกติ {u.base.toFixed(1)} + พิเศษ {u.event.toFixed(1)}</div>
+                                                     </td>
+                                                     <td className={`p-2 text-center font-black ${isOver ? 'text-red-500' : 'text-emerald-500'}`}>
+                                                         {diff > 0 ? '+' : ''}{diff.toFixed(1)}
+                                                     </td>
+                                                     <td className="p-2 text-center">
+                                                         {isOver ? <span className="bg-red-100 text-red-600 px-2 py-0.5 rounded text-[9px] font-black shadow-sm">เกินโควตา</span> : <span className="bg-emerald-100 text-emerald-600 px-2 py-0.5 rounded text-[9px] font-black">ปกติ</span>}
+                                                         {approvedReq && (
+                                                             <div className="text-[8px] text-emerald-600 font-bold mt-1" title={approvedReq.reason}>
+                                                                 ✨ อนุมัติ ({approvedReq.reason})
+                                                             </div>
+                                                         )}
+                                                     </td>
                                                 </tr>
                                             );
                                         })}
@@ -7139,6 +7158,7 @@ export default function App() {
                          const approvedHrsInHeader = activeDept === 'kitchen' 
                              ? (schedule[day.dateStr]?.eventExtraHoursKitchen || 0) 
                              : (schedule[day.dateStr]?.eventExtraHoursService || schedule[day.dateStr]?.eventExtraHours || 0);
+                         const approvedReqInHeader = pendingRequests.find(r => r.reqType === 'EXTRA_PT' && r.dateStr === day.dateStr && (r.dept || 'service') === activeDept && r.status === 'APPROVED');
                          const dayUsedStaffIds = new Set();
                          (schedule[day.dateStr]?.leaves || []).forEach(l => l.staffId && dayUsedStaffIds.add(l.staffId));
                          Object.values(schedule[day.dateStr]?.duties || {}).forEach(sls => sls.forEach(s => s && s.staffId && dayUsedStaffIds.add(s.staffId)));
@@ -7169,7 +7189,7 @@ export default function App() {
                                       </div>
                                   )}
                                   {approvedHrsInHeader > 0 && (
-                                      <div className="text-[8px] font-black px-1.5 py-0.5 rounded-md w-full bg-emerald-50 text-emerald-600 border border-emerald-200 shadow-sm" title={`ได้รับโควตาพิเศษ +${approvedHrsInHeader.toFixed(1)} ชม.`}>
+                                      <div className="text-[8px] font-black px-1.5 py-0.5 rounded-md w-full bg-emerald-50 text-emerald-600 border border-emerald-200 shadow-sm" title={`ได้รับโควตาพิเศษ +${approvedHrsInHeader.toFixed(1)} ชม.${approvedReqInHeader?.reason ? ` (เหตุผล: ${approvedReqInHeader.reason})` : ''}`}>
                                           ✨ พิเศษ +${approvedHrsInHeader.toFixed(1)}H
                                       </div>
                                   )}
@@ -8302,6 +8322,8 @@ export default function App() {
 
           const pendingExtraPtSvc = pendingRequests.find(r => r.reqType === 'EXTRA_PT' && r.dateStr === selectedDateStr && (r.dept || 'service') === 'service' && r.status === 'PENDING_MANAGER');
           const pendingExtraPtKit = pendingRequests.find(r => r.reqType === 'EXTRA_PT' && r.dateStr === selectedDateStr && r.dept === 'kitchen' && r.status === 'PENDING_MANAGER');
+          const approvedExtraPtSvc = pendingRequests.find(r => r.reqType === 'EXTRA_PT' && r.dateStr === selectedDateStr && (r.dept || 'service') === 'service' && r.status === 'APPROVED');
+          const approvedExtraPtKit = pendingRequests.find(r => r.reqType === 'EXTRA_PT' && r.dateStr === selectedDateStr && r.dept === 'kitchen' && r.status === 'APPROVED');
 
           return (
               <div className="bg-white p-5 sm:p-6 rounded-[2rem] border border-slate-200 shadow-sm print:hidden w-full flex-1 flex flex-col justify-between gap-4 animate-in fade-in duration-500">
@@ -8325,6 +8347,18 @@ export default function App() {
                           <div className="h-2 w-full bg-slate-200 rounded-full overflow-hidden mt-1">
                               <div className={`h-full ${colorSvc} transition-all duration-500 rounded-full`} style={{ width: `${Math.min(limitSvcPercent, 100)}%` }}></div>
                           </div>
+                          {allowanceSvc.event > 0 && (
+                              <div className="mt-2 bg-emerald-50 border border-emerald-100 p-2 rounded-lg text-emerald-800 text-[10px] font-bold">
+                                  <div className="flex items-center gap-1 font-black">
+                                      <span>✨ ได้รับอนุมัติโควตาพิเศษ +${allowanceSvc.event.toFixed(1)} ชม.</span>
+                                  </div>
+                                  {approvedExtraPtSvc?.reason && (
+                                      <div className="text-[9px] text-emerald-600 mt-0.5">
+                                          <span className="font-semibold text-emerald-700">เหตุผล:</span> {approvedExtraPtSvc.reason}
+                                      </div>
+                                  )}
+                              </div>
+                          )}
 
                           {usedSvcTotal > allowanceSvc.total && (
                               <div className="mt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 border-t border-red-100 pt-2 bg-red-50/50 p-2 rounded-lg">
@@ -8350,6 +8384,18 @@ export default function App() {
                           <div className="h-2 w-full bg-slate-200 rounded-full overflow-hidden mt-1">
                               <div className={`h-full ${colorKit} transition-all duration-500 rounded-full`} style={{ width: `${Math.min(limitKitPercent, 100)}%` }}></div>
                           </div>
+                          {allowanceKit.event > 0 && (
+                              <div className="mt-2 bg-emerald-50 border border-emerald-100 p-2 rounded-lg text-emerald-800 text-[10px] font-bold">
+                                  <div className="flex items-center gap-1 font-black">
+                                      <span>✨ ได้รับอนุมัติโควตาพิเศษ +${allowanceKit.event.toFixed(1)} ชม.</span>
+                                  </div>
+                                  {approvedExtraPtKit?.reason && (
+                                      <div className="text-[9px] text-emerald-600 mt-0.5">
+                                          <span className="font-semibold text-emerald-700">เหตุผล:</span> {approvedExtraPtKit.reason}
+                                      </div>
+                                  )}
+                              </div>
+                          )}
 
                           {usedKitTotal > allowanceKit.total && (
                               <div className="mt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 border-t border-red-100 pt-2 bg-red-50/50 p-2 rounded-lg">
@@ -8391,6 +8437,8 @@ export default function App() {
                           const pReqKit = pendingRequests.find(r => r.reqType === 'EXTRA_PT' && r.dateStr === dateStr && r.dept === 'kitchen' && r.status === 'PENDING_MANAGER');
                           const approvedSvc = ptLedger.service.dailyAllowance[dateStr]?.event || 0;
                           const approvedKit = ptLedger.kitchen.dailyAllowance[dateStr]?.event || 0;
+                          const approvedReqSvc = pendingRequests.find(r => r.reqType === 'EXTRA_PT' && r.dateStr === dateStr && (r.dept || 'service') === 'service' && r.status === 'APPROVED');
+                          const approvedReqKit = pendingRequests.find(r => r.reqType === 'EXTRA_PT' && r.dateStr === dateStr && r.dept === 'kitchen' && r.status === 'APPROVED');
                           const aSvc = ptLedger.service.dailyAllowance[dateStr]?.total || 0;
                           const uSvc = (ptLedger.service.dailyUsage[dateStr]?.base || 0) + (ptLedger.service.dailyUsage[dateStr]?.event || 0);
                           const aKit = ptLedger.kitchen.dailyAllowance[dateStr]?.total || 0;
@@ -8411,7 +8459,7 @@ export default function App() {
                                           <span className="text-slate-500 flex items-center gap-1">
                                               บริการ:
                                               {pReqSvc && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" title="รออนุมัติชั่วโมง"></span>}
-                                              {approvedSvc > 0 && <span className="text-[8px] text-emerald-600 font-black" title={`โควตาพิเศษ +${approvedSvc}H`}>✨</span>}
+                                              {approvedSvc > 0 && <span className="text-[8px] text-emerald-600 font-black" title={`โควตาพิเศษ +${approvedSvc}H${approvedReqSvc?.reason ? ` (เหตุผล: ${approvedReqSvc.reason})` : ''}`}>✨</span>}
                                           </span>
                                           <span className={isSvcOver ? 'text-red-600 font-black' : 'text-slate-700'}>{uSvc.toFixed(0)}/{aSvc.toFixed(0)}H</span>
                                       </div>
@@ -8419,7 +8467,7 @@ export default function App() {
                                           <span className="text-slate-500 flex items-center gap-1">
                                               ครัว:
                                               {pReqKit && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" title="รออนุมัติชั่วโมง"></span>}
-                                              {approvedKit > 0 && <span className="text-[8px] text-emerald-600 font-black" title={`โควตาพิเศษ +${approvedKit}H`}>✨</span>}
+                                              {approvedKit > 0 && <span className="text-[8px] text-emerald-600 font-black" title={`โควตาพิเศษ +${approvedKit}H${approvedReqKit?.reason ? ` (เหตุผล: ${approvedReqKit.reason})` : ''}`}>✨</span>}
                                           </span>
                                           <span className={isKitOver ? 'text-red-600 font-black' : 'text-slate-700'}>{uKit.toFixed(0)}/{aKit.toFixed(0)}H</span>
                                       </div>
