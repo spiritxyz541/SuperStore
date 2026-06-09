@@ -10,12 +10,13 @@ import {
 } from 'lucide-react';
 
 /**
- * SUPER STORE Manager Assistant - V15.7 (ULTIMATE STABILITY FIX)
+ * SUPER STORE Manager Assistant - V15.8 (PRE-ASSIGN & LOCK DUTIES)
  * อัปเดต:
  * 1. ขจัดปัญหา ReferenceError 100% ด้วยการทำ Function Declaration ให้อยู่ใน Scope อย่างถูกต้อง
  * 2. โครงสร้างเมนู ADMIN: รวบรวม "จัดการพนักงาน", "จัดการหน้าที่", "วันหยุดสาขา", "แม่แบบ" และ "โครงสร้างกะงาน" ครบถ้วน
  * 3. หน้าจัดกะแบบรายเดือน (Monthly): เพิ่มระบบบันทึกวันลาหยุด พร้อมตัวเลือกวันที่แบบเจาะจง
  * 4. หน้า Print (รายเดือน): ลบงานรอง (Job B) ออก จัด Layout สะอาดตา
+ * 5. หน้า Print (รายเดือน/รายสัปดาห์): เพิ่มระบบมอบหมายและล็อกกะงานล่วงหน้า (Fix กะ) พร้อมกัน AI จัดกะทับ
  */
 
 // --- 1. Configurations ---
@@ -32,7 +33,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const appId = "staffsync-v8-stable-prod-final";
-const CURRENT_APP_VERSION = "15.7.1"; // เปลี่ยนเลขเวอร์ชันที่นี่ทุกครั้งที่คุณอัปเดตโค้ด
+const CURRENT_APP_VERSION = "15.8.0"; // เปลี่ยนเลขเวอร์ชันที่นี่ทุกครั้งที่คุณอัปเดตโค้ด
 
 // --- Constants & Layers ---
 const POSITIONS = {
@@ -525,7 +526,7 @@ const BreakTimeInput = ({ computedValue, manualValue, onSave, onReset, rsFontSiz
 //   - Leave short label e.g. "ย", "พร", "ป่วย"           → staff is on leave
 //   - "-"                                                  → no data
 
-const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranchId, THAI_MONTHS, selectedMonth, getStaffDayInfo, setView, activeDept, CURRENT_DUTY_LIST, handleToggleLeave, LEAVE_TYPES, onPrint, pendingRequests, isPtPendingApproval }) => {
+const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranchId, THAI_MONTHS, selectedMonth, getStaffDayInfo, setView, activeDept, CURRENT_DUTY_LIST, handleToggleLeave, LEAVE_TYPES, onPrint, pendingRequests, isPtPendingApproval, schedule }) => {
     const filteredStaff = branchData.staff?.filter(s => s.dept === activeDept) || [];
     const sortedStaff = [...filteredStaff].sort((a, b) => {
         const rankA = POSITIONS[activeDept].indexOf(a.pos);
@@ -707,13 +708,48 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
                                                 </td>
                                                 {CALENDAR_DAYS.map(day => {
                                                     const info = getStaffDayInfo(s.id, day.dateStr, CURRENT_DUTY_LIST);
-                                                    const currentLeave = info?.type === 'leave' ? (info.info?.id || '') : '';
+                                                    
+                                                    // กำหนดค่าปัจจุบันใน dropdown
+                                                    let currentValue = '';
+                                                    if (info?.type === 'leave') {
+                                                        currentValue = info.info?.id || '';
+                                                    } else if (info?.type === 'work' && info.actual?.isFixed) {
+                                                        currentValue = `DUTY_ASSIGN_${info.duty.id}_${info.slotIdx}`;
+                                                    }
+
+                                                    // ดึงสิทธิ์ในการทำหน้าที่ต่างๆ ของพนักงานในวันนี้
+                                                    const vacantDutiesOptions = [];
+                                                    CURRENT_DUTY_LIST.forEach(d => {
+                                                        const reqArr = Array.isArray(d.reqPos) ? d.reqPos : [d.reqPos || 'ALL'];
+                                                        const isEligible = checkPositionEligibility(s.pos, reqArr, activeDept);
+                                                        if (isEligible) {
+                                                            const matrixSlots = branchData.matrix?.[day.type]?.duties?.[d.id] || [];
+                                                            matrixSlots.forEach((slot, slotIdx) => {
+                                                                const assignedSlots = schedule?.[day.dateStr]?.duties?.[d.id] || [];
+                                                                const slotData = assignedSlots[slotIdx];
+                                                                const isAssignedToOther = slotData && slotData.staffId && slotData.staffId !== s.id;
+                                                                if (!isAssignedToOther) {
+                                                                    const preset = branchData.shiftPresets?.find(p => p.id === slot.shiftPresetId);
+                                                                    const times = getShiftTimesForStaff(s.pos, preset);
+                                                                    const timeStr = times ? ` (${formatTimeAbbreviation(times.startTime)}-${formatTimeAbbreviation(times.endTime)})` : '';
+                                                                    vacantDutiesOptions.push({
+                                                                        value: `DUTY_ASSIGN_${d.id}_${slotIdx}`,
+                                                                        label: `📌 ${d.jobA}${timeStr}`
+                                                                    });
+                                                                }
+                                                            });
+                                                        }
+                                                    });
+
                                                     return (
-                                                        <td key={day.dateStr} className={`border-r border-b border-slate-200 p-0 relative group print:border-black h-10 sm:h-14 ${!info ? 'bg-slate-50/40 print:bg-transparent' : ''}`}>
+                                                        <td key={day.dateStr} className={`border-r border-b border-slate-200 p-0 relative group print:border-black h-10 sm:h-14 ${info?.actual?.isFixed ? 'bg-indigo-50/40 print:bg-transparent' : !info ? 'bg-slate-50/40 print:bg-transparent' : ''}`}>
                                                             <div className="w-full h-full flex flex-col items-center justify-center p-0.5 sm:p-1 pointer-events-none group-hover:opacity-40 transition-opacity print:group-hover:opacity-100">
                                                                 {info?.type === 'work' ? (
                                                                     <div className="flex flex-col items-center justify-center leading-tight w-full h-full">
-                                                                        <span className="font-black text-slate-800 text-[8px] sm:text-[10px] leading-none tracking-tighter print:text-black print-cell-work-time">{formatTimeAbbreviation(info.slot?.startTime)}</span>
+                                                                        <span className="font-black text-slate-800 text-[8px] sm:text-[10px] leading-none tracking-tighter print:text-black print-cell-work-time">
+                                                                            {info.actual?.isFixed && <span className="print:hidden mr-0.5">📌</span>}
+                                                                            {formatTimeAbbreviation(info.slot?.startTime)}
+                                                                        </span>
                                                                         {s.pos.includes('PT') && pendingRequests.some(r => r.reqType === 'EXTRA_PT' && r.dateStr === day.dateStr && (r.dept || 'service') === (s.dept || 'service') && r.status === 'PENDING_MANAGER') && (
                                                                             <div className="text-[6px] sm:text-[7px] font-black text-amber-600 truncate w-full px-0.5 uppercase tracking-tighter mt-0.5 print:text-black print-cell-ot animate-pulse">⏳ รออนุมัติ</div>
                                                                         )}
@@ -725,14 +761,23 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
                                                             </div>
                                                             <select
                                                                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer print:hidden z-10"
-                                                                value={currentLeave}
+                                                                value={currentValue}
                                                                 onChange={(e) => handleToggleLeave && handleToggleLeave(s.id, day.dateStr, e.target.value)}
-                                                                title="คลิกเพื่อปรับวันหยุด (พนักงานที่ลางานจะไม่ถูกดึงไปจัดกะออโต้)"
+                                                                title="คลิกเพื่อปรับวันหยุด หรือ มอบหมายหน้าที่ (Fix กะ)"
                                                             >
-                                                                <option value="">[ ว่าง / ลบวันหยุด ]</option>
-                                                                {(LEAVE_TYPES || []).filter(lt => !(s.pos.includes('PT') && !['OFF', 'SWAP_OFF', 'SL_UNPAID', 'PL_UNPAID'].includes(lt.id))).map(lt => (
-                                                                    <option key={lt.id} value={lt.id}>{lt.label}</option>
-                                                                ))}
+                                                                <option value="">[ ว่าง / ลบหน้าที่ & วันหยุด ]</option>
+                                                                <optgroup label="-- วันหยุด / วันลา --">
+                                                                    {(LEAVE_TYPES || []).filter(lt => !(s.pos.includes('PT') && !['OFF', 'SWAP_OFF', 'SL_UNPAID', 'PL_UNPAID'].includes(lt.id))).map(lt => (
+                                                                        <option key={lt.id} value={lt.id}>{lt.label}</option>
+                                                                    ))}
+                                                                </optgroup>
+                                                                {vacantDutiesOptions.length > 0 && (
+                                                                    <optgroup label="-- มอบหมายหน้าที่ (Fix กะ) --">
+                                                                        {vacantDutiesOptions.map(opt => (
+                                                                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                                                        ))}
+                                                                    </optgroup>
+                                                                )}
                                                             </select>
                                                         </td>
                                                     );
@@ -1750,24 +1795,24 @@ export default function App() {
                 const matrixSlot = matrixSlots[sIdx] || { shiftPresetId: slots[sIdx]?.shiftPresetId || branchData.shiftPresets?.[0]?.id };
 
                 if (!matrixSlot || !matrixSlot.shiftPresetId) {
-                    return { type: 'work', duty: d, slot: { startTime: '??:??', endTime: '??:??' }, actual: slots[sIdx] };
+                    return { type: 'work', duty: d, slot: { startTime: '??:??', endTime: '??:??' }, actual: slots[sIdx], slotIdx: sIdx };
                 }
 
                 const staffInfo = branchData.staff?.find(s => s.id === staffId);
                 const shiftPreset = branchData.shiftPresets?.find(p => p.id === matrixSlot.shiftPresetId);
 
                 if (!shiftPreset || !staffInfo) {
-                    return { type: 'work', duty: d, slot: { startTime: '??:??', endTime: '??:??' }, actual: slots[sIdx] };
+                    return { type: 'work', duty: d, slot: { startTime: '??:??', endTime: '??:??' }, actual: slots[sIdx], slotIdx: sIdx };
                 }
 
                 const effectiveTimings = getShiftTimesForStaff(staffInfo.pos, shiftPreset);
                 const effectiveSlot = { ...matrixSlot, ...effectiveTimings };
 
-                return { type: 'work', duty: d, slot: effectiveSlot, actual: slots[sIdx] };
+                return { type: 'work', duty: d, slot: effectiveSlot, actual: slots[sIdx], slotIdx: sIdx };
             }
         }
         return null;
-    }, [schedule, CALENDAR_DAYS, branchData.matrix, branchData.staff, branchData.shiftPresets]);
+    }, [schedule, branchData, LEAVE_TYPES]);
 
     // === EFFECTS ===
     // ดักจับกรณีโหลดหน้าเว็บใหม่ แล้วพบว่าหมดอายุ (Session โดนล้างไปแล้วจาก useState)
@@ -2594,24 +2639,72 @@ export default function App() {
             // ลบสถานะวันหยุดเดิมของพนักงานคนนี้ในวันนั้นๆ ออกก่อน
             newSched[dateStr].leaves = newSched[dateStr].leaves.filter(l => l.staffId !== staffId);
 
-            if (leaveTypeId) {
-                newSched[dateStr].leaves.push({ staffId, type: leaveTypeId });
-
-                // หากพนักงานถูกจัดงานอยู่แล้ว ให้ถอดชื่อเขาออกจากกะงานวันนั้นโดยอัตโนมัติ
-                if (newSched[dateStr].duties) {
-                    Object.values(newSched[dateStr].duties).forEach(slots => {
-                        slots.forEach(slot => {
-                            if (slot && slot.staffId === staffId) {
-                                slot.staffId = "";
-                                slot.otHours = 0;
-                            }
-                        });
+            // หากพนักงานถูกจัดงานอยู่แล้ว ให้ถอดชื่อเขาออกจากกะงานวันนั้นโดยอัตโนมัติ และเคลียร์ isFixed
+            if (newSched[dateStr].duties) {
+                Object.values(newSched[dateStr].duties).forEach(slots => {
+                    slots.forEach(slot => {
+                        if (slot && slot.staffId === staffId) {
+                            slot.staffId = "";
+                            slot.otHours = 0;
+                            delete slot.isFixed;
+                        }
                     });
+                });
+            }
+
+            if (leaveTypeId) {
+                if (leaveTypeId.startsWith('DUTY_ASSIGN_')) {
+                    // รูปแบบ: DUTY_ASSIGN_{dutyId}_{slotIdx}
+                    const parts = leaveTypeId.split('_');
+                    const dutyId = parts[2];
+                    const slotIdx = parseInt(parts[3], 10);
+
+                    if (!newSched[dateStr].duties) {
+                        newSched[dateStr].duties = {};
+                    }
+                    if (!newSched[dateStr].duties[dutyId]) {
+                        newSched[dateStr].duties[dutyId] = [];
+                    }
+
+                    // เติมช่องว่างให้ครบตามโครงสร้างกะงาน (Matrix)
+                    const dayType = getDayType(dateStr, branchData.holidays, branchData.holidayCycles);
+                    const matrixSlots = branchData.matrix?.[dayType]?.duties?.[dutyId] || [];
+                    while (newSched[dateStr].duties[dutyId].length < matrixSlots.length) {
+                        newSched[dateStr].duties[dutyId].push({ staffId: "", otHours: 0 });
+                    }
+
+                    if (newSched[dateStr].duties[dutyId][slotIdx]) {
+                        newSched[dateStr].duties[dutyId][slotIdx].staffId = staffId;
+                        newSched[dateStr].duties[dutyId][slotIdx].isFixed = true;
+
+                        // คำนวณชั่วโมง OT
+                        const staffObj = branchData.staff?.find(s => s.id === staffId);
+                        if (staffObj) {
+                            const matrixSlot = matrixSlots[slotIdx] || { shiftPresetId: 'S1' };
+                            const preset = branchData.shiftPresets?.find(p => p.id === matrixSlot.shiftPresetId);
+                            if (preset) {
+                                const { endTime } = getShiftTimesForStaff(staffObj.pos, preset);
+                                let assignedOT = 0;
+                                if (matrixSlot.targetEndTime) {
+                                    assignedOT = calculateOtHours(matrixSlot.targetEndTime, endTime);
+                                } else {
+                                    assignedOT = matrixSlot.maxOtHours || 0;
+                                }
+                                const layer = getStaffLayer(activeDept, staffObj.pos);
+                                const giveOT = !layer.id.includes('HEAD') && assignedOT > 0;
+                                newSched[dateStr].duties[dutyId][slotIdx].otHours = giveOT ? assignedOT : 0;
+                                newSched[dateStr].duties[dutyId][slotIdx].otUpdated = true;
+                            }
+                        }
+                    }
+                } else {
+                    // บันทึกวันหยุดปกติ
+                    newSched[dateStr].leaves.push({ staffId, type: leaveTypeId });
                 }
             } if (activeBranchId) autoSaveSchedule(newSched, false, dateStr);
             return newSched;
         });
-    }, [activeBranchId, autoSaveSchedule]);
+    }, [activeBranchId, autoSaveSchedule, branchData, activeDept]);
 
     const handleUpdatePtConfig = (field, value) => {
         setBranchData(prev => {
@@ -3589,9 +3682,19 @@ export default function App() {
                     if (!newSched[dateStr]) newSched[dateStr] = { duties: {}, leaves: [] };
                     const dayData = newSched[dateStr];
 
-                    // 1. Clear previous duty assignments for this day (เฉพาะแผนกที่เลือก)
+                    // 1. Clear previous duty assignments for this day (เฉพาะแผนกที่เลือก) but PRESERVE fixed ones
                     if (!dayData.duties) dayData.duties = {};
+                    const fixedSlotsByDuty = {}; // dutyId -> array of { idx, slot }
                     CURRENT_DUTY_LIST.forEach(d => {
+                        const existingSlots = dayData.duties[d.id];
+                        if (Array.isArray(existingSlots)) {
+                            existingSlots.forEach((slot, idx) => {
+                                if (slot && slot.isFixed && slot.staffId) {
+                                    if (!fixedSlotsByDuty[d.id]) fixedSlotsByDuty[d.id] = [];
+                                    fixedSlotsByDuty[d.id].push({ idx, slot });
+                                }
+                            });
+                        }
                         delete dayData.duties[d.id];
                     });
 
@@ -3621,6 +3724,22 @@ export default function App() {
 
                     const onLeaveIds = new Set(finalLeaves.map(l => l.staffId));
                     const workingStaffIds = new Set();
+
+                    // Reconstruct duty slot arrays, restoring any fixed slots
+                    CURRENT_DUTY_LIST.forEach(d => {
+                        const matrixSlots = branchData.matrix?.[dayType]?.duties?.[d.id] || [];
+                        dayData.duties[d.id] = matrixSlots.map((mSlot, idx) => {
+                            const fixedInfo = fixedSlotsByDuty[d.id]?.find(f => f.idx === idx);
+                            if (fixedInfo) {
+                                const staffObj = branchData.staff?.find(s => s.id === fixedInfo.slot.staffId);
+                                if (staffObj && isStaffActiveOnDate(staffObj, dateStr) && !onLeaveIds.has(staffObj.id)) {
+                                    workingStaffIds.add(staffObj.id);
+                                    return { ...fixedInfo.slot };
+                                }
+                            }
+                            return { staffId: "", otHours: 0 };
+                        });
+                    });
 
                     // 3. Prepare all slots to assign and sort them
                     const dutyPriority = { 'HEAD': 1, 'STAFF': 2, 'SUPPORT': 3 };
