@@ -533,8 +533,9 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
       return (rankA === -1 ? 999 : rankA) - (rankB === -1 ? 999 : rankB);
   });  const isWeeklyPrint = CALENDAR_DAYS.length === 7;
   const printTableFontSize = isWeeklyPrint ? '12px' : '9px';
-  const printCellWorkTimeSize = isWeeklyPrint ? '12.5px' : '9.5px';
-  const printEmployeeNameSize = isWeeklyPrint ? '12.5px' : '9.5px';
+  const printCellWorkTimeSize = isWeeklyPrint ? '16px' : '12px';
+  const printCellLeaveSize = isWeeklyPrint ? '14px' : '10.5px';
+  const printEmployeeNameSize = isWeeklyPrint ? '13px' : '10px';
   const printEmployeePosSize = isWeeklyPrint ? '12px' : '9px';
   const printDutyLayerSize = isWeeklyPrint ? '11px' : '8px';
   const printTdPadding = isWeeklyPrint ? '8px 6px' : '4px 2px';
@@ -634,14 +635,18 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
             font-weight: 900 !important;
             color: #dc2626 !important;
             margin-top: 1px !important;
-          }
-          .print-cell-leave {
-            font-size: ${printCellWorkTimeSize} !important;
+          }          .print-cell-leave {
+            font-size: ${printCellLeaveSize} !important;
             font-weight: 900 !important;
             border: 1px solid #000000 !important;
             background-color: #f1f5f9 !important;
             color: #000000 !important;
             border-radius: 4px !important;
+            width: 100% !important;
+            height: 100% !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
           }
           .print-cell-off {
             font-size: 6px !important;
