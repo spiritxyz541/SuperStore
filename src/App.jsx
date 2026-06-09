@@ -4556,12 +4556,66 @@ export default function App() {
                                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col gap-1">
                                     <span className="text-[10px] font-black text-slate-400 uppercase">ใช้งานสะสมจริง</span>
                                     <span className="text-xl font-black text-indigo-600">{(ptLedger.usedHours || 0).toFixed(1)} ชม.</span>
-                                </div>
-                                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col gap-1">
+                                </div>                                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex flex-col gap-1">
                                     <span className="text-[10px] font-black text-slate-400 uppercase">อัตราการใช้งาน</span>
                                     <span className={`text-xl font-black ${(ptLedger.usagePercent || 0) > 100 ? 'text-red-500' : 'text-emerald-500'}`}>{(ptLedger.usagePercent || 0).toFixed(1)}%</span>
                                 </div>
                             </div>
+
+                             {/* Quota Breakdown Table */}
+                             <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 flex flex-col gap-4">
+                                 <h4 className="font-black text-slate-800 text-xs sm:text-sm uppercase tracking-wider border-b border-slate-200 pb-2 flex items-center gap-2">
+                                     <BarChart3 className="w-4 h-4 text-indigo-500"/> รายละเอียดส่วนประกอบโควตาและชั่วโมงจัดกะ PT (PT Quota & Hours Breakdown)
+                                 </h4>
+                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs font-bold text-left">
+                                     <div className="space-y-2">
+                                         <h5 className="font-extrabold text-indigo-600 text-xs uppercase mb-1">แผนกบริการ (FOH)</h5>
+                                         <div className="flex justify-between">
+                                             <span className="text-slate-500">โควตาตั้งต้นปกติ (Base Quota):</span>
+                                             <span className="text-slate-700">{(ptLedger.service.baseAllowance || 0).toFixed(1)} ชม.</span>
+                                         </div>
+                                         <div className="flex justify-between">
+                                             <span className="text-slate-500">โควตาชดลาหยุด (Leave Comp):</span>
+                                             <span className="text-slate-700">+{(ptLedger.service.leaveRefunds || 0).toFixed(1)} ชม.</span>
+                                         </div>
+                                         <div className="flex justify-between">
+                                             <span className="text-slate-500">โควตาชดคนขาด (Vacancy Comp):</span>
+                                             <span className="text-slate-700">+{(ptLedger.service.vacancyCompensations || 0).toFixed(1)} ชม.</span>
+                                         </div>
+                                         <div className="flex justify-between border-b pb-1.5">
+                                             <span className="text-slate-500">โควตาอนุมัติพิเศษ (Special Quota):</span>
+                                             <span className="text-indigo-600 font-black">+{(ptLedger.service.eventExtras || 0).toFixed(1)} ชม.</span>
+                                         </div>
+                                         <div className="flex justify-between pt-1">
+                                             <span className="text-slate-700 font-extrabold">โควตารวมบริการ (FOH Allowed):</span>
+                                             <span className="text-slate-900 font-extrabold">{(ptLedger.service.totalAllowance || 0).toFixed(1)} ชม.</span>
+                                         </div>
+                                     </div>
+                                     <div className="space-y-2">
+                                         <h5 className="font-extrabold text-orange-600 text-xs uppercase mb-1">แผนกครัว (BOH)</h5>
+                                         <div className="flex justify-between">
+                                             <span className="text-slate-500">โควตาตั้งต้นปกติ (Base Quota):</span>
+                                             <span className="text-slate-700">{(ptLedger.kitchen.baseAllowance || 0).toFixed(1)} ชม.</span>
+                                         </div>
+                                         <div className="flex justify-between">
+                                             <span className="text-slate-500">โควตาชดลาหยุด (Leave Comp):</span>
+                                             <span className="text-slate-700">+{(ptLedger.kitchen.leaveRefunds || 0).toFixed(1)} ชม.</span>
+                                         </div>
+                                         <div className="flex justify-between">
+                                             <span className="text-slate-500">โควตาชดคนขาด (Vacancy Comp):</span>
+                                             <span className="text-slate-700">+{(ptLedger.kitchen.vacancyCompensations || 0).toFixed(1)} ชม.</span>
+                                         </div>
+                                         <div className="flex justify-between border-b pb-1.5">
+                                             <span className="text-slate-500">โควตาอนุมัติพิเศษ (Special Quota):</span>
+                                             <span className="text-orange-600 font-black">+{(ptLedger.kitchen.eventExtras || 0).toFixed(1)} ชม.</span>
+                                         </div>
+                                         <div className="flex justify-between pt-1">
+                                             <span className="text-slate-700 font-extrabold">โควตารวมครัว (BOH Allowed):</span>
+                                             <span className="text-slate-900 font-extrabold">{(ptLedger.kitchen.totalAllowance || 0).toFixed(1)} ชม.</span>
+                                         </div>
+                                     </div>
+                                 </div>
+                             </div>
                             
                             {/* Staff list */}
                             <div>
@@ -7521,7 +7575,81 @@ export default function App() {
                    <div className="h-full bg-indigo-500 transition-all duration-1000" style={{ width: `${(reportData.filter(s => !s.pos.includes('PT')).length / (reportData.length || 1)) * 100}%` }}></div>
                </div>
             </div>
-         </div>
+         </div>          {/* Part-Time Quota & Hours Summary */}
+          <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden w-full">
+             <div className="p-6 sm:p-8 border-b border-slate-100 font-black text-slate-900 bg-slate-50/30 uppercase tracking-tighter text-lg flex items-center gap-3">
+                 <TrendingUp className="w-6 h-6 text-indigo-500" /> สรุปโควตาและชั่วโมงจัดกะ Part-Time (Part-Time Quota & Hours Summary)
+             </div>
+             <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                 {/* Service Report Card */}
+                 <div className="bg-slate-50/50 p-5 rounded-2xl border border-slate-100 flex flex-col gap-4">
+                     <h4 className="font-black text-indigo-700 text-sm border-b border-slate-200 pb-1.5 flex items-center justify-between">
+                         <span>แผนกบริการ (FOH - Service)</span>
+                         <span className="text-[10px] text-slate-400 bg-white px-2 py-0.5 rounded border border-slate-200 uppercase">FOH</span>
+                     </h4>
+                     <div className="space-y-2 text-xs font-bold">
+                         <div className="flex justify-between">
+                             <span className="text-slate-500">1. โควตาตั้งต้นปกติ (Base Quota):</span>
+                             <span className="text-slate-800 font-extrabold">{(ptLedger.service.baseAllowance || 0).toFixed(1)} ชม.</span>
+                         </div>
+                         <div className="flex justify-between">
+                             <span className="text-slate-500">2. โควตาชดเชยการลาหยุด (Leave Compensations):</span>
+                             <span className="text-emerald-600">+{(ptLedger.service.leaveRefunds || 0).toFixed(1)} ชม.</span>
+                         </div>
+                         <div className="flex justify-between">
+                             <span className="text-slate-500">3. โควตาชดเชยอัตรากำลังคนขาด (Vacancy Compensations):</span>
+                             <span className="text-emerald-600">+{(ptLedger.service.vacancyCompensations || 0).toFixed(1)} ชม.</span>
+                         </div>
+                         <div className="flex justify-between border-b border-slate-200/60 pb-1.5">
+                             <span className="text-slate-500">4. โควตาพิเศษที่ได้รับการอนุมัติ (Approved Special Quota):</span>
+                             <span className="text-indigo-600 font-black">+{(ptLedger.service.eventExtras || 0).toFixed(1)} ชม.</span>
+                         </div>
+                         <div className="flex justify-between text-sm pt-1">
+                             <span className="text-slate-700 font-black">โควตารวมที่ได้รับอนุมัติ (Total Allowed):</span>
+                             <span className="text-slate-900 font-black">{(ptLedger.service.totalAllowance || 0).toFixed(1)} ชม.</span>
+                         </div>
+                         <div className="flex justify-between text-sm pt-0.5 border-t border-dashed border-slate-200">
+                             <span className="text-slate-700 font-black">จัดกะใช้งานจริง (Actual Scheduled):</span>
+                             <span className="text-indigo-600 font-black">{(ptLedger.service.usedHours || 0).toFixed(1)} ชม.</span>
+                         </div>
+                     </div>
+                 </div>
+
+                 {/* Kitchen Report Card */}
+                 <div className="bg-slate-50/50 p-5 rounded-2xl border border-slate-100 flex flex-col gap-4">
+                     <h4 className="font-black text-orange-700 text-sm border-b border-slate-200 pb-1.5 flex items-center justify-between">
+                         <span>แผนกครัว (BOH - Kitchen)</span>
+                         <span className="text-[10px] text-slate-400 bg-white px-2 py-0.5 rounded border border-slate-200 uppercase">BOH</span>
+                     </h4>
+                     <div className="space-y-2 text-xs font-bold">
+                         <div className="flex justify-between">
+                             <span className="text-slate-500">1. โควตาตั้งต้นปกติ (Base Quota):</span>
+                             <span className="text-slate-800 font-extrabold">{(ptLedger.kitchen.baseAllowance || 0).toFixed(1)} ชม.</span>
+                         </div>
+                         <div className="flex justify-between">
+                             <span className="text-slate-500">2. โควตาชดเชยการลาหยุด (Leave Compensations):</span>
+                             <span className="text-emerald-600">+{(ptLedger.kitchen.leaveRefunds || 0).toFixed(1)} ชม.</span>
+                         </div>
+                         <div className="flex justify-between">
+                             <span className="text-slate-500">3. โควตาชดเชยอัตรากำลังคนขาด (Vacancy Compensations):</span>
+                             <span className="text-emerald-600">+{(ptLedger.kitchen.vacancyCompensations || 0).toFixed(1)} ชม.</span>
+                         </div>
+                         <div className="flex justify-between border-b border-slate-200/60 pb-1.5">
+                             <span className="text-slate-500">4. โควตาพิเศษที่ได้รับการอนุมัติ (Approved Special Quota):</span>
+                             <span className="text-indigo-600 font-black">+{(ptLedger.kitchen.eventExtras || 0).toFixed(1)} ชม.</span>
+                         </div>
+                         <div className="flex justify-between text-sm pt-1">
+                             <span className="text-slate-700 font-black">โควตารวมที่ได้รับอนุมัติ (Total Allowed):</span>
+                             <span className="text-slate-900 font-black">{(ptLedger.kitchen.totalAllowance || 0).toFixed(1)} ชม.</span>
+                         </div>
+                         <div className="flex justify-between text-sm pt-0.5 border-t border-dashed border-slate-200">
+                             <span className="text-slate-700 font-black">จัดกะใช้งานจริง (Actual Scheduled):</span>
+                             <span className="text-orange-600 font-black">{(ptLedger.kitchen.usedHours || 0).toFixed(1)} ชม.</span>
+                         </div>
+                     </div>
+                 </div>
+             </div>
+          </div>
 
           <div className="bg-white rounded-[2rem] sm:rounded-[4rem] border border-slate-200 shadow-sm overflow-hidden w-full">
              <div className="p-6 sm:p-12 border-b border-slate-50 font-black text-slate-900 bg-slate-50/30 uppercase tracking-tighter text-lg sm:text-2xl"><div className="flex items-center gap-3 sm:gap-5"><BarChart3 className="w-6 h-6 sm:w-10 sm:h-10 text-indigo-500" /> Employee Workload Summary</div></div>
@@ -8410,7 +8538,38 @@ export default function App() {
                       </div>
                   </div>
 
-                  <div className="flex justify-between items-center border-t border-slate-100 pt-2">
+                  {(() => {
+                      const approvedSvcOnSelected = ptLedger.service.dailyAllowance[selectedDateStr]?.event || 0;
+                      const approvedKitOnSelected = ptLedger.kitchen.dailyAllowance[selectedDateStr]?.event || 0;
+                      const approvedReqSvcOnSelected = pendingRequests.find(r => r.reqType === 'EXTRA_PT' && r.dateStr === selectedDateStr && (r.dept || 'service') === 'service' && r.status === 'APPROVED');
+                      const approvedReqKitOnSelected = pendingRequests.find(r => r.reqType === 'EXTRA_PT' && r.dateStr === selectedDateStr && r.dept === 'kitchen' && r.status === 'APPROVED');
+                      
+                      if (approvedSvcOnSelected === 0 && approvedKitOnSelected === 0) return null;
+                      
+                      return (
+                          <div className="bg-slate-50 border border-slate-200/60 p-3 rounded-2xl text-[10px] font-bold flex flex-col gap-1.5 mt-1 w-full text-left">
+                              <div className="text-slate-500 font-black flex items-center gap-1">
+                                  <span>📅 โควตาพิเศษของวันที่ {new Date(selectedDateStr + "T00:00:00").toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}:</span>
+                              </div>
+                              <div className="flex flex-col sm:flex-row gap-3 w-full">
+                                  {approvedSvcOnSelected > 0 && (
+                                      <div className="flex-1 bg-emerald-50 border border-emerald-100 p-2 rounded-lg text-emerald-800">
+                                          <div className="font-black">บริการ (FOH): +{approvedSvcOnSelected.toFixed(1)} ชม.</div>
+                                          {approvedReqSvcOnSelected?.reason && <div className="text-[9px] text-emerald-600 mt-0.5"><span className="font-semibold text-emerald-700">เหตุผล:</span> {approvedReqSvcOnSelected.reason}</div>}
+                                      </div>
+                                  )}
+                                  {approvedKitOnSelected > 0 && (
+                                      <div className="flex-1 bg-emerald-50 border border-emerald-100 p-2 rounded-lg text-emerald-800">
+                                          <div className="font-black">ครัว (BOH): +{approvedKitOnSelected.toFixed(1)} ชม.</div>
+                                          {approvedReqKitOnSelected?.reason && <div className="text-[9px] text-emerald-600 mt-0.5"><span className="font-semibold text-emerald-700">เหตุผล:</span> {approvedReqKitOnSelected.reason}</div>}
+                                      </div>
+                                  )}
+                              </div>
+                          </div>
+                      );
+                  })()}
+
+                  <div className="flex justify-between items-center border-t border-slate-100 pt-2 w-full mt-2">
                       <button onClick={() => setShowPtLedgerDetails(true)} className="text-[10px] sm:text-xs font-bold text-indigo-500 hover:text-indigo-700 underline flex items-center gap-1"><BarChart3 className="w-3 h-3"/> ดูรายละเอียดการใช้ PT</button>
                       {(usedSvcTotal > allowanceSvc.total || usedKitTotal > allowanceKit.total) && <p className="text-[10px] sm:text-xs font-black text-red-500 uppercase animate-pulse">⚠️ เกินโควตาประจำวัน กรุณาส่งขออนุมัติ</p>}
                   </div>
@@ -8539,8 +8698,39 @@ export default function App() {
                   </div>
               </div>
               
-              <div className="flex justify-between items-center mt-1">
-                  <button onClick={() => setShowPtLedgerDetails(true)} className="text-[10px] sm:text-xs font-bold text-indigo-500 hover:text-indigo-700 underline flex items-center gap-1"><BarChart3 className="w-3 h-3"/> ดูรายละเอียดการใช้ PT</button>
+              {(() => {
+                      const approvedSvcOnSelected = ptLedger.service.dailyAllowance[selectedDateStr]?.event || 0;
+                      const approvedKitOnSelected = ptLedger.kitchen.dailyAllowance[selectedDateStr]?.event || 0;
+                      const approvedReqSvcOnSelected = pendingRequests.find(r => r.reqType === 'EXTRA_PT' && r.dateStr === selectedDateStr && (r.dept || 'service') === 'service' && r.status === 'APPROVED');
+                      const approvedReqKitOnSelected = pendingRequests.find(r => r.reqType === 'EXTRA_PT' && r.dateStr === selectedDateStr && r.dept === 'kitchen' && r.status === 'APPROVED');
+                      
+                      if (approvedSvcOnSelected === 0 && approvedKitOnSelected === 0) return null;
+                      
+                      return (
+                          <div className="bg-slate-50 border border-slate-200/60 p-3 rounded-2xl text-[10px] font-bold flex flex-col gap-1.5 mt-1 w-full text-left">
+                              <div className="text-slate-500 font-black flex items-center gap-1">
+                                  <span>📅 โควตาพิเศษของวันที่ {new Date(selectedDateStr + "T00:00:00").toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })}:</span>
+                              </div>
+                              <div className="flex flex-col sm:flex-row gap-3 w-full">
+                                  {approvedSvcOnSelected > 0 && (
+                                      <div className="flex-1 bg-emerald-50 border border-emerald-100 p-2 rounded-lg text-emerald-800">
+                                          <div className="font-black">บริการ (FOH): +{approvedSvcOnSelected.toFixed(1)} ชม.</div>
+                                          {approvedReqSvcOnSelected?.reason && <div className="text-[9px] text-emerald-600 mt-0.5"><span className="font-semibold text-emerald-700">เหตุผล:</span> {approvedReqSvcOnSelected.reason}</div>}
+                                      </div>
+                                  )}
+                                  {approvedKitOnSelected > 0 && (
+                                      <div className="flex-1 bg-emerald-50 border border-emerald-100 p-2 rounded-lg text-emerald-800">
+                                          <div className="font-black">ครัว (BOH): +{approvedKitOnSelected.toFixed(1)} ชม.</div>
+                                          {approvedReqKitOnSelected?.reason && <div className="text-[9px] text-emerald-600 mt-0.5"><span className="font-semibold text-emerald-700">เหตุผล:</span> {approvedReqKitOnSelected.reason}</div>}
+                                      </div>
+                                  )}
+                              </div>
+                          </div>
+                      );
+                  })()}
+
+                  <div className="flex justify-between items-center mt-1 w-full border-t border-slate-100 pt-2">
+                      <button onClick={() => setShowPtLedgerDetails(true)} className="text-[10px] sm:text-xs font-bold text-indigo-500 hover:text-indigo-700 underline flex items-center gap-1"><BarChart3 className="w-3 h-3"/> ดูรายละเอียดการใช้ PT</button>
                   {ptLedger.usedHours > ptLedger.totalAllowance && <p className="text-[10px] sm:text-xs font-black text-red-500 uppercase animate-pulse">⚠️ โควตาทะลุงบรายเดือน กรุณาตรวจสอบ</p>}
               </div>
           </div>
