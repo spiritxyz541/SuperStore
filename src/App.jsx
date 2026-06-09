@@ -803,7 +803,6 @@ export default function App() {
   });
   
   const [saveStatus, setSaveStatus] = useState(null);
-  const [autoSaveStatus, setAutoSaveStatus] = useState(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [confirmModal, setConfirmModal] = useState(null);
   const [showRequestsModal, setShowRequestsModal] = useState(false);
@@ -2297,7 +2296,7 @@ export default function App() {
     const dataToSave = scheduleData || scheduleRef.current;
     if (!activeBranchId) return Promise.resolve();
     
-    setAutoSaveStatus('saving');
+    setSaveStatus('saving');
     
     if (autoSaveTimerRef.current) {
         clearTimeout(autoSaveTimerRef.current);
@@ -2307,11 +2306,11 @@ export default function App() {
         const performSave = async () => {
             try {
                 await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'schedules', activeBranchId), { records: dataToSave });
-                setAutoSaveStatus('success');
-                setTimeout(() => { setAutoSaveStatus(null); }, 2000);
+                setSaveStatus('success');
+                setTimeout(() => { setSaveStatus(null); }, 1500);
                 resolve();
             } catch (err) {
-                setAutoSaveStatus('error');
+                setSaveStatus('error');
                 reject(err);
             }
         };
@@ -2319,7 +2318,7 @@ export default function App() {
         if (immediate) {
             performSave();
         } else {
-            autoSaveTimerRef.current = setTimeout(performSave, 500);
+            autoSaveTimerRef.current = setTimeout(performSave, 1000);
             resolve();
         }
     });
@@ -2378,10 +2377,6 @@ export default function App() {
             setConfirmModal({ message: '❌ ไม่สามารถบันทึกข้อมูลสาขาได้ เนื่องจากข้อมูลสาขายังโหลดไม่สมบูรณ์' });
             return;
         }
-    }
-
-    if (autoSaveTimerRef.current) {
-        clearTimeout(autoSaveTimerRef.current);
     }
 
     setSaveStatus('saving');
@@ -9764,28 +9759,8 @@ export default function App() {
                 <div className="flex items-center justify-between w-full lg:w-auto">
                    <div className="flex items-center gap-3 sm:gap-4">
                    <img src="https://img1.pic.in.th/images/ChatGPT-Image-6-..-2569-19_46_07.png" alt="Logo" className="w-10 h-10 sm:w-12 sm:h-12 rounded-full shadow-md object-cover border-2 border-slate-100 bg-white transition hover:scale-105 duration-500" onError={(e) => { e.target.onerror = null; e.target.src = "https://via.placeholder.com/150?text=GON"; }} />
-                                       <div className="flex flex-col">
-                       <div className="flex items-center gap-2">
-                          <span className="font-black text-lg sm:text-xl tracking-tighter uppercase leading-none">Super Store</span>
-                          {autoSaveStatus === 'saving' && (
-                             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] sm:text-[9px] font-black bg-indigo-50 text-indigo-600 border border-indigo-100 animate-pulse">
-                                <Loader2 className="w-2.5 h-2.5 animate-spin" />
-                                <span>กำลังบันทึก...</span>
-                             </span>
-                          )}
-                          {autoSaveStatus === 'success' && (
-                             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] sm:text-[9px] font-black bg-emerald-50 text-emerald-600 border border-emerald-100">
-                                <Check className="w-2.5 h-2.5" />
-                                <span>บันทึกแล้ว</span>
-                             </span>
-                          )}
-                          {autoSaveStatus === 'error' && (
-                             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] sm:text-[9px] font-black bg-red-50 text-red-600 border border-red-100">
-                                <AlertCircle className="w-2.5 h-2.5" />
-                                <span>ล้มเหลว</span>
-                             </span>
-                          )}
-                       </div>
+                   <div className="flex flex-col">
+                      <span className="font-black text-lg sm:text-xl tracking-tighter uppercase leading-none">Super Store</span>
                       <div className="flex items-center gap-1.5 mt-0.5">
                          <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-green-500 rounded-full animate-pulse"></span>
                          <span className={`text-[8px] sm:text-[9px] font-black uppercase text-slate-400`}>{authRole === 'superadmin' ? 'BAR B Q PLAZA' : authRole === 'areamanager' ? 'AREA MANAGER' : 'BRANCH MANAGEMENT'}</span>
