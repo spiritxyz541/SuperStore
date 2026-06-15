@@ -708,7 +708,7 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
                                                 </td>
                                                 {CALENDAR_DAYS.map(day => {
                                                     const info = getStaffDayInfo(s.id, day.dateStr, CURRENT_DUTY_LIST);
-                                                    
+
                                                     // กำหนดค่าปัจจุบันใน dropdown
                                                     let currentValue = '';
                                                     if (info?.type === 'leave') {
@@ -732,7 +732,7 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
                                                     const dateObj = new Date(y, m - 1, dNum);
                                                     const dayOfWeek = dateObj.getDay();
                                                     const isHoliday = isDateHoliday(day.dateStr, branchData.holidays);
-                                                    
+
                                                     let unassignedFTCount = 0;
                                                     (branchData.staff || []).forEach(staff => {
                                                         if (staff.dept === activeDept && !staff.pos.includes('PT') && isStaffActiveOnDate(staff, day.dateStr)) {
@@ -9767,12 +9767,12 @@ export default function App() {
                                             </div>
                                         </div>
                                         <div className="mt-6 border-t border-slate-100 pt-6 w-full">
-                                            <h4 className="text-[12px] font-black text-slate-700 uppercase tracking-widest mb-4">สรุปค่าใช้จ่ายบุคลากร (Payroll Summary)</h4>
+                                            <h4 className="text-[12px] font-black text-slate-700 uppercase tracking-widest mb-4">สรุปค่าใช้จ่ายบุคลากร COL#1</h4>
                                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                                                 {[
                                                     { id: 'service', title: 'ฝั่งบริการ (FOH)', data: payrollSummary.service, theme: { wrap: 'bg-indigo-50/50 border-indigo-100', title: 'text-indigo-700', val: 'text-indigo-600', net: 'bg-indigo-600 text-white' } },
                                                     { id: 'kitchen', title: 'ฝั่งครัว (BOH)', data: payrollSummary.kitchen, theme: { wrap: 'bg-orange-50/50 border-orange-100', title: 'text-orange-700', val: 'text-orange-600', net: 'bg-orange-600 text-white' } },
-                                                    { id: 'total', title: 'ยอดรวมทั้งหมด (TOTAL)', data: payrollSummary.total, theme: { wrap: 'bg-slate-900 border-slate-800', title: 'text-emerald-400', val: 'text-white', net: 'bg-emerald-500 text-slate-900' } }
+                                                    { id: 'total', title: 'ยอดรวม COL#1 ทั้งหมด (ที่จัดจากตารางงาน)', data: payrollSummary.total, theme: { wrap: 'bg-slate-900 border-slate-800', title: 'text-emerald-400', val: 'text-white', net: 'bg-emerald-500 text-slate-900' } }
                                                 ].map(sec => (
                                                     <div key={sec.id} className={`${sec.theme.wrap} border p-4 sm:p-5 rounded-2xl flex flex-col gap-3 shadow-sm`}>
                                                         <div className={`text-sm font-black uppercase tracking-widest ${sec.theme.title}`}>{sec.title}</div>
