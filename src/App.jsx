@@ -671,7 +671,7 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
                     <h1 className="text-3xl sm:text-6xl font-black text-slate-900 tracking-tighter leading-none mb-2 sm:mb-4 print-title">ROSTER SCHEDULE: {CALENDAR_DAYS.length === 7 ? `WEEK OF ${CALENDAR_DAYS[0].dateStr}` : `${THAI_MONTHS[selectedMonth]} 2026`}</h1>
                     <p className="text-xs sm:text-sm text-slate-400 font-bold uppercase tracking-[0.3em] sm:tracking-[0.6em] italic print-subtitle">{globalConfig.branches?.find(b => b.id === activeBranchId)?.name || 'BRANCH NODE'} - {activeDept.toUpperCase()} DEPT</p>
                 </div>
-                <div className="overflow-x-auto border-2 sm:border-4 border-slate-900 rounded-xl sm:rounded-[2.5rem] shadow-lg sm:shadow-2xl w-full custom-scrollbar pb-2 sm:pb-0 print:border-none print:shadow-none print:overflow-visible">
+                <div className="overflow-auto border-2 sm:border-4 border-slate-900 rounded-xl sm:rounded-[2.5rem] shadow-lg sm:shadow-2xl w-full custom-scrollbar pb-2 sm:pb-0 print:border-none print:shadow-none print:overflow-visible">
                     <table className="w-full border-collapse text-[6px] sm:text-[8px] table-fixed min-w-[800px] sm:min-w-none bg-white print:border-2 print:border-black print-table">
                                                 <thead className="sticky top-0 z-30">
                                                          <tr className="bg-slate-900 text-white print:bg-slate-200 print:text-black sticky top-0 z-30">
