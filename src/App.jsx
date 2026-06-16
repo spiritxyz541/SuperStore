@@ -679,6 +679,13 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
                                 <th className="border-r border-slate-700 p-2 sm:p-3 text-center sticky left-[4rem] sm:left-[5rem] top-0 bg-slate-900 z-30 w-12 sm:w-16 font-black uppercase border-b-2 border-slate-600 print:border-black print:bg-transparent print:text-black">Pos</th>
                                 <th className="border-r border-slate-700 p-2 sm:p-3 text-left sticky left-[7rem] sm:left-[9rem] top-0 bg-slate-900 z-30 w-24 sm:w-40 font-black uppercase border-b-2 border-slate-600 print:border-black print:bg-transparent print:text-black">Employee Name</th>
                                 {CALENDAR_DAYS.map(day => (
+    <th key={day.dateStr}
+        className={`border-r border-slate-700 p-1.5 sm:p-3 min-w-[30px] sm:min-w-[45px] text-center border-b-2 border-slate-600 print:border-black sticky top-0 bg-slate-900 print:bg-slate-200 ${(day.type === 'saturday' || day.type === 'sunday') || isDateHoliday(day.dateStr, branchData.holidays) ? 'bg-slate-800 text-indigo-300 print:text-black print:bg-slate-100' : ''}`}
+    >
+        <div className="font-black text-[10px] sm:text-sm mb-0.5 sm:mb-1">{day.dayNum}</div>
+        <div className="text-[6px] sm:text-[8px] opacity-70 uppercase tracking-tighter">{day.dayLabel}</div>
+    </th>
+))}
                                     <th key={day.dateStr} className={`border-r border-slate-700 p-1.5 sm:p-3 min-w-[30px] sm:min-w-[45px] text-center border-b-2 border-slate-600 print:border-black sticky top-0 bg-slate-900 print:bg-slate-200 ${(day.type === 'saturday' || day.type === 'sunday') || isDateHoliday(day.dateStr, branchData.holidays) ? 'bg-slate-800 text-indigo-300 print:text-black print:bg-slate-100' : ''}`}>
                                 ))}
                             </tr>
