@@ -673,8 +673,8 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
                 </div>
                 <div className="overflow-x-auto border-2 sm:border-4 border-slate-900 rounded-xl sm:rounded-[2.5rem] shadow-lg sm:shadow-2xl overflow-hidden w-full custom-scrollbar pb-2 sm:pb-0 print:border-none print:shadow-none print:overflow-visible">
                     <table className="w-full border-collapse text-[6px] sm:text-[8px] table-fixed min-w-[800px] sm:min-w-none bg-white print:border-2 print:border-black print-table">
-                        <thead>
-                            <tr className="bg-slate-900 text-white print:bg-slate-200 print:text-black">
+                                                <thead className="sticky top-0 z-30">
+                                                         <tr className="bg-slate-900 text-white print:bg-slate-200 print:text-black sticky top-0 z-30">
                                 <th className="border-r border-slate-700 p-2 sm:p-3 text-center sticky left-0 top-0 bg-slate-900 z-30 w-16 sm:w-20 font-black uppercase border-b-2 border-slate-600 print:border-black print:bg-transparent print:text-black">Duty Layer</th>
                                 <th className="border-r border-slate-700 p-2 sm:p-3 text-center sticky left-[4rem] sm:left-[5rem] top-0 bg-slate-900 z-30 w-12 sm:w-16 font-black uppercase border-b-2 border-slate-600 print:border-black print:bg-transparent print:text-black">Pos</th>
                                 <th className="border-r border-slate-700 p-2 sm:p-3 text-left sticky left-[7rem] sm:left-[9rem] top-0 bg-slate-900 z-30 w-24 sm:w-40 font-black uppercase border-b-2 border-slate-600 print:border-black print:bg-transparent print:text-black">Employee Name</th>
