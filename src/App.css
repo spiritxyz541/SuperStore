@@ -28,46 +28,45 @@
 }
 
 .card { padding: 2em; }
-
 .read-the-docs { color: #888; }
 
 /* ------------------------------------------------------------------
-   Sticky table header – both screen & print
+   Sticky table header – both screen & print (high specificity)
    ------------------------------------------------------------------ */
 
-/* Screen (and print) – use a highly‑specific selector to outrank Tailwind */
-/* This rule applies to the tables that you give the class "print-table" */
+/* Screen – target the tables you print (class .print-table) */
 
 table.print-table thead,
 table.print-table thead th {
   position: sticky !important;
   top: 0 !important;
-  z-index: 30 !important;   /* higher than any row */
+  z-index: 30 !important;   /* above rows */
   background: #ffffff !important;
   border-bottom: 2px solid #e5e7eb !important;
 }
 
 /* ------------------------------------------------------------------
-   Print‑media adjustments – ensure header repeats on each page
+   Print‑media adjustments – ensure header repeats on each printed page
    ------------------------------------------------------------------ */
 @media print {
-  /* Force the header to behave like a normal table‑header‑group */
+  /* Ensure thead is treated as a proper table‑header‑group */
   .print-table thead {
     display: table-header-group !important;
-    position: static !important;      /* let the browser repeat it */
+    position: static !important;   /* let the browser repeat it */
     background: #fff !important;
   }
 
-  .print-table th {
+  .print-table thead th {
+    position: sticky !important;
+    top: 0 !important;
     background: #fff !important;
+    z-index: 100 !important;
   }
 
-  /* Prevent page breaks inside rows */
-  .print-table tr {
-    page-break-inside: avoid;
-  }
+  /* Avoid page‑break inside rows */
+  .print-table tr { page-break-inside: avoid; }
 
-  /* Remove any overflow clipping that might hide the header */
+  /* Remove overflow clipping that could hide the header */
   .print-container .overflow-auto {
     overflow: visible !important;
     max-height: none !important;
