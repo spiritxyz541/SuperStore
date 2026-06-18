@@ -673,18 +673,18 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
                 </div>
                 <div className="overflow-auto border-2 sm:border-4 border-slate-900 rounded-xl sm:rounded-[2.5rem] shadow-lg sm:shadow-2xl w-full custom-scrollbar pb-2 sm:pb-0 print:border-none print:shadow-none print:overflow-visible">
                     <table className="w-full border-collapse text-[6px] sm:text-[8px] table-fixed min-w-[800px] sm:min-w-none bg-white print:border-2 print:border-black print-table">
-                                                <thead className="sticky top-0 z-30">
-                                                         <tr className="bg-slate-900 text-white print:bg-slate-200 print:text-black sticky top-0 z-30">
+                        <thead className="sticky top-0 z-30">
+                            <tr className="bg-slate-900 text-white print:bg-slate-200 print:text-black sticky top-0 z-30">
                                 <th className="border-r border-slate-700 p-2 sm:p-3 text-center sticky left-0 top-0 bg-slate-900 z-30 w-16 sm:w-20 font-black uppercase border-b-2 border-slate-600 print:border-black print:bg-transparent print:text-black">Duty Layer</th>
                                 <th className="border-r border-slate-700 p-2 sm:p-3 text-center sticky left-[4rem] sm:left-[5rem] top-0 bg-slate-900 z-30 w-12 sm:w-16 font-black uppercase border-b-2 border-slate-600 print:border-black print:bg-transparent print:text-black">Pos</th>
                                 <th className="border-r border-slate-700 p-2 sm:p-3 text-left sticky left-[7rem] sm:left-[9rem] top-0 bg-slate-900 z-30 w-24 sm:w-40 font-black uppercase border-b-2 border-slate-600 print:border-black print:bg-transparent print:text-black">Employee Name</th>
                                 {CALENDAR_DAYS.map(day => (
-    <th key={day.dateStr}
-        className={`border-r border-slate-700 p-1.5 sm:p-3 min-w-[30px] sm:min-w-[45px] text-center border-b-2 border-slate-600 print:border-black sticky top-0 bg-slate-900 print:bg-slate-200 ${(day.type === 'saturday' || day.type === 'sunday') || isDateHoliday(day.dateStr, branchData.holidays) ? 'bg-slate-800 text-indigo-300 print:text-black print:bg-slate-100' : ''}`}
-    >
-        <div className="font-black text-[10px] sm:text-sm mb-0.5 sm:mb-1">{day.dayNum}</div>
-        <div className="text-[6px] sm:text-[8px] opacity-70 uppercase tracking-tighter">{day.dayLabel}</div>
-    </th>
+                                    <th key={day.dateStr}
+                                        className={`border-r border-slate-700 p-1.5 sm:p-3 min-w-[30px] sm:min-w-[45px] text-center border-b-2 border-slate-600 print:border-black sticky top-0 bg-slate-900 print:bg-slate-200 ${(day.type === 'saturday' || day.type === 'sunday') || isDateHoliday(day.dateStr, branchData.holidays) ? 'bg-slate-800 text-indigo-300 print:text-black print:bg-slate-100' : ''}`}
+                                    >
+                                        <div className="font-black text-[10px] sm:text-sm mb-0.5 sm:mb-1">{day.dayNum}</div>
+                                        <div className="text-[6px] sm:text-[8px] opacity-70 uppercase tracking-tighter">{day.dayLabel}</div>
+                                    </th>
 
 
                                 ))}
@@ -5522,7 +5522,7 @@ export default function App() {
                     <div className="relative z-10 flex flex-col items-center text-center animate-in fade-in zoom-in duration-700">
                         <img src="https://img1.pic.in.th/images/ChatGPT-Image-6-..-2569-19_46_07.png" alt="GON SUPER STORE" className="w-32 h-32 sm:w-48 sm:h-48 lg:w-64 lg:h-64 rounded-full shadow-2xl object-cover border-4 sm:border-8 border-slate-800 bg-white mb-6 sm:mb-8 transition-transform hover:scale-105 duration-500" onError={(e) => { e.target.onerror = null; e.target.src = "https://via.placeholder.com/300?text=GON"; }} />
                         <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-white tracking-tighter uppercase mb-2 sm:mb-4">GON SUPER STORE</h1>
-                        <p className="text-sm sm:text-lg lg:text-xl text-slate-400 font-bold uppercase tracking-[0.2em] sm:tracking-[0.4em]">Manager Assistant</p>
+                        <p className="text-sm sm:text-lg lg:text-xl text-slate-400 font-bold uppercase tracking-[0.2em] sm:tracking-[0.4em]">1Manager Assistant</p>
                     </div>
                     <div className="hidden lg:block absolute bottom-8 text-center w-full z-10">
                         <p className="text-xs font-bold text-slate-500 tracking-[0.2em] uppercase">Powered by Super Store Team</p>
