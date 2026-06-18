@@ -11,62 +11,50 @@
   will-change: filter;
   transition: filter 300ms;
 }
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
-}
+.logo:hover { filter: drop-shadow(0 0 2em #646cffaa); }
+.logo.react:hover { filter: drop-shadow(0 0 2em #61dafbaa); }
 
-@keyframes logo-spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo { animation: logo-spin infinite 20s linear; }
-}
+@keyframes logo-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: no-preference) { a:nth-of-type(2) .logo { animation: logo-spin infinite 20s linear; } }
 
 .card { padding: 2em; }
 .read-the-docs { color: #888; }
 
-/* ------------------------------------------------------------------
-   Sticky table header – both screen & print (high specificity)
-   ------------------------------------------------------------------ */
+/* ------------------------------------------------------------
+   Sticky header – screen & print (high specificity)
+   ------------------------------------------------------------ */
 
-/* Screen – target the tables you print (class .print-table) */
+/* Screen – apply to the tables you print (class .print-table) */
 
 table.print-table thead,
-table.print-table thead th {
+ table.print-table thead th {
   position: sticky !important;
   top: 0 !important;
-  z-index: 30 !important;   /* above rows */
+  z-index: 30 !important;
   background: #ffffff !important;
   border-bottom: 2px solid #e5e7eb !important;
 }
 
-/* ------------------------------------------------------------------
-   Print‑media adjustments – ensure header repeats on each printed page
-   ------------------------------------------------------------------ */
+/* ------------------------------------------------------------
+   Print‑media adjustments – make <thead> repeat on each page
+   ------------------------------------------------------------ */
 @media print {
-  /* Ensure thead is treated as a proper table‑header‑group */
+  /* Force the header to behave as a normal table‑header‑group */
   .print-table thead {
     display: table-header-group !important;
-    position: static !important;   /* let the browser repeat it */
+    position: static !important;   /* disable sticky for print */
+    top: auto !important;
     background: #fff !important;
   }
 
   .print-table thead th {
-    position: sticky !important;
-    top: 0 !important;
+    position: static !important;
     background: #fff !important;
     z-index: 100 !important;
   }
 
-  /* Avoid page‑break inside rows */
   .print-table tr { page-break-inside: avoid; }
 
-  /* Remove overflow clipping that could hide the header */
   .print-container .overflow-auto {
     overflow: visible !important;
     max-height: none !important;
