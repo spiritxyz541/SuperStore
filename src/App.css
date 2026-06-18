@@ -40,3 +40,12 @@
 .read-the-docs {
   color: #888;
 }
+
+/* Sticky table header for scrollable tables */
+thead {
+  position: sticky;
+  top: 0;
+  background: #ffffff;
+  z-index: 20;
+  border-bottom: 2px solid #e5e7eb;
+}
