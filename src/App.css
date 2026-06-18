@@ -49,3 +49,18 @@ thead {
   z-index: 20;
   border-bottom: 2px solid #e5e7eb;
 }
+
+@media print {
+  .print-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: #fff;
+  }
+  .print-table th {
+    position: sticky;
+    top: 0;
+    background: #fff;
+    z-index: 100;
+  }
+}
