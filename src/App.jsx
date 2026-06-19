@@ -9313,6 +9313,8 @@ export default function App() {
     function renderAreaDashboard() {
         const am = globalConfig.areaManagers?.find(a => a.user === authUser);
         if (!am) return <div className="p-10 text-center text-slate-500 font-bold">ไม่พบข้อมูลผู้จัดการเขต</div>;
+        // เพิ่ม state สำหรับเลือกช่วงเวลา (period) ของ Area Dashboard
+        const [areaPeriod, setAreaPeriod] = useState('monthly');
 
         return (
             <div className="flex-1 space-y-6 sm:space-y-10 animate-in fade-in duration-500 pb-24 w-full">
@@ -9326,7 +9328,29 @@ export default function App() {
                     </div>
                     <div className="flex items-center gap-3 bg-slate-800 px-5 py-3 rounded-2xl border border-slate-700">
                         <CalendarIcon className="w-5 h-5 text-emerald-400" />
-                        <span className="font-black text-lg tracking-widest uppercase">{THAI_MONTHS[selectedMonth]} {selectedYear}</span>
+                        <div className="flex items-center gap-2">
+                          <select
+                            value={selectedMonth}
+                            onChange={(e) => {
+                              const m = parseInt(e.target.value);
+                              setSelectedMonth(m);
+                              setSelectedDateStr(`${selectedYear}-${String(m + 1).padStart(2, '0')}-01`);
+                            }}
+                            className="bg-transparent text-[10px] sm:text-xs font-black outline-none py-1.5 sm:py-2 px-2 sm:pr-3 text-slate-700"
+                          >
+                            {THAI_MONTHS.map((m, i) => (
+                              <option key={i} value={i}>{m} 2026</option>
+                            ))}
+                          </select>
+                          <select
+                            value={areaPeriod}
+                            onChange={(e) => setAreaPeriod(e.target.value)}
+                            className="bg-transparent text-[10px] sm:text-xs font-black outline-none py-1.5 sm:py-2 px-2 sm:pr-3 text-slate-700"
+                          >
+                            <option value="monthly">Monthly</option>
+                            <option value="weekly">Weekly</option>
+                          </select>
+                        </div>
                     </div>
                 </div>
 
