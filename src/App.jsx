@@ -896,6 +896,15 @@ export default function App() {
         return new Date().getMonth();
     });
 
+    // New state for selected year (default to current year or saved year)
+    const [selectedYear, setSelectedYear] = useState(() => {
+        try { const saved = sessionStorage.getItem('superstore_selectedDate'); if (saved) return parseInt(saved.split('-')[0], 10); } catch (e) { }
+        return new Date().getFullYear();
+    });
+
+    // State for period selection (monthly / weekly)
+    const [areaPeriod, setAreaPeriod] = useState('monthly');
+
     const [saveStatus, setSaveStatus] = useState(null);
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [confirmModal, setConfirmModal] = useState(null);
@@ -9313,8 +9322,7 @@ export default function App() {
     function renderAreaDashboard() {
         const am = globalConfig.areaManagers?.find(a => a.user === authUser);
         if (!am) return <div className="p-10 text-center text-slate-500 font-bold">ไม่พบข้อมูลผู้จัดการเขต</div>;
-        // เพิ่ม state สำหรับเลือกช่วงเวลา (period) ของ Area Dashboard
-        const [areaPeriod, setAreaPeriod] = useState('monthly');
+        // areaPeriod state moved to top level
 
         return (
             <div className="flex-1 space-y-6 sm:space-y-10 animate-in fade-in duration-500 pb-24 w-full">
