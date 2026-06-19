@@ -544,7 +544,7 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
     const printRowHeight = isWeeklyPrint ? '60px' : '40px';
 
     return (
-        <div className="p-4 sm:p-10 bg-white animate-in fade-in w-full overflow-x-hidden print:overflow-visible flex-1 print-container">
+        <div className="p-4 sm:p-10 bg-white animate-in fade-in w-full overflow-x-auto print:overflow-visible flex-1 print-container">
             <style>{`
         @media print {
           @page {
@@ -671,10 +671,10 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
                     <h1 className="text-3xl sm:text-6xl font-black text-slate-900 tracking-tighter leading-none mb-2 sm:mb-4 print-title">ROSTER SCHEDULE: {CALENDAR_DAYS.length === 7 ? `WEEK OF ${CALENDAR_DAYS[0].dateStr}` : `${THAI_MONTHS[selectedMonth]} 2026`}</h1>
                     <p className="text-xs sm:text-sm text-slate-400 font-bold uppercase tracking-[0.3em] sm:tracking-[0.6em] italic print-subtitle">{globalConfig.branches?.find(b => b.id === activeBranchId)?.name || 'BRANCH NODE'} - {activeDept.toUpperCase()} DEPT</p>
                 </div>
-                <div className="overflow-auto border-2 sm:border-4 border-slate-900 rounded-xl sm:rounded-[2.5rem] shadow-lg sm:shadow-2xl w-full custom-scrollbar pb-2 sm:pb-0 print:border-none print:shadow-none print:overflow-visible">
+                <div className="overflow-auto border-2 sm:border-4 border-slate-900 rounded-xl sm:rounded-[2.5rem] shadow-lg sm:shadow-2xl w-full custom-scrollbar pb-2 sm:pb-0 print:border-none print:shadow-none print:overflow-visible" style={{ maxHeight: 'calc(100vh - 280px)' }}>
                     <table className="w-full border-collapse text-[6px] sm:text-[8px] table-fixed min-w-[800px] sm:min-w-none bg-white print:border-2 print:border-black print-table">
-                        <thead className="sticky top-0 z-30">
-                            <tr className="bg-slate-900 text-white print:bg-slate-200 print:text-black sticky top-0 z-30">
+                        <thead className="sticky top-0 z-40">
+                            <tr className="bg-slate-900 text-white print:bg-slate-200 print:text-black sticky top-0 z-50">
                                 <th className="border-r border-slate-700 p-2 sm:p-3 text-center sticky left-0 top-0 bg-slate-900 z-30 w-16 sm:w-20 font-black uppercase border-b-2 border-slate-600 print:border-black print:bg-transparent print:text-black">Duty Layer</th>
                                 <th className="border-r border-slate-700 p-2 sm:p-3 text-center sticky left-[4rem] sm:left-[5rem] top-0 bg-slate-900 z-30 w-12 sm:w-16 font-black uppercase border-b-2 border-slate-600 print:border-black print:bg-transparent print:text-black">Pos</th>
                                 <th className="border-r border-slate-700 p-2 sm:p-3 text-left sticky left-[7rem] sm:left-[9rem] top-0 bg-slate-900 z-30 w-24 sm:w-40 font-black uppercase border-b-2 border-slate-600 print:border-black print:bg-transparent print:text-black">Employee Name</th>
@@ -699,14 +699,14 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
                                         {catStaff.map((s, dIdx) => (
                                             <tr key={s.id} className={`h-10 sm:h-14 transition-colors border-b border-slate-200 print:border-black ${dIdx === catStaff.length - 1 ? 'print-category-last-row' : ''}`}>
                                                 {dIdx === 0 && (
-                                                    <td rowSpan={catStaff.length} className={`border-r border-slate-900 p-1 font-black sticky left-0 z-10 text-[5px] sm:text-[7px] uppercase leading-tight text-center print:border-black print:bg-transparent print:text-black print-duty-layer ${cat.color.split(' ')[0]} ${cat.color.split(' ')[1]}`}>
+                                                    <td rowSpan={catStaff.length} className={`border-r border-slate-900 p-1 font-black sticky left-0 z-20 text-[5px] sm:text-[7px] uppercase leading-tight text-center print:border-black print:bg-transparent print:text-black print-duty-layer ${cat.color.split(' ')[0]} ${cat.color.split(' ')[1]}`}>
                                                         {cat.label.replace('Customer Service ', '').replace('Kitchen ', '')}
                                                     </td>
                                                 )}
-                                                <td className="border-r-2 sm:border-r-4 border-slate-900 p-1 sm:p-2 font-black sticky left-[4rem] sm:left-[5rem] bg-white z-10 text-[7px] sm:text-[9px] uppercase leading-tight text-center print:border-black print:bg-transparent print:text-black print-employee-pos">
+                                                <td className="border-r-2 sm:border-r-4 border-slate-900 p-1 sm:p-2 font-black sticky left-[4rem] sm:left-[5rem] bg-white z-20 text-[7px] sm:text-[9px] uppercase leading-tight text-center print:border-black print:bg-transparent print:text-black print-employee-pos">
                                                     {s.pos}
                                                 </td>
-                                                <td className="border-r-2 sm:border-r-4 border-slate-900 p-2 sm:p-3 font-black sticky left-[7rem] sm:left-[9rem] bg-white z-10 text-[8px] sm:text-[10px] uppercase leading-tight truncate max-w-[100px] sm:max-w-[150px] print:border-black print:bg-transparent print:text-black print-employee-name">
+                                                <td className="border-r-2 sm:border-r-4 border-slate-900 p-2 sm:p-3 font-black sticky left-[7rem] sm:left-[9rem] bg-white z-20 text-[8px] sm:text-[10px] uppercase leading-tight truncate max-w-[100px] sm:max-w-[150px] print:border-black print:bg-transparent print:text-black print-employee-name">
                                                     <div className="flex items-center gap-1">
                                                         <span>{s.name}</span>
                                                         {s.pos.includes('PT') && CALENDAR_DAYS.some(day => pendingRequests.some(r => r.reqType === 'EXTRA_PT' && r.dateStr === day.dateStr && (r.dept || 'service') === (s.dept || 'service') && r.status === 'PENDING_MANAGER')) && (
