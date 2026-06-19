@@ -9404,7 +9404,25 @@ export default function App() {
                         >
                           <option value="monthly">Monthly</option>
                           <option value="weekly">Weekly</option>
+                          <option value="custom">Custom</option>
                         </select>
+                        {areaPeriod === 'custom' && (
+                          <div className="flex gap-2 mt-1">
+                            <input
+                              type="date"
+                              value={periodStart}
+                              onChange={(e) => setPeriodStart(e.target.value)}
+                              className="bg-transparent border border-slate-500 text-slate-200 text-sm p-1"
+                            />
+                            <span className="text-slate-300 self-center">ถึง</span>
+                            <input
+                              type="date"
+                              value={periodEnd}
+                              onChange={(e) => setPeriodEnd(e.target.value)}
+                              className="bg-transparent border border-slate-500 text-slate-200 text-sm p-1"
+                            />
+                          </div>
+                        )}
                         <p className="text-sm text-slate-300 mt-1">
                           ระยะเวลา: {periodStart} - {periodEnd}
                         </p>
