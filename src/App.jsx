@@ -905,6 +905,33 @@ export default function App() {
     // State for period selection (monthly / weekly)
     const [areaPeriod, setAreaPeriod] = useState('monthly');
 
+
+
+    // Computed period start/end dates
+    const [periodStart, setPeriodStart] = useState('');
+    const [periodEnd, setPeriodEnd] = useState('');
+
+    // Update period dates when year/month/period changes
+    useEffect(() => {
+        if (selectedYear == null) return;
+        const month = selectedMonth; // 0‑based
+        if (areaPeriod === 'monthly') {
+            const start = `${selectedYear}-${String(month + 1).padStart(2, '0')}-01`;
+            const lastDay = new Date(selectedYear, month + 1, 0).getDate();
+            const end = `${selectedYear}-${String(month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+            setPeriodStart(start);
+            setPeriodEnd(end);
+        } else if (areaPeriod === 'weekly') {
+            const start = `${selectedYear}-${String(month + 1).padStart(2, '0')}-01`;
+            const startDate = new Date(start);
+            const endDate = new Date(startDate);
+            endDate.setDate(startDate.getDate() + 6);
+            const end = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`;
+            setPeriodStart(start);
+            setPeriodEnd(end);
+        }
+    }, [selectedYear, selectedMonth, areaPeriod]);
+
     const [saveStatus, setSaveStatus] = useState(null);
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [confirmModal, setConfirmModal] = useState(null);
@@ -9337,27 +9364,50 @@ export default function App() {
                     <div className="flex items-center gap-3 bg-slate-800 px-5 py-3 rounded-2xl border border-slate-700">
                         <CalendarIcon className="w-5 h-5 text-emerald-400" />
                         <div className="flex items-center gap-2">
-                          <select
-                            value={selectedMonth}
-                            onChange={(e) => {
-                              const m = parseInt(e.target.value);
-                              setSelectedMonth(m);
-                              setSelectedDateStr(`${selectedYear}-${String(m + 1).padStart(2, '0')}-01`);
-                            }}
-                            className="bg-transparent text-[10px] sm:text-xs font-black outline-none py-1.5 sm:py-2 px-2 sm:pr-3 text-slate-700"
-                          >
-                            {THAI_MONTHS.map((m, i) => (
-                              <option key={i} value={i}>{m} 2026</option>
-                            ))}
-                          </select>
-                          <select
-                            value={areaPeriod}
-                            onChange={(e) => setAreaPeriod(e.target.value)}
-                            className="bg-transparent text-[10px] sm:text-xs font-black outline-none py-1.5 sm:py-2 px-2 sm:pr-3 text-slate-700"
-                          >
-                            <option value="monthly">Monthly</option>
-                            <option value="weekly">Weekly</option>
-                          </select>
+                        <select
+                          value={selectedYear}
+                          onChange={(e) => {
+                            const y = parseInt(e.target.value);
+                            setSelectedYear(y);
+                            setSelectedDateStr(`${y}-${String(selectedMonth + 1).padStart(2, '0')}-01`);
+                          }}
+                          className="bg-transparent text-[10px] sm:text-xs font-black outline-none py-1.5 sm:py-2 px-2 sm:pr-3 text-slate-700"
+                        >
+                          {Array.from({ length: 10 }, (_, i) => {
+                            const year = new Date().getFullYear() - 5 + i;
+                            return (
+                              <option key={year} value={year}>
+                                {year}
+                              </option>
+                            );
+                          })}
+                        </select>
+                        <select
+                          value={selectedMonth}
+                          onChange={(e) => {
+                            const m = parseInt(e.target.value);
+                            setSelectedMonth(m);
+                            setSelectedDateStr(`${selectedYear}-${String(m + 1).padStart(2, '0')}-01`);
+                          }}
+                          className="bg-transparent text-[10px] sm:text-xs font-black outline-none py-1.5 sm:py-2 px-2 sm:pr-3 text-slate-700"
+                        >
+                          {THAI_MONTHS.map((m, i) => (
+                            <option key={i} value={i}>
+                              {m} {selectedYear}
+                            </option>
+                          ))}
+                        </select>
+                        <select
+                          value={areaPeriod}
+                          onChange={(e) => setAreaPeriod(e.target.value)}
+                          className="bg-transparent text-[10px] sm:text-xs font-black outline-none py-1.5 sm:py-2 px-2 sm:pr-3 text-slate-700"
+                        >
+                          <option value="monthly">Monthly</option>
+                          <option value="weekly">Weekly</option>
+                        </select>
+                        <p className="text-sm text-slate-300 mt-1">
+                          ระยะเวลา: {periodStart} - {periodEnd}
+                        </p>
                         </div>
                     </div>
                 </div>
