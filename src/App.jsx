@@ -1029,7 +1029,7 @@ export default function App() {
     const [newVersionAvailable, setNewVersionAvailable] = useState(null);
 
     const dateBarRef = useRef(null);
-    const selectedYear = 2026; const autoAssignedDates = useRef(new Set());
+    const autoAssignedDates = useRef(new Set());
     const scheduleRef = useRef();
     scheduleRef.current = schedule;
     const autoSaveTimerRef = useRef(null);
