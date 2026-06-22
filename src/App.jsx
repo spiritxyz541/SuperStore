@@ -975,7 +975,6 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
 };
 
 
-// --- Main App Component ---
 export default function App() {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -983,6 +982,28 @@ export default function App() {
 // Duplicate removed – using top‑level saveRosterAsImage defined earlier
     const [loadError, setLoadError] = useState(null);
     const [isTimeout, setIsTimeout] = useState(false);
+    const [showLoadingUI, setShowLoadingUI] = useState(false);
+    const [loadingPhase, setLoadingPhase] = useState(0);
+
+    useEffect(() => {
+        let timer;
+        if (loading) {
+            timer = setTimeout(() => {
+                setShowLoadingUI(true);
+            }, 200);
+        } else {
+            setShowLoadingUI(false);
+        }
+        return () => clearTimeout(timer);
+    }, [loading]);
+
+    useEffect(() => {
+        if (!loading) return;
+        const interval = setInterval(() => {
+            setLoadingPhase(prev => (prev + 1) % 4);
+        }, 2200);
+        return () => clearInterval(interval);
+    }, [loading]);
 
     const lastActivityRef = useRef(Date.now());
 
@@ -10297,6 +10318,122 @@ export default function App() {
         mainContent = <PrintMonthlyView onPrint={handlePrintMonthly} CALENDAR_DAYS={DISPLAY_DAYS} branchData={branchData} globalConfig={globalConfig} activeBranchId={activeBranchId} THAI_MONTHS={THAI_MONTHS} selectedMonth={selectedMonth} getStaffDayInfo={getStaffDayInfo} setView={setView} activeDept={activeDept} CURRENT_DUTY_LIST={CURRENT_DUTY_LIST} schedule={schedule} handleToggleLeave={handleToggleLeave} LEAVE_TYPES={LEAVE_TYPES} pendingRequests={pendingRequests} />;
     }
 
+    const shouldShowLoading = showLoadingUI || loadError || isTimeout;
+
+    const getLoadingMessage = () => {
+        switch (loadingPhase) {
+            case 0: return "กำลังเชื่อมต่อระบบฐานข้อมูล...";
+            case 1: return "กำลังตรวจสอบโครงสร้างสาขาและพนักงาน...";
+            case 2: return "กำลังเชื่อมต่อระบบจัดกะอัจฉริยะ AI...";
+            default: return "กำลังจัดเตรียมระบบให้พร้อมสำหรับคุณ...";
+        }
+    };
+
+    const renderLoadingScreen = () => {
+        const message = getLoadingMessage();
+        return (
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 p-4">
+                <div className="absolute top-1/4 left-1/4 w-72 h-72 bg-emerald-500/10 rounded-full filter blur-[80px] animate-pulse"></div>
+                <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-indigo-500/10 rounded-full filter blur-[90px] animate-pulse delay-1000"></div>
+                
+                <div className="relative bg-white/10 backdrop-blur-xl border border-white/15 rounded-3xl p-8 max-w-md w-full shadow-[0_20px_50px_rgba(0,0,0,0.3)] flex flex-col items-center text-center gap-6 animate-in fade-in zoom-in-95 duration-500">
+                    <div className="relative w-24 h-24 flex items-center justify-center">
+                        <div className="absolute inset-0 rounded-full border-4 border-t-emerald-400 border-r-indigo-400 border-b-transparent border-l-transparent animate-spin duration-1000"></div>
+                        <div className="absolute inset-2 rounded-full border-4 border-b-emerald-400/30 border-l-indigo-400/30 border-t-transparent border-r-transparent animate-spin duration-700 reverse"></div>
+                        
+                        <img 
+                            src="https://img1.pic.in.th/images/ChatGPT-Image-6-..-2569-19_46_07.png" 
+                            alt="Super Store Logo" 
+                            className="w-16 h-16 rounded-full object-cover shadow-lg border border-white/20 bg-white"
+                            onError={(e) => { e.target.onerror = null; e.target.src = "https://via.placeholder.com/150?text=GON"; }}
+                        />
+                    </div>
+
+                    {loadError ? (
+                        <div className="flex flex-col items-center gap-4 animate-in fade-in duration-300">
+                            <div className="w-12 h-12 rounded-full bg-red-500/20 border border-red-500/30 flex items-center justify-center text-red-400">
+                                <AlertCircle className="w-6 h-6" />
+                            </div>
+                            <div>
+                                <h3 className="text-white font-black text-lg mb-1">เกิดข้อผิดพลาดในการโหลดข้อมูล</h3>
+                                <p className="text-slate-400 text-xs px-4">{loadError}</p>
+                            </div>
+                            <button 
+                                onClick={() => window.location.reload()} 
+                                className="mt-2 bg-red-600 hover:bg-red-700 text-white font-black text-xs px-6 py-3 rounded-2xl transition shadow-lg shadow-red-900/30 active:scale-95"
+                            >
+                                ลองใหม่อีกครั้ง
+                            </button>
+                        </div>
+                    ) : isTimeout ? (
+                        <div className="flex flex-col items-center gap-4 animate-in fade-in duration-300">
+                            <div className="w-12 h-12 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                                <Clock className="w-6 h-6 animate-pulse" />
+                            </div>
+                            <div>
+                                <h3 className="text-white font-black text-lg mb-1">การเชื่อมต่อล่าช้ากว่าปกติ</h3>
+                                <p className="text-slate-400 text-xs px-6">ดูเหมือนว่าการดึงข้อมูลจากเซิร์ฟเวอร์จะใช้เวลานานกว่าปกติ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตของคุณ</p>
+                            </div>
+                            <button 
+                                onClick={() => window.location.reload()} 
+                                className="mt-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs px-6 py-3 rounded-2xl transition shadow-lg shadow-indigo-900/30 active:scale-95"
+                            >
+                                ลองใหม่อีกครั้ง
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col items-center gap-4 w-full">
+                            <div className="flex flex-col gap-1">
+                                <h2 className="text-white font-black text-xl tracking-tight">SUPER STORE</h2>
+                                <span className="text-indigo-300 font-bold text-[10px] tracking-[0.2em] uppercase">Manager Assistant</span>
+                            </div>
+                            
+                            <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/5 text-slate-300 text-xs font-black min-h-[36px] w-full justify-center">
+                                <Loader2 className="w-4 h-4 animate-spin text-emerald-400 flex-shrink-0" />
+                                <span className="animate-pulse truncate">{message}</span>
+                            </div>
+                            
+                            <div className="w-32 h-1 bg-white/10 rounded-full overflow-hidden relative">
+                                <div className="absolute top-0 left-0 h-full bg-gradient-to-r from-emerald-400 to-indigo-500 rounded-full animate-progress-bar w-full"></div>
+                            </div>
+                        </div>
+                    )}
+                    
+                    <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest mt-2">v{CURRENT_APP_VERSION} • staffsync</span>
+                </div>
+
+                <style dangerouslySetInnerHTML={{
+                    __html: `
+                        @keyframes progress-bar {
+                            0% { transform: translateX(-100%); }
+                            100% { transform: translateX(100%); }
+                        }
+                        .animate-progress-bar {
+                            animation: progress-bar 1.5s infinite linear;
+                        }
+                        @keyframes fade-in {
+                            from { opacity: 0; }
+                            to { opacity: 1; }
+                        }
+                        @keyframes zoom-in-95 {
+                            from { transform: scale(0.95); opacity: 0; }
+                            to { transform: scale(1); opacity: 1; }
+                        }
+                        .animate-in {
+                            animation-fill-mode: both;
+                        }
+                        .fade-in {
+                            animation: fade-in 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+                        }
+                        .zoom-in-95 {
+                            animation: zoom-in-95 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+                        }
+                    `
+                }} />
+            </div>
+        );
+    };
+
     return (
         <React.Fragment>
             <style dangerouslySetInnerHTML={{
@@ -10331,23 +10468,25 @@ export default function App() {
         }
       `}} />
 
-            {newVersionAvailable && (
-                <div className="fixed top-0 left-0 w-full bg-amber-500 text-white z-[9999] px-4 py-2 sm:py-3 flex justify-between items-center shadow-lg animate-in slide-in-from-top">
-                    <span className="text-[10px] sm:text-xs font-bold flex items-center gap-2">
-                        <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" /> มีอัปเดตระบบเวอร์ชันใหม่ ({newVersionAvailable}) กรุณาบันทึกงานที่ทำอยู่ให้เรียบร้อย และกดปุ่มรีเฟรช (ระบบจะอัปเดตอัตโนมัติหากคุณเปลี่ยนเมนู)
-                    </span>
-                    <button onClick={() => {
-                        sessionStorage.setItem('reloadedVersion', newVersionAvailable);
-                        window.location.reload();
-                    }} className="bg-white text-amber-600 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-[10px] sm:text-xs font-black hover:bg-amber-50 active:scale-95 transition shadow-sm whitespace-nowrap ml-2">
-                        รีเฟรชเดี๋ยวนี้
-                    </button>
-                </div>
-            )}
+            {shouldShowLoading ? renderLoadingScreen() : (
+                <React.Fragment>
+                    {newVersionAvailable && (
+                        <div className="fixed top-0 left-0 w-full bg-amber-500 text-white z-[9999] px-4 py-2 sm:py-3 flex justify-between items-center shadow-lg animate-in slide-in-from-top">
+                            <span className="text-[10px] sm:text-xs font-bold flex items-center gap-2">
+                                <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" /> มีอัปเดตระบบเวอร์ชันใหม่ ({newVersionAvailable}) กรุณาบันทึกงานที่ทำอยู่ให้เรียบร้อย และกดปุ่มรีเฟรช (ระบบจะอัปเดตอัตโนมัติหากคุณเปลี่ยนเมนู)
+                            </span>
+                            <button onClick={() => {
+                                sessionStorage.setItem('reloadedVersion', newVersionAvailable);
+                                window.location.reload();
+                            }} className="bg-white text-amber-600 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-[10px] sm:text-xs font-black hover:bg-amber-50 active:scale-95 transition shadow-sm whitespace-nowrap ml-2">
+                                รีเฟรชเดี๋ยวนี้
+                            </button>
+                        </div>
+                    )}
 
-            {renderModals()}
-            {renderLandingModal()}
-            {authRole === 'guest' ? renderGuestLogin() : (
+                    {renderModals()}
+                    {renderLandingModal()}
+                    {authRole === 'guest' ? renderGuestLogin() : (
                 <div className="flex-1 flex flex-col min-h-screen w-full bg-slate-50 text-slate-900 font-sans antialiased">
                     <nav className="flex-none sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200 print:hidden shadow-sm px-4 sm:px-8 py-3 w-full">
                         <div className="max-w-[1600px] mx-auto flex flex-col lg:flex-row items-center justify-between gap-4 lg:gap-0 w-full">
@@ -10453,6 +10592,8 @@ export default function App() {
                         </footer>
                     </main>
                 </div>
+            )}
+                </React.Fragment>
             )}
         </React.Fragment>
     );
