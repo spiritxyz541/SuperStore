@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from 'firebase/auth';
 import { getFirestore, doc, setDoc, onSnapshot, collection, getDoc, getDocs, query, where, deleteDoc, orderBy, limit } from 'firebase/firestore';
-import html2canvas from 'html2canvas';
+import { toPng } from 'html-to-image';
 import {
     Users, AlertCircle, Clock, Save, Plus, Trash2, LayoutDashboard, Printer, ChevronLeft, ChevronRight,
     Coffee, BarChart3, TrendingUp, Award, PlaneTakeoff, Loader2, Store, ArrowLeftRight, Sparkles, Wand2, Bold, Italic, Underline, Link as LinkIcon, BookOpen,
@@ -46,138 +46,90 @@ function saveRosterAsImage() {
     btn.innerHTML = 'กำลังบันทึกภาพ...';
   }
 
-  // Calculate the width needed to fit the full table
-  const captureWidth = Math.max(1300, element.scrollWidth);
+  // 1. Clone the element
+  const clonedElement = element.cloneNode(true);
+  
+  // 2. Wrap it in an absolute off-screen container with wide viewport to ensure desktop rendering
+  const wrapper = document.createElement('div');
+  wrapper.style.position = 'absolute';
+  wrapper.style.top = '-9999px';
+  wrapper.style.left = '-9999px';
+  wrapper.style.width = Math.max(1300, element.scrollWidth) + 'px';
+  wrapper.style.backgroundColor = '#ffffff';
+  wrapper.appendChild(clonedElement);
+  document.body.appendChild(wrapper);
 
-  html2canvas(element, {
-    scale: 2,
-    useCORS: true,
+  // 3. Apply style modifications to the clone
+  clonedElement.style.setProperty('width', '100%', 'important');
+  clonedElement.style.setProperty('max-width', 'none', 'important');
+  clonedElement.style.setProperty('overflow', 'visible', 'important');
+
+  // Convert selects to text spans
+  const selects = clonedElement.querySelectorAll('select');
+  selects.forEach(select => {
+    const val = select.value || select.options[select.selectedIndex]?.text || '';
+    const span = document.createElement('span');
+    span.className = 'font-black text-indigo-700 text-[10px] sm:text-xs block text-center';
+    span.innerText = val;
+    select.parentNode.replaceChild(span, select);
+  });
+
+  // Hide buttons and print-hidden items
+  const printHidden = clonedElement.querySelectorAll('.print\\:hidden, button');
+  printHidden.forEach(el => {
+    el.style.setProperty('display', 'none', 'important');
+  });
+
+  // Force show print-only items
+  const printInline = clonedElement.querySelectorAll('.print\\:inline, .hidden.print\\:inline');
+  printInline.forEach(el => {
+    el.style.setProperty('display', 'inline', 'important');
+  });
+  
+  const printBlock = clonedElement.querySelectorAll('.print\\:block, .hidden.print\\:block');
+  printBlock.forEach(el => {
+    el.style.setProperty('display', 'block', 'important');
+  });
+
+  // Remove sticky positioning
+  const stickyCells = clonedElement.querySelectorAll('.sticky');
+  stickyCells.forEach(cell => {
+    cell.style.setProperty('position', 'static', 'important');
+  });
+
+  // 4. Generate the image using html-to-image
+  toPng(clonedElement, {
+    cacheBust: true,
     backgroundColor: '#ffffff',
-    logging: false,
-    windowWidth: captureWidth, // Force a wide viewport to prevent layout wrapping
-    onclone: (clonedDoc) => {
-      // Find the element in the cloned document
-      const clonedElement = clonedDoc.getElementById('daily-roster-capture-area') || clonedDoc.getElementById('head-team-roster');
-      if (!clonedElement) return;
-
-      // Force the cloned capture container to be full width
-      clonedElement.style.setProperty('width', captureWidth + 'px', 'important');
-      clonedElement.style.setProperty('max-width', 'none', 'important');
-      clonedElement.style.setProperty('overflow', 'visible', 'important');
-
-      // Hide all select elements (since we will show the print version span text instead)
-      const selects = clonedElement.querySelectorAll('select');
-      selects.forEach(select => {
-        select.style.setProperty('display', 'none', 'important');
-      });
-
-      // Hide all buttons and print-hidden elements
-      const printHidden = clonedElement.querySelectorAll('.print\\:hidden, button');
-      printHidden.forEach(el => {
-        el.style.setProperty('display', 'none', 'important');
-      });
-
-      // Force show all print-inline and print-block text elements
-      const printInline = clonedElement.querySelectorAll('.print\\:inline, .hidden.print\\:inline');
-      printInline.forEach(el => {
-        el.style.setProperty('display', 'inline', 'important');
-      });
-      
-      const printBlock = clonedElement.querySelectorAll('.print\\:block, .hidden.print\\:block');
-      printBlock.forEach(el => {
-        el.style.setProperty('display', 'block', 'important');
-      });
-
-      // Fix html2canvas table rowspan and layout bugs by copying exact widths/heights from the live DOM
-      const tables = clonedElement.querySelectorAll('table');
-      tables.forEach((clonedTable) => {
-        const tableIndex = Array.from(clonedDoc.querySelectorAll('table')).indexOf(clonedTable);
-        const liveTable = document.querySelectorAll('table')[tableIndex];
-        if (!liveTable) return;
-
-        // Copy exact table dimensions
-        clonedTable.style.setProperty('width', liveTable.offsetWidth + 'px', 'important');
-        clonedTable.style.setProperty('table-layout', 'fixed', 'important');
-        clonedTable.style.setProperty('border-collapse', 'collapse', 'important');
-
-        // Copy column widths and row heights precisely from the live DOM elements
-        const liveRows = Array.from(liveTable.querySelectorAll('tr'));
-        const clonedRows = Array.from(clonedTable.querySelectorAll('tr'));
-
-        clonedRows.forEach((clonedRow, rowIndex) => {
-          const liveRow = liveRows[rowIndex];
-          if (!liveRow) return;
-
-          // Copy exact height of the row
-          const rowHeight = liveRow.getBoundingClientRect().height;
-          clonedRow.style.setProperty('height', rowHeight + 'px', 'important');
-
-          const clonedCells = Array.from(clonedRow.children);
-          const liveCells = Array.from(liveRow.children);
-
-          clonedCells.forEach((clonedCell, cellIndex) => {
-            const liveCell = liveCells[cellIndex];
-            if (!liveCell) return;
-
-            // Copy width of the cell
-            const cellWidth = liveCell.getBoundingClientRect().width;
-            clonedCell.style.setProperty('width', cellWidth + 'px', 'important');
-
-            // Calculate height of the cell based on rowspan
-            const rowSpanAttr = clonedCell.getAttribute('rowspan');
-            const rowSpanCount = rowSpanAttr ? parseInt(rowSpanAttr, 10) : 1;
-            
-            if (rowSpanCount > 1) {
-              let totalHeight = 0;
-              for (let i = 0; i < rowSpanCount; i++) {
-                const targetRowIndex = rowIndex + i;
-                const targetLiveRow = liveRows[targetRowIndex];
-                if (targetLiveRow) {
-                  totalHeight += targetLiveRow.getBoundingClientRect().height;
-                }
-              }
-              clonedCell.style.setProperty('height', totalHeight + 'px', 'important');
-            } else {
-              // For normal cells, copy the exact cell height
-              const cellHeight = liveCell.getBoundingClientRect().height;
-              clonedCell.style.setProperty('height', cellHeight + 'px', 'important');
-            }
-
-            // Remove relative positioning, force static alignment and center text vertically
-            clonedCell.style.setProperty('position', 'static', 'important');
-            clonedCell.style.setProperty('vertical-align', 'middle', 'important');
-          });
-        });
-
-        // Remove sticky header positioning
-        const stickyCells = clonedTable.querySelectorAll('.sticky');
-        stickyCells.forEach(cell => {
-          cell.style.setProperty('position', 'static', 'important');
-        });
-      });
-    }
+    pixelRatio: 2 // High resolution scale
   })
-    .then((canvas) => {
-      canvas.toBlob((blob) => {
-        if (btn && btn.tagName === 'BUTTON') {
-          btn.disabled = false;
-          btn.innerHTML = originalText;
-        }
-        if (!blob) return;
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'duty_roster_' + new Date().toISOString().slice(0, 10) + '.png';
-        a.click();
-        URL.revokeObjectURL(url);
-      });
-    })
-    .catch((err) => {
+    .then((dataUrl) => {
+      // Cleanup clone wrapper
+      if (document.body.contains(wrapper)) {
+        document.body.removeChild(wrapper);
+      }
+
       if (btn && btn.tagName === 'BUTTON') {
         btn.disabled = false;
         btn.innerHTML = originalText;
       }
-      console.error('html2canvas error:', err);
+
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = 'duty_roster_' + new Date().toISOString().slice(0, 10) + '.png';
+      a.click();
+    })
+    .catch((err) => {
+      // Cleanup clone wrapper
+      if (document.body.contains(wrapper)) {
+        document.body.removeChild(wrapper);
+      }
+      
+      if (btn && btn.tagName === 'BUTTON') {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+      }
+      console.error('html-to-image error:', err);
     });
 }
 
