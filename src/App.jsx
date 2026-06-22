@@ -97,6 +97,43 @@ function saveRosterAsImage() {
     cell.style.setProperty('position', 'static', 'important');
   });
 
+  // Remove "รอบพัก" (Break Time) column from the cloned element if it exists
+  const tables = clonedElement.querySelectorAll('table');
+  tables.forEach(table => {
+    const headerCells = Array.from(table.querySelectorAll('th'));
+    const breakColIndex = headerCells.findIndex(th => th.innerText.trim() === 'รอบพัก');
+    
+    if (breakColIndex !== -1) {
+      // 1. Remove the "รอบพัก" header cell
+      headerCells[breakColIndex].remove();
+      
+      // 2. Remove the corresponding column cell from all other rows
+      const rows = table.querySelectorAll('tr');
+      rows.forEach(row => {
+        const cells = Array.from(row.children);
+        
+        // If this is the TOTAL STAFF summary row
+        if (row.classList.contains('bg-slate-100') || row.innerText.includes('TOTAL STAFF')) {
+          const lastCell = row.lastElementChild;
+          if (lastCell) {
+            const colSpanAttr = lastCell.getAttribute('colspan');
+            if (colSpanAttr) {
+              const currentColSpan = parseInt(colSpanAttr, 10);
+              if (currentColSpan > 1) {
+                lastCell.setAttribute('colspan', currentColSpan - 1);
+              }
+            }
+          }
+        } else if (cells.length > breakColIndex) {
+          const lastCell = cells[cells.length - 1];
+          if (lastCell && lastCell.tagName === 'TD') {
+            lastCell.remove();
+          }
+        }
+      });
+    }
+  });
+
   // 4. Generate the image using html-to-image
   toPng(clonedElement, {
     cacheBust: true,
