@@ -47,7 +47,6 @@ function saveRosterAsImage() {
   }
 
   // Calculate the width needed to fit the full table
-  // Use a minimum of 1300px to ensure it renders in desktop layout
   const captureWidth = Math.max(1300, element.scrollWidth);
 
   html2canvas(element, {
@@ -89,10 +88,69 @@ function saveRosterAsImage() {
         el.style.setProperty('display', 'block', 'important');
       });
 
-      // Remove sticky positions on table headers in clone to prevent overlap bugs
+      // Fix html2canvas table rowspan and layout bugs by copying exact widths/heights from the live DOM
       const tables = clonedElement.querySelectorAll('table');
-      tables.forEach(table => {
-        const stickyCells = table.querySelectorAll('.sticky');
+      tables.forEach((clonedTable) => {
+        const tableIndex = Array.from(clonedDoc.querySelectorAll('table')).indexOf(clonedTable);
+        const liveTable = document.querySelectorAll('table')[tableIndex];
+        if (!liveTable) return;
+
+        // Copy exact table dimensions
+        clonedTable.style.setProperty('width', liveTable.offsetWidth + 'px', 'important');
+        clonedTable.style.setProperty('table-layout', 'fixed', 'important');
+        clonedTable.style.setProperty('border-collapse', 'collapse', 'important');
+
+        // Copy column widths and row heights precisely from the live DOM elements
+        const liveRows = Array.from(liveTable.querySelectorAll('tr'));
+        const clonedRows = Array.from(clonedTable.querySelectorAll('tr'));
+
+        clonedRows.forEach((clonedRow, rowIndex) => {
+          const liveRow = liveRows[rowIndex];
+          if (!liveRow) return;
+
+          // Copy exact height of the row
+          const rowHeight = liveRow.getBoundingClientRect().height;
+          clonedRow.style.setProperty('height', rowHeight + 'px', 'important');
+
+          const clonedCells = Array.from(clonedRow.children);
+          const liveCells = Array.from(liveRow.children);
+
+          clonedCells.forEach((clonedCell, cellIndex) => {
+            const liveCell = liveCells[cellIndex];
+            if (!liveCell) return;
+
+            // Copy width of the cell
+            const cellWidth = liveCell.getBoundingClientRect().width;
+            clonedCell.style.setProperty('width', cellWidth + 'px', 'important');
+
+            // Calculate height of the cell based on rowspan
+            const rowSpanAttr = clonedCell.getAttribute('rowspan');
+            const rowSpanCount = rowSpanAttr ? parseInt(rowSpanAttr, 10) : 1;
+            
+            if (rowSpanCount > 1) {
+              let totalHeight = 0;
+              for (let i = 0; i < rowSpanCount; i++) {
+                const targetRowIndex = rowIndex + i;
+                const targetLiveRow = liveRows[targetRowIndex];
+                if (targetLiveRow) {
+                  totalHeight += targetLiveRow.getBoundingClientRect().height;
+                }
+              }
+              clonedCell.style.setProperty('height', totalHeight + 'px', 'important');
+            } else {
+              // For normal cells, copy the exact cell height
+              const cellHeight = liveCell.getBoundingClientRect().height;
+              clonedCell.style.setProperty('height', cellHeight + 'px', 'important');
+            }
+
+            // Remove relative positioning, force static alignment and center text vertically
+            clonedCell.style.setProperty('position', 'static', 'important');
+            clonedCell.style.setProperty('vertical-align', 'middle', 'important');
+          });
+        });
+
+        // Remove sticky header positioning
+        const stickyCells = clonedTable.querySelectorAll('.sticky');
         stickyCells.forEach(cell => {
           cell.style.setProperty('position', 'static', 'important');
         });
