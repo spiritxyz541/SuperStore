@@ -868,27 +868,7 @@ export default function App() {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
 
-  // Save roster as image using html2canvas
-  const saveRosterAsImage = () => {
-    const element = document.getElementById('head-team-roster');
-    if (!element) {
-      console.error('Roster element not found');
-      return;
-    }
-    html2canvas(element, { scale: 2, useCORS: true })
-      .then((canvas) => {
-        canvas.toBlob((blob) => {
-          if (!blob) return;
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = 'head_team_roster.png';
-          a.click();
-          URL.revokeObjectURL(url);
-        });
-      })
-      .catch((err) => console.error('html2canvas error:', err));
-  };
+// Duplicate removed – using top‑level saveRosterAsImage defined earlier
     const [loadError, setLoadError] = useState(null);
     const [isTimeout, setIsTimeout] = useState(false);
 
