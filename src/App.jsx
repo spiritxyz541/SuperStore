@@ -10330,103 +10330,50 @@ export default function App() {
     };
 
     const renderLoadingScreen = () => {
-        const message = getLoadingMessage();
         return (
-            <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 p-4">
-                <div className="absolute top-1/4 left-1/4 w-72 h-72 bg-emerald-500/10 rounded-full filter blur-[80px] animate-pulse"></div>
-                <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-indigo-500/10 rounded-full filter blur-[90px] animate-pulse delay-1000"></div>
-                
-                <div className="relative bg-white/10 backdrop-blur-xl border border-white/15 rounded-3xl p-8 max-w-md w-full shadow-[0_20px_50px_rgba(0,0,0,0.3)] flex flex-col items-center text-center gap-6 animate-in fade-in zoom-in-95 duration-500">
-                    <div className="relative w-24 h-24 flex items-center justify-center">
-                        <div className="absolute inset-0 rounded-full border-4 border-t-emerald-400 border-r-indigo-400 border-b-transparent border-l-transparent animate-spin duration-1000"></div>
-                        <div className="absolute inset-2 rounded-full border-4 border-b-emerald-400/30 border-l-indigo-400/30 border-t-transparent border-r-transparent animate-spin duration-700 reverse"></div>
-                        
-                        <img 
-                            src="https://img1.pic.in.th/images/ChatGPT-Image-6-..-2569-19_46_07.png" 
-                            alt="Super Store Logo" 
-                            className="w-16 h-16 rounded-full object-cover shadow-lg border border-white/20 bg-white"
-                            onError={(e) => { e.target.onerror = null; e.target.src = "https://via.placeholder.com/150?text=GON"; }}
-                        />
+            <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-slate-50 text-slate-900 gap-4 animate-in fade-in duration-300">
+                {loadError ? (
+                    <div className="flex flex-col items-center gap-3 text-center p-6 max-w-sm">
+                        <AlertCircle className="w-10 h-10 text-red-500" />
+                        <h3 className="font-bold text-base text-slate-800">เกิดข้อผิดพลาดในการโหลดข้อมูล</h3>
+                        <p className="text-slate-500 text-xs">{loadError}</p>
+                        <button 
+                            onClick={() => window.location.reload()} 
+                            className="mt-2 bg-slate-900 hover:bg-black text-white font-bold text-xs px-4 py-2.5 rounded-xl transition active:scale-95 shadow-sm"
+                        >
+                            ลองใหม่อีกครั้ง
+                        </button>
                     </div>
-
-                    {loadError ? (
-                        <div className="flex flex-col items-center gap-4 animate-in fade-in duration-300">
-                            <div className="w-12 h-12 rounded-full bg-red-500/20 border border-red-500/30 flex items-center justify-center text-red-400">
-                                <AlertCircle className="w-6 h-6" />
-                            </div>
-                            <div>
-                                <h3 className="text-white font-black text-lg mb-1">เกิดข้อผิดพลาดในการโหลดข้อมูล</h3>
-                                <p className="text-slate-400 text-xs px-4">{loadError}</p>
-                            </div>
-                            <button 
-                                onClick={() => window.location.reload()} 
-                                className="mt-2 bg-red-600 hover:bg-red-700 text-white font-black text-xs px-6 py-3 rounded-2xl transition shadow-lg shadow-red-900/30 active:scale-95"
-                            >
-                                ลองใหม่อีกครั้ง
-                            </button>
-                        </div>
-                    ) : isTimeout ? (
-                        <div className="flex flex-col items-center gap-4 animate-in fade-in duration-300">
-                            <div className="w-12 h-12 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400">
-                                <Clock className="w-6 h-6 animate-pulse" />
-                            </div>
-                            <div>
-                                <h3 className="text-white font-black text-lg mb-1">การเชื่อมต่อล่าช้ากว่าปกติ</h3>
-                                <p className="text-slate-400 text-xs px-6">ดูเหมือนว่าการดึงข้อมูลจากเซิร์ฟเวอร์จะใช้เวลานานกว่าปกติ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตของคุณ</p>
-                            </div>
-                            <button 
-                                onClick={() => window.location.reload()} 
-                                className="mt-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs px-6 py-3 rounded-2xl transition shadow-lg shadow-indigo-900/30 active:scale-95"
-                            >
-                                ลองใหม่อีกครั้ง
-                            </button>
-                        </div>
-                    ) : (
-                        <div className="flex flex-col items-center gap-4 w-full">
-                            <div className="flex flex-col gap-1">
-                                <h2 className="text-white font-black text-xl tracking-tight">SUPER STORE</h2>
-                                <span className="text-indigo-300 font-bold text-[10px] tracking-[0.2em] uppercase">Manager Assistant</span>
-                            </div>
-                            
-                            <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/5 text-slate-300 text-xs font-black min-h-[36px] w-full justify-center">
-                                <Loader2 className="w-4 h-4 animate-spin text-emerald-400 flex-shrink-0" />
-                                <span className="animate-pulse truncate">{message}</span>
-                            </div>
-                            
-                            <div className="w-32 h-1 bg-white/10 rounded-full overflow-hidden relative">
-                                <div className="absolute top-0 left-0 h-full bg-gradient-to-r from-emerald-400 to-indigo-500 rounded-full animate-progress-bar w-full"></div>
-                            </div>
-                        </div>
-                    )}
-                    
-                    <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest mt-2">v{CURRENT_APP_VERSION} • staffsync</span>
-                </div>
-
+                ) : isTimeout ? (
+                    <div className="flex flex-col items-center gap-3 text-center p-6 max-w-sm">
+                        <Clock className="w-10 h-10 text-amber-500 animate-pulse" />
+                        <h3 className="font-bold text-base text-slate-800">การเชื่อมต่อล่าช้ากว่าปกติ</h3>
+                        <p className="text-slate-500 text-xs">ดูเหมือนว่าการดึงข้อมูลจากเซิร์ฟเวอร์จะใช้เวลานานผิดปกติ กรุณาตรวจสอบอินเทอร์เน็ตของคุณ</p>
+                        <button 
+                            onClick={() => window.location.reload()} 
+                            className="mt-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition active:scale-95 shadow-sm"
+                        >
+                            ลองใหม่อีกครั้ง
+                        </button>
+                    </div>
+                ) : (
+                    <div className="flex flex-col items-center gap-3">
+                        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+                        <span className="text-xs font-bold text-slate-500 tracking-wide animate-pulse">กำลังโหลดข้อมูล...</span>
+                    </div>
+                )}
+                
                 <style dangerouslySetInnerHTML={{
                     __html: `
-                        @keyframes progress-bar {
-                            0% { transform: translateX(-100%); }
-                            100% { transform: translateX(100%); }
-                        }
-                        .animate-progress-bar {
-                            animation: progress-bar 1.5s infinite linear;
-                        }
                         @keyframes fade-in {
                             from { opacity: 0; }
                             to { opacity: 1; }
-                        }
-                        @keyframes zoom-in-95 {
-                            from { transform: scale(0.95); opacity: 0; }
-                            to { transform: scale(1); opacity: 1; }
                         }
                         .animate-in {
                             animation-fill-mode: both;
                         }
                         .fade-in {
-                            animation: fade-in 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-                        }
-                        .zoom-in-95 {
-                            animation: zoom-in-95 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+                            animation: fade-in 0.3s ease-out;
                         }
                     `
                 }} />
