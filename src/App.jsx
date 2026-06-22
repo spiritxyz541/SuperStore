@@ -30,6 +30,28 @@ const firebaseConfig = {
     appId: "1:761097159845:web:07ca08e4854b017976794c"
 };
 
+// Save roster as image using html2canvas (top‑level helper)
+function saveRosterAsImage() {
+  const element = document.getElementById('head-team-roster');
+  if (!element) {
+    console.error('Roster element not found');
+    return;
+  }
+  html2canvas(element, { scale: 2, useCORS: true })
+    .then((canvas) => {
+      canvas.toBlob((blob) => {
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'head_team_roster.png';
+        a.click();
+        URL.revokeObjectURL(url);
+      });
+    })
+    .catch((err) => console.error('html2canvas error:', err));
+}
+
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
