@@ -62,24 +62,62 @@ function saveRosterAsImage() {
       clonedElement.style.setProperty('max-width', 'none', 'important');
       clonedElement.style.setProperty('overflow', 'visible', 'important');
 
-      // 2. Format tables to avoid html2canvas rowspan layout bugs
+      // 2. Format tables to avoid html2canvas rowspan layout bugs by copying exact widths/heights
       const tables = clonedElement.querySelectorAll('table');
-      tables.forEach(table => {
-        table.style.setProperty('width', '100%', 'important');
-        table.style.setProperty('table-layout', 'auto', 'important');
-        table.style.setProperty('border-collapse', 'collapse', 'important');
-        
-        // Remove sticky positioning since it messes up screenshot flow
-        const stickyCells = table.querySelectorAll('.sticky');
-        stickyCells.forEach(cell => {
-          cell.style.setProperty('position', 'static', 'important');
+      tables.forEach((clonedTable) => {
+        const tableIndex = Array.from(clonedDoc.querySelectorAll('table')).indexOf(clonedTable);
+        const liveTable = document.querySelectorAll('table')[tableIndex];
+        if (!liveTable) return;
+
+        // Copy exact table dimensions
+        clonedTable.style.setProperty('width', liveTable.offsetWidth + 'px', 'important');
+        clonedTable.style.setProperty('table-layout', 'fixed', 'important');
+        clonedTable.style.setProperty('border-collapse', 'collapse', 'important');
+
+        // Copy column widths from first row header/cells
+        const liveHeaderCells = liveTable.querySelectorAll('tr:first-child th, tr:first-child td');
+        const clonedHeaderCells = clonedTable.querySelectorAll('tr:first-child th, tr:first-child td');
+        clonedHeaderCells.forEach((clonedCell, cellIndex) => {
+          const liveCell = liveHeaderCells[cellIndex];
+          if (liveCell) {
+            clonedCell.style.setProperty('width', liveCell.getBoundingClientRect().width + 'px', 'important');
+          }
         });
 
-        // Set position relative on all rowspan/colspan cells to fix html2canvas render bounds calculation
-        const spannedCells = table.querySelectorAll('td[rowspan], th[rowspan], td[colspan], th[colspan]');
-        spannedCells.forEach(cell => {
-          cell.style.setProperty('position', 'relative', 'important');
-          cell.style.setProperty('height', 'auto', 'important');
+        // Set explicit heights for all spanned cells to prevent clipping or layout shifting
+        const liveRows = Array.from(liveTable.querySelectorAll('tr'));
+        const clonedRows = Array.from(clonedTable.querySelectorAll('tr'));
+
+        clonedRows.forEach((clonedRow, rowIndex) => {
+          const liveRow = liveRows[rowIndex];
+          if (!liveRow) return;
+
+          const clonedCells = Array.from(clonedRow.children);
+          clonedCells.forEach((clonedCell) => {
+            const rowSpanAttr = clonedCell.getAttribute('rowspan');
+            if (rowSpanAttr) {
+              const rowSpanCount = parseInt(rowSpanAttr, 10);
+              if (rowSpanCount > 1) {
+                let totalHeight = 0;
+                for (let i = 0; i < rowSpanCount; i++) {
+                  const targetRowIndex = rowIndex + i;
+                  const targetLiveRow = liveRows[targetRowIndex];
+                  if (targetLiveRow) {
+                    totalHeight += targetLiveRow.getBoundingClientRect().height;
+                  }
+                }
+                clonedCell.style.setProperty('height', totalHeight + 'px', 'important');
+                clonedCell.style.setProperty('position', 'static', 'important');
+                clonedCell.style.setProperty('vertical-align', 'middle', 'important');
+              }
+            }
+          });
+        });
+
+        // Remove sticky header positioning
+        const stickyCells = clonedTable.querySelectorAll('.sticky');
+        stickyCells.forEach(cell => {
+          cell.style.setProperty('position', 'static', 'important');
         });
       });
 
