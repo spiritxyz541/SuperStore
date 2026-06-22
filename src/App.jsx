@@ -10290,7 +10290,61 @@ export default function App() {
     }
 
     let mainContent = null;
-    if (view === 'area_dashboard') {
+    if (shouldShowLoading && authRole !== 'guest') {
+        mainContent = (
+            <div className="relative w-full h-[600px] bg-white rounded-3xl border border-slate-200 overflow-hidden p-6 flex flex-col gap-6 animate-pulse">
+                {/* Skeleton header */}
+                <div className="flex justify-between items-center pb-4 border-b border-slate-100">
+                    <div className="h-6 w-48 bg-slate-200 rounded-lg"></div>
+                    <div className="h-10 w-32 bg-slate-200 rounded-xl"></div>
+                </div>
+                {/* Skeleton table rows */}
+                <div className="flex-1 flex flex-col gap-4">
+                    <div className="h-12 w-full bg-slate-100 rounded-2xl"></div>
+                    <div className="h-12 w-full bg-slate-100/80 rounded-2xl"></div>
+                    <div className="h-12 w-full bg-slate-100/60 rounded-2xl"></div>
+                    <div className="h-12 w-full bg-slate-100/40 rounded-2xl"></div>
+                    <div className="h-12 w-full bg-slate-100/20 rounded-2xl"></div>
+                </div>
+                
+                {/* Popup Loading Modal overlay at the center */}
+                <div className="absolute inset-0 bg-slate-900/10 backdrop-blur-[2px] flex items-center justify-center p-4 z-50">
+                    <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-2xl flex flex-col items-center gap-3 text-center max-w-xs w-full animate-in zoom-in-95 duration-200 pointer-events-auto">
+                        {loadError ? (
+                            <div className="flex flex-col items-center gap-3">
+                                <AlertCircle className="w-8 h-8 text-red-500" />
+                                <h3 className="font-bold text-sm text-slate-800">เกิดข้อผิดพลาด</h3>
+                                <p className="text-slate-500 text-[10px]">{loadError}</p>
+                                <button 
+                                    onClick={() => window.location.reload()} 
+                                    className="mt-1 bg-slate-900 hover:bg-black text-white font-bold text-xs px-4 py-2 rounded-xl transition active:scale-95 shadow-sm"
+                                >
+                                    ลองใหม่อีกครั้ง
+                                </button>
+                            </div>
+                        ) : isTimeout ? (
+                            <div className="flex flex-col items-center gap-3">
+                                <Clock className="w-8 h-8 text-amber-500 animate-pulse" />
+                                <h3 className="font-bold text-sm text-slate-800">ล่าช้ากว่าปกติ</h3>
+                                <p className="text-slate-500 text-[10px]">กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตของคุณ</p>
+                                <button 
+                                    onClick={() => window.location.reload()} 
+                                    className="mt-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2 rounded-xl transition active:scale-95 shadow-sm"
+                                >
+                                    ลองใหม่อีกครั้ง
+                                </button>
+                            </div>
+                        ) : (
+                            <React.Fragment>
+                                <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+                                <span className="text-xs font-black text-slate-600 animate-pulse">กำลังโหลดข้อมูล...</span>
+                            </React.Fragment>
+                        )}
+                    </div>
+                </div>
+            </div>
+        );
+    } else if (view === 'area_dashboard') {
         mainContent = renderAreaDashboard();
     } else if (view === 'branches' && authRole === 'superadmin') {
         mainContent = renderGlobalAdmin();
@@ -10319,67 +10373,6 @@ export default function App() {
     }
 
     const shouldShowLoading = showLoadingUI || loadError || isTimeout;
-
-    const getLoadingMessage = () => {
-        switch (loadingPhase) {
-            case 0: return "กำลังเชื่อมต่อระบบฐานข้อมูล...";
-            case 1: return "กำลังตรวจสอบโครงสร้างสาขาและพนักงาน...";
-            case 2: return "กำลังเชื่อมต่อระบบจัดกะอัจฉริยะ AI...";
-            default: return "กำลังจัดเตรียมระบบให้พร้อมสำหรับคุณ...";
-        }
-    };
-
-    const renderLoadingScreen = () => {
-        return (
-            <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-slate-50 text-slate-900 gap-4 animate-in fade-in duration-300">
-                {loadError ? (
-                    <div className="flex flex-col items-center gap-3 text-center p-6 max-w-sm">
-                        <AlertCircle className="w-10 h-10 text-red-500" />
-                        <h3 className="font-bold text-base text-slate-800">เกิดข้อผิดพลาดในการโหลดข้อมูล</h3>
-                        <p className="text-slate-500 text-xs">{loadError}</p>
-                        <button 
-                            onClick={() => window.location.reload()} 
-                            className="mt-2 bg-slate-900 hover:bg-black text-white font-bold text-xs px-4 py-2.5 rounded-xl transition active:scale-95 shadow-sm"
-                        >
-                            ลองใหม่อีกครั้ง
-                        </button>
-                    </div>
-                ) : isTimeout ? (
-                    <div className="flex flex-col items-center gap-3 text-center p-6 max-w-sm">
-                        <Clock className="w-10 h-10 text-amber-500 animate-pulse" />
-                        <h3 className="font-bold text-base text-slate-800">การเชื่อมต่อล่าช้ากว่าปกติ</h3>
-                        <p className="text-slate-500 text-xs">ดูเหมือนว่าการดึงข้อมูลจากเซิร์ฟเวอร์จะใช้เวลานานผิดปกติ กรุณาตรวจสอบอินเทอร์เน็ตของคุณ</p>
-                        <button 
-                            onClick={() => window.location.reload()} 
-                            className="mt-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition active:scale-95 shadow-sm"
-                        >
-                            ลองใหม่อีกครั้ง
-                        </button>
-                    </div>
-                ) : (
-                    <div className="flex flex-col items-center gap-3">
-                        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
-                        <span className="text-xs font-bold text-slate-500 tracking-wide animate-pulse">กำลังโหลดข้อมูล...</span>
-                    </div>
-                )}
-                
-                <style dangerouslySetInnerHTML={{
-                    __html: `
-                        @keyframes fade-in {
-                            from { opacity: 0; }
-                            to { opacity: 1; }
-                        }
-                        .animate-in {
-                            animation-fill-mode: both;
-                        }
-                        .fade-in {
-                            animation: fade-in 0.3s ease-out;
-                        }
-                    `
-                }} />
-            </div>
-        );
-    };
 
     return (
         <React.Fragment>
@@ -10415,7 +10408,47 @@ export default function App() {
         }
       `}} />
 
-            {shouldShowLoading ? renderLoadingScreen() : (
+            {shouldShowLoading && authRole === 'guest' ? (
+                <div className="relative min-h-screen w-full">
+                    <div className="pointer-events-none filter blur-[3px]">
+                        {renderGuestLogin()}
+                    </div>
+                    <div className="absolute inset-0 bg-slate-950/10 backdrop-blur-[2px] flex items-center justify-center p-4 z-50 animate-in fade-in duration-300">
+                        <div className="bg-white border border-slate-200 rounded-3xl p-8 shadow-2xl flex flex-col items-center gap-4 text-center max-w-sm w-full animate-in zoom-in-95 duration-200">
+                            {loadError ? (
+                                <div className="flex flex-col items-center gap-3">
+                                    <AlertCircle className="w-10 h-10 text-red-500" />
+                                    <h3 className="font-bold text-base text-slate-800">เกิดข้อผิดพลาดในการโหลดข้อมูล</h3>
+                                    <p className="text-slate-500 text-xs">{loadError}</p>
+                                    <button 
+                                        onClick={() => window.location.reload()} 
+                                        className="mt-2 bg-slate-900 hover:bg-black text-white font-bold text-xs px-4 py-2.5 rounded-xl transition active:scale-95 shadow-sm"
+                                    >
+                                        ลองใหม่อีกครั้ง
+                                    </button>
+                                </div>
+                            ) : isTimeout ? (
+                                <div className="flex flex-col items-center gap-3">
+                                    <Clock className="w-10 h-10 text-amber-500 animate-pulse" />
+                                    <h3 className="font-bold text-base text-slate-800">การเชื่อมต่อล่าช้ากว่าปกติ</h3>
+                                    <p className="text-slate-500 text-xs">ดูเหมือนว่าการดึงข้อมูลจากเซิร์ฟเวอร์จะใช้เวลานานผิดปกติ กรุณาตรวจสอบอินเทอร์เน็ตของคุณ</p>
+                                    <button 
+                                        onClick={() => window.location.reload()} 
+                                        className="mt-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition active:scale-95 shadow-sm"
+                                    >
+                                        ลองใหม่อีกครั้ง
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="flex flex-col items-center gap-3">
+                                    <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+                                    <span className="text-xs font-bold text-slate-500 tracking-wide animate-pulse">กำลังโหลดข้อมูล...</span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            ) : (
                 <React.Fragment>
                     {newVersionAvailable && (
                         <div className="fixed top-0 left-0 w-full bg-amber-500 text-white z-[9999] px-4 py-2 sm:py-3 flex justify-between items-center shadow-lg animate-in slide-in-from-top">
