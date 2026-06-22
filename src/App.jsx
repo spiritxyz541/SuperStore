@@ -31,34 +31,88 @@ const firebaseConfig = {
 };
 
 // Save roster as image using html2canvas (top‑level helper)
-// Save roster as image using html2canvas (top‑level helper)
 function saveRosterAsImage() {
   const element = document.getElementById('daily-roster-capture-area') || document.getElementById('head-team-roster');
   if (!element) {
     console.error('Roster element not found');
     return;
   }
-  
-  // Save original styles
-  const originalStyleWidth = element.style.width;
-  const originalStyleMaxWidth = element.style.maxWidth;
-  const originalOverflow = element.style.overflow;
-  
-  // Set explicit width to its scrollWidth to capture the entire table
-  if (element.scrollWidth > element.clientWidth) {
-    element.style.width = element.scrollWidth + 'px';
-    element.style.maxWidth = 'none';
-    element.style.overflow = 'visible';
+
+  // Create loading indicator on active button
+  const btn = document.activeElement;
+  const originalText = btn ? btn.innerHTML : '';
+  if (btn && btn.tagName === 'BUTTON') {
+    btn.disabled = true;
+    btn.innerHTML = 'กำลังบันทึกภาพ...';
   }
 
-  html2canvas(element, { scale: 2, useCORS: true, backgroundColor: '#ffffff' })
-    .then((canvas) => {
-      // Restore original styles
-      element.style.width = originalStyleWidth;
-      element.style.maxWidth = originalStyleMaxWidth;
-      element.style.overflow = originalOverflow;
+  html2canvas(element, {
+    scale: 2,
+    useCORS: true,
+    backgroundColor: '#ffffff',
+    logging: false,
+    onclone: (clonedDoc) => {
+      // Find the element in the cloned document
+      const clonedElement = clonedDoc.getElementById('daily-roster-capture-area') || clonedDoc.getElementById('head-team-roster');
+      if (!clonedElement) return;
 
+      // 1. Force the container to be wide enough to show the full scrollable width
+      const scrollWidth = clonedElement.scrollWidth;
+      clonedElement.style.setProperty('width', scrollWidth + 'px', 'important');
+      clonedElement.style.setProperty('max-width', 'none', 'important');
+      clonedElement.style.setProperty('overflow', 'visible', 'important');
+
+      // 2. Format tables to avoid html2canvas rowspan layout bugs
+      const tables = clonedElement.querySelectorAll('table');
+      tables.forEach(table => {
+        table.style.setProperty('width', '100%', 'important');
+        table.style.setProperty('table-layout', 'auto', 'important');
+        table.style.setProperty('border-collapse', 'separate', 'important');
+        table.style.setProperty('border-spacing', '0', 'important');
+        
+        // Remove sticky positioning since it messes up screenshot flow
+        const stickyCells = table.querySelectorAll('.sticky, th, td');
+        stickyCells.forEach(cell => {
+          if (cell.classList.contains('sticky') || window.getComputedStyle(cell).position === 'sticky') {
+            cell.style.setProperty('position', 'static', 'important');
+          }
+        });
+      });
+
+      // 3. Convert all select elements into static text spans so they render nicely
+      const selects = clonedElement.querySelectorAll('select');
+      selects.forEach(select => {
+        const val = select.value || select.options[select.selectedIndex]?.text || '';
+        const span = clonedDoc.createElement('span');
+        span.className = 'font-black text-indigo-700 text-[10px] sm:text-xs block text-center';
+        span.innerText = val;
+        select.parentNode.replaceChild(span, select);
+      });
+
+      // 4. Handle elements that are print-hidden (e.g. icons, close buttons, interactive indicators)
+      const printHidden = clonedElement.querySelectorAll('.print\\:hidden, button');
+      printHidden.forEach(el => {
+        el.style.setProperty('display', 'none', 'important');
+      });
+
+      // 5. Force show print-only elements
+      const printInline = clonedElement.querySelectorAll('.print\\:inline, .hidden.print\\:inline');
+      printInline.forEach(el => {
+        el.style.setProperty('display', 'inline', 'important');
+      });
+      
+      const printBlock = clonedElement.querySelectorAll('.print\\:block, .hidden.print\\:block');
+      printBlock.forEach(el => {
+        el.style.setProperty('display', 'block', 'important');
+      });
+    }
+  })
+    .then((canvas) => {
       canvas.toBlob((blob) => {
+        if (btn && btn.tagName === 'BUTTON') {
+          btn.disabled = false;
+          btn.innerHTML = originalText;
+        }
         if (!blob) return;
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -69,10 +123,10 @@ function saveRosterAsImage() {
       });
     })
     .catch((err) => {
-      // Restore original styles
-      element.style.width = originalStyleWidth;
-      element.style.maxWidth = originalStyleMaxWidth;
-      element.style.overflow = originalOverflow;
+      if (btn && btn.tagName === 'BUTTON') {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+      }
       console.error('html2canvas error:', err);
     });
 }
