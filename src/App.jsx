@@ -31,25 +31,50 @@ const firebaseConfig = {
 };
 
 // Save roster as image using html2canvas (top‑level helper)
+// Save roster as image using html2canvas (top‑level helper)
 function saveRosterAsImage() {
-  const element = document.getElementById('head-team-roster');
+  const element = document.getElementById('daily-roster-capture-area') || document.getElementById('head-team-roster');
   if (!element) {
     console.error('Roster element not found');
     return;
   }
-  html2canvas(element, { scale: 2, useCORS: true })
+  
+  // Save original styles
+  const originalStyleWidth = element.style.width;
+  const originalStyleMaxWidth = element.style.maxWidth;
+  const originalOverflow = element.style.overflow;
+  
+  // Set explicit width to its scrollWidth to capture the entire table
+  if (element.scrollWidth > element.clientWidth) {
+    element.style.width = element.scrollWidth + 'px';
+    element.style.maxWidth = 'none';
+    element.style.overflow = 'visible';
+  }
+
+  html2canvas(element, { scale: 2, useCORS: true, backgroundColor: '#ffffff' })
     .then((canvas) => {
+      // Restore original styles
+      element.style.width = originalStyleWidth;
+      element.style.maxWidth = originalStyleMaxWidth;
+      element.style.overflow = originalOverflow;
+
       canvas.toBlob((blob) => {
         if (!blob) return;
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'head_team_roster.png';
+        a.download = 'duty_roster_' + new Date().toISOString().slice(0, 10) + '.png';
         a.click();
         URL.revokeObjectURL(url);
       });
     })
-    .catch((err) => console.error('html2canvas error:', err));
+    .catch((err) => {
+      // Restore original styles
+      element.style.width = originalStyleWidth;
+      element.style.maxWidth = originalStyleMaxWidth;
+      element.style.overflow = originalOverflow;
+      console.error('html2canvas error:', err);
+    });
 }
 
 const app = initializeApp(firebaseConfig);
@@ -7158,6 +7183,7 @@ export default function App() {
             getHoursInRange(goal.start, goal.end).forEach(h => tc += parseInt(hourlyTcData[h]) || 0);
             return { ...goal, tc };
         });
+
         const colors = [
             { bg: 'bg-amber-50', border: 'border-amber-200', text1: 'text-amber-600', text2: 'text-amber-700', icon: 'text-amber-300' },
             { bg: 'bg-indigo-50', border: 'border-indigo-200', text1: 'text-indigo-600', text2: 'text-indigo-700', icon: 'text-indigo-300' },
@@ -7571,12 +7597,14 @@ export default function App() {
                                 <button onClick={() => setDailyViewMode('roster')} className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-[10px] sm:text-xs font-black transition-all ${dailyViewMode === 'roster' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>ตารางกะงาน</button>
                                 <button onClick={() => setDailyViewMode('headcount')} className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-[10px] sm:text-xs font-black transition-all ${dailyViewMode === 'headcount' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>สรุปกำลังคน</button>
                                 <button onClick={() => setDailyViewMode('prep')} className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-[10px] sm:text-xs font-black transition-all ${dailyViewMode === 'prep' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>ใบเตรียมของ</button>
-                            </div>                   <button onClick={() => {
+                            </div>
+                            <button onClick={() => {
                                 window.print();
                             }} className="flex-1 sm:flex-none justify-center bg-slate-900 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-black flex items-center gap-2 hover:bg-black shadow-lg active:scale-95 transition-all text-[10px] sm:text-xs uppercase tracking-widest"><Printer className="w-4 h-4" /> พิมพ์ตารางนี้</button>
+                            <button onClick={saveRosterAsImage} className="flex-1 sm:flex-none justify-center bg-green-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-black flex items-center gap-2 hover:bg-green-700 shadow-lg active:scale-95 transition-all text-[10px] sm:text-xs uppercase tracking-widest"><Save className="w-4 h-4" /> บันทึกเป็นรูปภาพ</button>
                         </div>
                     </div>
-                    <div className="p-4 sm:p-8 overflow-x-auto w-full">
+                    <div id="daily-roster-capture-area" className="p-4 sm:p-8 overflow-x-auto w-full bg-white">
                         {dailyViewMode === 'roster' ? (
                             <React.Fragment>
                                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6 print:hidden">
