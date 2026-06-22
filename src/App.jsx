@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from 'firebase/auth';
 import { getFirestore, doc, setDoc, onSnapshot, collection, getDoc, getDocs, query, where, deleteDoc, orderBy, limit } from 'firebase/firestore';
+import html2canvas from 'html2canvas';
 import {
     Users, AlertCircle, Clock, Save, Plus, Trash2, LayoutDashboard, Printer, ChevronLeft, ChevronRight,
     Coffee, BarChart3, TrendingUp, Award, PlaneTakeoff, Loader2, Store, ArrowLeftRight, Sparkles, Wand2, Bold, Italic, Underline, Link as LinkIcon, BookOpen,
@@ -666,13 +667,16 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 sm:mb-16 print:hidden border-b pb-6 sm:pb-8 gap-4 sm:gap-0">
                     <button onClick={() => { try { const sess = JSON.parse(localStorage.getItem('superstore_session') || '{}'); sess.view = 'manager'; localStorage.setItem('superstore_session', JSON.stringify(sess)); } catch (e) { } window.location.reload(); }} className="flex items-center gap-2 sm:gap-4 text-slate-600 font-black bg-slate-100 px-6 sm:px-8 py-3 sm:py-4 rounded-xl sm:rounded-3xl hover:bg-slate-200 transition shadow-sm uppercase text-xs sm:text-sm tracking-widest w-full sm:w-auto justify-center"><ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" /> ย้อนกลับ </button>
                     <button onClick={onPrint} className="bg-indigo-600 text-white px-8 sm:px-12 py-4 sm:py-5 rounded-xl sm:rounded-3xl font-black shadow-xl sm:shadow-2xl hover:bg-indigo-700 active:scale-95 transition-all flex items-center justify-center gap-3 sm:gap-4 uppercase text-xs sm:text-sm tracking-widest w-full sm:w-auto"><Printer className="w-5 h-5 sm:w-6 sm:h-6" /> สั่งพิมพ์รายงาน </button>
+                <button onClick={saveRosterAsImage} className="bg-green-600 text-white px-8 sm:px-12 py-4 sm:py-5 rounded-xl sm:rounded-3xl font-black shadow-xl sm:shadow-2xl hover:bg-green-700 active:scale-95 transition-all flex items-center justify-center gap-3 sm:gap-4 uppercase text-xs sm:text-sm tracking-widest w-full sm:w-auto">
+                  <Save className="w-5 h-5 sm:w-6 sm:h-6" /> บันทึกเป็นรูปภาพ
+                </button>
                 </div>
                 <div className="text-center mb-10 sm:mb-16 uppercase print-header">
                     <h1 className="text-3xl sm:text-6xl font-black text-slate-900 tracking-tighter leading-none mb-2 sm:mb-4 print-title">ROSTER SCHEDULE: {CALENDAR_DAYS.length === 7 ? `WEEK OF ${CALENDAR_DAYS[0].dateStr}` : `${THAI_MONTHS[selectedMonth]} 2026`}</h1>
                     <p className="text-xs sm:text-sm text-slate-400 font-bold uppercase tracking-[0.3em] sm:tracking-[0.6em] italic print-subtitle">{globalConfig.branches?.find(b => b.id === activeBranchId)?.name || 'BRANCH NODE'} - {activeDept.toUpperCase()} DEPT</p>
                 </div>
                 <div className="overflow-auto border-2 sm:border-4 border-slate-900 rounded-xl sm:rounded-[2.5rem] shadow-lg sm:shadow-2xl w-full custom-scrollbar pb-2 sm:pb-0 print:border-none print:shadow-none print:overflow-visible" style={{ maxHeight: 'calc(100vh - 280px)' }}>
-                    <table className="w-full border-collapse text-[6px] sm:text-[8px] table-fixed min-w-[800px] sm:min-w-none bg-white print:border-2 print:border-black print-table">
+                    <table id="head-team-roster" className="w-full border-collapse text-[6px] sm:text-[8px] table-fixed min-w-[800px] sm:min-w-none bg-white print:border-2 print:border-black print-table">
                         <thead className="sticky top-0 z-40">
                             <tr className="bg-slate-900 text-white print:bg-slate-200 print:text-black sticky top-0 z-50">
                                 <th className="border-r border-slate-700 p-2 sm:p-3 text-center sticky left-0 top-0 bg-slate-900 z-30 w-16 sm:w-20 font-black uppercase border-b-2 border-slate-600 print:border-black print:bg-transparent print:text-black">Duty Layer</th>
@@ -841,6 +845,28 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
 export default function App() {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
+
+  // Save roster as image using html2canvas
+  const saveRosterAsImage = () => {
+    const element = document.getElementById('head-team-roster');
+    if (!element) {
+      console.error('Roster element not found');
+      return;
+    }
+    html2canvas(element, { scale: 2, useCORS: true })
+      .then((canvas) => {
+        canvas.toBlob((blob) => {
+          if (!blob) return;
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'head_team_roster.png';
+          a.click();
+          URL.revokeObjectURL(url);
+        });
+      })
+      .catch((err) => console.error('html2canvas error:', err));
+  };
     const [loadError, setLoadError] = useState(null);
     const [isTimeout, setIsTimeout] = useState(false);
 
