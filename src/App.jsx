@@ -64,20 +64,16 @@ function saveRosterAsImage() {
   clonedElement.style.setProperty('max-width', 'none', 'important');
   clonedElement.style.setProperty('overflow', 'visible', 'important');
 
-  // Convert selects to text spans
+  // Remove all select elements completely in the clone (print version spans will show instead where applicable)
   const selects = clonedElement.querySelectorAll('select');
   selects.forEach(select => {
-    const val = select.value || select.options[select.selectedIndex]?.text || '';
-    const span = document.createElement('span');
-    span.className = 'font-black text-indigo-700 text-[10px] sm:text-xs block text-center';
-    span.innerText = val;
-    select.parentNode.replaceChild(span, select);
+    select.remove();
   });
 
-  // Hide buttons and print-hidden items
+  // Remove all buttons and print-hidden elements completely in the clone
   const printHidden = clonedElement.querySelectorAll('.print\\:hidden, button');
   printHidden.forEach(el => {
-    el.style.setProperty('display', 'none', 'important');
+    el.remove();
   });
 
   // Force show print-only items
