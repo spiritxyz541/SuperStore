@@ -812,16 +812,86 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
                                 <th className="border-r border-slate-700 p-2 sm:p-3 text-center sticky left-0 top-0 bg-slate-900 z-30 w-16 sm:w-20 font-black uppercase border-b-2 border-slate-600 print:border-black print:bg-transparent print:text-black">Duty Layer</th>
                                 <th className="border-r border-slate-700 p-2 sm:p-3 text-center sticky left-[4rem] sm:left-[5rem] top-0 bg-slate-900 z-30 w-12 sm:w-16 font-black uppercase border-b-2 border-slate-600 print:border-black print:bg-transparent print:text-black">Pos</th>
                                 <th className="border-r border-slate-700 p-2 sm:p-3 text-left sticky left-[7rem] sm:left-[9rem] top-0 bg-slate-900 z-30 w-24 sm:w-40 font-black uppercase border-b-2 border-slate-600 print:border-black print:bg-transparent print:text-black">Employee Name</th>
-                                {CALENDAR_DAYS.map(day => (
-                                    <th key={day.dateStr}
-                                        className={`border-r border-slate-700 p-1.5 sm:p-3 min-w-[30px] sm:min-w-[45px] text-center border-b-2 border-slate-600 print:border-black sticky top-0 bg-slate-900 print:bg-slate-200 ${(day.type === 'saturday' || day.type === 'sunday') || isDateHoliday(day.dateStr, branchData.holidays) ? 'bg-slate-800 text-indigo-300 print:text-black print:bg-slate-100' : ''}`}
-                                    >
-                                        <div className="font-black text-[10px] sm:text-sm mb-0.5 sm:mb-1">{day.dayNum}</div>
-                                        <div className="text-[6px] sm:text-[8px] opacity-70 uppercase tracking-tighter">{day.dayLabel}</div>
-                                    </th>
+                                {CALENDAR_DAYS.map(day => {
+                                    const dayUsedStaffIds = new Set();
+                                    (schedule[day.dateStr]?.leaves || []).forEach(l => l.staffId && dayUsedStaffIds.add(l.staffId));
+                                    Object.values(schedule[day.dateStr]?.duties || {}).forEach(sls => sls.forEach(sSlot => sSlot && sSlot.staffId && dayUsedStaffIds.add(sSlot.staffId)));
+                                    const unassignedStaff = branchData.staff?.filter(s => s.dept === activeDept && !dayUsedStaffIds.has(s.id) && isStaffActiveOnDate(s, day.dateStr)) || [];
+                                    const unassignedFTCount = unassignedStaff.filter(s => !s.pos.includes('PT')).length;
+                                    const unassignedPTCount = unassignedStaff.filter(s => s.pos.includes('PT')).length;
 
+                                    let emptySlotCount = 0;
+                                    CURRENT_DUTY_LIST.forEach(duty => {
+                                        if (duty.isBackup) return; // ไม่นำกะสำรองมานับรวมในกะที่ยังว่าง
+                                        const slots = branchData.matrix?.[day.type]?.duties?.[duty.id] || [];
+                                        const assigned = schedule[day.dateStr]?.duties?.[duty.id] || [];
+                                        slots.forEach((_, idx) => {
+                                            if (!assigned[idx] || !assigned[idx].staffId) {
+                                                emptySlotCount++;
+                                            }
+                                        });
+                                    });
 
-                                ))}
+                                    return (
+                                        <th key={day.dateStr}
+                                            className={`border-r border-slate-700 p-1 sm:p-2 min-w-[30px] sm:min-w-[45px] text-center border-b-2 border-slate-600 sticky top-0 bg-slate-900 print:bg-slate-200 ${(day.type === 'saturday' || day.type === 'sunday') || isDateHoliday(day.dateStr, branchData.holidays) ? 'bg-slate-800 text-indigo-300 print:text-black print:bg-slate-100' : ''}`}
+                                        >
+                                            <div className="font-black text-[10px] sm:text-sm mb-0.5">{day.dayNum}</div>
+                                            <div className="text-[6px] sm:text-[8px] opacity-70 uppercase tracking-tighter mb-1">{day.dayLabel}</div>
+                                            {isWeeklyPrint ? (
+                                                <div className="flex flex-col gap-0.5 w-full mt-1.5 print:hidden">
+                                                    <div className={`text-[7px] sm:text-[8px] font-black px-0.5 sm:px-1 py-0.5 rounded border w-full text-center leading-none ${unassignedFTCount > 0 ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200'}`}>
+                                                        {unassignedFTCount > 0 ? `ประจำว่าง ${unassignedFTCount}` : '✓ ประจำครบ'}
+                                                    </div>
+                                                    <div className={`text-[7px] sm:text-[8px] font-black px-0.5 sm:px-1 py-0.5 rounded border w-full text-center leading-none ${unassignedPTCount > 0 ? 'bg-orange-50 text-orange-600 border-orange-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200'}`}>
+                                                        {unassignedPTCount > 0 ? `PTว่าง ${unassignedPTCount}` : '✓ PTครบ'}
+                                                    </div>
+                                                    <div className={`text-[7px] sm:text-[8px] font-black px-0.5 sm:px-1 py-0.5 rounded border w-full text-center leading-none ${emptySlotCount > 0 ? 'bg-rose-50 text-rose-600 border-rose-200' : 'bg-indigo-50 text-indigo-600 border-indigo-200'}`}>
+                                                        {emptySlotCount > 0 ? `กะว่าง ${emptySlotCount}` : '✓ กะเต็ม'}
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="flex flex-col gap-0.5 w-full mt-1 print:hidden">
+                                                    <div className={`text-[6px] sm:text-[7px] font-black px-0.5 py-0.5 rounded border w-full text-center leading-none ${unassignedFTCount > 0 ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200'}`}>
+                                                        {unassignedFTCount > 0 ? `FT:${unassignedFTCount}` : 'FT ✓'}
+                                                    </div>
+                                                    <div className={`text-[6px] sm:text-[7px] font-black px-0.5 py-0.5 rounded border w-full text-center leading-none ${unassignedPTCount > 0 ? 'bg-orange-50 text-orange-600 border-orange-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200'}`}>
+                                                        {unassignedPTCount > 0 ? `PT:${unassignedPTCount}` : 'PT ✓'}
+                                                    </div>
+                                                    <div className={`text-[6px] sm:text-[7px] font-black px-0.5 py-0.5 rounded border w-full text-center leading-none ${emptySlotCount > 0 ? 'bg-rose-50 text-rose-600 border-rose-200' : 'bg-indigo-50 text-indigo-600 border-indigo-200'}`}>
+                                                        {emptySlotCount > 0 ? `V:${emptySlotCount}` : 'V ✓'}
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {/* Print mode displays (always rendered for paper print with specific printable styles) */}
+                                            {isWeeklyPrint ? (
+                                                <div className="hidden print:flex flex-col gap-0.5 w-full mt-1">
+                                                    <div className={`text-[8px] font-black px-0.5 py-0.5 border-black/30 border rounded w-full text-center leading-none ${unassignedFTCount > 0 ? 'bg-amber-50/50 text-amber-700' : 'bg-emerald-50/50 text-emerald-700'}`}>
+                                                        {unassignedFTCount > 0 ? `ประจำว่าง ${unassignedFTCount}` : '✓ ประจำครบ'}
+                                                    </div>
+                                                    <div className={`text-[8px] font-black px-0.5 py-0.5 border-black/30 border rounded w-full text-center leading-none ${unassignedPTCount > 0 ? 'bg-orange-50/50 text-orange-700' : 'bg-emerald-50/50 text-emerald-700'}`}>
+                                                        {unassignedPTCount > 0 ? `PTว่าง ${unassignedPTCount}` : '✓ PTครบ'}
+                                                    </div>
+                                                    <div className={`text-[8px] font-black px-0.5 py-0.5 border-black/30 border rounded w-full text-center leading-none ${emptySlotCount > 0 ? 'bg-rose-50/50 text-rose-700' : 'bg-indigo-50/50 text-indigo-700'}`}>
+                                                        {emptySlotCount > 0 ? `กะว่าง ${emptySlotCount}` : '✓ กะเต็ม'}
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="hidden print:flex flex-col gap-0.5 w-full mt-0.5">
+                                                    <div className={`text-[6.5px] font-black px-0.2 py-0.2 border-black/20 border rounded w-full text-center leading-none ${unassignedFTCount > 0 ? 'bg-amber-50/50 text-amber-800' : 'bg-emerald-50/50 text-emerald-800'}`}>
+                                                        {unassignedFTCount > 0 ? `FT:${unassignedFTCount}` : 'FT✓'}
+                                                    </div>
+                                                    <div className={`text-[6.5px] font-black px-0.2 py-0.2 border-black/20 border rounded w-full text-center leading-none ${unassignedPTCount > 0 ? 'bg-orange-50/50 text-orange-800' : 'bg-emerald-50/50 text-emerald-800'}`}>
+                                                        {unassignedPTCount > 0 ? `PT:${unassignedPTCount}` : 'PT✓'}
+                                                    </div>
+                                                    <div className={`text-[6.5px] font-black px-0.2 py-0.2 border-black/20 border rounded w-full text-center leading-none ${emptySlotCount > 0 ? 'bg-rose-50/50 text-rose-800' : 'bg-indigo-50/50 text-indigo-800'}`}>
+                                                        {emptySlotCount > 0 ? `V:${emptySlotCount}` : 'V✓'}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </th>
+                                    );
+                                })}
                             </tr>
                         </thead>
                         <tbody>
