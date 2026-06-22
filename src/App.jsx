@@ -984,6 +984,7 @@ export default function App() {
     const [isTimeout, setIsTimeout] = useState(false);
     const [showLoadingUI, setShowLoadingUI] = useState(false);
     const [loadingPhase, setLoadingPhase] = useState(0);
+    const shouldShowLoading = showLoadingUI || loadError || isTimeout;
 
     useEffect(() => {
         let timer;
@@ -10372,7 +10373,7 @@ export default function App() {
         mainContent = <PrintMonthlyView onPrint={handlePrintMonthly} CALENDAR_DAYS={DISPLAY_DAYS} branchData={branchData} globalConfig={globalConfig} activeBranchId={activeBranchId} THAI_MONTHS={THAI_MONTHS} selectedMonth={selectedMonth} getStaffDayInfo={getStaffDayInfo} setView={setView} activeDept={activeDept} CURRENT_DUTY_LIST={CURRENT_DUTY_LIST} schedule={schedule} handleToggleLeave={handleToggleLeave} LEAVE_TYPES={LEAVE_TYPES} pendingRequests={pendingRequests} />;
     }
 
-    const shouldShowLoading = showLoadingUI || loadError || isTimeout;
+
 
     return (
         <React.Fragment>
