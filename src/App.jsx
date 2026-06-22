@@ -67,26 +67,26 @@ function saveRosterAsImage() {
       tables.forEach(table => {
         table.style.setProperty('width', '100%', 'important');
         table.style.setProperty('table-layout', 'auto', 'important');
-        table.style.setProperty('border-collapse', 'separate', 'important');
-        table.style.setProperty('border-spacing', '0', 'important');
+        table.style.setProperty('border-collapse', 'collapse', 'important');
         
         // Remove sticky positioning since it messes up screenshot flow
-        const stickyCells = table.querySelectorAll('.sticky, th, td');
+        const stickyCells = table.querySelectorAll('.sticky');
         stickyCells.forEach(cell => {
-          if (cell.classList.contains('sticky') || window.getComputedStyle(cell).position === 'sticky') {
-            cell.style.setProperty('position', 'static', 'important');
-          }
+          cell.style.setProperty('position', 'static', 'important');
+        });
+
+        // Set position relative on all rowspan/colspan cells to fix html2canvas render bounds calculation
+        const spannedCells = table.querySelectorAll('td[rowspan], th[rowspan], td[colspan], th[colspan]');
+        spannedCells.forEach(cell => {
+          cell.style.setProperty('position', 'relative', 'important');
+          cell.style.setProperty('height', 'auto', 'important');
         });
       });
 
-      // 3. Convert all select elements into static text spans so they render nicely
+      // 3. Hide all select elements (the print-inline spans already exist and contain the value)
       const selects = clonedElement.querySelectorAll('select');
       selects.forEach(select => {
-        const val = select.value || select.options[select.selectedIndex]?.text || '';
-        const span = clonedDoc.createElement('span');
-        span.className = 'font-black text-indigo-700 text-[10px] sm:text-xs block text-center';
-        span.innerText = val;
-        select.parentNode.replaceChild(span, select);
+        select.style.setProperty('display', 'none', 'important');
       });
 
       // 4. Handle elements that are print-hidden (e.g. icons, close buttons, interactive indicators)
