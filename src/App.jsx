@@ -46,94 +46,39 @@ function saveRosterAsImage() {
     btn.innerHTML = 'กำลังบันทึกภาพ...';
   }
 
+  // Calculate the width needed to fit the full table
+  // Use a minimum of 1300px to ensure it renders in desktop layout
+  const captureWidth = Math.max(1300, element.scrollWidth);
+
   html2canvas(element, {
     scale: 2,
     useCORS: true,
     backgroundColor: '#ffffff',
     logging: false,
+    windowWidth: captureWidth, // Force a wide viewport to prevent layout wrapping
     onclone: (clonedDoc) => {
       // Find the element in the cloned document
       const clonedElement = clonedDoc.getElementById('daily-roster-capture-area') || clonedDoc.getElementById('head-team-roster');
       if (!clonedElement) return;
 
-      // 1. Force the container to be wide enough to show the full scrollable width
-      const scrollWidth = clonedElement.scrollWidth;
-      clonedElement.style.setProperty('width', scrollWidth + 'px', 'important');
+      // Force the cloned capture container to be full width
+      clonedElement.style.setProperty('width', captureWidth + 'px', 'important');
       clonedElement.style.setProperty('max-width', 'none', 'important');
       clonedElement.style.setProperty('overflow', 'visible', 'important');
 
-      // 2. Format tables to avoid html2canvas rowspan layout bugs by copying exact widths/heights
-      const tables = clonedElement.querySelectorAll('table');
-      tables.forEach((clonedTable) => {
-        const tableIndex = Array.from(clonedDoc.querySelectorAll('table')).indexOf(clonedTable);
-        const liveTable = document.querySelectorAll('table')[tableIndex];
-        if (!liveTable) return;
-
-        // Copy exact table dimensions
-        clonedTable.style.setProperty('width', liveTable.offsetWidth + 'px', 'important');
-        clonedTable.style.setProperty('table-layout', 'fixed', 'important');
-        clonedTable.style.setProperty('border-collapse', 'collapse', 'important');
-
-        // Copy column widths from first row header/cells
-        const liveHeaderCells = liveTable.querySelectorAll('tr:first-child th, tr:first-child td');
-        const clonedHeaderCells = clonedTable.querySelectorAll('tr:first-child th, tr:first-child td');
-        clonedHeaderCells.forEach((clonedCell, cellIndex) => {
-          const liveCell = liveHeaderCells[cellIndex];
-          if (liveCell) {
-            clonedCell.style.setProperty('width', liveCell.getBoundingClientRect().width + 'px', 'important');
-          }
-        });
-
-        // Set explicit heights for all spanned cells to prevent clipping or layout shifting
-        const liveRows = Array.from(liveTable.querySelectorAll('tr'));
-        const clonedRows = Array.from(clonedTable.querySelectorAll('tr'));
-
-        clonedRows.forEach((clonedRow, rowIndex) => {
-          const liveRow = liveRows[rowIndex];
-          if (!liveRow) return;
-
-          const clonedCells = Array.from(clonedRow.children);
-          clonedCells.forEach((clonedCell) => {
-            const rowSpanAttr = clonedCell.getAttribute('rowspan');
-            if (rowSpanAttr) {
-              const rowSpanCount = parseInt(rowSpanAttr, 10);
-              if (rowSpanCount > 1) {
-                let totalHeight = 0;
-                for (let i = 0; i < rowSpanCount; i++) {
-                  const targetRowIndex = rowIndex + i;
-                  const targetLiveRow = liveRows[targetRowIndex];
-                  if (targetLiveRow) {
-                    totalHeight += targetLiveRow.getBoundingClientRect().height;
-                  }
-                }
-                clonedCell.style.setProperty('height', totalHeight + 'px', 'important');
-                clonedCell.style.setProperty('position', 'static', 'important');
-                clonedCell.style.setProperty('vertical-align', 'middle', 'important');
-              }
-            }
-          });
-        });
-
-        // Remove sticky header positioning
-        const stickyCells = clonedTable.querySelectorAll('.sticky');
-        stickyCells.forEach(cell => {
-          cell.style.setProperty('position', 'static', 'important');
-        });
-      });
-
-      // 3. Hide all select elements (the print-inline spans already exist and contain the value)
+      // Hide all select elements (since we will show the print version span text instead)
       const selects = clonedElement.querySelectorAll('select');
       selects.forEach(select => {
         select.style.setProperty('display', 'none', 'important');
       });
 
-      // 4. Handle elements that are print-hidden (e.g. icons, close buttons, interactive indicators)
+      // Hide all buttons and print-hidden elements
       const printHidden = clonedElement.querySelectorAll('.print\\:hidden, button');
       printHidden.forEach(el => {
         el.style.setProperty('display', 'none', 'important');
       });
 
-      // 5. Force show print-only elements
+      // Force show all print-inline and print-block text elements
       const printInline = clonedElement.querySelectorAll('.print\\:inline, .hidden.print\\:inline');
       printInline.forEach(el => {
         el.style.setProperty('display', 'inline', 'important');
@@ -142,6 +87,15 @@ function saveRosterAsImage() {
       const printBlock = clonedElement.querySelectorAll('.print\\:block, .hidden.print\\:block');
       printBlock.forEach(el => {
         el.style.setProperty('display', 'block', 'important');
+      });
+
+      // Remove sticky positions on table headers in clone to prevent overlap bugs
+      const tables = clonedElement.querySelectorAll('table');
+      tables.forEach(table => {
+        const stickyCells = table.querySelectorAll('.sticky');
+        stickyCells.forEach(cell => {
+          cell.style.setProperty('position', 'static', 'important');
+        });
       });
     }
   })
