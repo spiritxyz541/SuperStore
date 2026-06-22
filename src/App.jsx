@@ -957,23 +957,36 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
                                                         }
                                                     });
 
-                                                    // ดึงสิทธิ์ในการทำหน้าที่ต่างๆ ของพนักงานในวันนี้
-                                                    const vacantDutiesOptions = [];
-                                                    CURRENT_DUTY_LIST.forEach(d => {
-                                                        const reqArr = Array.isArray(d.reqPos) ? d.reqPos : [d.reqPos || 'ALL'];
-                                                        const isEligible = checkPositionEligibility(s.pos, reqArr, activeDept);
-                                                        if (isEligible) {
-                                                            const matrixSlots = branchData.matrix?.[day.type]?.duties?.[d.id] || [];
-                                                            matrixSlots.forEach((slot, slotIdx) => {
-                                                                const assignedSlots = schedule?.[day.dateStr]?.duties?.[d.id] || [];
-                                                                const slotData = assignedSlots[slotIdx];
-                                                                const isAssignedToOther = slotData && slotData.staffId && slotData.staffId !== s.id;
-                                                                if (!isAssignedToOther) {
-                                                                    const isCurrentAssignment = slotData && slotData.staffId === s.id;
-                                                                    // ในหน้านี้จะไม่ขึ้นกะสำรองให้เลือกจนกว่าจะมีพนักงานประจำที่ยังไม่ได้จัดหน้าที่งาน
-                                                                    if (d.isBackup && unassignedFTCount === 0 && !isCurrentAssignment) {
-                                                                        return;
-                                                                    }
+                                                     // คำนวณจำนวนกะหลักที่ยังว่างในวันนี้
+                                                     let emptyPrimaryCount = 0;
+                                                     CURRENT_DUTY_LIST.forEach(dty => {
+                                                         if (dty.isBackup) return;
+                                                         const primSlots = branchData.matrix?.[day.type]?.duties?.[dty.id] || [];
+                                                         const primAssigned = schedule?.[day.dateStr]?.duties?.[dty.id] || [];
+                                                         primSlots.forEach((_, pIdx) => {
+                                                             if (!primAssigned[pIdx] || !primAssigned[pIdx].staffId) {
+                                                                 emptyPrimaryCount++;
+                                                             }
+                                                         });
+                                                     });
+
+                                                     // ดึงสิทธิ์ในการทำหน้าที่ต่างๆ ของพนักงานในวันนี้
+                                                     const vacantDutiesOptions = [];
+                                                     CURRENT_DUTY_LIST.forEach(d => {
+                                                         const reqArr = Array.isArray(d.reqPos) ? d.reqPos : [d.reqPos || 'ALL'];
+                                                         const isEligible = checkPositionEligibility(s.pos, reqArr, activeDept);
+                                                         if (isEligible) {
+                                                             const matrixSlots = branchData.matrix?.[day.type]?.duties?.[d.id] || [];
+                                                             matrixSlots.forEach((slot, slotIdx) => {
+                                                                 const assignedSlots = schedule?.[day.dateStr]?.duties?.[d.id] || [];
+                                                                 const slotData = assignedSlots[slotIdx];
+                                                                 const isAssignedToOther = slotData && slotData.staffId && slotData.staffId !== s.id;
+                                                                 if (!isAssignedToOther) {
+                                                                     const isCurrentAssignment = slotData && slotData.staffId === s.id;
+                                                                     // กะสำรองจะปรากฏต่อเมื่อกะหลักเติมจนเต็มหมดแล้วเท่านั้น (emptyPrimaryCount === 0)
+                                                                     if (d.isBackup && emptyPrimaryCount > 0 && !isCurrentAssignment) {
+                                                                         return;
+                                                                     }
                                                                     const preset = branchData.shiftPresets?.find(p => p.id === slot.shiftPresetId);
                                                                     const times = getShiftTimesForStaff(s.pos, preset);
                                                                     const timeStr = times ? ` (${formatTimeAbbreviation(times.startTime)}-${formatTimeAbbreviation(times.endTime)})` : '';
