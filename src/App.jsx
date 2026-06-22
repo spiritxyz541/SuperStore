@@ -100,20 +100,13 @@ function saveRosterAsImage() {
   // Remove "รอบพัก" (Break Time) column from the cloned element if it exists
   const tables = clonedElement.querySelectorAll('table');
   tables.forEach(table => {
-    const headerCells = Array.from(table.querySelectorAll('th'));
-    const breakColIndex = headerCells.findIndex(th => th.innerText.trim() === 'รอบพัก');
+    const hasBreakColumn = Array.from(table.querySelectorAll('th')).some(th => th.textContent.includes('รอบพัก'));
     
-    if (breakColIndex !== -1) {
-      // 1. Remove the "รอบพัก" header cell
-      headerCells[breakColIndex].remove();
-      
-      // 2. Remove the corresponding column cell from all other rows
+    if (hasBreakColumn) {
       const rows = table.querySelectorAll('tr');
       rows.forEach(row => {
-        const cells = Array.from(row.children);
-        
         // If this is the TOTAL STAFF summary row
-        if (row.classList.contains('bg-slate-100') || row.innerText.includes('TOTAL STAFF')) {
+        if (row.classList.contains('bg-slate-100') || row.textContent.includes('TOTAL STAFF')) {
           const lastCell = row.lastElementChild;
           if (lastCell) {
             const colSpanAttr = lastCell.getAttribute('colspan');
@@ -124,9 +117,10 @@ function saveRosterAsImage() {
               }
             }
           }
-        } else if (cells.length > breakColIndex) {
-          const lastCell = cells[cells.length - 1];
-          if (lastCell && lastCell.tagName === 'TD') {
+        } else {
+          // For all other rows (header and normal body rows), simply remove the last cell
+          const lastCell = row.lastElementChild;
+          if (lastCell && (lastCell.tagName === 'TD' || lastCell.tagName === 'TH')) {
             lastCell.remove();
           }
         }
