@@ -8351,13 +8351,13 @@ export default function App() {
         const baseBudget = branchData.ptConfig?.monthlyBudget || 0;
         const isOverAllowed = estimatedPtExpense > totalAllowedExpense;
 
-        const uniqueOtMultipliers = useMemo(() => {
+        const uniqueOtMultipliers = (() => {
             const multipliers = new Set();
             reportData.forEach(s => {
                 Object.keys(s.otHoursByMultiplier || {}).forEach(m => multipliers.add(m));
             });
             return Array.from(multipliers).map(Number).sort((a, b) => a - b);
-        }, [reportData]);
+        })();
 
         return (
             <div className="flex-1 space-y-6 sm:space-y-12 animate-in fade-in duration-500 pb-24 w-full">
