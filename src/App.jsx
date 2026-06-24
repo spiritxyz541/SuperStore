@@ -580,7 +580,7 @@ const DayOffSelector = ({ value, onChange, disabled, dayOffCounts, limits, isPT,
     );
 };
 
-const BreakTimeInput = ({ computedValue, manualValue, onSave, onReset, rsFontSize, staffPos }) => {
+const BreakTimeInput = ({ computedValue, manualValue, onSave, onReset, rsFontSize, staffPos, disabled }) => {
     const displayValue = manualValue !== undefined ? manualValue : computedValue;
 
     const breakDuration = (staffPos && SHORT_HOUR_POSITIONS.includes(staffPos)) ? 60 : 90;
@@ -618,8 +618,9 @@ const BreakTimeInput = ({ computedValue, manualValue, onSave, onReset, rsFontSiz
         <div className="relative w-full h-full flex items-center justify-center group">
             <select
                 value={displayValue || ''}
+                disabled={disabled}
                 onChange={(e) => onSave(e.target.value)}
-                className="w-full text-center outline-none bg-indigo-50/80 border border-indigo-200 hover:bg-indigo-100 hover:border-indigo-300 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded py-1 print:hidden transition-all shadow-sm cursor-pointer z-10"
+                className={`w-full text-center outline-none bg-indigo-50/80 border border-indigo-200 hover:bg-indigo-100 hover:border-indigo-300 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 rounded py-1 print:hidden transition-all shadow-sm cursor-pointer z-10 ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                 style={{ fontSize: `${rsFontSize}px` }}
                 title="เลือกเวลาพัก"
             >
@@ -629,7 +630,7 @@ const BreakTimeInput = ({ computedValue, manualValue, onSave, onReset, rsFontSiz
                 )}
                 {timeOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
             </select>
-            {manualValue !== undefined && (
+            {manualValue !== undefined && !disabled && (
                 <button
                     onMouseDown={(e) => {
                         e.preventDefault(); // ป้องกันบั๊กการแย่งโฟกัสตอนกดปุ่มรีเซ็ต
@@ -1184,6 +1185,9 @@ export default function App() {
 
     const [showExtraOtModal, setShowExtraOtModal] = useState(null);
     const [extraOtReason, setExtraOtReason] = useState('');
+
+    const [showShiftChangeModal, setShowShiftChangeModal] = useState(null);
+    const [shiftChangeReason, setShiftChangeReason] = useState('');
 
     const [showForecastModal, setShowForecastModal] = useState(false);
     const [ptRequestMode, setPtRequestMode] = useState('EVENT'); // 'EVENT' or 'OVER_BUDGET'
@@ -3791,6 +3795,16 @@ export default function App() {
                     newSched[req.dateStr].duties[req.dutyId][req.slotIdx].otUpdated = true;
                 }
             }
+            else if (req.reqType === 'SHIFT_CHANGE') {
+                if (!newSched[req.dateStr]) newSched[req.dateStr] = { duties: {}, leaves: [] };
+                if (!newSched[req.dateStr].duties) newSched[req.dateStr].duties = {};
+                if (!newSched[req.dateStr].duties[req.dutyId]) newSched[req.dateStr].duties[req.dutyId] = [];
+                if (!newSched[req.dateStr].duties[req.dutyId][req.slotIdx]) {
+                    newSched[req.dateStr].duties[req.dutyId][req.slotIdx] = { staffId: req.staffId, otHours: 0, shiftPresetId: req.newShiftPresetId };
+                } else {
+                    newSched[req.dateStr].duties[req.dutyId][req.slotIdx].shiftPresetId = req.newShiftPresetId;
+                }
+            }
             newSchedToSave = newSched;
             return newSched;
         }); setTimeout(() => {
@@ -3801,6 +3815,31 @@ export default function App() {
 
         const newList = pendingRequests.map(r => r.id === req.id ? { ...r, status: 'APPROVED', updatedTimestamp: Date.now() } : r);
         await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'requests', activeBranchId), { list: newList });
+    };
+
+    const handleSubmitShiftChangeRequest = async (dateStr, dutyId, slotIdx, staffId, oldShiftPresetId, newShiftPresetId, reason) => {
+        const newReq = {
+            id: 'R' + Date.now(),
+            reqType: 'SHIFT_CHANGE',
+            staffId: staffId,
+            dateStr: dateStr,
+            dutyId: dutyId,
+            slotIdx: slotIdx,
+            oldShiftPresetId: oldShiftPresetId,
+            newShiftPresetId: newShiftPresetId,
+            reason: reason,
+            status: 'PENDING_MANAGER',
+            timestamp: Date.now()
+        };
+        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'requests', activeBranchId);
+        try {
+            const snap = await getDoc(docRef);
+            const currentList = snap.exists() ? (snap.data().list || []) : [];
+            await setDoc(docRef, { list: [...currentList, newReq] });
+            setConfirmModal({ message: 'ส่งคำขออนุมัติเปลี่ยนกะเวลาเรียบร้อยแล้ว รอการตรวจสอบจาก Area Manager' });
+        } catch (e) {
+            setConfirmModal({ message: 'เกิดข้อผิดพลาดในการส่งคำขอ' });
+        }
     };
 
     const handleRejectRequest = async (reqId, reason = '') => {
@@ -4875,6 +4914,18 @@ export default function App() {
                                                             เหตุผล: <span className="text-rose-700">{req.reason || '-'}</span>
                                                         </div>
                                                     );
+                                                } else if (req.reqType === 'SHIFT_CHANGE') {
+                                                    const oldPreset = branchData.shiftPresets?.find(p => p.id === req.oldShiftPresetId);
+                                                    const newPreset = branchData.shiftPresets?.find(p => p.id === req.newShiftPresetId);
+                                                    const duty = CURRENT_DUTY_LIST.find(d => d.id === req.dutyId);
+                                                    detailHtml = (
+                                                        <div className="mt-2 text-xs font-bold text-slate-600 bg-amber-50 p-3 rounded-lg border border-amber-100 font-sans">
+                                                            ขอเปลี่ยนกะเวลาหน้าที่งาน: <span className="text-amber-800 font-black">{duty ? duty.jobA.replace(/<[^>]*>?/gm, '') : 'Unknown'}</span> <br />
+                                                            ประจำวันที่: <span className="text-amber-700">{req.dateStr}</span> <br />
+                                                            จากกะเดิม: <span className="text-slate-500">{oldPreset ? oldPreset.name : 'N/A'}</span> {"->"} กะใหม่: <span className="text-indigo-700 font-black">{newPreset ? newPreset.name : 'N/A'}</span> <br />
+                                                            เหตุผล: <span className="text-amber-700">{req.reason || '-'}</span>
+                                                        </div>
+                                                    );
                                                 } else if (req.reqType === 'EXTRA_PT') {
                                                     const isOverBudget = req.mode === 'OVER_BUDGET' || (!req.forecastTc && !req.evidence);
                                                     detailHtml = (
@@ -4902,14 +4953,14 @@ export default function App() {
                                                     );
                                                 }
                                                 return (
-                                                    <div key={req.id} className="bg-white border border-slate-200 p-4 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-sm">
+                                                    <div key={req.id} className="bg-white border border-slate-200 p-4 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-sm font-sans">
                                                         <div>
-                                                            <h4 className="font-black text-slate-800">{staff?.name || (['EXTRA_PT', 'EXTRA_OT'].includes(req.reqType) && !staff ? 'ผู้จัดการสาขา (Manager)' : 'Unknown Staff')} {staff && <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded border ml-2">{staff.pos}</span>}</h4>
+                                                            <h4 className="font-black text-slate-800">{staff?.name || (['EXTRA_PT', 'EXTRA_OT', 'SHIFT_CHANGE'].includes(req.reqType) && !staff ? 'ผู้จัดการสาขา (Manager)' : 'Unknown Staff')} {staff && <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded border ml-2">{staff.pos}</span>}</h4>
                                                             {detailHtml}
                                                         </div>
-                                                        {['EXTRA_PT', 'EXTRA_OT'].includes(req.reqType) && authRole === 'branch' ? (
+                                                        {['EXTRA_PT', 'EXTRA_OT', 'SHIFT_CHANGE'].includes(req.reqType) && authRole === 'branch' ? (
                                                             <div className="flex gap-2 w-full sm:w-auto">
-                                                                <span className="flex-1 sm:flex-none text-xs font-bold text-amber-600 bg-amber-50 px-4 py-2 rounded-xl border border-amber-200 flex items-center justify-center whitespace-nowrap">รอ AM อนุมัติ</span>
+                                                                <span className="flex-1 sm:flex-none text-xs font-bold text-amber-600 bg-amber-50 px-4 py-2 rounded-xl border border-amber-200 flex items-center justify-center whitespace-nowrap font-sans font-black">รอ AM อนุมัติ</span>
                                                                 <button onClick={() => handleRejectRequest(req.id, 'Manager Cancelled')} className="flex-1 sm:flex-none bg-red-50 text-red-500 px-4 py-2 rounded-xl text-xs font-black hover:bg-red-500 hover:text-white transition border border-red-200">ยกเลิก</button>
                                                             </div>
                                                         ) : (
@@ -4928,7 +4979,7 @@ export default function App() {
                                         let historyList = pendingRequests.filter(r => r.status === 'APPROVED' || r.status === 'REJECTED');
 
                                         if (reqHistoryFilterType !== 'ALL') {
-                                            historyList = historyList.filter(r => r.reqType === reqHistoryFilterType || (reqHistoryFilterType === 'LEAVE' && !['SWAP', 'EXTRA_OT', 'EXTRA_PT'].includes(r.reqType)));
+                                            historyList = historyList.filter(r => r.reqType === reqHistoryFilterType || (reqHistoryFilterType === 'LEAVE' && !['SWAP', 'EXTRA_OT', 'EXTRA_PT', 'SHIFT_CHANGE'].includes(r.reqType)));
                                         }
                                         if (reqHistoryFilterMonth !== 'ALL') {
                                             historyList = historyList.filter(r => {
@@ -4947,12 +4998,13 @@ export default function App() {
                                             <div className="flex flex-col gap-3 h-full">
                                                 <div className="flex flex-wrap gap-2 bg-slate-50 p-3 rounded-xl border border-slate-100 flex-shrink-0">
                                                     <select value={reqHistoryFilterType} onChange={e => setReqHistoryFilterType(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 outline-none bg-white text-slate-700 font-bold">
-                                                        <option value="ALL">ทุกประเภท</option>
-                                                        <option value="LEAVE">ลาหยุด</option>
-                                                        <option value="SWAP">สลับกะ</option>
-                                                        <option value="EXTRA_PT">โควตาพิเศษ (Event)</option>
-                                                        <option value="EXTRA_OT">OT ส่วนเกิน</option>
-                                                    </select>
+                                                         <option value="ALL">ทุกประเภท</option>
+                                                         <option value="LEAVE">ลาหยุด</option>
+                                                         <option value="SWAP">สลับกะ</option>
+                                                         <option value="EXTRA_PT">โควตาพิเศษ (Event)</option>
+                                                         <option value="EXTRA_OT">OT ส่วนเกิน</option>
+                                                         <option value="SHIFT_CHANGE">เปลี่ยนกะเวลา</option>
+                                                     </select>
                                                     <select value={reqHistoryFilterMonth} onChange={e => setReqHistoryFilterMonth(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 outline-none bg-white text-slate-700 font-bold">
                                                         <option value="ALL">ทุกเดือน</option>
                                                         {THAI_MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
@@ -4984,6 +5036,14 @@ export default function App() {
                                                                         ขอ OT เกินโควตา: <span className="text-rose-600 font-black">{req.requestedOt} ชม.</span> (วันที่: {req.dateStr})
                                                                     </div>
                                                                 );
+                                                            } else if (req.reqType === 'SHIFT_CHANGE') {
+                                                                const oldPreset = branchData.shiftPresets?.find(p => p.id === req.oldShiftPresetId);
+                                                                const newPreset = branchData.shiftPresets?.find(p => p.id === req.newShiftPresetId);
+                                                                detailHtml = (
+                                                                    <div className="mt-1 text-xs font-bold text-slate-500 font-sans">
+                                                                        ขอเปลี่ยนกะเวลา: {oldPreset ? oldPreset.name : 'N/A'} {"->"} {newPreset ? newPreset.name : 'N/A'} (วันที่: {req.dateStr})
+                                                                    </div>
+                                                                );
                                                             } else if (req.reqType === 'EXTRA_PT') {
                                                                 detailHtml = (
                                                                     <div className="mt-1 text-xs font-bold text-slate-500">
@@ -5001,7 +5061,7 @@ export default function App() {
                                                             return (
                                                                 <div key={req.id} className="bg-slate-50 border border-slate-100 p-4 rounded-2xl flex justify-between items-center gap-4">
                                                                     <div>
-                                                                        <h4 className="font-black text-slate-700">{staff?.name || (['EXTRA_PT', 'EXTRA_OT'].includes(req.reqType) && !staff ? 'ผู้จัดการสาขา' : 'Unknown Staff')}</h4>
+                                                                        <h4 className="font-black text-slate-700">{staff?.name || (['EXTRA_PT', 'EXTRA_OT', 'SHIFT_CHANGE'].includes(req.reqType) && !staff ? 'ผู้จัดการสาขา' : 'Unknown Staff')}</h4>
                                                                         {detailHtml}
                                                                         <p className="text-[9px] text-slate-400 mt-1">{new Date(req.updatedTimestamp || req.timestamp).toLocaleString('th-TH')}</p>
                                                                     </div>
@@ -5222,7 +5282,54 @@ export default function App() {
                             })()}
                         </div>
                     </div>
-                )}        {showPtLedgerDetails && (
+                )}
+                {showShiftChangeModal && (
+                    <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300 font-sans">
+                        <div className="bg-white rounded-[2rem] p-6 sm:p-8 max-w-md w-full shadow-2xl relative flex flex-col gap-4 animate-in zoom-in-95">
+                            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                                <h3 className="text-lg sm:text-xl font-black text-slate-800 uppercase tracking-tighter flex items-center gap-2"><Clock className="w-6 h-6 text-indigo-500" /> ขออนุมัติเปลี่ยนกะเวลาทำงาน</h3>
+                                <button onClick={() => { setShowShiftChangeModal(null); setShiftChangeReason(''); }} className="text-slate-400 hover:bg-slate-100 p-2 rounded-full transition"><X className="w-5 h-5" /></button>
+                            </div>
+                            <div className="space-y-4">
+                                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-xs sm:text-sm text-slate-600 font-bold space-y-2">
+                                    <p>พนักงาน: <span className="text-indigo-700">{branchData.staff?.find(s => s.id === showShiftChangeModal.staffId)?.name || 'N/A'}</span></p>
+                                    <p>วันที่: <span className="text-indigo-700">{showShiftChangeModal.dateStr}</span></p>
+                                    <p>กะเดิม: <span className="text-slate-500 font-black">{branchData.shiftPresets?.find(p => p.id === showShiftChangeModal.oldShiftPresetId)?.name || 'N/A'}</span></p>
+                                    <p>กะใหม่: <span className="text-indigo-600 font-black">{branchData.shiftPresets?.find(p => p.id === showShiftChangeModal.newShiftPresetId)?.name || 'N/A'}</span></p>
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">เหตุผลการขอเปลี่ยนกะ (จำเป็นต้องกรอก)</label>
+                                    <textarea
+                                        value={shiftChangeReason}
+                                        onChange={(e) => setShiftChangeReason(e.target.value)}
+                                        placeholder="ระบุเหตุผล เช่น พนักงานสะดวกกะสายขึ้น, ปรับกะตามความจำเป็นหน้าร้าน"
+                                        className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 bg-white shadow-sm min-h-[100px] resize-y"
+                                    />
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        handleSubmitShiftChangeRequest(
+                                            showShiftChangeModal.dateStr,
+                                            showShiftChangeModal.dutyId,
+                                            showShiftChangeModal.slotIdx,
+                                            showShiftChangeModal.staffId,
+                                            showShiftChangeModal.oldShiftPresetId,
+                                            showShiftChangeModal.newShiftPresetId,
+                                            shiftChangeReason
+                                        );
+                                        setShowShiftChangeModal(null);
+                                        setShiftChangeReason('');
+                                    }}
+                                    disabled={!shiftChangeReason.trim()}
+                                    className="w-full bg-indigo-600 text-white py-3.5 rounded-xl font-black text-xs sm:text-sm hover:bg-indigo-700 transition disabled:opacity-50 shadow-lg mt-2 uppercase tracking-widest"
+                                >
+                                    ส่งคำขออนุมัติ
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+                {showPtLedgerDetails && (
                     <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300 font-sans">
                         <div className="bg-white rounded-[2rem] p-6 sm:p-8 max-w-3xl w-full shadow-2xl relative flex flex-col gap-4 animate-in zoom-in-95 max-h-[85vh]">
                             <div className="flex justify-between items-center border-b border-slate-100 pb-3">
@@ -7314,6 +7421,10 @@ export default function App() {
                                                         const currentShiftPreset = branchData.shiftPresets?.find(p => p.id === (data.shiftPresetId || slot?.shiftPresetId));
                                                         const currentShiftName = currentShiftPreset ? currentShiftPreset.name : 'N/A';
 
+                                                        const pendingShiftChange = pendingRequests.find(r => r.reqType === 'SHIFT_CHANGE' && r.dateStr === selectedDateStr && r.dutyId === duty.id && r.slotIdx === idx && r.status === 'PENDING_MANAGER');
+                                                        const assignedStaffInfo = branchData.staff?.find(s => s.id === (data.staffId?.startsWith('COVER_BY_') ? data.staffId.replace('COVER_BY_', '') : data.staffId));
+                                                        const times = getShiftTimesForStaff(assignedStaffInfo?.pos || 'OC', currentShiftPreset);
+
                                                         const pendingExtraOt = pendingRequests.find(r => r.reqType === 'EXTRA_OT' && r.dateStr === selectedDateStr && r.dutyId === duty.id && r.slotIdx === idx && r.status === 'PENDING_MANAGER');
 
                                                         const extraBadge = isExtra ? (data.isEventExtra ? 'EVENT EXTRA' : 'BASE EXTRA') : null;
@@ -7336,16 +7447,52 @@ export default function App() {
                                                         return (
                                                             <div key={idx} className={`p-4 sm:p-5 rounded-[1.2rem] sm:rounded-[1.5rem] border-2 transition-all flex flex-col gap-3 shadow-sm ${extraColor}`}>
                                                                 <div className="flex justify-between items-center">
-                                                                    <span className={`text-[10px] sm:text-[11px] font-black uppercase tracking-widest flex items-center gap-1.5 ${extraTextColor}`}>
-                                                                        <Clock className={`w-3 h-3 sm:w-4 sm:h-4 ${extraIconColor}`} />
-                                                                        {isExtra ? extraBadge : currentShiftName}
-                                                                    </span>
+                                                                     {['branch', 'superadmin', 'areamanager'].includes(authRole) && !pendingShiftChange ? (
+                                                                         <div className="flex items-center gap-1.5">
+                                                                             <Clock className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${extraIconColor}`} />
+                                                                             <select
+                                                                                 value={data.shiftPresetId || slot.shiftPresetId}
+                                                                                 onChange={(e) => {
+                                                                                     const newVal = e.target.value;
+                                                                                     const oldVal = data.shiftPresetId || slot.shiftPresetId;
+                                                                                     if (newVal === oldVal) return;
+                                                                                     if (['superadmin', 'areamanager'].includes(authRole)) {
+                                                                                         handleScheduleUpdate(selectedDateStr, duty.id, idx, 'shiftPresetId', newVal);
+                                                                                     } else if (authRole === 'branch') {
+                                                                                         if (data.staffId) {
+                                                                                             setShowShiftChangeModal({
+                                                                                                 dateStr: selectedDateStr,
+                                                                                                 dutyId: duty.id,
+                                                                                                 slotIdx: idx,
+                                                                                                 staffId: data.staffId,
+                                                                                                 oldShiftPresetId: oldVal,
+                                                                                                 newShiftPresetId: newVal
+                                                                                             });
+                                                                                         } else {
+                                                                                             handleScheduleUpdate(selectedDateStr, duty.id, idx, 'shiftPresetId', newVal);
+                                                                                         }
+                                                                                     }
+                                                                                 }}
+                                                                                 title="Select Shift Preset"
+                                                                                 className="cursor-pointer bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-[9px] sm:text-[10px] font-black outline-none text-slate-700 hover:bg-slate-100 transition shadow-sm max-w-[150px] sm:max-w-[200px] truncate font-sans"
+                                                                             >
+                                                                                 {branchData.shiftPresets?.map(p => {
+                                                                                     const presetTimes = getShiftTimesForStaff(assignedStaffInfo?.pos || 'OC', p);
+                                                                                     return (
+                                                                                         <option key={p.id} value={p.id}>
+                                                                                             {p.name} ({presetTimes.startTime}-{presetTimes.endTime})
+                                                                                         </option>
+                                                                                     );
+                                                                                 })}
+                                                                             </select>
+                                                                         </div>
+                                                                     ) : (
+                                                                         <span className={`text-[10px] sm:text-[11px] font-black uppercase tracking-widest flex items-center gap-1.5 ${extraTextColor}`}>
+                                                                             <Clock className={`w-3 h-3 sm:w-4 sm:h-4 ${extraIconColor}`} />
+                                                                             {isExtra && extraBadge ? `${extraBadge} - ` : ''}{currentShiftName} ({times.startTime}-{times.endTime})
+                                                                         </span>
+                                                                     )}
                                                                     <div className="flex gap-1.5 items-center">
-                                                                        {isExtra && ['branch', 'superadmin', 'areamanager'].includes(authRole) ? (
-                                                                            <select value={data.shiftPresetId || slot.shiftPresetId} onChange={(e) => handleScheduleUpdate(selectedDateStr, duty.id, idx, 'shiftPresetId', e.target.value)} className={`bg-white border rounded px-1.5 py-0.5 text-[8px] sm:text-[9px] font-black outline-none shadow-sm mr-1 ${data.isEventExtra ? 'border-amber-200 text-amber-700' : 'border-indigo-200 text-indigo-700'}`}>
-                                                                                {branchData.shiftPresets?.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                                                                            </select>
-                                                                        ) : null}
                                                                         {isExtra && ['branch', 'superadmin', 'areamanager'].includes(authRole) ? (
                                                                             <button onClick={() => handleRemoveExtraSlot(selectedDateStr, duty.id, idx)} className="bg-red-100 text-red-500 hover:bg-red-500 hover:text-white px-2 py-1 rounded text-[8px] sm:text-[9px] font-black transition shadow-sm"><X className="w-3 h-3" /></button>
                                                                         ) : (
@@ -7354,17 +7501,22 @@ export default function App() {
                                                                     </div>
                                                                 </div>
                                                                 <div className="flex flex-col sm:flex-row gap-2">
-                                                                    <select value={data.staffId} onChange={(e) => {
-                                                                        let calculatedOt = slot.maxOtHours || 0;
-                                                                        if (slot.targetEndTime) {
-                                                                            const actualId = e.target.value.startsWith('COVER_BY_') ? e.target.value.replace('COVER_BY_', '') : e.target.value;
-                                                                            const selectedStaff = branchData.staff?.find(s => s.id === actualId);
-                                                                            const preset = branchData.shiftPresets?.find(p => p.id === (data.shiftPresetId || slot.shiftPresetId));
-                                                                            const { endTime } = getShiftTimesForStaff(selectedStaff?.pos || 'OC', preset);
-                                                                            calculatedOt = calculateOtHours(slot.targetEndTime, endTime);
-                                                                        }
-                                                                        handleScheduleUpdate(selectedDateStr, duty.id, idx, 'staffId', e.target.value, calculatedOt);
-                                                                    }} className={`w-full sm:flex-[3] border rounded-xl px-3 py-2 text-xs font-black outline-none shadow-sm focus:border-indigo-500 transition-colors ${!data.staffId ? (duty.isBackup ? 'bg-slate-100/50 border-slate-200 text-slate-500' : 'bg-rose-100/50 border-rose-200 text-rose-600') : 'bg-slate-50 border-slate-200 text-slate-900'}`}>
+                                                                    <select
+                                                                        value={data.staffId}
+                                                                        disabled={!!pendingShiftChange}
+                                                                        onChange={(e) => {
+                                                                            let calculatedOt = slot.maxOtHours || 0;
+                                                                            if (slot.targetEndTime) {
+                                                                                const actualId = e.target.value.startsWith('COVER_BY_') ? e.target.value.replace('COVER_BY_', '') : e.target.value;
+                                                                                const selectedStaff = branchData.staff?.find(s => s.id === actualId);
+                                                                                const preset = branchData.shiftPresets?.find(p => p.id === (data.shiftPresetId || slot.shiftPresetId));
+                                                                                const { endTime } = getShiftTimesForStaff(selectedStaff?.pos || 'OC', preset);
+                                                                                calculatedOt = calculateOtHours(slot.targetEndTime, endTime);
+                                                                            }
+                                                                            handleScheduleUpdate(selectedDateStr, duty.id, idx, 'staffId', e.target.value, calculatedOt);
+                                                                        }}
+                                                                        className={`w-full sm:flex-[3] border rounded-xl px-3 py-2 text-xs font-black outline-none shadow-sm focus:border-indigo-500 transition-colors ${!data.staffId ? (duty.isBackup ? 'bg-slate-100/50 border-slate-200 text-slate-500' : 'bg-rose-100/50 border-rose-200 text-rose-600') : 'bg-slate-50 border-slate-200 text-slate-900'} ${pendingShiftChange ? 'opacity-65 cursor-not-allowed' : ''}`}
+                                                                    >
                                                                         <option value="">-- เลือกพนักงาน --</option>
                                                                         {branchData.staff?.filter(s => s.dept === activeDept && isStaffActiveOnDate(s, selectedDateStr)).map(s => {
                                                                             const isUsed = usedStaffIds.includes(s.id) && data.staffId !== s.id;
@@ -7379,7 +7531,15 @@ export default function App() {
                                                                         {pendingExtraOt ? (
                                                                             <span className="text-[8px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 leading-none text-center">รออนุมัติ<br />{pendingExtraOt.requestedOt}</span>
                                                                         ) : (
-                                                                            <input type="number" step="0.5" value={(data.otHours === 0 && !data.otUpdated && dynMaxOt > 0) ? dynMaxOt : data.otHours} onChange={(e) => handleScheduleUpdate(selectedDateStr, duty.id, idx, 'otHours', e.target.value)} onBlur={(e) => handleOtBlur(selectedDateStr, duty.id, idx, e.target.value, dynMaxOt, data.staffId)} className="w-12 sm:w-full text-right sm:text-center font-black text-sm outline-none bg-transparent focus:text-indigo-600" />
+                                                                            <input
+                                                                                type="number"
+                                                                                step="0.5"
+                                                                                value={(data.otHours === 0 && !data.otUpdated && dynMaxOt > 0) ? dynMaxOt : data.otHours}
+                                                                                disabled={!!pendingShiftChange}
+                                                                                onChange={(e) => handleScheduleUpdate(selectedDateStr, duty.id, idx, 'otHours', e.target.value)}
+                                                                                onBlur={(e) => handleOtBlur(selectedDateStr, duty.id, idx, e.target.value, dynMaxOt, data.staffId)}
+                                                                                className={`w-12 sm:w-full text-right sm:text-center font-black text-sm outline-none bg-transparent focus:text-indigo-600 ${pendingShiftChange ? 'cursor-not-allowed opacity-50' : ''}`}
+                                                                            />
                                                                         )}
                                                                     </div>
                                                                 </div>
@@ -7392,12 +7552,32 @@ export default function App() {
                                                                         </div>
                                                                     ) : null;
                                                                 })()}
+                                                                {pendingShiftChange && (() => {
+                                                                    const newPreset = branchData.shiftPresets?.find(p => p.id === pendingShiftChange.newShiftPresetId);
+                                                                    const newTimes = getShiftTimesForStaff(assignedStaffInfo?.pos || 'OC', newPreset);
+                                                                    return (
+                                                                        <div className="text-[10px] font-black text-amber-600 bg-amber-50 px-2.5 py-2 rounded-xl border border-amber-200 mt-1.5 flex flex-col sm:flex-row items-center gap-2 justify-between animate-pulse print:text-black print:border-black print:bg-transparent">
+                                                                            <div className="flex items-center gap-1.5">
+                                                                                <span>[รออนุมัติ] เปลี่ยนกะเป็น: <strong>{newPreset ? newPreset.name : 'N/A'} ({newTimes.startTime}-{newTimes.endTime})</strong></span>
+                                                                            </div>
+                                                                            {authRole === 'branch' && (
+                                                                                <button
+                                                                                    onClick={() => handleRejectRequest(pendingShiftChange.id, 'ยกเลิกโดยผู้จัดการสาขา')}
+                                                                                    className="text-[9px] font-black text-red-600 bg-red-50 hover:bg-red-100 px-2 py-1 rounded-lg border border-red-200 transition-colors uppercase tracking-wider print:hidden"
+                                                                                >
+                                                                                    ยกเลิกคำขอ
+                                                                                </button>
+                                                                            )}
+                                                                        </div>
+                                                                    );
+                                                                })()}
                                                                 <div className="flex items-center gap-2 mt-1 pt-2 border-t border-slate-200/50">
                                                                     <span className="text-[9px] font-black text-slate-400 uppercase w-12 text-right flex-shrink-0">รอบพัก :</span>
                                                                     <div className="flex-1 bg-white rounded-lg">
                                                                         <BreakTimeInput
                                                                             computedValue={dailyComputedBreaks?.[duty.id]?.[idx] || 'N/A'}
                                                                             manualValue={data.breakTime}
+                                                                            disabled={!!pendingShiftChange}
                                                                             onSave={(newVal) => {
                                                                                 handleScheduleUpdate(selectedDateStr, duty.id, idx, 'breakTime', newVal);
                                                                             }}
@@ -7749,6 +7929,7 @@ export default function App() {
             const isPendingPtStaff = isPtPendingApproval(staff, selectedDateStr);
             const shiftPreset = branchData.shiftPresets?.find(p => p.id === slot.shiftPresetId);
             const { startTime, endTime } = getShiftTimesForStaff(staff?.pos, shiftPreset);
+            const pendingShiftChange = pendingRequests.find(r => r.reqType === 'SHIFT_CHANGE' && r.dateStr === selectedDateStr && r.dutyId === duty.id && r.slotIdx === originalIdx && r.status === 'PENDING_MANAGER');
 
             const stHour = parseInt(startTime.split(':')[0]) || 0;
 
@@ -7817,6 +7998,15 @@ export default function App() {
                                 {isPendingPtStaff && (
                                     <span className="text-[7px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 ml-1 whitespace-nowrap shadow-sm print:text-black print:border-black print:bg-transparent animate-pulse" title="รออนุมัติโควตาพิเศษ">⏳ รออนุมัติ</span>
                                 )}
+                                {pendingShiftChange && (() => {
+                                    const newPreset = branchData.shiftPresets?.find(p => p.id === pendingShiftChange.newShiftPresetId);
+                                    const newTimes = getShiftTimesForStaff(staff?.pos || 'OC', newPreset);
+                                    return (
+                                        <span className="text-[7px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 ml-1.5 whitespace-nowrap shadow-sm print:text-black print:border-black print:bg-transparent" title={`รออนุมัติเปลี่ยนกะเป็น: ${newPreset ? newPreset.name : 'N/A'}`}>
+                                            [รออนุมัติกะ: {newPreset ? newPreset.name : 'N/A'} ({newTimes.startTime}-{newTimes.endTime})]
+                                        </span>
+                                    );
+                                })()}
                                 <span className="opacity-80 print:opacity-100 ml-1 font-black">{otBadge}</span>
                             </span>
                             {staff && <span className={`px-1.5 py-0.5 rounded font-black uppercase bg-black/10 print:bg-transparent border border-current opacity-80 print:opacity-100`} style={{ fontSize: `${(rs.fontName || rs.fontSize) * 0.8}px` }}>{staff.pos}</span>}
