@@ -7,7 +7,7 @@ import {
     Users, AlertCircle, Clock, Save, Plus, Trash2, LayoutDashboard, Printer, ChevronLeft, ChevronRight,
     Coffee, BarChart3, TrendingUp, Award, PlaneTakeoff, Loader2, Store, ArrowLeftRight, Sparkles, Wand2, Bold, Italic, Underline, Link as LinkIcon, BookOpen,
     Eraser, Filter, ChevronDown, Download, MessageCircle, Bell, UserCircle, SaveAll, FolderOpen, CheckCircle2, Edit2, X, Check, List, TableProperties, GripVertical, LogIn, ShieldCheck, Megaphone, Undo2,
-    UtensilsCrossed, ConciergeBell, UserPlus, ArrowUpRight, ArrowDownRight, CalendarDays as CalendarDaysIcon, Calendar as CalendarIcon, CheckSquare, KeyRound, Upload
+    UtensilsCrossed, ConciergeBell, UserPlus, ArrowUpRight, ArrowDownRight, CalendarDays as CalendarDaysIcon, Calendar as CalendarIcon, CheckSquare, KeyRound, Upload, ChevronUp
 } from 'lucide-react';
 
 /**
@@ -293,6 +293,32 @@ const DEFAULT_GUIDE_HEADER = {
 };
 
 // --- Helper Functions (Hoisted) ---
+const OTInput = ({ currentOt, onChange }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    return (
+        <div className="relative print:hidden">
+            <button 
+                onClick={(e) => { e.stopPropagation(); setIsOpen(!isOpen); }}
+                className={`text-[6px] sm:text-[7px] font-black w-full px-0.5 mt-0.5 rounded border border-transparent hover:border-slate-300 ${currentOt > 0 ? 'text-rose-600 bg-rose-50' : 'text-slate-400'}`}
+            >
+                {currentOt > 0 ? `OT: ${currentOt}` : 'OT: 0'}
+            </button>
+            {isOpen && (
+                <>
+                    <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)}></div>
+                    <div className="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded shadow-lg z-50 p-1 flex gap-1">
+                        {[0, 0.5, 1, 1.5, 2].map(val => (
+                            <button key={val} onClick={() => { onChange(val); setIsOpen(false); }} className={`px-2 py-1 text-xs rounded hover:bg-slate-100 ${currentOt === val ? 'bg-indigo-500 text-white' : ''}`}>
+                                {val}
+                            </button>
+                        ))}
+                    </div>
+                </>
+            )}
+        </div>
+    );
+};
+
 function checkPositionEligibility(staffPos, reqPosArr, dept) {
     if (!reqPosArr || reqPosArr.length === 0 || reqPosArr.includes('ALL')) return true;
     let targetDept = 'service';
@@ -703,17 +729,7 @@ const BreakTimeInput = ({ computedValue, manualValue, onSave, onReset, rsFontSiz
 };
 
 // === UPDATED PrintMonthlyView Component ===
-// Drop-in replacement for the existing PrintMonthlyView in your codebase.
-//
-// Structure per row:
-//   [Duty Layer] | [Job Duty] | [Staff Name (Position)] | [Day1] [Day2] ... [DayN]
-//
-// Each day cell shows:
-//   - Shift time e.g. "10-19" + OT badge if otHours > 0  → staff is working
-//   - Leave short label e.g. "ย", "พร", "ป่วย"           → staff is on leave
-//   - "-"                                                  → no data
-
-const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranchId, THAI_MONTHS, selectedMonth, getStaffDayInfo, setView, activeDept, CURRENT_DUTY_LIST, handleToggleLeave, LEAVE_TYPES, onPrint, pendingRequests, isPtPendingApproval, schedule }) => {
+const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranchId, THAI_MONTHS, selectedMonth, getStaffDayInfo, setView, activeDept, CURRENT_DUTY_LIST, handleToggleLeave, LEAVE_TYPES, onPrint, pendingRequests, handleOtChange, schedule }) => {
     const filteredStaff = branchData.staff?.filter(s => s.dept === activeDept) || [];
     const sortedStaff = [...filteredStaff].sort((a, b) => {
         const rankA = POSITIONS[activeDept].indexOf(a.pos);
@@ -976,41 +992,20 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
                                                 </td>
                                                 {CALENDAR_DAYS.map(day => {
                                                     const info = getStaffDayInfo(s.id, day.dateStr, CURRENT_DUTY_LIST);
-
-                                                    // กำหนดค่าปัจจุบันใน dropdown
                                                     let currentValue = '';
                                                     if (info?.type === 'leave') {
                                                         currentValue = info.info?.id || '';
                                                     } else if (info?.type === 'work' && info.actual?.isFixed) {
                                                         currentValue = `DUTY_ASSIGN_${info.duty.id}_${info.slotIdx}`;
                                                     }
-
-                                                    // คำนวณจำนวนพนักงานประจำที่ยังไม่ถูกจัดหน้าที่ในวันนี้
-                                                    const dayData = schedule?.[day.dateStr];
+                                                    
                                                     const usedIds = new Set();
-                                                    if (dayData?.leaves) {
-                                                        dayData.leaves.forEach(l => l.staffId && usedIds.add(l.staffId));
-                                                    }
-                                                    if (dayData?.duties) {
-                                                        Object.values(dayData.duties).forEach(slots => {
-                                                            slots.forEach(sSlot => sSlot && sSlot.staffId && usedIds.add(sSlot.staffId));
-                                                        });
-                                                    }
+                                                    (schedule?.[day.dateStr]?.leaves || []).forEach(l => l.staffId && usedIds.add(l.staffId));
+                                                    Object.values(schedule?.[day.dateStr]?.duties || {}).forEach(sls => sls.forEach(sSlot => sSlot && sSlot.staffId && usedIds.add(sSlot.staffId)));
                                                     const [y, m, dNum] = day.dateStr.split('-').map(Number);
-                                                    const dateObj = new Date(y, m - 1, dNum);
-                                                    const dayOfWeek = dateObj.getDay();
+                                                    const dayOfWeek = new Date(y, m - 1, dNum).getDay();
                                                     const isHoliday = isDateHoliday(day.dateStr, branchData.holidays);
 
-                                                    let unassignedFTCount = 0;
-                                                    (branchData.staff || []).forEach(staff => {
-                                                        if (staff.dept === activeDept && !staff.pos.includes('PT') && isStaffActiveOnDate(staff, day.dateStr)) {
-                                                            const onLeave = usedIds.has(staff.id);
-                                                            const daysOff = Array.isArray(staff.regularDayOff) ? staff.regularDayOff : (staff.regularDayOff !== null && staff.regularDayOff !== undefined && staff.regularDayOff !== '' ? [staff.regularDayOff] : []);
-                                                            const isRegularOff = !isHoliday && daysOff.includes(dayOfWeek);
-                                                            if (!onLeave && !isRegularOff) {
-                                                                unassignedFTCount++;
-                                                            }
-                                                        }
                                                     });
 
                                                     // คำนวณจำนวนกะหลักที่ยังว่างในวันนี้
@@ -2997,7 +2992,7 @@ export default function App() {
     };
 
     const handleLeaveChange = useCallback((dateStr, leaveType, selectedStaffIds) => {
-        setSchedule(prev => {
+        // Existing setSchedule definition unchanged
             const newSched = JSON.parse(JSON.stringify(prev));
             if (!newSched[dateStr]) newSched[dateStr] = { duties: {}, leaves: [], autoLeavesAssigned: true };
             let updatedLeaves = (newSched[dateStr].leaves || []).filter(l => l.type !== leaveType);
