@@ -3667,6 +3667,11 @@ export default function App() {
 
     const sendEmailToAreaManager = async (reqType, details) => {
         try {
+            const branchObj = globalConfig.branches?.find(b => b.id === activeBranchId);
+            if (branchObj && branchObj.emailAlertsEnabled === false) {
+                console.log("Email alerts are disabled for this branch.");
+                return;
+            }
             const am = globalConfig.areaManagers?.find(a => a.branches?.includes(activeBranchId));
             if (!am || !am.user) {
                 console.log("No Area Manager found for this branch or username/email is empty.");
@@ -3707,6 +3712,10 @@ export default function App() {
             const branchObj = globalConfig.branches?.find(b => b.id === activeBranchId);
             if (!branchObj || !branchObj.user) {
                 console.log("No branch found or branch username/email is empty.");
+                return;
+            }
+            if (branchObj.emailAlertsEnabled === false) {
+                console.log("Email alerts are disabled for this branch.");
                 return;
             }
             const branchEmail = branchObj.user; // เมลสาขาคือ username
@@ -6189,15 +6198,21 @@ export default function App() {
                             <div><span className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase ml-2 block mb-1.5 sm:mb-2">ชื่อสาขา</span><input type="text" id="bn" className="w-full border-2 border-slate-50 bg-slate-50/50 rounded-xl sm:rounded-2xl px-4 sm:px-5 py-3 sm:py-4 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none" /></div>
                             <div><span className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase ml-2 block mb-1.5 sm:mb-2">Username</span><input type="text" id="bu" className="w-full border-2 border-slate-50 bg-slate-50/50 rounded-xl sm:rounded-2xl px-4 sm:px-5 py-3 sm:py-4 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none" /></div>
                             <div><span className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase ml-2 block mb-1.5 sm:mb-2">Password</span><input type="text" id="bp" className="w-full border-2 border-slate-50 bg-slate-50/50 rounded-xl sm:rounded-2xl px-4 sm:px-5 py-3 sm:py-4 text-xs sm:text-sm font-bold focus:border-indigo-500 outline-none" /></div>
+                            <div className="flex items-center gap-2 py-2">
+                                <input type="checkbox" id="be" defaultChecked className="rounded text-indigo-600 w-4 h-4 cursor-pointer" />
+                                <label htmlFor="be" className="text-[10px] sm:text-xs font-bold text-slate-600 cursor-pointer">เปิดแจ้งเตือนทาง Email</label>
+                            </div>
                             <button onClick={() => {
                                 const n = document.getElementById('bn').value; const u = document.getElementById('bu').value; const p = document.getElementById('bp').value;
+                                const e = document.getElementById('be') ? document.getElementById('be').checked : true;
                                 if (n && u && p) {
                                     setGlobalConfig(prev => {
-                                        const nc = { ...prev, branches: [...(prev.branches || []), { id: 'b' + Date.now(), name: n, user: u, pass: p }] };
+                                        const nc = { ...prev, branches: [...(prev.branches || []), { id: 'b' + Date.now(), name: n, user: u, pass: p, emailAlertsEnabled: e }] };
                                         setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'master'), nc).catch(console.error);
                                         return nc;
                                     });
                                     document.getElementById('bn').value = ''; document.getElementById('bu').value = ''; document.getElementById('bp').value = '';
+                                    if (document.getElementById('be')) document.getElementById('be').checked = true;
                                 }
                             }} className="w-full bg-emerald-600 text-white py-4 sm:py-5 rounded-xl sm:rounded-3xl font-black text-xs sm:text-sm hover:bg-emerald-700 shadow-xl mt-2 sm:mt-4 uppercase transition-colors">บันทึกสาขา</button>
                         </div>
@@ -6209,12 +6224,16 @@ export default function App() {
                                 <div key={b.id} className="p-5 sm:p-8 bg-slate-50 rounded-[1.5rem] sm:rounded-[2.5rem] border border-transparent hover:border-indigo-100 transition shadow-sm flex justify-between items-start">
                                     <div className="pr-4">
                                         <h4 className="text-base sm:text-xl font-black text-slate-900 uppercase tracking-tighter truncate max-w-[150px] sm:max-w-[200px]">{b.name}</h4>
-                                        <p className="text-[8px] sm:text-[9px] text-slate-400 font-bold mt-1.5 sm:mt-2 uppercase truncate">USER: {b.user} | PWD: {b.pass}</p>
+                                        <p className="text-[8px] sm:text-[9px] text-slate-400 font-bold mt-1.5 sm:mt-2 uppercase truncate">USER: {b.user} | PWD: {b.pass} | แจ้งเตือน: {b.emailAlertsEnabled !== false ? '🟢 เปิด' : '🔴 ปิด'}</p>
                                         {editingBranchId === b.id ? (
                                             <div className="mt-4 space-y-2">
                                                 <input type="text" placeholder="Name" value={editBranchData.name || ''} onChange={e => setEditBranchData({ ...editBranchData, name: e.target.value })} className="w-full border rounded-lg px-2 py-1 text-xs" />
                                                 <input type="text" placeholder="User" value={editBranchData.user || ''} onChange={e => setEditBranchData({ ...editBranchData, user: e.target.value })} className="w-full border rounded-lg px-2 py-1 text-xs" />
                                                 <input type="text" placeholder="Pass" value={editBranchData.pass || ''} onChange={e => setEditBranchData({ ...editBranchData, pass: e.target.value })} className="w-full border rounded-lg px-2 py-1 text-xs" />
+                                                <label className="flex items-center gap-2 text-[10px] sm:text-xs font-bold text-slate-600 cursor-pointer pt-1">
+                                                    <input type="checkbox" checked={editBranchData.emailAlertsEnabled !== false} onChange={e => setEditBranchData({ ...editBranchData, emailAlertsEnabled: e.target.checked })} className="rounded text-indigo-600" />
+                                                    เปิดแจ้งเตือน Email
+                                                </label>
                                                 <div className="flex gap-2">
                                                     <button onClick={saveEditBranch} className="bg-green-500 text-white px-3 py-1 rounded-lg text-[10px]"><Check className="w-3 h-3" /></button>
                                                     <button onClick={() => setEditingBranchId(null)} className="bg-red-500 text-white px-3 py-1 rounded-lg text-[10px]"><X className="w-3 h-3" /></button>
