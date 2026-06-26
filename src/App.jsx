@@ -1233,6 +1233,7 @@ export default function App() {
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [confirmModal, setConfirmModal] = useState(null);
     const [showRequestsModal, setShowRequestsModal] = useState(false);
+    const [showEmailConfigDropdown, setShowEmailConfigDropdown] = useState(false);
     const [requestTab, setRequestTab] = useState('pending');
     const [reqHistoryFilterType, setReqHistoryFilterType] = useState('ALL');
     const [reqHistoryFilterMonth, setReqHistoryFilterMonth] = useState('ALL');
@@ -6218,7 +6219,63 @@ export default function App() {
                         </div>
                     </div>
                     <div className="lg:col-span-2 bg-white p-6 sm:p-10 rounded-[2rem] sm:rounded-[3rem] border border-slate-200 shadow-sm">
-                        <h3 className="text-lg sm:text-xl font-black text-slate-800 mb-6 sm:mb-8 flex items-center gap-2 sm:gap-3 uppercase tracking-tighter"><ShieldCheck className="text-indigo-500 w-5 h-5 sm:w-6 sm:h-6" /> รายชื่อสาขาทั้งหมด</h3>
+                        <div className="flex justify-between items-center mb-6 sm:mb-8 border-b pb-4">
+                            <h3 className="text-lg sm:text-xl font-black text-slate-800 flex items-center gap-2 sm:gap-3 uppercase tracking-tighter"><ShieldCheck className="text-indigo-500 w-5 h-5 sm:w-6 sm:h-6" /> รายชื่อสาขาทั้งหมด</h3>
+                            <div className="relative">
+                                <button onClick={() => setShowEmailConfigDropdown(!showEmailConfigDropdown)} className="bg-indigo-50 text-indigo-600 hover:bg-indigo-100 px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 border border-indigo-100 shadow-sm font-sans uppercase">
+                                    📧 ตั้งค่าแจ้งเตือนด่วน <ChevronDown className="w-3.5 h-3.5" />
+                                </button>
+                                {showEmailConfigDropdown && (
+                                    <div className="absolute right-0 mt-2 w-72 bg-white border border-slate-200 rounded-2xl shadow-xl p-4 z-50 animate-in fade-in zoom-in-95 duration-200 font-sans">
+                                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 pb-2 border-b border-slate-100">การแจ้งเตือนทาง Email</div>
+                                        
+                                        {/* ปุ่มเปิด/ปิดทั้งหมด */}
+                                        <div className="grid grid-cols-2 gap-2 mb-4">
+                                            <button onClick={() => {
+                                                setGlobalConfig(prev => {
+                                                    const nc = { ...prev, branches: (prev.branches || []).map(b => ({ ...b, emailAlertsEnabled: true })) };
+                                                    setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'master'), nc).catch(console.error);
+                                                    return nc;
+                                                });
+                                            }} className="bg-emerald-50 text-emerald-600 hover:bg-emerald-100 py-2 rounded-lg text-[10px] font-black transition text-center border border-emerald-100">เปิดทั้งหมด</button>
+                                            <button onClick={() => {
+                                                setGlobalConfig(prev => {
+                                                    const nc = { ...prev, branches: (prev.branches || []).map(b => ({ ...b, emailAlertsEnabled: false })) };
+                                                    setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'master'), nc).catch(console.error);
+                                                    return nc;
+                                                });
+                                            }} className="bg-rose-50 text-rose-600 hover:bg-rose-100 py-2 rounded-lg text-[10px] font-black transition text-center border border-rose-100">ปิดทั้งหมด</button>
+                                        </div>
+
+                                        {/* รายการเลือกบางสาขา */}
+                                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">เลือกเฉพาะสาขา:</div>
+                                        <div className="max-h-56 overflow-y-auto custom-scrollbar space-y-2 pr-1">
+                                            {globalConfig.branches?.map(b => (
+                                                <label key={b.id} className="flex items-center gap-3 cursor-pointer hover:bg-slate-50 p-1.5 rounded-lg transition text-xs font-bold text-slate-700">
+                                                    <input 
+                                                        type="checkbox" 
+                                                        checked={b.emailAlertsEnabled !== false} 
+                                                        onChange={(e) => {
+                                                            const val = e.target.checked;
+                                                            setGlobalConfig(prev => {
+                                                                const nc = { ...prev, branches: prev.branches.map(x => x.id === b.id ? { ...x, emailAlertsEnabled: val } : x) };
+                                                                setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'master'), nc).catch(console.error);
+                                                                return nc;
+                                                            });
+                                                        }}
+                                                        className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
+                                                    />
+                                                    <span className="truncate">{b.name}</span>
+                                                </label>
+                                            ))}
+                                            {(!globalConfig.branches || globalConfig.branches.length === 0) && (
+                                                <div className="text-center py-4 text-xs font-bold text-slate-400">ไม่มีสาขาในระบบ</div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                             {globalConfig.branches?.map((b) => (
                                 <div key={b.id} className="p-5 sm:p-8 bg-slate-50 rounded-[1.5rem] sm:rounded-[2.5rem] border border-transparent hover:border-indigo-100 transition shadow-sm flex justify-between items-start">
