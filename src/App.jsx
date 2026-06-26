@@ -3019,24 +3019,24 @@ export default function App() {
 
 
 
-            let updatedLeaves = (newSched[dateStr].leaves || []).filter(l => l.type !== leaveType);
-            selectedStaffIds.forEach(staffId => { updatedLeaves.push({ staffId, type: leaveType }); });
-            newSched[dateStr].leaves = updatedLeaves;
+            
+            
+            
 
             
-            if (newSched[dateStr].duties) {
-                Object.values(newSched[dateStr].duties).forEach(slots => {
-                    slots.forEach(slot => {
-                        if (slot && selectedStaffIds.includes(slot.staffId)) {
-                            slot.staffId = "";
-                            slot.otHours = 0;
-                        }
-                    });
-                });
-            } if (activeBranchId) autoSaveSchedule(newSched, false, dateStr);
-            return newSched;
-        });
-    }, [activeBranchId, autoSaveSchedule]);
+            
+                
+
+
+
+
+
+
+
+
+
+
+
 
     const handleToggleLeave = useCallback((staffId, dateStr, leaveTypeId) => {
         setSchedule(prev => {
