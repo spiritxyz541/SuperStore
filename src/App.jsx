@@ -1006,7 +1006,7 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
                                                     const dayOfWeek = new Date(y, m - 1, dNum).getDay();
                                                     const isHoliday = isDateHoliday(day.dateStr, branchData.holidays);
 
-                                                    });
+                                                    
 
                                                     // คำนวณจำนวนกะหลักที่ยังว่างในวันนี้
                                                     let emptyPrimaryCount = 0;
@@ -2992,6 +2992,30 @@ export default function App() {
     };
 
     const handleLeaveChange = useCallback((dateStr, leaveType, selectedStaffIds) => {
+  setSchedule(prev => {
+    const newSched = JSON.parse(JSON.stringify(prev));
+    if (!newSched[dateStr]) newSched[dateStr] = { duties: {}, leaves: [], autoLeavesAssigned: true };
+    // Remove existing leaves for selected staff
+    newSched[dateStr].leaves = (newSched[dateStr].leaves || []).filter(l => !selectedStaffIds.includes(l.staffId));
+    // Add new leave entries
+    selectedStaffIds.forEach(staffId => {
+      newSched[dateStr].leaves.push({ staffId, type: leaveType });
+    });
+    // Remove staff from any assigned duties and clear OT
+    if (newSched[dateStr].duties) {
+      Object.values(newSched[dateStr].duties).forEach(slots => {
+        slots.forEach(slot => {
+          if (selectedStaffIds.includes(slot.staffId)) {
+            slot.staffId = "";
+            slot.otHours = 0;
+          }
+        });
+      });
+    }
+    if (activeBranchId) autoSaveSchedule(newSched, false, dateStr);
+    return newSched;
+  });
+}, [activeBranchId, autoSaveSchedule]);
         // Existing setSchedule definition unchanged
             const newSched = JSON.parse(JSON.stringify(prev));
             if (!newSched[dateStr]) newSched[dateStr] = { duties: {}, leaves: [], autoLeavesAssigned: true };
