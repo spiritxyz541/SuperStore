@@ -7772,7 +7772,7 @@ export default function App() {
                                                                     {['branch', 'superadmin', 'areamanager'].includes(authRole) && !pendingShiftChange ? (
                                                                         <div className="flex items-center gap-1.5">
                                                                             <Clock className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${extraIconColor}`} />
-                                                                            {['superadmin', 'areamanager'].includes(authRole) ? (
+                                                                            {(['superadmin', 'areamanager'].includes(authRole) || isExtra) ? (
                                                                                 <select
                                                                                     value={data.shiftPresetId || slot.shiftPresetId}
                                                                                     onChange={(e) => handleScheduleUpdate(selectedDateStr, duty.id, idx, 'shiftPresetId', e.target.value)}
