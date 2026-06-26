@@ -8893,6 +8893,7 @@ export default function App() {
                                                 {['superadmin', 'areamanager'].includes(authRole) && <th className="px-4 sm:px-8 py-4 sm:py-8 text-right bg-emerald-50/40">ค่าจ้างปกติ</th>}
                                                 {['superadmin', 'areamanager'].includes(authRole) && <th className="px-4 sm:px-8 py-4 sm:py-8 text-right bg-emerald-50/60">ค่า OT</th>}
                                                 {['superadmin', 'areamanager'].includes(authRole) && <th className="px-4 sm:px-8 py-4 sm:py-8 text-right bg-emerald-50/80">ค่าแรงวันหยุด</th>}
+                                                {['superadmin', 'areamanager'].includes(authRole) && <th className="px-4 sm:px-8 py-4 sm:py-8 text-right bg-emerald-50/90 text-indigo-700 font-black">ค่ากะดึก</th>}
                                                 {['superadmin', 'areamanager'].includes(authRole) && <th className="px-4 sm:px-8 py-4 sm:py-8 text-right bg-emerald-100 text-emerald-800">รวมค่าแรงรายเดือน+ค่าจ้างพนักงานชั่วคราว+OT สุทธิ</th>}
                                             </tr>
                                         </thead>
@@ -8925,6 +8926,7 @@ export default function App() {
                                                         {['superadmin', 'areamanager'].includes(authRole) && <td className="px-4 sm:px-8 py-4 sm:py-8 text-right bg-emerald-50/40 font-mono">{s.basePay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>}
                                                         {['superadmin', 'areamanager'].includes(authRole) && <td className="px-4 sm:px-8 py-4 sm:py-8 text-right bg-emerald-50/60 font-mono">{s.otPay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>}
                                                         {['superadmin', 'areamanager'].includes(authRole) && <td className="px-4 sm:px-8 py-4 sm:py-8 text-right bg-emerald-50/80 font-mono">{s.holidayPay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>}
+                                                        {['superadmin', 'areamanager'].includes(authRole) && <td className="px-4 sm:px-8 py-4 sm:py-8 text-right bg-emerald-50/90 text-indigo-700 font-mono font-black">฿{(s.lateNightAllowance || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>}
                                                         {['superadmin', 'areamanager'].includes(authRole) && <td className="px-4 sm:px-8 py-4 sm:py-8 text-right bg-emerald-100 text-emerald-800 font-black text-base sm:text-lg font-mono">฿{s.totalPay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>}
                                                     </tr>
                                                 );
@@ -8946,6 +8948,7 @@ export default function App() {
                                                     <td className="px-4 sm:px-8 py-6 text-right font-mono">{deptTotalBasePay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                                     <td className="px-4 sm:px-8 py-6 text-right font-mono">{deptTotalOtPay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                                     <td className="px-4 sm:px-8 py-6 text-right font-mono">{deptTotalHolidayPay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                                    <td className="px-4 sm:px-8 py-6 text-right font-mono text-indigo-700">฿{deptData.reduce((acc, curr) => acc + (curr.lateNightAllowance || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                                     <td className="px-4 sm:px-8 py-6 text-right font-mono text-emerald-800">฿{deptTotalPay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                                 </tr>
                                             </tfoot>
