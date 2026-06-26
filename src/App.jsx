@@ -7791,10 +7791,7 @@ export default function App() {
                                                                             ) : (
                                                                                 <button
                                                                                     onClick={() => {
-                                                                                        if (!data.staffId) {
-                                                                                            alert('กรุณาเลือกพนักงานก่อนขอเปลี่ยนกะ');
-                                                                                            return;
-                                                                                        }
+                                                                                        if (!data.staffId) return;
                                                                                         setShowShiftChangeModal({
                                                                                             dateStr: selectedDateStr,
                                                                                             dutyId: duty.id,
@@ -7804,8 +7801,9 @@ export default function App() {
                                                                                             newShiftPresetId: data.shiftPresetId || slot.shiftPresetId
                                                                                         });
                                                                                     }}
-                                                                                    className="cursor-pointer bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-[9px] sm:text-[10px] font-black text-slate-700 hover:bg-slate-100 transition shadow-sm max-w-[150px] sm:max-w-[200px] truncate font-sans flex items-center gap-1"
-                                                                                    title="ขอเปลี่ยนกะเวลาทำงาน (Shift Change Request)"
+                                                                                    disabled={!data.staffId}
+                                                                                    className={`bg-slate-50 border rounded-lg px-2 py-1 text-[9px] sm:text-[10px] font-black transition shadow-sm max-w-[150px] sm:max-w-[200px] truncate font-sans flex items-center gap-1 ${!data.staffId ? 'border-slate-100 text-slate-300 cursor-not-allowed' : 'border-slate-200 text-slate-700 hover:bg-slate-100 cursor-pointer'}`}
+                                                                                    title={!data.staffId ? "กรุณาเลือกพนักงานก่อน" : "ขอเปลี่ยนกะเวลาทำงาน (Shift Change Request)"}
                                                                                 >
                                                                                     {(() => {
                                                                                         const p = branchData.shiftPresets?.find(p => p.id === (data.shiftPresetId || slot.shiftPresetId));
