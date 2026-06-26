@@ -3016,7 +3016,7 @@ export default function App() {
     return newSched;
   });
 }, [activeBranchId, autoSaveSchedule]);
-        // Existing setSchedule definition unchanged
+
             const newSched = JSON.parse(JSON.stringify(prev));
             if (!newSched[dateStr]) newSched[dateStr] = { duties: {}, leaves: [], autoLeavesAssigned: true };
             let updatedLeaves = (newSched[dateStr].leaves || []).filter(l => l.type !== leaveType);
