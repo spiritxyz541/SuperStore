@@ -3670,10 +3670,13 @@ export default function App() {
             const am = globalConfig.areaManagers?.find(a => a.branches?.includes(activeBranchId));
             if (!am || !am.user) {
                 console.log("No Area Manager found for this branch or username/email is empty.");
+                alert("⚠️ ไม่พบข้อมูล Area Manager หรือ Username ของ Area Manager ในระบบ (กรุณาตั้งค่าคู่สาขาให้ถูกต้องในหน้าตั้งค่าก่อนครับ)");
                 return;
             }
             const amEmail = am.user; // เมลคือ username ของ AM
             const branchName = globalConfig.branches?.find(b => b.id === activeBranchId)?.name || activeBranchId;
+            
+            console.log("กำลังส่งอีเมลแจ้งอนุมัติไปยัง AM:", amEmail, "สำหรับสาขา:", branchName);
             
             await fetch("https://script.google.com/macros/s/AKfycbyAl7xr12jxtQ3dwqebVKbxsRTkWu5kSc5FHHvT2So3he30LWrejoyWBoNynkGP9Jjw/exec", {
                 method: "POST",
@@ -3684,14 +3687,76 @@ export default function App() {
                 body: JSON.stringify({
                     to: amEmail,
                     branchName: branchName,
+                    amName: am.name || 'Area Manager',
                     title: details.title,
                     requester: details.requester,
                     details: details.details,
+                    reason: details.reason,
                     date: details.date
                 })
             });
+            console.log("ดำเนินการเรียกเว็บแอปของ Google Script สำเร็จแล้ว");
         } catch (error) {
             console.error("Error sending approval email:", error);
+            alert("❌ เกิดข้อผิดพลาดทางเทคนิคในการเชื่อมต่อส่งอีเมล: " + error.message);
+        }
+    };
+
+    const sendEmailToBranch = async (status, req) => {
+        try {
+            const branchObj = globalConfig.branches?.find(b => b.id === activeBranchId);
+            if (!branchObj || !branchObj.user) {
+                console.log("No branch found or branch username/email is empty.");
+                return;
+            }
+            const branchEmail = branchObj.user; // เมลสาขาคือ username
+            const branchName = branchObj.name;
+            
+            let reqTypeName = 'คำขออนุมัติ';
+            if (req.reqType === 'EXTRA_PT') reqTypeName = 'ขอชั่วโมงพาร์ทไทม์เกินโควตา';
+            else if (req.reqType === 'EXTRA_OT') reqTypeName = 'ขอ OT ส่วนเกิน';
+            else if (req.reqType === 'SHIFT_CHANGE') reqTypeName = 'ขอเปลี่ยนกะเวลาหน้าที่งาน';
+
+            const statusText = status === 'APPROVED' ? 'อนุมัติ (APPROVED)' : 'ไม่อนุมัติ (REJECTED)';
+            const statusColor = status === 'APPROVED' ? '#10b981' : '#ef4444';
+
+            // รายละเอียด
+            let reqDetails = '';
+            if (req.reqType === 'EXTRA_PT') {
+                reqDetails = `ขอเพิ่มชั่วโมงพาร์ทไทม์ +${req.requestedHours.toFixed(1)} ชม. (${req.dept === 'kitchen' ? 'ครัว (BOH)' : 'บริการ (FOH)'})`;
+            } else if (req.reqType === 'EXTRA_OT') {
+                const staff = branchData.staff?.find(s => s.id === req.staffId);
+                reqDetails = `ขอเพิ่ม OT ของ ${staff ? staff.name : 'พนักงาน'} เป็น ${req.requestedOt} ชม.`;
+            } else if (req.reqType === 'SHIFT_CHANGE') {
+                const staff = branchData.staff?.find(s => s.id === req.staffId);
+                const oldPreset = branchData.shiftPresets?.find(p => p.id === req.oldShiftPresetId);
+                const newPreset = branchData.shiftPresets?.find(p => p.id === req.newShiftPresetId);
+                reqDetails = `ขอเปลี่ยนกะของ ${staff ? staff.name : 'พนักงาน'} จาก "${oldPreset ? oldPreset.name : 'ไม่มีกะ'}" เป็น "${newPreset ? newPreset.name : 'ไม่มีกะ'}"`;
+            }
+
+            console.log("กำลังส่งอีเมลแจ้งผลลัพธ์กลับสาขา:", branchEmail, "สถานะ:", statusText);
+
+            await fetch("https://script.google.com/macros/s/AKfycbyAl7xr12jxtQ3dwqebVKbxsRTkWu5kSc5FHHvT2So3he30LWrejoyWBoNynkGP9Jjw/exec", {
+                method: "POST",
+                mode: "no-cors",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    to: branchEmail,
+                    branchName: branchName,
+                    isFeedback: true,
+                    title: reqTypeName,
+                    statusText: statusText,
+                    statusColor: statusColor,
+                    details: reqDetails,
+                    reason: req.rejectReason || req.reason || '-',
+                    date: req.dateStr || req.dateMy || '-'
+                })
+            });
+            console.log("ส่งเมลกลับสาขาเสร็จสมบูรณ์");
+        } catch (error) {
+            console.error("Error sending feedback email to branch:", error);
         }
     };
 
@@ -3760,7 +3825,8 @@ export default function App() {
             sendEmailToAreaManager('EXTRA_PT', {
                 title: mode === 'OVER_BUDGET' ? 'ขออนุมัติชั่วโมงพาร์ทไทม์เกินโควตา' : 'ขออนุมัติโควตาพิเศษ (Event)',
                 requester: 'ผู้จัดการสาขา (Manager)',
-                details: `ขอเพิ่มชั่วโมงพาร์ทไทม์ +${diffMh.toFixed(1)} ชม. (แผนก: ${dept === 'kitchen' ? 'ครัว (BOH)' : 'บริการ (FOH)'}) เหตุผล: ${forecastReason.trim()}`,
+                details: `ขอเพิ่มชั่วโมงพาร์ทไทม์ +${diffMh.toFixed(1)} ชม. (แผนก: ${dept === 'kitchen' ? 'ครัว (BOH)' : 'บริการ (FOH)'})`,
+                reason: forecastReason.trim(),
                 date: dateStr
             });
         } catch (e) {
@@ -3795,7 +3861,8 @@ export default function App() {
             sendEmailToAreaManager('EXTRA_OT', {
                 title: 'ขออนุมัติ OT ส่วนเกิน (เกินโควตา)',
                 requester: staffName,
-                details: `ขอเพิ่ม OT เป็น ${requestedOt} ชม. (จากกะปกติที่ได้รับ OT ${baseOt} ชม.) เหตุผล: ${reason}`,
+                details: `ขอเพิ่ม OT เป็น ${requestedOt} ชม. (จากกะปกติที่ได้รับ OT ${baseOt} ชม.)`,
+                reason: reason,
                 date: dateStr
             });
         } catch (e) {
@@ -3927,6 +3994,9 @@ export default function App() {
 
         const newList = pendingRequests.map(r => r.id === req.id ? { ...r, status: 'APPROVED', updatedTimestamp: Date.now() } : r);
         await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'requests', activeBranchId), { list: newList });
+
+        // ส่งอีเมลตอบกลับผลอนุมัติให้สาขา
+        sendEmailToBranch('APPROVED', req);
     };
 
     const handleSubmitShiftChangeRequest = async (dateStr, dutyId, slotIdx, staffId, oldShiftPresetId, newShiftPresetId, reason) => {
@@ -3960,7 +4030,8 @@ export default function App() {
             sendEmailToAreaManager('SHIFT_CHANGE', {
                 title: 'ขออนุมัติเปลี่ยนกะเวลาหน้าที่งาน',
                 requester: staffName,
-                details: `ขอเปลี่ยนกะของหน้าที่ "${dutyLabel}" จากกะเดิม "${oldPreset ? oldPreset.name : 'ไม่มีกะ'}" เป็นกะใหม่ "${newPreset ? newPreset.name : 'ไม่มีกะ'}" เหตุผล: ${reason}`,
+                details: `ขอเปลี่ยนกะของหน้าที่ "${dutyLabel}" จากกะเดิม "${oldPreset ? oldPreset.name : 'ไม่มีกะ'}" เป็นกะใหม่ "${newPreset ? newPreset.name : 'ไม่มีกะ'}"`,
+                reason: reason,
                 date: dateStr
             });
         } catch (e) {
@@ -4024,6 +4095,9 @@ export default function App() {
 
         const newList = pendingRequests.map(r => r.id === reqId ? { ...r, status: 'REJECTED', rejectReason: reason, updatedTimestamp: Date.now() } : r);
         await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'requests', activeBranchId), { list: newList });
+
+        // ส่งอีเมลตอบกลับผลปฏิเสธให้สาขา
+        sendEmailToBranch('REJECTED', { ...req, rejectReason: reason });
     };
 
     const handleExportExcel = () => {
