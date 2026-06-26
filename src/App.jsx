@@ -7802,7 +7802,7 @@ export default function App() {
                                                                                         });
                                                                                     }}
                                                                                     disabled={!data.staffId}
-                                                                                    className={`bg-slate-50 border rounded-lg px-2 py-1 text-[9px] sm:text-[10px] font-black transition shadow-sm max-w-[150px] sm:max-w-[200px] truncate font-sans flex items-center gap-1 ${!data.staffId ? 'border-slate-100 text-slate-300 cursor-not-allowed' : 'border-slate-200 text-slate-700 hover:bg-slate-100 cursor-pointer'}`}
+                                                                                    className={`border rounded-lg px-2 py-1 text-[9px] sm:text-[10px] font-black transition shadow-sm max-w-[150px] sm:max-w-[200px] truncate font-sans flex items-center gap-1 ${!data.staffId ? 'border-slate-200 bg-slate-200 text-slate-900 cursor-not-allowed opacity-80' : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 cursor-pointer'}`}
                                                                                     title={!data.staffId ? "กรุณาเลือกพนักงานก่อน" : "ขอเปลี่ยนกะเวลาทำงาน (Shift Change Request)"}
                                                                                 >
                                                                                     {(() => {
