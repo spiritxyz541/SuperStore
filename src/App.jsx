@@ -3018,7 +3018,7 @@ export default function App() {
 }, [activeBranchId, autoSaveSchedule]);
 
 
-            if (!newSched[dateStr]) newSched[dateStr] = { duties: {}, leaves: [], autoLeavesAssigned: true };
+
             let updatedLeaves = (newSched[dateStr].leaves || []).filter(l => l.type !== leaveType);
             selectedStaffIds.forEach(staffId => { updatedLeaves.push({ staffId, type: leaveType }); });
             newSched[dateStr].leaves = updatedLeaves;
