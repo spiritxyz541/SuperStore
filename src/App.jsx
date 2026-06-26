@@ -429,6 +429,61 @@ function getNetWorkHours(startTime, endTime, staffPos) {
     return gross;
 }
 
+function isEndTimeLateNight(endTime) {
+    if (!endTime || endTime === '??:??') return false;
+    const [h, m] = endTime.split(':').map(Number);
+    // Normalize hour if it is 24-hour style that exceeds 24 (e.g., 25:00)
+    const normH = h % 24;
+    // Since it's late night, the end time should be in the morning (1:00 AM to 9:00 AM)
+    // or if it's written as 25:00 to 33:00
+    return (h >= 1 && h <= 9) || (h >= 25 && h <= 33);
+}
+
+function getLateNightAllowance(staff, shiftPreset, startTime, endTime, workHours, payrollConfig) {
+    if (!staff || !isEndTimeLateNight(endTime)) return 0;
+
+    const posUpper = (staff.pos || '').toUpperCase();
+    const wageTypeUpper = (staff.wageType || '').toUpperCase();
+
+    const lateNightMonthlyManagerRate = Number(payrollConfig?.lateNightMonthlyManagerRate ?? 100);
+    const lateNightMonthlyStaffRate = Number(payrollConfig?.lateNightMonthlyStaffRate ?? 70);
+    const lateNightPtRate = Number(payrollConfig?.lateNightPtRate ?? 70);
+    const lateNightStudentRate = Number(payrollConfig?.lateNightStudentRate ?? 70);
+
+    // Check DVT/EDC students
+    const isDvtEdc = ['DVT', 'EDC'].some(p => posUpper.includes(p)) ||
+                     (shiftPreset && ['DVT', 'EDC'].some(code => (shiftPreset.name || '').toUpperCase().includes(code) || (shiftPreset.id || '').toUpperCase() === code));
+
+    if (isDvtEdc) {
+        if (workHours >= 8) {
+            return lateNightStudentRate;
+        }
+        return 0;
+    }
+
+    // Check Part-Time
+    const isPt = wageTypeUpper === 'PT' || posUpper.includes('PT');
+    if (isPt) {
+        if (workHours >= 8) {
+            return lateNightPtRate;
+        }
+        return 0;
+    }
+
+    // Check Monthly Staff
+    const isMonthly = wageTypeUpper === 'MONTHLY';
+    if (isMonthly) {
+        if (posUpper === 'OC' || posUpper === 'AOC') {
+            return lateNightMonthlyManagerRate;
+        }
+        if (['SD', 'KD', 'SSD', 'SH'].includes(posUpper)) {
+            return lateNightMonthlyStaffRate;
+        }
+    }
+
+    return 0;
+}
+
 function getStaffLayer(dept, pos) {
     if (dept === 'service') {
         if (["OC", "AOC", "SH", "SSD"].includes(pos)) return DUTY_CATEGORIES.service[0];
@@ -1363,7 +1418,9 @@ export default function App() {
                 workHours: 0, shifts: 0, actualOT: 0, plannedOT: 0, leaves: 0,
                 unpaidLeaveDays: 0,
                 basePay: 0, otPay: 0, holidayPay: 0, totalPay: 0,
-                otHoursByMultiplier: {}
+                otHoursByMultiplier: {},
+                lateNightShifts: 0,
+                lateNightAllowance: 0
             };
         });
 
@@ -1406,6 +1463,13 @@ export default function App() {
                             staff.workHours += workHours;
                             staff.shifts += 1;
                             staff.actualOT += otHours;
+
+                            // Calculate late night allowance
+                            const allowance = getLateNightAllowance(staff, shiftPreset, startTime, endTime, workHours, payrollConfig);
+                            if (allowance > 0) {
+                                staff.lateNightShifts += 1;
+                                staff.lateNightAllowance += allowance;
+                            }
 
                             let plannedOT = Number(mSlot?.maxOtHours || 0);
                             if (mSlot?.targetEndTime) {
@@ -1461,7 +1525,7 @@ export default function App() {
                 const dailyRate = monthlyRate / (payrollConfig.monthlySalaryDivider || 30);
                 staff.basePay = Math.max(0, monthlyRate - (staff.unpaidLeaveDays * dailyRate));
             }
-            staff.totalPay = staff.basePay + staff.otPay + staff.holidayPay;
+            staff.totalPay = staff.basePay + staff.otPay + staff.holidayPay + (staff.lateNightAllowance || 0);
         });
 
         return Object.values(staffMap).sort((a, b) => b.totalPay - a.totalPay);
@@ -3901,7 +3965,7 @@ export default function App() {
     };
 
     const handleExportExcel = () => {
-        const headers = ['วันที่', 'รหัสพนักงาน', 'ชื่อพนักงาน', 'แผนก', 'ตำแหน่ง', 'เวลาเข้า', 'เวลาออก', 'OT (ชั่วโมง)', 'เรท OT (เท่า)'];
+        const headers = ['วันที่', 'รหัสพนักงาน', 'ชื่อพนักงาน', 'แผนก', 'ตำแหน่ง', 'เวลาเข้า', 'เวลาออก', 'OT (ชั่วโมง)', 'เรท OT (เท่า)', 'ค่ากะดึก (บาท)'];
         const rows = [];
         Object.keys(schedule).sort().forEach(dateStr => {
             if (reportFilterMode === 'month') {
@@ -3926,6 +3990,8 @@ export default function App() {
                             const shiftPreset = branchData.shiftPresets?.find(p => p.id === mSlot?.shiftPresetId);
                             if (staff && shiftPreset) {
                                 const { startTime, endTime } = getShiftTimesForStaff(staff.pos, shiftPreset);
+                                const workHours = getNetWorkHours(startTime, endTime, staff.pos);
+                                const allowance = getLateNightAllowance(staff, shiftPreset, startTime, endTime, workHours, branchData.payrollConfig);
 
                                 let effectiveOtMultiplier = 1.0;
                                 if (staff.wageType === 'MONTHLY') {
@@ -3937,7 +4003,7 @@ export default function App() {
                                     effectiveOtMultiplier = isPublicHoliday ? (baseOtMultiplier * holidayMultiplier) : baseOtMultiplier;
                                 }
 
-                                rows.push([dateStr, staff.empId || '-', staff.name, staff.dept, staff.pos, startTime, endTime, assigned.otHours || 0, effectiveOtMultiplier]);
+                                rows.push([dateStr, staff.empId || '-', staff.name, staff.dept, staff.pos, startTime, endTime, assigned.otHours || 0, effectiveOtMultiplier, allowance]);
                             }
                         }
                     });
@@ -7126,6 +7192,39 @@ export default function App() {
                             </div>
                             <p className="text-[10px] text-slate-400 font-bold mt-4">* ระบบจะนำยอดเงินมาหารเป็นชั่วโมงโควตาตั้งต้น สำหรับบริหารจัดการ Part-Time ในกระเป๋าชั่วโมง (PT Ledger)</p>
 
+                            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-8 mb-4 border-b border-slate-100 pb-2 flex items-center gap-2"><Clock className="w-4 h-4 text-indigo-500" /> ตั้งค่าเงินค่ากะดึกอัตโนมัติ (Late Night Shift Allowance Settings)</h3>
+                            <div className="bg-amber-50/50 border border-amber-100 rounded-2xl p-4 sm:p-6 mb-6 text-xs text-amber-800 font-bold space-y-2">
+                                <p className="text-sm font-black flex items-center gap-2"><Sparkles className="w-4 h-4 text-amber-600" /> คำอธิบายเกณฑ์กะดึกอัตโนมัติ (Late Night Shift Logic)</p>
+                                <ul className="list-disc pl-5 space-y-1 font-semibold text-[11px] text-slate-600">
+                                    <li><strong>พนักงานประจำรายเดือน:</strong> จะต้องปฏิบัติงานกะที่เลิกงานตั้งแต่เวลา 01:00 น. เป็นต้นไป (ไม่จำกัดชั่วโมงขั้นต่ำ) แยกตามตำแหน่งดังนี้:
+                                        <ul className="list-circle pl-5 mt-1 text-[10px]">
+                                            <li>ตำแหน่งผู้จัดการสาขา (OC) หรือผู้ช่วยฯ (AOC) ได้รับค่ากะดึกต่อวันตามที่ตั้งค่า</li>
+                                            <li>ตำแหน่ง SD, KD, SSD, SH ได้รับค่ากะดึกต่อวันตามที่ตั้งค่า</li>
+                                        </ul>
+                                    </li>
+                                    <li><strong>พนักงานพาร์ทไทม์ (PT):</strong> จะต้องปฏิบัติงานกะที่เลิกงานตั้งแต่เวลา 01:00 น. เป็นต้นไป และมีชั่วโมงปฏิบัติงานจริงครบ 8 ชม. ขึ้นไป (หลังหักเวลาพัก 1 ชม.) ได้รับค่ากะดึกต่อวันตามที่ตั้งค่า</li>
+                                    <li><strong>นักศึกษาฝึกงาน (DVT / EDC):</strong> จะต้องปฏิบัติงานกะที่เลิกงานตั้งแต่เวลา 01:00 น. เป็นต้นไป และมีชั่วโมงปฏิบัติงานจริงครบ 8 ชม. ขึ้นไป (หลังหักเวลาพัก 1 ชม.) ได้รับค่ากะดึกต่อวันตามที่ตั้งค่า</li>
+                                </ul>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                                <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">ค่ากะดึกรายเดือน (OC/AOC) (บ./วัน)</label>
+                                    <input type="number" step="10" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.lateNightMonthlyManagerRate ?? 100} onChange={(e) => handleUpdatePayrollConfig('lateNightMonthlyManagerRate', e.target.value)} onBlur={(e) => handleSavePayrollConfig('lateNightMonthlyManagerRate', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
+                                </div>
+                                <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">ค่ากะดึกรายเดือน (SD/KD/SSD/SH) (บ./วัน)</label>
+                                    <input type="number" step="10" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.lateNightMonthlyStaffRate ?? 70} onChange={(e) => handleUpdatePayrollConfig('lateNightMonthlyStaffRate', e.target.value)} onBlur={(e) => handleSavePayrollConfig('lateNightMonthlyStaffRate', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
+                                </div>
+                                <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">ค่ากะดึก Part-Time (บ./วัน)</label>
+                                    <input type="number" step="10" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.lateNightPtRate ?? 70} onChange={(e) => handleUpdatePayrollConfig('lateNightPtRate', e.target.value)} onBlur={(e) => handleSavePayrollConfig('lateNightPtRate', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
+                                </div>
+                                <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">ค่ากะดึก นศ.ฝึกงาน (DVT/EDC) (บ./วัน)</label>
+                                    <input type="number" step="10" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.lateNightStudentRate ?? 70} onChange={(e) => handleUpdatePayrollConfig('lateNightStudentRate', e.target.value)} onBlur={(e) => handleSavePayrollConfig('lateNightStudentRate', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
+                                </div>
+                            </div>
+
                             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-8 mb-4 border-b border-slate-100 pb-2">ตั้งค่าฐานยอดขาย (Base TC) สำหรับระบบ Forecast (อัตราส่วน Man-Hour)</h3>
                             <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4">
                                 {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => {
@@ -8537,6 +8636,10 @@ export default function App() {
         const totalHolidayPay = reportData.reduce((sum, s) => sum + s.holidayPay, 0);
         const totalPay = reportData.reduce((sum, s) => sum + s.totalPay, 0);
 
+        const totalLateNightAllowance = reportData.reduce((sum, s) => sum + (s.lateNightAllowance || 0), 0);
+        const fohLateNightAllowance = reportData.filter(s => s.dept === 'service').reduce((sum, s) => sum + (s.lateNightAllowance || 0), 0);
+        const bohLateNightAllowance = reportData.filter(s => s.dept === 'kitchen').reduce((sum, s) => sum + (s.lateNightAllowance || 0), 0);
+
         const totalAllowedExpense = ptLedger.totalAllowance * ptRate;
         const baseBudget = branchData.ptConfig?.monthlyBudget || 0;
         const isOverAllowed = estimatedPtExpense > totalAllowedExpense;
@@ -8613,7 +8716,7 @@ export default function App() {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-8">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-8">
                     <div className="bg-white p-6 sm:p-8 rounded-[2rem] sm:rounded-[3rem] border border-slate-200 shadow-sm flex flex-col justify-between">
                         <div>
                             <h3 className="text-[10px] sm:text-xs font-black text-slate-400 uppercase tracking-widest mb-1">พยากรณ์ค่าใช้จ่าย Part-Time</h3>
@@ -8659,6 +8762,21 @@ export default function App() {
                         </div>
                         <div className="mt-4 h-2 w-full bg-orange-100 rounded-full overflow-hidden flex">
                             <div className="h-full bg-indigo-500 transition-all duration-1000" style={{ width: `${(reportData.filter(s => !s.pos.includes('PT')).length / (reportData.length || 1)) * 100}%` }}></div>
+                        </div>
+                    </div>
+
+                    <div className="bg-white p-6 sm:p-8 rounded-[2rem] sm:rounded-[3rem] border border-slate-200 shadow-sm flex flex-col justify-between bg-gradient-to-br from-white to-slate-50/50">
+                        <div>
+                            <h3 className="text-[10px] sm:text-xs font-black text-indigo-600 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                                <Sparkles className="w-3 h-3" /> เงินค่ากะดึกสะสมทั้งหมด
+                            </h3>
+                            <div className="text-3xl sm:text-5xl font-black text-indigo-600 tracking-tighter mt-2">
+                                ฿{totalLateNightAllowance.toLocaleString()} <span className="text-sm sm:text-base text-slate-500">THB</span>
+                            </div>
+                            <div className="text-[10px] font-bold text-slate-400 mt-3 border-t pt-2 space-y-1">
+                                <div className="flex justify-between"><span>บริการ (FOH):</span> <span className="text-slate-700">฿{fohLateNightAllowance.toLocaleString()}</span></div>
+                                <div className="flex justify-between"><span>ครัว (BOH):</span> <span className="text-slate-700">฿{bohLateNightAllowance.toLocaleString()}</span></div>
+                            </div>
                         </div>
                     </div>
                 </div>          {/* Part-Time Quota & Hours Summary */}
@@ -10031,7 +10149,9 @@ export default function App() {
                                 wageType: s.wageType || 'MONTHLY',
                                 baseWage: s.baseWage || 0,
                                 pos: s.pos,
-                                dept: s.dept || 'service'
+                                dept: s.dept || 'service',
+                                lateNightShifts: 0,
+                                lateNightAllowance: 0
                             };
                         });
 
@@ -10091,6 +10211,13 @@ export default function App() {
 
                                                 pStaff.workHours += workHours;
 
+                                                // Calculate late night allowance
+                                                const allowance = getLateNightAllowance(pStaff, shiftPreset, startTime, endTime, workHours, payrollConfig);
+                                                if (allowance > 0) {
+                                                    pStaff.lateNightShifts += 1;
+                                                    pStaff.lateNightAllowance += allowance;
+                                                }
+
                                                 if (pStaff.wageType === 'MONTHLY') {
                                                     const monthlyRate = pStaff.baseWage || 0;
                                                     const dailyRate = monthlyRate / (payrollConfig.monthlySalaryDivider || 30);
@@ -10123,9 +10250,9 @@ export default function App() {
                         });
 
                         const payrollSummary = {
-                            service: { basePay: { total: 0, monthly: 0, hourly: 0, pt: 0 }, otPay: { total: 0, monthly: 0, hourly: 0, pt: 0 }, holidayPay: { total: 0, monthly: 0, hourly: 0, pt: 0 }, netPay: 0 },
-                            kitchen: { basePay: { total: 0, monthly: 0, hourly: 0, pt: 0 }, otPay: { total: 0, monthly: 0, hourly: 0, pt: 0 }, holidayPay: { total: 0, monthly: 0, hourly: 0, pt: 0 }, netPay: 0 },
-                            total: { basePay: { total: 0, monthly: 0, hourly: 0, pt: 0 }, otPay: { total: 0, monthly: 0, hourly: 0, pt: 0 }, holidayPay: { total: 0, monthly: 0, hourly: 0, pt: 0 }, netPay: 0 }
+                            service: { basePay: { total: 0, monthly: 0, hourly: 0, pt: 0 }, otPay: { total: 0, monthly: 0, hourly: 0, pt: 0 }, holidayPay: { total: 0, monthly: 0, hourly: 0, pt: 0 }, lateNightAllowance: { total: 0, monthly: 0, hourly: 0, pt: 0 }, netPay: 0 },
+                            kitchen: { basePay: { total: 0, monthly: 0, hourly: 0, pt: 0 }, otPay: { total: 0, monthly: 0, hourly: 0, pt: 0 }, holidayPay: { total: 0, monthly: 0, hourly: 0, pt: 0 }, lateNightAllowance: { total: 0, monthly: 0, hourly: 0, pt: 0 }, netPay: 0 },
+                            total: { basePay: { total: 0, monthly: 0, hourly: 0, pt: 0 }, otPay: { total: 0, monthly: 0, hourly: 0, pt: 0 }, holidayPay: { total: 0, monthly: 0, hourly: 0, pt: 0 }, lateNightAllowance: { total: 0, monthly: 0, hourly: 0, pt: 0 }, netPay: 0 }
                         };
 
                         Object.values(staffMapPayroll).forEach(staff => {
@@ -10139,18 +10266,27 @@ export default function App() {
                                 payrollSummary.total.basePay.monthly += staff.basePay;
                                 payrollSummary[dept].otPay.monthly += staff.otPay;
                                 payrollSummary.total.otPay.monthly += staff.otPay;
+                                
+                                payrollSummary[dept].lateNightAllowance.monthly += (staff.lateNightAllowance || 0);
+                                payrollSummary.total.lateNightAllowance.monthly += (staff.lateNightAllowance || 0);
                             } else if (staff.wageType === 'HOURLY') {
                                 payrollSummary[dept].basePay.hourly += staff.basePay;
                                 payrollSummary.total.basePay.hourly += staff.basePay;
                                 payrollSummary[dept].otPay.hourly += staff.otPay;
                                 payrollSummary.total.otPay.hourly += staff.otPay;
+
+                                payrollSummary[dept].lateNightAllowance.hourly += (staff.lateNightAllowance || 0);
+                                payrollSummary.total.lateNightAllowance.hourly += (staff.lateNightAllowance || 0);
                             } else if (staff.wageType === 'PT') {
                                 payrollSummary[dept].basePay.pt += staff.basePay;
                                 payrollSummary.total.basePay.pt += staff.basePay;
                                 payrollSummary[dept].otPay.pt += staff.otPay;
                                 payrollSummary.total.otPay.pt += staff.otPay;
+
+                                payrollSummary[dept].lateNightAllowance.pt += (staff.lateNightAllowance || 0);
+                                payrollSummary.total.lateNightAllowance.pt += (staff.lateNightAllowance || 0);
                             }
-                            staff.totalPay = staff.basePay + staff.otPay + staff.holidayPay;
+                            staff.totalPay = staff.basePay + staff.otPay + staff.holidayPay + (staff.lateNightAllowance || 0);
 
                             payrollSummary[dept].basePay.total += staff.basePay;
                             payrollSummary.total.basePay.total += staff.basePay;
@@ -10158,6 +10294,10 @@ export default function App() {
                             payrollSummary.total.otPay.total += staff.otPay;
                             payrollSummary[dept].holidayPay.total += staff.holidayPay;
                             payrollSummary.total.holidayPay.total += staff.holidayPay;
+                            
+                            payrollSummary[dept].lateNightAllowance.total += (staff.lateNightAllowance || 0);
+                            payrollSummary.total.lateNightAllowance.total += (staff.lateNightAllowance || 0);
+                            
                             payrollSummary[dept].netPay += staff.totalPay;
                             payrollSummary.total.netPay += staff.totalPay;
                         });
@@ -10437,6 +10577,18 @@ export default function App() {
                                                         <div className={`p-3 rounded-xl shadow-sm border flex justify-between items-center ${sec.id === 'total' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
                                                             <span className={`text-[10px] font-bold uppercase ${sec.id === 'total' ? 'text-slate-400' : 'text-slate-500'}`}>ค่าแรงวันหยุด</span>
                                                             <span className={`text-base font-black ${sec.theme.val}`}>฿{sec.data.holidayPay.total.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                                                        </div>
+
+                                                        <div className={`p-3 rounded-xl shadow-sm border ${sec.id === 'total' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+                                                            <div className="flex justify-between items-end mb-1">
+                                                                <span className={`text-[10px] font-bold uppercase ${sec.id === 'total' ? 'text-slate-400' : 'text-slate-500'}`}>เงินค่ากะดึกรวม</span>
+                                                                <span className={`text-lg font-black ${sec.theme.val}`}>฿{sec.data.lateNightAllowance.total.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                                                            </div>
+                                                            <div className={`text-[9px] font-bold space-y-1 border-t pt-2 mt-1 ${sec.id === 'total' ? 'text-slate-400 border-slate-700' : 'text-slate-500 border-slate-100'}`}>
+                                                                <div className="flex justify-between items-center"><span>- รายเดือน (FT):</span> <span>฿{sec.data.lateNightAllowance.monthly.toLocaleString()}</span></div>
+                                                                <div className="flex justify-between items-center"><span>- รายชั่วโมง (FT):</span> <span>฿{sec.data.lateNightAllowance.hourly.toLocaleString()}</span></div>
+                                                                <div className="flex justify-between items-center"><span>- พาร์ทไทม์ (PT):</span> <span>฿{sec.data.lateNightAllowance.pt.toLocaleString()}</span></div>
+                                                            </div>
                                                         </div>
 
                                                         <div className={`mt-auto ${sec.theme.net} p-3 sm:p-4 rounded-xl shadow-md flex justify-between items-center`}>
