@@ -3665,6 +3665,36 @@ export default function App() {
         document.body.removeChild(textArea);
     };
 
+    const sendEmailToAreaManager = async (reqType, details) => {
+        try {
+            const am = globalConfig.areaManagers?.find(a => a.branches?.includes(activeBranchId));
+            if (!am || !am.user) {
+                console.log("No Area Manager found for this branch or username/email is empty.");
+                return;
+            }
+            const amEmail = am.user; // เมลคือ username ของ AM
+            const branchName = globalConfig.branches?.find(b => b.id === activeBranchId)?.name || activeBranchId;
+            
+            await fetch("https://script.google.com/macros/s/AKfycbyAl7xr12jxtQ3dwqebVKbxsRTkWu5kSc5FHHvT2So3he30LWrejoyWBoNynkGP9Jjw/exec", {
+                method: "POST",
+                mode: "no-cors",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    to: amEmail,
+                    branchName: branchName,
+                    title: details.title,
+                    requester: details.requester,
+                    details: details.details,
+                    date: details.date
+                })
+            });
+        } catch (error) {
+            console.error("Error sending approval email:", error);
+        }
+    };
+
     const handleSubmitLeaveRequest = async (dateStr, leaveTypeId) => {
         if (isDateHoliday(dateStr, branchData.holidays)) {
             setConfirmModal({ message: 'ระบบไม่อนุญาตให้ลาหยุดในวันหยุดประจำสาขาได้' });
@@ -3725,6 +3755,14 @@ export default function App() {
                 ? 'ส่งคำขออนุมัติชั่วโมงเกินโควตาเรียบร้อยแล้ว รอการตรวจสอบจาก Area Manager'
                 : 'ส่งคำขออนุมัติชั่วโมงพิเศษ (Event) เรียบร้อยแล้ว รอการตรวจสอบจาก Coach';
             setConfirmModal({ message: confirmMsg });
+
+            // ส่งแจ้งเตือนอีเมลหา Area Manager
+            sendEmailToAreaManager('EXTRA_PT', {
+                title: mode === 'OVER_BUDGET' ? 'ขออนุมัติชั่วโมงพาร์ทไทม์เกินโควตา' : 'ขออนุมัติโควตาพิเศษ (Event)',
+                requester: 'ผู้จัดการสาขา (Manager)',
+                details: `ขอเพิ่มชั่วโมงพาร์ทไทม์ +${diffMh.toFixed(1)} ชม. (แผนก: ${dept === 'kitchen' ? 'ครัว (BOH)' : 'บริการ (FOH)'}) เหตุผล: ${forecastReason.trim()}`,
+                date: dateStr
+            });
         } catch (e) {
             setConfirmModal({ message: 'เกิดข้อผิดพลาดในการส่งคำขอ' });
         }
@@ -3750,6 +3788,16 @@ export default function App() {
             const currentList = snap.exists() ? (snap.data().list || []) : [];
             await setDoc(docRef, { list: [...currentList, newReq] });
             setConfirmModal({ message: 'ส่งคำขออนุมัติ OT ส่วนเกิน เรียบร้อยแล้ว รอการตรวจสอบจาก Coach' });
+
+            // ส่งแจ้งเตือนอีเมลหา Area Manager
+            const staff = branchData.staff?.find(s => s.id === staffId);
+            const staffName = staff ? `${staff.name} (${staff.pos})` : 'พนักงาน';
+            sendEmailToAreaManager('EXTRA_OT', {
+                title: 'ขออนุมัติ OT ส่วนเกิน (เกินโควตา)',
+                requester: staffName,
+                details: `ขอเพิ่ม OT เป็น ${requestedOt} ชม. (จากกะปกติที่ได้รับ OT ${baseOt} ชม.) เหตุผล: ${reason}`,
+                date: dateStr
+            });
         } catch (e) {
             setConfirmModal({ message: 'เกิดข้อผิดพลาดในการส่งคำขอ' });
         }
@@ -3901,6 +3949,20 @@ export default function App() {
             const currentList = snap.exists() ? (snap.data().list || []) : [];
             await setDoc(docRef, { list: [...currentList, newReq] });
             setConfirmModal({ message: 'ส่งคำขออนุมัติเปลี่ยนกะเวลาเรียบร้อยแล้ว รอการตรวจสอบจาก Area Manager' });
+
+            // ส่งแจ้งเตือนอีเมลหา Area Manager
+            const staff = branchData.staff?.find(s => s.id === staffId);
+            const staffName = staff ? `${staff.name} (${staff.pos})` : 'พนักงาน';
+            const oldPreset = branchData.shiftPresets?.find(p => p.id === oldShiftPresetId);
+            const newPreset = branchData.shiftPresets?.find(p => p.id === newShiftPresetId);
+            const duty = CURRENT_DUTY_LIST.find(d => d.id === dutyId);
+            const dutyLabel = duty ? duty.jobA.replace(/<[^>]*>?/gm, '') : 'หน้าที่';
+            sendEmailToAreaManager('SHIFT_CHANGE', {
+                title: 'ขออนุมัติเปลี่ยนกะเวลาหน้าที่งาน',
+                requester: staffName,
+                details: `ขอเปลี่ยนกะของหน้าที่ "${dutyLabel}" จากกะเดิม "${oldPreset ? oldPreset.name : 'ไม่มีกะ'}" เป็นกะใหม่ "${newPreset ? newPreset.name : 'ไม่มีกะ'}" เหตุผล: ${reason}`,
+                date: dateStr
+            });
         } catch (e) {
             setConfirmModal({ message: 'เกิดข้อผิดพลาดในการส่งคำขอ' });
         }
