@@ -32,132 +32,132 @@ const firebaseConfig = {
 
 // Save roster as image using html2canvas (top‑level helper)
 function saveRosterAsImage() {
-  const element = document.getElementById('daily-roster-capture-area') || document.getElementById('head-team-roster');
-  if (!element) {
-    console.error('Roster element not found');
-    return;
-  }
-
-  // Create loading indicator on active button
-  const btn = document.activeElement;
-  const originalText = btn ? btn.innerHTML : '';
-  if (btn && btn.tagName === 'BUTTON') {
-    btn.disabled = true;
-    btn.innerHTML = 'กำลังบันทึกภาพ...';
-  }
-
-  // 1. Clone the element
-  const clonedElement = element.cloneNode(true);
-  
-  // 2. Wrap it in an absolute off-screen container with wide viewport to ensure desktop rendering
-  const wrapper = document.createElement('div');
-  wrapper.style.position = 'absolute';
-  wrapper.style.top = '-9999px';
-  wrapper.style.left = '-9999px';
-  wrapper.style.width = Math.max(1300, element.scrollWidth) + 'px';
-  wrapper.style.backgroundColor = '#ffffff';
-  wrapper.appendChild(clonedElement);
-  document.body.appendChild(wrapper);
-
-  // 3. Apply style modifications to the clone
-  clonedElement.style.setProperty('width', '100%', 'important');
-  clonedElement.style.setProperty('max-width', 'none', 'important');
-  clonedElement.style.setProperty('overflow', 'visible', 'important');
-
-  // Remove all select elements completely in the clone (print version spans will show instead where applicable)
-  const selects = clonedElement.querySelectorAll('select');
-  selects.forEach(select => {
-    select.remove();
-  });
-
-  // Remove all buttons and print-hidden elements completely in the clone
-  const printHidden = clonedElement.querySelectorAll('.print\\:hidden, button');
-  printHidden.forEach(el => {
-    el.remove();
-  });
-
-  // Force show print-only items
-  const printInline = clonedElement.querySelectorAll('.print\\:inline, .hidden.print\\:inline');
-  printInline.forEach(el => {
-    el.style.setProperty('display', 'inline', 'important');
-  });
-  
-  const printBlock = clonedElement.querySelectorAll('.print\\:block, .hidden.print\\:block');
-  printBlock.forEach(el => {
-    el.style.setProperty('display', 'block', 'important');
-  });
-
-  // Remove sticky positioning
-  const stickyCells = clonedElement.querySelectorAll('.sticky');
-  stickyCells.forEach(cell => {
-    cell.style.setProperty('position', 'static', 'important');
-  });
-
-  // Remove "รอบพัก" (Break Time) column from the cloned element if it exists
-  const tables = clonedElement.querySelectorAll('table');
-  tables.forEach(table => {
-    const hasBreakColumn = Array.from(table.querySelectorAll('th')).some(th => th.textContent.includes('รอบพัก'));
-    
-    if (hasBreakColumn) {
-      const rows = table.querySelectorAll('tr');
-      rows.forEach(row => {
-        // If this is the TOTAL STAFF summary row
-        if (row.classList.contains('bg-slate-100') || row.textContent.includes('TOTAL STAFF')) {
-          const lastCell = row.lastElementChild;
-          if (lastCell) {
-            const colSpanAttr = lastCell.getAttribute('colspan');
-            if (colSpanAttr) {
-              const currentColSpan = parseInt(colSpanAttr, 10);
-              if (currentColSpan > 1) {
-                lastCell.setAttribute('colspan', currentColSpan - 1);
-              }
-            }
-          }
-        } else {
-          // For all other rows (header and normal body rows), simply remove the last cell
-          const lastCell = row.lastElementChild;
-          if (lastCell && (lastCell.tagName === 'TD' || lastCell.tagName === 'TH')) {
-            lastCell.remove();
-          }
-        }
-      });
+    const element = document.getElementById('daily-roster-capture-area') || document.getElementById('head-team-roster');
+    if (!element) {
+        console.error('Roster element not found');
+        return;
     }
-  });
 
-  // 4. Generate the image using html-to-image
-  toPng(clonedElement, {
-    cacheBust: true,
-    backgroundColor: '#ffffff',
-    pixelRatio: 2 // High resolution scale
-  })
-    .then((dataUrl) => {
-      // Cleanup clone wrapper
-      if (document.body.contains(wrapper)) {
-        document.body.removeChild(wrapper);
-      }
+    // Create loading indicator on active button
+    const btn = document.activeElement;
+    const originalText = btn ? btn.innerHTML : '';
+    if (btn && btn.tagName === 'BUTTON') {
+        btn.disabled = true;
+        btn.innerHTML = 'กำลังบันทึกภาพ...';
+    }
 
-      if (btn && btn.tagName === 'BUTTON') {
-        btn.disabled = false;
-        btn.innerHTML = originalText;
-      }
+    // 1. Clone the element
+    const clonedElement = element.cloneNode(true);
 
-      const a = document.createElement('a');
-      a.href = dataUrl;
-      a.download = 'duty_roster_' + new Date().toISOString().slice(0, 10) + '.png';
-      a.click();
-    })
-    .catch((err) => {
-      // Cleanup clone wrapper
-      if (document.body.contains(wrapper)) {
-        document.body.removeChild(wrapper);
-      }
-      
-      if (btn && btn.tagName === 'BUTTON') {
-        btn.disabled = false;
-        btn.innerHTML = originalText;
-      }
-      console.error('html-to-image error:', err);
+    // 2. Wrap it in an absolute off-screen container with wide viewport to ensure desktop rendering
+    const wrapper = document.createElement('div');
+    wrapper.style.position = 'absolute';
+    wrapper.style.top = '-9999px';
+    wrapper.style.left = '-9999px';
+    wrapper.style.width = Math.max(1300, element.scrollWidth) + 'px';
+    wrapper.style.backgroundColor = '#ffffff';
+    wrapper.appendChild(clonedElement);
+    document.body.appendChild(wrapper);
+
+    // 3. Apply style modifications to the clone
+    clonedElement.style.setProperty('width', '100%', 'important');
+    clonedElement.style.setProperty('max-width', 'none', 'important');
+    clonedElement.style.setProperty('overflow', 'visible', 'important');
+
+    // Remove all select elements completely in the clone (print version spans will show instead where applicable)
+    const selects = clonedElement.querySelectorAll('select');
+    selects.forEach(select => {
+        select.remove();
     });
+
+    // Remove all buttons and print-hidden elements completely in the clone
+    const printHidden = clonedElement.querySelectorAll('.print\\:hidden, button');
+    printHidden.forEach(el => {
+        el.remove();
+    });
+
+    // Force show print-only items
+    const printInline = clonedElement.querySelectorAll('.print\\:inline, .hidden.print\\:inline');
+    printInline.forEach(el => {
+        el.style.setProperty('display', 'inline', 'important');
+    });
+
+    const printBlock = clonedElement.querySelectorAll('.print\\:block, .hidden.print\\:block');
+    printBlock.forEach(el => {
+        el.style.setProperty('display', 'block', 'important');
+    });
+
+    // Remove sticky positioning
+    const stickyCells = clonedElement.querySelectorAll('.sticky');
+    stickyCells.forEach(cell => {
+        cell.style.setProperty('position', 'static', 'important');
+    });
+
+    // Remove "รอบพัก" (Break Time) column from the cloned element if it exists
+    const tables = clonedElement.querySelectorAll('table');
+    tables.forEach(table => {
+        const hasBreakColumn = Array.from(table.querySelectorAll('th')).some(th => th.textContent.includes('รอบพัก'));
+
+        if (hasBreakColumn) {
+            const rows = table.querySelectorAll('tr');
+            rows.forEach(row => {
+                // If this is the TOTAL STAFF summary row
+                if (row.classList.contains('bg-slate-100') || row.textContent.includes('TOTAL STAFF')) {
+                    const lastCell = row.lastElementChild;
+                    if (lastCell) {
+                        const colSpanAttr = lastCell.getAttribute('colspan');
+                        if (colSpanAttr) {
+                            const currentColSpan = parseInt(colSpanAttr, 10);
+                            if (currentColSpan > 1) {
+                                lastCell.setAttribute('colspan', currentColSpan - 1);
+                            }
+                        }
+                    }
+                } else {
+                    // For all other rows (header and normal body rows), simply remove the last cell
+                    const lastCell = row.lastElementChild;
+                    if (lastCell && (lastCell.tagName === 'TD' || lastCell.tagName === 'TH')) {
+                        lastCell.remove();
+                    }
+                }
+            });
+        }
+    });
+
+    // 4. Generate the image using html-to-image
+    toPng(clonedElement, {
+        cacheBust: true,
+        backgroundColor: '#ffffff',
+        pixelRatio: 2 // High resolution scale
+    })
+        .then((dataUrl) => {
+            // Cleanup clone wrapper
+            if (document.body.contains(wrapper)) {
+                document.body.removeChild(wrapper);
+            }
+
+            if (btn && btn.tagName === 'BUTTON') {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+
+            const a = document.createElement('a');
+            a.href = dataUrl;
+            a.download = 'duty_roster_' + new Date().toISOString().slice(0, 10) + '.png';
+            a.click();
+        })
+        .catch((err) => {
+            // Cleanup clone wrapper
+            if (document.body.contains(wrapper)) {
+                document.body.removeChild(wrapper);
+            }
+
+            if (btn && btn.tagName === 'BUTTON') {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+            console.error('html-to-image error:', err);
+        });
 }
 
 const app = initializeApp(firebaseConfig);
@@ -181,7 +181,7 @@ const DEFAULT_SHIFT_PRESETS = [
     { id: 'S3', name: 'กะครัวเช้า', timings: { long: { startTime: '09:00', endTime: '18:30' }, short: { startTime: '09:00', endTime: '18:00' } } },
 ];
 
-const INACTIVITY_TIMEOUT_MS = 15 * 60 * 1000; // ตั้งเวลา Auto-logout เมื่อไม่มีการใช้งาน (ค่าเริ่มต้น 15 นาที)
+const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000; // ตั้งเวลา Auto-logout เมื่อไม่มีการใช้งาน (ค่าเริ่มต้น 15 นาที)
 
 const DUTY_CATEGORIES = {
     service: [
@@ -452,7 +452,7 @@ function getLateNightAllowance(staff, shiftPreset, startTime, endTime, workHours
 
     // Check DVT/EDC students
     const isDvtEdc = ['DVT', 'EDC'].some(p => posUpper.includes(p)) ||
-                     (shiftPreset && ['DVT', 'EDC'].some(code => (shiftPreset.name || '').toUpperCase().includes(code) || (shiftPreset.id || '').toUpperCase() === code));
+        (shiftPreset && ['DVT', 'EDC'].some(code => (shiftPreset.name || '').toUpperCase().includes(code) || (shiftPreset.id || '').toUpperCase() === code));
 
     if (isDvtEdc) {
         if (workHours >= 8) {
@@ -853,9 +853,9 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 sm:mb-16 print:hidden border-b pb-6 sm:pb-8 gap-4 sm:gap-0">
                     <button onClick={() => { try { const sess = JSON.parse(localStorage.getItem('superstore_session') || '{}'); sess.view = 'manager'; localStorage.setItem('superstore_session', JSON.stringify(sess)); } catch (e) { } window.location.reload(); }} className="flex items-center gap-2 sm:gap-4 text-slate-600 font-black bg-slate-100 px-6 sm:px-8 py-3 sm:py-4 rounded-xl sm:rounded-3xl hover:bg-slate-200 transition shadow-sm uppercase text-xs sm:text-sm tracking-widest w-full sm:w-auto justify-center"><ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" /> ย้อนกลับ </button>
                     <button onClick={onPrint} className="bg-indigo-600 text-white px-8 sm:px-12 py-4 sm:py-5 rounded-xl sm:rounded-3xl font-black shadow-xl sm:shadow-2xl hover:bg-indigo-700 active:scale-95 transition-all flex items-center justify-center gap-3 sm:gap-4 uppercase text-xs sm:text-sm tracking-widest w-full sm:w-auto"><Printer className="w-5 h-5 sm:w-6 sm:h-6" /> พิมพ์ตารางนี้</button>
-                <button onClick={saveRosterAsImage} className="bg-green-600 text-white px-8 sm:px-12 py-4 sm:py-5 rounded-xl sm:rounded-3xl font-black shadow-xl sm:shadow-2xl hover:bg-green-700 active:scale-95 transition-all flex items-center justify-center gap-3 sm:gap-4 uppercase text-xs sm:text-sm tracking-widest w-full sm:w-auto">
-                  <Save className="w-5 h-5 sm:w-6 sm:h-6" /> บันทึกเป็นรูปภาพ
-                </button>
+                    <button onClick={saveRosterAsImage} className="bg-green-600 text-white px-8 sm:px-12 py-4 sm:py-5 rounded-xl sm:rounded-3xl font-black shadow-xl sm:shadow-2xl hover:bg-green-700 active:scale-95 transition-all flex items-center justify-center gap-3 sm:gap-4 uppercase text-xs sm:text-sm tracking-widest w-full sm:w-auto">
+                        <Save className="w-5 h-5 sm:w-6 sm:h-6" /> บันทึกเป็นรูปภาพ
+                    </button>
                 </div>
                 <div className="text-center mb-10 sm:mb-16 uppercase print-header">
                     <h1 className="text-3xl sm:text-6xl font-black text-slate-900 tracking-tighter leading-none mb-2 sm:mb-4 print-title">ROSTER SCHEDULE: {CALENDAR_DAYS.length === 7 ? `WEEK OF ${CALENDAR_DAYS[0].dateStr}` : `${THAI_MONTHS[selectedMonth]} 2026`}</h1>
@@ -1013,36 +1013,36 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
                                                         }
                                                     });
 
-                                                     // คำนวณจำนวนกะหลักที่ยังว่างในวันนี้
-                                                     let emptyPrimaryCount = 0;
-                                                     CURRENT_DUTY_LIST.forEach(dty => {
-                                                         if (dty.isBackup) return;
-                                                         const primSlots = branchData.matrix?.[day.type]?.duties?.[dty.id] || [];
-                                                         const primAssigned = schedule?.[day.dateStr]?.duties?.[dty.id] || [];
-                                                         primSlots.forEach((_, pIdx) => {
-                                                             if (!primAssigned[pIdx] || !primAssigned[pIdx].staffId) {
-                                                                 emptyPrimaryCount++;
-                                                             }
-                                                         });
-                                                     });
+                                                    // คำนวณจำนวนกะหลักที่ยังว่างในวันนี้
+                                                    let emptyPrimaryCount = 0;
+                                                    CURRENT_DUTY_LIST.forEach(dty => {
+                                                        if (dty.isBackup) return;
+                                                        const primSlots = branchData.matrix?.[day.type]?.duties?.[dty.id] || [];
+                                                        const primAssigned = schedule?.[day.dateStr]?.duties?.[dty.id] || [];
+                                                        primSlots.forEach((_, pIdx) => {
+                                                            if (!primAssigned[pIdx] || !primAssigned[pIdx].staffId) {
+                                                                emptyPrimaryCount++;
+                                                            }
+                                                        });
+                                                    });
 
-                                                     // ดึงสิทธิ์ในการทำหน้าที่ต่างๆ ของพนักงานในวันนี้
-                                                     const vacantDutiesOptions = [];
-                                                     CURRENT_DUTY_LIST.forEach(d => {
-                                                         const reqArr = Array.isArray(d.reqPos) ? d.reqPos : [d.reqPos || 'ALL'];
-                                                         const isEligible = checkPositionEligibility(s.pos, reqArr, activeDept);
-                                                         if (isEligible) {
-                                                             const matrixSlots = branchData.matrix?.[day.type]?.duties?.[d.id] || [];
-                                                             matrixSlots.forEach((slot, slotIdx) => {
-                                                                 const assignedSlots = schedule?.[day.dateStr]?.duties?.[d.id] || [];
-                                                                 const slotData = assignedSlots[slotIdx];
-                                                                 const isAssignedToOther = slotData && slotData.staffId && slotData.staffId !== s.id;
-                                                                 if (!isAssignedToOther) {
-                                                                     const isCurrentAssignment = slotData && slotData.staffId === s.id;
-                                                                     // กะสำรองจะปรากฏต่อเมื่อกะหลักเติมจนเต็มหมดแล้วเท่านั้น (emptyPrimaryCount === 0)
-                                                                     if (d.isBackup && emptyPrimaryCount > 0 && !isCurrentAssignment) {
-                                                                         return;
-                                                                     }
+                                                    // ดึงสิทธิ์ในการทำหน้าที่ต่างๆ ของพนักงานในวันนี้
+                                                    const vacantDutiesOptions = [];
+                                                    CURRENT_DUTY_LIST.forEach(d => {
+                                                        const reqArr = Array.isArray(d.reqPos) ? d.reqPos : [d.reqPos || 'ALL'];
+                                                        const isEligible = checkPositionEligibility(s.pos, reqArr, activeDept);
+                                                        if (isEligible) {
+                                                            const matrixSlots = branchData.matrix?.[day.type]?.duties?.[d.id] || [];
+                                                            matrixSlots.forEach((slot, slotIdx) => {
+                                                                const assignedSlots = schedule?.[day.dateStr]?.duties?.[d.id] || [];
+                                                                const slotData = assignedSlots[slotIdx];
+                                                                const isAssignedToOther = slotData && slotData.staffId && slotData.staffId !== s.id;
+                                                                if (!isAssignedToOther) {
+                                                                    const isCurrentAssignment = slotData && slotData.staffId === s.id;
+                                                                    // กะสำรองจะปรากฏต่อเมื่อกะหลักเติมจนเต็มหมดแล้วเท่านั้น (emptyPrimaryCount === 0)
+                                                                    if (d.isBackup && emptyPrimaryCount > 0 && !isCurrentAssignment) {
+                                                                        return;
+                                                                    }
                                                                     const preset = branchData.shiftPresets?.find(p => p.id === slot.shiftPresetId);
                                                                     const times = getShiftTimesForStaff(s.pos, preset);
                                                                     const timeStr = times ? ` (${formatTimeAbbreviation(times.startTime)}-${formatTimeAbbreviation(times.endTime)})` : '';
@@ -1114,7 +1114,7 @@ export default function App() {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
 
-// Duplicate removed – using top‑level saveRosterAsImage defined earlier
+    // Duplicate removed – using top‑level saveRosterAsImage defined earlier
     const [loadError, setLoadError] = useState(null);
     const [isTimeout, setIsTimeout] = useState(false);
     const [showLoadingUI, setShowLoadingUI] = useState(false);
@@ -3680,9 +3680,9 @@ export default function App() {
             }
             const amEmail = am.user; // เมลคือ username ของ AM
             const branchName = globalConfig.branches?.find(b => b.id === activeBranchId)?.name || activeBranchId;
-            
+
             console.log("กำลังส่งอีเมลแจ้งอนุมัติไปยัง AM:", amEmail, "สำหรับสาขา:", branchName);
-            
+
             await fetch("https://script.google.com/macros/s/AKfycbyAl7xr12jxtQ3dwqebVKbxsRTkWu5kSc5FHHvT2So3he30LWrejoyWBoNynkGP9Jjw/exec", {
                 method: "POST",
                 mode: "no-cors",
@@ -3720,7 +3720,7 @@ export default function App() {
             }
             const branchEmail = branchObj.user; // เมลสาขาคือ username
             const branchName = branchObj.name;
-            
+
             let reqTypeName = 'คำขออนุมัติ';
             if (req.reqType === 'EXTRA_PT') reqTypeName = 'ขอชั่วโมงพาร์ทไทม์เกินโควตา';
             else if (req.reqType === 'EXTRA_OT') reqTypeName = 'ขอ OT ส่วนเกิน';
@@ -5209,13 +5209,13 @@ export default function App() {
                                             <div className="flex flex-col gap-3 h-full">
                                                 <div className="flex flex-wrap gap-2 bg-slate-50 p-3 rounded-xl border border-slate-100 flex-shrink-0">
                                                     <select value={reqHistoryFilterType} onChange={e => setReqHistoryFilterType(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 outline-none bg-white text-slate-700 font-bold">
-                                                         <option value="ALL">ทุกประเภท</option>
-                                                         <option value="LEAVE">ลาหยุด</option>
-                                                         <option value="SWAP">สลับกะ</option>
-                                                         <option value="EXTRA_PT">โควตาพิเศษ (Event)</option>
-                                                         <option value="EXTRA_OT">OT ส่วนเกิน</option>
-                                                         <option value="SHIFT_CHANGE">เปลี่ยนกะเวลา</option>
-                                                     </select>
+                                                        <option value="ALL">ทุกประเภท</option>
+                                                        <option value="LEAVE">ลาหยุด</option>
+                                                        <option value="SWAP">สลับกะ</option>
+                                                        <option value="EXTRA_PT">โควตาพิเศษ (Event)</option>
+                                                        <option value="EXTRA_OT">OT ส่วนเกิน</option>
+                                                        <option value="SHIFT_CHANGE">เปลี่ยนกะเวลา</option>
+                                                    </select>
                                                     <select value={reqHistoryFilterMonth} onChange={e => setReqHistoryFilterMonth(e.target.value)} className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 outline-none bg-white text-slate-700 font-bold">
                                                         <option value="ALL">ทุกเดือน</option>
                                                         {THAI_MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
@@ -6900,44 +6900,44 @@ export default function App() {
                                             กะสำรอง
                                         </label>
                                         <PositionSelector disabled={false} value={newDutyReqPos} options={POSITIONS[activeDept]} onChange={(val) => {
-                                             setNewDutyReqPos(val);
-                                             setNewDutyPosPriority(prev => {
-                                                 const next = { ...prev };
-                                                 Object.keys(next).forEach(k => {
-                                                     if (!val.includes(k)) delete next[k];
-                                                 });
-                                                 val.forEach(k => {
-                                                     if (k !== 'ALL' && next[k] === undefined) {
-                                                         next[k] = 1;
-                                                     }
-                                                 });
-                                                 return next;
-                                             });
-                                         }} className="w-full xl:min-w-[80px]" />
+                                            setNewDutyReqPos(val);
+                                            setNewDutyPosPriority(prev => {
+                                                const next = { ...prev };
+                                                Object.keys(next).forEach(k => {
+                                                    if (!val.includes(k)) delete next[k];
+                                                });
+                                                val.forEach(k => {
+                                                    if (k !== 'ALL' && next[k] === undefined) {
+                                                        next[k] = 1;
+                                                    }
+                                                });
+                                                return next;
+                                            });
+                                        }} className="w-full xl:min-w-[80px]" />
                                         <button onClick={handleAddDuty} className="w-full xl:w-auto bg-slate-900 text-white px-6 py-3 rounded-xl font-black text-xs hover:bg-indigo-600 transition flex items-center justify-center h-full min-h-[48px] self-stretch"><Plus className="w-4 h-4 sm:w-5 sm:h-5" /></button>
                                     </div>
-                                     {newDutyReqPos.filter(p => p !== 'ALL').length > 0 && (
-                                         <div className="bg-slate-50 p-3 sm:p-4 rounded-xl border border-slate-100 flex flex-wrap gap-3 sm:gap-4 items-center mt-2 w-full">
-                                             <span className="text-[10px] sm:text-xs font-black text-slate-500 uppercase tracking-widest">
-                                                 🚦 ลำดับความสำคัญของแต่ละตำแหน่ง (Priority - ตัวเลขน้อยลงก่อน):
-                                             </span>
-                                             {newDutyReqPos.filter(p => p !== 'ALL').map(pos => (
-                                                 <div key={pos} className="flex items-center gap-1.5 bg-white border border-slate-200 px-2.5 py-1.5 rounded-lg shadow-sm">
-                                                     <span className="text-xs font-black text-slate-700">{pos}</span>
-                                                     <input
-                                                         type="number"
-                                                         min="1"
-                                                         className="w-12 border border-slate-200 rounded px-1.5 py-0.5 text-xs font-black text-indigo-600 focus:border-indigo-500 outline-none text-center"
-                                                         value={newDutyPosPriority[pos] || 1}
-                                                         onChange={(e) => {
-                                                             const val = parseInt(e.target.value, 10) || 1;
-                                                             setNewDutyPosPriority(prev => ({ ...prev, [pos]: val }));
-                                                         }}
-                                                     />
-                                                 </div>
-                                             ))}
-                                         </div>
-                                     )}
+                                    {newDutyReqPos.filter(p => p !== 'ALL').length > 0 && (
+                                        <div className="bg-slate-50 p-3 sm:p-4 rounded-xl border border-slate-100 flex flex-wrap gap-3 sm:gap-4 items-center mt-2 w-full">
+                                            <span className="text-[10px] sm:text-xs font-black text-slate-500 uppercase tracking-widest">
+                                                🚦 ลำดับความสำคัญของแต่ละตำแหน่ง (Priority - ตัวเลขน้อยลงก่อน):
+                                            </span>
+                                            {newDutyReqPos.filter(p => p !== 'ALL').map(pos => (
+                                                <div key={pos} className="flex items-center gap-1.5 bg-white border border-slate-200 px-2.5 py-1.5 rounded-lg shadow-sm">
+                                                    <span className="text-xs font-black text-slate-700">{pos}</span>
+                                                    <input
+                                                        type="number"
+                                                        min="1"
+                                                        className="w-12 border border-slate-200 rounded px-1.5 py-0.5 text-xs font-black text-indigo-600 focus:border-indigo-500 outline-none text-center"
+                                                        value={newDutyPosPriority[pos] || 1}
+                                                        onChange={(e) => {
+                                                            const val = parseInt(e.target.value, 10) || 1;
+                                                            setNewDutyPosPriority(prev => ({ ...prev, [pos]: val }));
+                                                        }}
+                                                    />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                             <div className="grid grid-cols-1 gap-2 sm:gap-3 w-full">
@@ -7115,15 +7115,15 @@ export default function App() {
                                                             <div className="font-black text-xs sm:text-sm text-slate-800 truncate" dangerouslySetInnerHTML={{ __html: duty.jobA }}></div>
                                                             {duty.isBackup && <span className="text-[8px] font-black text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 whitespace-nowrap">กะสำรอง</span>}
                                                             {(() => {
-                                                             const reqPosDisplay = (duty.reqPos || ['ALL']).map(pos => {
-                                                                 if (pos === 'ALL') return 'ALL';
-                                                                 const prio = duty.posPriority?.[pos];
-                                                                 return prio != null ? `${pos}(${prio})` : pos;
-                                                             }).join(', ');
-                                                             return (
-                                                                 <span className="text-[8px] font-black text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100 truncate max-w-[120px] sm:max-w-[180px]" title={reqPosDisplay}>{reqPosDisplay}</span>
-                                                             );
-                                                         })()}
+                                                                const reqPosDisplay = (duty.reqPos || ['ALL']).map(pos => {
+                                                                    if (pos === 'ALL') return 'ALL';
+                                                                    const prio = duty.posPriority?.[pos];
+                                                                    return prio != null ? `${pos}(${prio})` : pos;
+                                                                }).join(', ');
+                                                                return (
+                                                                    <span className="text-[8px] font-black text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100 truncate max-w-[120px] sm:max-w-[180px]" title={reqPosDisplay}>{reqPosDisplay}</span>
+                                                                );
+                                                            })()}
                                                         </div>
                                                         <div className="text-[9px] sm:text-[10px] text-slate-400 font-bold truncate mt-0.5 flex items-center gap-2">
                                                             {catInfo && <div className={`w-2 h-2 rounded-full ${catInfo.color.split(' ')[0]}`} title={catInfo.label}></div>}
@@ -7701,51 +7701,51 @@ export default function App() {
                                                         return (
                                                             <div key={idx} className={`p-4 sm:p-5 rounded-[1.2rem] sm:rounded-[1.5rem] border-2 transition-all flex flex-col gap-3 shadow-sm ${extraColor}`}>
                                                                 <div className="flex justify-between items-center">
-                                                                     {['branch', 'superadmin', 'areamanager'].includes(authRole) && !pendingShiftChange ? (
-                                                                         <div className="flex items-center gap-1.5">
-                                                                             <Clock className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${extraIconColor}`} />
-                                                                             <select
-                                                                                 value={data.shiftPresetId || slot.shiftPresetId}
-                                                                                 onChange={(e) => {
-                                                                                     const newVal = e.target.value;
-                                                                                     const oldVal = data.shiftPresetId || slot.shiftPresetId;
-                                                                                     if (newVal === oldVal) return;
-                                                                                     if (['superadmin', 'areamanager'].includes(authRole)) {
-                                                                                         handleScheduleUpdate(selectedDateStr, duty.id, idx, 'shiftPresetId', newVal);
-                                                                                     } else if (authRole === 'branch') {
-                                                                                         if (data.staffId) {
-                                                                                             setShowShiftChangeModal({
-                                                                                                 dateStr: selectedDateStr,
-                                                                                                 dutyId: duty.id,
-                                                                                                 slotIdx: idx,
-                                                                                                 staffId: data.staffId,
-                                                                                                 oldShiftPresetId: oldVal,
-                                                                                                 newShiftPresetId: newVal
-                                                                                             });
-                                                                                         } else {
-                                                                                             handleScheduleUpdate(selectedDateStr, duty.id, idx, 'shiftPresetId', newVal);
-                                                                                         }
-                                                                                     }
-                                                                                 }}
-                                                                                 title="Select Shift Preset"
-                                                                                 className="cursor-pointer bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-[9px] sm:text-[10px] font-black outline-none text-slate-700 hover:bg-slate-100 transition shadow-sm max-w-[150px] sm:max-w-[200px] truncate font-sans"
-                                                                             >
-                                                                                 {branchData.shiftPresets?.map(p => {
-                                                                                     const presetTimes = getShiftTimesForStaff(assignedStaffInfo?.pos || 'OC', p);
-                                                                                     return (
-                                                                                         <option key={p.id} value={p.id}>
-                                                                                             {p.name} ({presetTimes.startTime}-{presetTimes.endTime})
-                                                                                         </option>
-                                                                                     );
-                                                                                 })}
-                                                                             </select>
-                                                                         </div>
-                                                                     ) : (
-                                                                         <span className={`text-[10px] sm:text-[11px] font-black uppercase tracking-widest flex items-center gap-1.5 ${extraTextColor}`}>
-                                                                             <Clock className={`w-3 h-3 sm:w-4 sm:h-4 ${extraIconColor}`} />
-                                                                             {isExtra && extraBadge ? `${extraBadge} - ` : ''}{currentShiftName} ({times.startTime}-{times.endTime})
-                                                                         </span>
-                                                                     )}
+                                                                    {['branch', 'superadmin', 'areamanager'].includes(authRole) && !pendingShiftChange ? (
+                                                                        <div className="flex items-center gap-1.5">
+                                                                            <Clock className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${extraIconColor}`} />
+                                                                            <select
+                                                                                value={data.shiftPresetId || slot.shiftPresetId}
+                                                                                onChange={(e) => {
+                                                                                    const newVal = e.target.value;
+                                                                                    const oldVal = data.shiftPresetId || slot.shiftPresetId;
+                                                                                    if (newVal === oldVal) return;
+                                                                                    if (['superadmin', 'areamanager'].includes(authRole)) {
+                                                                                        handleScheduleUpdate(selectedDateStr, duty.id, idx, 'shiftPresetId', newVal);
+                                                                                    } else if (authRole === 'branch') {
+                                                                                        if (data.staffId) {
+                                                                                            setShowShiftChangeModal({
+                                                                                                dateStr: selectedDateStr,
+                                                                                                dutyId: duty.id,
+                                                                                                slotIdx: idx,
+                                                                                                staffId: data.staffId,
+                                                                                                oldShiftPresetId: oldVal,
+                                                                                                newShiftPresetId: newVal
+                                                                                            });
+                                                                                        } else {
+                                                                                            handleScheduleUpdate(selectedDateStr, duty.id, idx, 'shiftPresetId', newVal);
+                                                                                        }
+                                                                                    }
+                                                                                }}
+                                                                                title="Select Shift Preset"
+                                                                                className="cursor-pointer bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-[9px] sm:text-[10px] font-black outline-none text-slate-700 hover:bg-slate-100 transition shadow-sm max-w-[150px] sm:max-w-[200px] truncate font-sans"
+                                                                            >
+                                                                                {branchData.shiftPresets?.map(p => {
+                                                                                    const presetTimes = getShiftTimesForStaff(assignedStaffInfo?.pos || 'OC', p);
+                                                                                    return (
+                                                                                        <option key={p.id} value={p.id}>
+                                                                                            {p.name} ({presetTimes.startTime}-{presetTimes.endTime})
+                                                                                        </option>
+                                                                                    );
+                                                                                })}
+                                                                            </select>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <span className={`text-[10px] sm:text-[11px] font-black uppercase tracking-widest flex items-center gap-1.5 ${extraTextColor}`}>
+                                                                            <Clock className={`w-3 h-3 sm:w-4 sm:h-4 ${extraIconColor}`} />
+                                                                            {isExtra && extraBadge ? `${extraBadge} - ` : ''}{currentShiftName} ({times.startTime}-{times.endTime})
+                                                                        </span>
+                                                                    )}
                                                                     <div className="flex gap-1.5 items-center">
                                                                         {isExtra && ['branch', 'superadmin', 'areamanager'].includes(authRole) ? (
                                                                             <button onClick={() => handleRemoveExtraSlot(selectedDateStr, duty.id, idx)} className="bg-red-100 text-red-500 hover:bg-red-500 hover:text-white px-2 py-1 rounded text-[8px] sm:text-[9px] font-black transition shadow-sm"><X className="w-3 h-3" /></button>
@@ -10165,68 +10165,68 @@ export default function App() {
                     <div className="flex items-center gap-3 bg-slate-800 px-5 py-3 rounded-2xl border border-slate-700">
                         <CalendarIcon className="w-5 h-5 text-emerald-400" />
                         <div className="flex items-center gap-2">
-                        <select
-                          value={selectedYear}
-                          onChange={(e) => {
-                            const y = parseInt(e.target.value);
-                            setSelectedYear(y);
-                            setSelectedDateStr(`${y}-${String(selectedMonth + 1).padStart(2, '0')}-01`);
-                          }}
-                          className="bg-transparent text-[10px] sm:text-xs font-black outline-none py-1.5 sm:py-2 px-2 sm:pr-3 text-slate-700"
-                        >
-                          {Array.from({ length: 10 }, (_, i) => {
-                            const year = new Date().getFullYear() - 5 + i;
-                            return (
-                              <option key={year} value={year}>
-                                {year}
-                              </option>
-                            );
-                          })}
-                        </select>
-                        <select
-                          value={selectedMonth}
-                          onChange={(e) => {
-                            const m = parseInt(e.target.value);
-                            setSelectedMonth(m);
-                            setSelectedDateStr(`${selectedYear}-${String(m + 1).padStart(2, '0')}-01`);
-                          }}
-                          className="bg-transparent text-[10px] sm:text-xs font-black outline-none py-1.5 sm:py-2 px-2 sm:pr-3 text-slate-700"
-                        >
-                          {THAI_MONTHS.map((m, i) => (
-                            <option key={i} value={i}>
-                              {m} {selectedYear}
-                            </option>
-                          ))}
-                        </select>
-                        <select
-                          value={areaPeriod}
-                          onChange={(e) => setAreaPeriod(e.target.value)}
-                          className="bg-transparent text-[10px] sm:text-xs font-black outline-none py-1.5 sm:py-2 px-2 sm:pr-3 text-slate-700"
-                        >
-                          <option value="monthly">Monthly</option>
-                          <option value="weekly">Weekly</option>
-                          <option value="custom">Custom</option>
-                        </select>
-                        {areaPeriod === 'custom' && (
-                          <div className="flex gap-2 mt-1">
-                            <input
-                              type="date"
-                              value={periodStart}
-                              onChange={(e) => setPeriodStart(e.target.value)}
-                              className="bg-transparent border border-slate-500 text-slate-200 text-sm p-1"
-                            />
-                            <span className="text-slate-300 self-center">ถึง</span>
-                            <input
-                              type="date"
-                              value={periodEnd}
-                              onChange={(e) => setPeriodEnd(e.target.value)}
-                              className="bg-transparent border border-slate-500 text-slate-200 text-sm p-1"
-                            />
-                          </div>
-                        )}
-                        <p className="text-sm text-slate-300 mt-1">
-                          ระยะเวลา: {periodStart} - {periodEnd}
-                        </p>
+                            <select
+                                value={selectedYear}
+                                onChange={(e) => {
+                                    const y = parseInt(e.target.value);
+                                    setSelectedYear(y);
+                                    setSelectedDateStr(`${y}-${String(selectedMonth + 1).padStart(2, '0')}-01`);
+                                }}
+                                className="bg-transparent text-[10px] sm:text-xs font-black outline-none py-1.5 sm:py-2 px-2 sm:pr-3 text-slate-700"
+                            >
+                                {Array.from({ length: 10 }, (_, i) => {
+                                    const year = new Date().getFullYear() - 5 + i;
+                                    return (
+                                        <option key={year} value={year}>
+                                            {year}
+                                        </option>
+                                    );
+                                })}
+                            </select>
+                            <select
+                                value={selectedMonth}
+                                onChange={(e) => {
+                                    const m = parseInt(e.target.value);
+                                    setSelectedMonth(m);
+                                    setSelectedDateStr(`${selectedYear}-${String(m + 1).padStart(2, '0')}-01`);
+                                }}
+                                className="bg-transparent text-[10px] sm:text-xs font-black outline-none py-1.5 sm:py-2 px-2 sm:pr-3 text-slate-700"
+                            >
+                                {THAI_MONTHS.map((m, i) => (
+                                    <option key={i} value={i}>
+                                        {m} {selectedYear}
+                                    </option>
+                                ))}
+                            </select>
+                            <select
+                                value={areaPeriod}
+                                onChange={(e) => setAreaPeriod(e.target.value)}
+                                className="bg-transparent text-[10px] sm:text-xs font-black outline-none py-1.5 sm:py-2 px-2 sm:pr-3 text-slate-700"
+                            >
+                                <option value="monthly">Monthly</option>
+                                <option value="weekly">Weekly</option>
+                                <option value="custom">Custom</option>
+                            </select>
+                            {areaPeriod === 'custom' && (
+                                <div className="flex gap-2 mt-1">
+                                    <input
+                                        type="date"
+                                        value={periodStart}
+                                        onChange={(e) => setPeriodStart(e.target.value)}
+                                        className="bg-transparent border border-slate-500 text-slate-200 text-sm p-1"
+                                    />
+                                    <span className="text-slate-300 self-center">ถึง</span>
+                                    <input
+                                        type="date"
+                                        value={periodEnd}
+                                        onChange={(e) => setPeriodEnd(e.target.value)}
+                                        className="bg-transparent border border-slate-500 text-slate-200 text-sm p-1"
+                                    />
+                                </div>
+                            )}
+                            <p className="text-sm text-slate-300 mt-1">
+                                ระยะเวลา: {periodStart} - {periodEnd}
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -10424,7 +10424,7 @@ export default function App() {
                                 payrollSummary.total.basePay.monthly += staff.basePay;
                                 payrollSummary[dept].otPay.monthly += staff.otPay;
                                 payrollSummary.total.otPay.monthly += staff.otPay;
-                                
+
                                 payrollSummary[dept].lateNightAllowance.monthly += (staff.lateNightAllowance || 0);
                                 payrollSummary.total.lateNightAllowance.monthly += (staff.lateNightAllowance || 0);
                             } else if (staff.wageType === 'HOURLY') {
@@ -10452,10 +10452,10 @@ export default function App() {
                             payrollSummary.total.otPay.total += staff.otPay;
                             payrollSummary[dept].holidayPay.total += staff.holidayPay;
                             payrollSummary.total.holidayPay.total += staff.holidayPay;
-                            
+
                             payrollSummary[dept].lateNightAllowance.total += (staff.lateNightAllowance || 0);
                             payrollSummary.total.lateNightAllowance.total += (staff.lateNightAllowance || 0);
-                            
+
                             payrollSummary[dept].netPay += staff.totalPay;
                             payrollSummary.total.netPay += staff.totalPay;
                         });
@@ -10977,7 +10977,7 @@ export default function App() {
                     <div className="h-12 w-full bg-slate-100/40 rounded-2xl"></div>
                     <div className="h-12 w-full bg-slate-100/20 rounded-2xl"></div>
                 </div>
-                
+
                 {/* Popup Loading Modal overlay at the center */}
                 <div className="absolute inset-0 bg-slate-900/10 backdrop-blur-[2px] flex items-center justify-center p-4 z-50">
                     <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-2xl flex flex-col items-center gap-3 text-center max-w-xs w-full animate-in zoom-in-95 duration-200 pointer-events-auto">
@@ -10986,8 +10986,8 @@ export default function App() {
                                 <AlertCircle className="w-8 h-8 text-red-500" />
                                 <h3 className="font-bold text-sm text-slate-800">เกิดข้อผิดพลาด</h3>
                                 <p className="text-slate-500 text-[10px]">{loadError}</p>
-                                <button 
-                                    onClick={() => window.location.reload()} 
+                                <button
+                                    onClick={() => window.location.reload()}
                                     className="mt-1 bg-slate-900 hover:bg-black text-white font-bold text-xs px-4 py-2 rounded-xl transition active:scale-95 shadow-sm"
                                 >
                                     ลองใหม่อีกครั้ง
@@ -10998,8 +10998,8 @@ export default function App() {
                                 <Clock className="w-8 h-8 text-amber-500 animate-pulse" />
                                 <h3 className="font-bold text-sm text-slate-800">ล่าช้ากว่าปกติ</h3>
                                 <p className="text-slate-500 text-[10px]">กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตของคุณ</p>
-                                <button 
-                                    onClick={() => window.location.reload()} 
+                                <button
+                                    onClick={() => window.location.reload()}
                                     className="mt-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2 rounded-xl transition active:scale-95 shadow-sm"
                                 >
                                     ลองใหม่อีกครั้ง
@@ -11091,8 +11091,8 @@ export default function App() {
                                     <AlertCircle className="w-10 h-10 text-red-500" />
                                     <h3 className="font-bold text-base text-slate-800">เกิดข้อผิดพลาดในการโหลดข้อมูล</h3>
                                     <p className="text-slate-500 text-xs">{loadError}</p>
-                                    <button 
-                                        onClick={() => window.location.reload()} 
+                                    <button
+                                        onClick={() => window.location.reload()}
                                         className="mt-2 bg-slate-900 hover:bg-black text-white font-bold text-xs px-4 py-2.5 rounded-xl transition active:scale-95 shadow-sm"
                                     >
                                         ลองใหม่อีกครั้ง
@@ -11103,8 +11103,8 @@ export default function App() {
                                     <Clock className="w-10 h-10 text-amber-500 animate-pulse" />
                                     <h3 className="font-bold text-base text-slate-800">การเชื่อมต่อล่าช้ากว่าปกติ</h3>
                                     <p className="text-slate-500 text-xs">ดูเหมือนว่าการดึงข้อมูลจากเซิร์ฟเวอร์จะใช้เวลานานผิดปกติ กรุณาตรวจสอบอินเทอร์เน็ตของคุณ</p>
-                                    <button 
-                                        onClick={() => window.location.reload()} 
+                                    <button
+                                        onClick={() => window.location.reload()}
                                         className="mt-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition active:scale-95 shadow-sm"
                                     >
                                         ลองใหม่อีกครั้ง
@@ -11138,112 +11138,112 @@ export default function App() {
                     {renderModals()}
                     {renderLandingModal()}
                     {authRole === 'guest' ? renderGuestLogin() : (
-                <div className="flex-1 flex flex-col min-h-screen w-full bg-slate-50 text-slate-900 font-sans antialiased">
-                    <nav className="flex-none sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200 print:hidden shadow-sm px-4 sm:px-8 py-3 w-full">
-                        <div className="max-w-[1600px] mx-auto flex flex-col lg:flex-row items-center justify-between gap-4 lg:gap-0 w-full">
-                            <div className="flex items-center justify-between w-full lg:w-auto">
-                                <div className="flex items-center gap-3 sm:gap-4">
-                                    <img src="https://img1.pic.in.th/images/ChatGPT-Image-6-..-2569-19_46_07.png" alt="Logo" className="w-10 h-10 sm:w-12 sm:h-12 rounded-full shadow-md object-cover border-2 border-slate-100 bg-white transition hover:scale-105 duration-500" onError={(e) => { e.target.onerror = null; e.target.src = "https://via.placeholder.com/150?text=GON"; }} />
-                                    <div className="flex flex-col">
-                                        <span className="font-black text-lg sm:text-xl tracking-tighter uppercase leading-none">Super Store</span>
-                                        <div className="flex items-center gap-1.5 mt-0.5">
-                                            <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-green-500 rounded-full animate-pulse"></span>
-                                            <span className={`text-[8px] sm:text-[9px] font-black uppercase text-slate-400`}>{authRole === 'superadmin' ? 'BAR B Q PLAZA' : authRole === 'areamanager' ? 'AREA MANAGER' : 'BRANCH MANAGEMENT'}</span>
+                        <div className="flex-1 flex flex-col min-h-screen w-full bg-slate-50 text-slate-900 font-sans antialiased">
+                            <nav className="flex-none sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200 print:hidden shadow-sm px-4 sm:px-8 py-3 w-full">
+                                <div className="max-w-[1600px] mx-auto flex flex-col lg:flex-row items-center justify-between gap-4 lg:gap-0 w-full">
+                                    <div className="flex items-center justify-between w-full lg:w-auto">
+                                        <div className="flex items-center gap-3 sm:gap-4">
+                                            <img src="https://img1.pic.in.th/images/ChatGPT-Image-6-..-2569-19_46_07.png" alt="Logo" className="w-10 h-10 sm:w-12 sm:h-12 rounded-full shadow-md object-cover border-2 border-slate-100 bg-white transition hover:scale-105 duration-500" onError={(e) => { e.target.onerror = null; e.target.src = "https://via.placeholder.com/150?text=GON"; }} />
+                                            <div className="flex flex-col">
+                                                <span className="font-black text-lg sm:text-xl tracking-tighter uppercase leading-none">Super Store</span>
+                                                <div className="flex items-center gap-1.5 mt-0.5">
+                                                    <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-green-500 rounded-full animate-pulse"></span>
+                                                    <span className={`text-[8px] sm:text-[9px] font-black uppercase text-slate-400`}>{authRole === 'superadmin' ? 'BAR B Q PLAZA' : authRole === 'areamanager' ? 'AREA MANAGER' : 'BRANCH MANAGEMENT'}</span>
+                                                </div>
+                                            </div>
+                                            {['superadmin', 'areamanager'].includes(authRole) && (
+                                                <div className="hidden sm:flex items-center bg-slate-100 rounded-xl p-1 ml-2 sm:ml-4 border border-slate-200 shadow-inner">
+                                                    <ArrowLeftRight className="w-3 h-3 sm:w-4 sm:h-4 text-slate-400 mx-2 sm:mx-3" />
+                                                    <select value={activeBranchId || ''} onChange={handleBranchChange} className="bg-transparent text-[9px] sm:text-[11px] font-black outline-none py-1 sm:py-2 pr-2 sm:pr-4 text-indigo-600 cursor-pointer uppercase max-w-[120px] sm:max-w-none">
+                                                        <option value="">-- SELECT BRANCH --</option>
+                                                        {globalConfig.branches?.filter(b => authRole === 'superadmin' || (globalConfig.areaManagers?.find(a => a.user === authUser)?.branches || []).includes(b.id)).map(b => <option key={b.id} value={b.id}>{b.name.substring(0, 40).toUpperCase()}</option>)}
+                                                    </select>
+                                                </div>
+                                            )}
+                                            <div className="hidden sm:flex items-center ml-2">
+                                                <button onClick={() => setShowRequestsModal(true)} className="relative p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition shadow-sm">
+                                                    <Bell className="w-5 h-5 text-slate-600" />
+                                                    {pendingRequests.some(r => r.status === 'PENDING_MANAGER') && <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>}
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div className="lg:hidden flex items-center gap-2">
+                                            <button onClick={() => setShowRequestsModal(true)} className="relative p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition shadow-sm">
+                                                <Bell className="w-5 h-5 text-slate-600" />
+                                                {pendingRequests.some(r => r.status === 'PENDING_MANAGER') && <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>}
+                                            </button>
+                                            {['branch', 'areamanager'].includes(authRole) && (
+                                                <button onClick={() => setShowChangePasswordModal(true)} className="text-slate-400 p-2 bg-slate-100 rounded-lg hover:text-indigo-500 transition" title="เปลี่ยนรหัสผ่าน"><KeyRound className="w-4 h-4" /></button>
+                                            )}
+                                            <button onClick={() => { localStorage.removeItem('superstore_session'); window.location.reload(); }} className="text-slate-400 p-2 bg-slate-100 rounded-lg"><LogIn className="w-4 h-4 rotate-180" /></button>
                                         </div>
                                     </div>
-                                    {['superadmin', 'areamanager'].includes(authRole) && (
-                                        <div className="hidden sm:flex items-center bg-slate-100 rounded-xl p-1 ml-2 sm:ml-4 border border-slate-200 shadow-inner">
-                                            <ArrowLeftRight className="w-3 h-3 sm:w-4 sm:h-4 text-slate-400 mx-2 sm:mx-3" />
-                                            <select value={activeBranchId || ''} onChange={handleBranchChange} className="bg-transparent text-[9px] sm:text-[11px] font-black outline-none py-1 sm:py-2 pr-2 sm:pr-4 text-indigo-600 cursor-pointer uppercase max-w-[120px] sm:max-w-none">
-                                                <option value="">-- SELECT BRANCH --</option>
-                                                {globalConfig.branches?.filter(b => authRole === 'superadmin' || (globalConfig.areaManagers?.find(a => a.user === authUser)?.branches || []).includes(b.id)).map(b => <option key={b.id} value={b.id}>{b.name.substring(0, 40).toUpperCase()}</option>)}
+                                    <div className="flex items-center gap-2 sm:gap-5 w-full lg:w-auto overflow-x-auto custom-scrollbar pb-1 lg:pb-0 mt-4 lg:mt-0">
+                                        <div className="flex-shrink-0 flex items-center bg-slate-100 rounded-xl p-1 shadow-inner border border-slate-200">
+                                            <CalendarDaysIcon className="hidden sm:block w-4 h-4 sm:w-5 sm:h-5 text-slate-400 mx-2 sm:mx-3" />
+                                            <select value={selectedMonth} onChange={(e) => {
+                                                const m = parseInt(e.target.value);
+                                                setSelectedMonth(m);
+                                                setSelectedDateStr(`${selectedYear}-${String(m + 1).padStart(2, '0')}-01`);
+                                            }} className="bg-transparent text-[10px] sm:text-xs font-black outline-none py-1.5 sm:py-2 px-2 sm:pr-3 text-slate-700">
+                                                {THAI_MONTHS.map((m, i) => <option key={i} value={i}>{m} 2026</option>)}
                                             </select>
                                         </div>
-                                    )}
-                                    <div className="hidden sm:flex items-center ml-2">
-                                        <button onClick={() => setShowRequestsModal(true)} className="relative p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition shadow-sm">
-                                            <Bell className="w-5 h-5 text-slate-600" />
-                                            {pendingRequests.some(r => r.status === 'PENDING_MANAGER') && <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>}
-                                        </button>
+                                        <div className="flex-shrink-0 flex gap-1 sm:gap-2 bg-slate-100 p-1 rounded-xl sm:rounded-2xl border border-slate-200 font-black text-[9px] sm:text-[10px]">
+                                            {authRole === 'areamanager' && <button onClick={() => handleMenuChange('area_dashboard')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'area_dashboard' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>ภาพรวมเขต (Dashboard)</button>}
+                                            <button onClick={() => handleMenuChange('manager')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'manager' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>จัดตารางงาน</button>
+                                            <button onClick={() => handleMenuChange('head_team')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'head_team' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>จัดบทบาทประจำวัน</button>
+                                            <button onClick={() => handleMenuChange('report')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'report' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>รายงาน</button>
+                                            <button onClick={() => handleMenuChange('admin')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'admin' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>ตั้งค่า</button>
+                                            <button onClick={() => handleMenuChange('guide')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'guide' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>คู่มือ</button>
+                                            {authRole === 'superadmin' && <button onClick={() => handleMenuChange('branches')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'branches' ? 'bg-white text-emerald-600 shadow-sm border border-emerald-50' : 'text-slate-500'}`}>BRANCHES</button>}
+                                        </div>
+                                        <div className="hidden lg:flex flex-shrink-0 items-center gap-3 ml-2 pl-5 border-l border-slate-200">
+                                            <button onClick={handleGlobalSave} disabled={saveStatus === 'saving'} className="bg-indigo-600 text-white px-4 py-2.5 rounded-2xl font-black text-xs hover:bg-indigo-700 active:scale-95 transition flex items-center gap-2 w-32 justify-center">
+                                                {saveStatus === 'saving' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                                                <span className="ml-1">{saveStatus === 'saving' ? 'กำลังบันทึก...' : 'บันทึกทั้งหมด'}</span>
+                                            </button>
+                                            {saveStatus === 'error' && <div className="text-red-500 text-xs font-bold ml-2">บันทึกไม่สำเร็จ กรุณาลองใหม่</div>}
+                                            {['branch', 'areamanager'].includes(authRole) && (
+                                                <button onClick={() => setShowChangePasswordModal(true)} className="text-slate-400 hover:text-indigo-500 transition p-1" title="เปลี่ยนรหัสผ่าน"><KeyRound className="w-5 h-5 sm:w-6 sm:h-6" /></button>
+                                            )}
+                                            <button onClick={() => { localStorage.removeItem('superstore_session'); window.location.reload(); }} className="text-slate-400 hover:text-red-500 transition p-1"><LogIn className="w-6 h-6 rotate-180" /></button>
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="lg:hidden flex items-center gap-2">
-                                    <button onClick={() => setShowRequestsModal(true)} className="relative p-2 bg-slate-100 rounded-full hover:bg-slate-200 transition shadow-sm">
-                                        <Bell className="w-5 h-5 text-slate-600" />
-                                        {pendingRequests.some(r => r.status === 'PENDING_MANAGER') && <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>}
-                                    </button>
-                                    {['branch', 'areamanager'].includes(authRole) && (
-                                        <button onClick={() => setShowChangePasswordModal(true)} className="text-slate-400 p-2 bg-slate-100 rounded-lg hover:text-indigo-500 transition" title="เปลี่ยนรหัสผ่าน"><KeyRound className="w-4 h-4" /></button>
-                                    )}
-                                    <button onClick={() => { localStorage.removeItem('superstore_session'); window.location.reload(); }} className="text-slate-400 p-2 bg-slate-100 rounded-lg"><LogIn className="w-4 h-4 rotate-180" /></button>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-2 sm:gap-5 w-full lg:w-auto overflow-x-auto custom-scrollbar pb-1 lg:pb-0 mt-4 lg:mt-0">
-                                <div className="flex-shrink-0 flex items-center bg-slate-100 rounded-xl p-1 shadow-inner border border-slate-200">
-                                    <CalendarDaysIcon className="hidden sm:block w-4 h-4 sm:w-5 sm:h-5 text-slate-400 mx-2 sm:mx-3" />
-                                    <select value={selectedMonth} onChange={(e) => {
-                                        const m = parseInt(e.target.value);
-                                        setSelectedMonth(m);
-                                        setSelectedDateStr(`${selectedYear}-${String(m + 1).padStart(2, '0')}-01`);
-                                    }} className="bg-transparent text-[10px] sm:text-xs font-black outline-none py-1.5 sm:py-2 px-2 sm:pr-3 text-slate-700">
-                                        {THAI_MONTHS.map((m, i) => <option key={i} value={i}>{m} 2026</option>)}
-                                    </select>
-                                </div>
-                                <div className="flex-shrink-0 flex gap-1 sm:gap-2 bg-slate-100 p-1 rounded-xl sm:rounded-2xl border border-slate-200 font-black text-[9px] sm:text-[10px]">
-                                    {authRole === 'areamanager' && <button onClick={() => handleMenuChange('area_dashboard')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'area_dashboard' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>ภาพรวมเขต (Dashboard)</button>}
-                                    <button onClick={() => handleMenuChange('manager')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'manager' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>จัดตารางงาน</button>
-                                    <button onClick={() => handleMenuChange('head_team')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'head_team' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>จัดบทบาทประจำวัน</button>
-                                    <button onClick={() => handleMenuChange('report')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'report' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>รายงาน</button>
-                                    <button onClick={() => handleMenuChange('admin')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'admin' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>ตั้งค่า</button>
-                                    <button onClick={() => handleMenuChange('guide')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'guide' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>คู่มือ</button>
-                                    {authRole === 'superadmin' && <button onClick={() => handleMenuChange('branches')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'branches' ? 'bg-white text-emerald-600 shadow-sm border border-emerald-50' : 'text-slate-500'}`}>BRANCHES</button>}
-                                </div>
-                                <div className="hidden lg:flex flex-shrink-0 items-center gap-3 ml-2 pl-5 border-l border-slate-200">
-                                    <button onClick={handleGlobalSave} disabled={saveStatus === 'saving'} className="bg-indigo-600 text-white px-4 py-2.5 rounded-2xl font-black text-xs hover:bg-indigo-700 active:scale-95 transition flex items-center gap-2 w-32 justify-center">
-                                        {saveStatus === 'saving' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                                        <span className="ml-1">{saveStatus === 'saving' ? 'กำลังบันทึก...' : 'บันทึกทั้งหมด'}</span>
-                                    </button>
-                                    {saveStatus === 'error' && <div className="text-red-500 text-xs font-bold ml-2">บันทึกไม่สำเร็จ กรุณาลองใหม่</div>}
-                                    {['branch', 'areamanager'].includes(authRole) && (
-                                        <button onClick={() => setShowChangePasswordModal(true)} className="text-slate-400 hover:text-indigo-500 transition p-1" title="เปลี่ยนรหัสผ่าน"><KeyRound className="w-5 h-5 sm:w-6 sm:h-6" /></button>
-                                    )}
-                                    <button onClick={() => { localStorage.removeItem('superstore_session'); window.location.reload(); }} className="text-slate-400 hover:text-red-500 transition p-1"><LogIn className="w-6 h-6 rotate-180" /></button>
-                                </div>
-                            </div>
-                        </div>
-                    </nav>
+                            </nav>
 
-                    <button onClick={handleGlobalSave} disabled={saveStatus === 'saving'} className="lg:hidden fixed bottom-6 right-6 z-50 bg-indigo-600 text-white p-4 rounded-full shadow-2xl active:scale-90 transition-transform">
-                        {saveStatus === 'saving' ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6" />}
-                    </button>
-                    {saveStatus === 'error' && <div className="lg:hidden fixed bottom-20 right-6 z-50 bg-red-500 text-white px-4 py-2 rounded-xl shadow-2xl text-xs font-bold">บันทึกไม่สำเร็จ</div>}
+                            <button onClick={handleGlobalSave} disabled={saveStatus === 'saving'} className="lg:hidden fixed bottom-6 right-6 z-50 bg-indigo-600 text-white p-4 rounded-full shadow-2xl active:scale-90 transition-transform">
+                                {saveStatus === 'saving' ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6" />}
+                            </button>
+                            {saveStatus === 'error' && <div className="lg:hidden fixed bottom-20 right-6 z-50 bg-red-500 text-white px-4 py-2 rounded-xl shadow-2xl text-xs font-bold">บันทึกไม่สำเร็จ</div>}
 
-                    <main className="flex-1 flex flex-col p-4 sm:p-8 max-w-[1600px] mx-auto w-full print:p-0 print:m-0 relative">
-                        {(view === 'manager' || view === 'admin' || view === 'head_team') && (
-                            <div className="flex-none flex flex-wrap items-center justify-between gap-4 mb-6 sm:mb-10 print:hidden w-full">
-                                <div className="flex flex-wrap gap-2 sm:gap-4 bg-white p-2 sm:p-3 rounded-[1.5rem] sm:rounded-[2.5rem] border border-slate-200 w-full md:w-fit shadow-sm">
-                                    <button onClick={() => { setActiveDept('service'); setStaffFilterPos('ALL'); }} className={`flex-1 md:flex-none flex justify-center items-center gap-2 sm:gap-3 px-4 sm:px-10 py-3 sm:py-4 rounded-[1rem] sm:rounded-[2rem] font-black text-[10px] sm:text-xs transition-all ${activeDept === 'service' ? 'bg-indigo-600 text-white shadow-xl scale-[1.02]' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}><ConciergeBell className="w-4 h-4 sm:w-5 sm:h-5" /> ฝั่งงานบริการ</button>
-                                    <button onClick={() => { setActiveDept('kitchen'); setStaffFilterPos('ALL'); }} className={`flex-1 md:flex-none flex justify-center items-center gap-2 sm:gap-3 px-4 sm:px-10 py-3 sm:py-4 rounded-[1rem] sm:rounded-[2rem] font-black text-[10px] sm:text-xs transition-all ${activeDept === 'kitchen' ? 'bg-orange-600 text-white shadow-xl scale-[1.02]' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}><UtensilsCrossed className="w-4 h-4 sm:w-5 sm:h-5" /> ฝั่งงานครัว</button>
-                                </div>
-                                {view === 'manager' && (
-                                    <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
-                                        <button onClick={() => setManagerViewMode('daily')} className={`px-3 py-2 rounded-xl text-[10px] sm:text-xs font-black transition-all ${managerViewMode === 'daily' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}><CalendarDaysIcon className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1 sm:mr-2" /><span className="hidden sm:inline">จัดกะแบบรายวัน</span><span className="sm:hidden">รายวัน</span></button>
-                                        <button onClick={() => setManagerViewMode('weekly')} className={`px-3 py-2 rounded-xl text-[10px] sm:text-xs font-black transition-all ${managerViewMode === 'weekly' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}><CalendarDaysIcon className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1 sm:mr-2" /><span className="hidden sm:inline">จัดกะแบบรายสัปดาห์</span><span className="sm:hidden">สัปดาห์</span></button>
-                                        <button onClick={() => setManagerViewMode('monthly')} className={`px-3 py-2 rounded-xl text-[10px] sm:text-xs font-black transition-all ${managerViewMode === 'monthly' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}><CalendarIcon className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1 sm:mr-2" /><span className="hidden sm:inline">จัดกะแบบรายเดือน</span><span className="sm:hidden">รายเดือน</span></button>
+                            <main className="flex-1 flex flex-col p-4 sm:p-8 max-w-[1600px] mx-auto w-full print:p-0 print:m-0 relative">
+                                {(view === 'manager' || view === 'admin' || view === 'head_team') && (
+                                    <div className="flex-none flex flex-wrap items-center justify-between gap-4 mb-6 sm:mb-10 print:hidden w-full">
+                                        <div className="flex flex-wrap gap-2 sm:gap-4 bg-white p-2 sm:p-3 rounded-[1.5rem] sm:rounded-[2.5rem] border border-slate-200 w-full md:w-fit shadow-sm">
+                                            <button onClick={() => { setActiveDept('service'); setStaffFilterPos('ALL'); }} className={`flex-1 md:flex-none flex justify-center items-center gap-2 sm:gap-3 px-4 sm:px-10 py-3 sm:py-4 rounded-[1rem] sm:rounded-[2rem] font-black text-[10px] sm:text-xs transition-all ${activeDept === 'service' ? 'bg-indigo-600 text-white shadow-xl scale-[1.02]' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}><ConciergeBell className="w-4 h-4 sm:w-5 sm:h-5" /> ฝั่งงานบริการ</button>
+                                            <button onClick={() => { setActiveDept('kitchen'); setStaffFilterPos('ALL'); }} className={`flex-1 md:flex-none flex justify-center items-center gap-2 sm:gap-3 px-4 sm:px-10 py-3 sm:py-4 rounded-[1rem] sm:rounded-[2rem] font-black text-[10px] sm:text-xs transition-all ${activeDept === 'kitchen' ? 'bg-orange-600 text-white shadow-xl scale-[1.02]' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}><UtensilsCrossed className="w-4 h-4 sm:w-5 sm:h-5" /> ฝั่งงานครัว</button>
+                                        </div>
+                                        {view === 'manager' && (
+                                            <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
+                                                <button onClick={() => setManagerViewMode('daily')} className={`px-3 py-2 rounded-xl text-[10px] sm:text-xs font-black transition-all ${managerViewMode === 'daily' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}><CalendarDaysIcon className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1 sm:mr-2" /><span className="hidden sm:inline">จัดกะแบบรายวัน</span><span className="sm:hidden">รายวัน</span></button>
+                                                <button onClick={() => setManagerViewMode('weekly')} className={`px-3 py-2 rounded-xl text-[10px] sm:text-xs font-black transition-all ${managerViewMode === 'weekly' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}><CalendarDaysIcon className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1 sm:mr-2" /><span className="hidden sm:inline">จัดกะแบบรายสัปดาห์</span><span className="sm:hidden">สัปดาห์</span></button>
+                                                <button onClick={() => setManagerViewMode('monthly')} className={`px-3 py-2 rounded-xl text-[10px] sm:text-xs font-black transition-all ${managerViewMode === 'monthly' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400'}`}><CalendarIcon className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1 sm:mr-2" /><span className="hidden sm:inline">จัดกะแบบรายเดือน</span><span className="sm:hidden">รายเดือน</span></button>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
-                            </div>
-                        )}
 
-                        {mainContent}
+                                {mainContent}
 
-                        <footer className="flex-none mt-auto pt-8 text-center pb-8 print:hidden opacity-60 hover:opacity-100 transition-opacity flex flex-col items-center w-full">
-                            <div className="flex items-center justify-center gap-3 mb-3"><div className="h-px w-12 bg-slate-300"></div><Award className="w-5 h-5 text-slate-400" /><div className="h-px w-12 bg-slate-300"></div></div>
-                            <p className="text-[10px] sm:text-xs font-black text-slate-500 uppercase tracking-[0.3em]">Powered by Super Store Team</p>
-                        </footer>
-                    </main>
-                </div>
-            )}
+                                <footer className="flex-none mt-auto pt-8 text-center pb-8 print:hidden opacity-60 hover:opacity-100 transition-opacity flex flex-col items-center w-full">
+                                    <div className="flex items-center justify-center gap-3 mb-3"><div className="h-px w-12 bg-slate-300"></div><Award className="w-5 h-5 text-slate-400" /><div className="h-px w-12 bg-slate-300"></div></div>
+                                    <p className="text-[10px] sm:text-xs font-black text-slate-500 uppercase tracking-[0.3em]">Powered by Super Store Team</p>
+                                </footer>
+                            </main>
+                        </div>
+                    )}
                 </React.Fragment>
             )}
         </React.Fragment>
