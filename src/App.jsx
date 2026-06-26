@@ -3017,13 +3017,13 @@ export default function App() {
   });
 }, [activeBranchId, autoSaveSchedule]);
 
-            const newSched = JSON.parse(JSON.stringify(prev));
+
             if (!newSched[dateStr]) newSched[dateStr] = { duties: {}, leaves: [], autoLeavesAssigned: true };
             let updatedLeaves = (newSched[dateStr].leaves || []).filter(l => l.type !== leaveType);
             selectedStaffIds.forEach(staffId => { updatedLeaves.push({ staffId, type: leaveType }); });
             newSched[dateStr].leaves = updatedLeaves;
 
-            // หากมีการบันทึกวันลา/วันหยุดแบบกลุ่ม ให้ถอดชื่อพนักงานเหล่านั้นออกจากกะงานวันนั้นโดยอัตโนมัติ
+            
             if (newSched[dateStr].duties) {
                 Object.values(newSched[dateStr].duties).forEach(slots => {
                     slots.forEach(slot => {
