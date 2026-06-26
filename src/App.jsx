@@ -5507,7 +5507,18 @@ export default function App() {
                                     <p>พนักงาน: <span className="text-indigo-700">{branchData.staff?.find(s => s.id === showShiftChangeModal.staffId)?.name || 'N/A'}</span></p>
                                     <p>วันที่: <span className="text-indigo-700">{showShiftChangeModal.dateStr}</span></p>
                                     <p>กะเดิม: <span className="text-slate-500 font-black">{branchData.shiftPresets?.find(p => p.id === showShiftChangeModal.oldShiftPresetId)?.name || 'N/A'}</span></p>
-                                    <p>กะใหม่: <span className="text-indigo-600 font-black">{branchData.shiftPresets?.find(p => p.id === showShiftChangeModal.newShiftPresetId)?.name || 'N/A'}</span></p>
+                                    <div className="flex items-center gap-2">
+                                        <p>กะใหม่:</p>
+                                        <select
+                                            value={showShiftChangeModal.newShiftPresetId}
+                                            onChange={(e) => setShowShiftChangeModal({ ...showShiftChangeModal, newShiftPresetId: e.target.value })}
+                                            className="border border-slate-200 rounded-lg px-2 py-1 text-xs font-black text-indigo-700 outline-none focus:border-indigo-500 bg-white"
+                                        >
+                                            {branchData.shiftPresets?.map(p => (
+                                                <option key={p.id} value={p.id}>{p.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
                                 </div>
                                 <div>
                                     <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">เหตุผลการขอเปลี่ยนกะ (จำเป็นต้องกรอก)</label>
@@ -7761,41 +7772,50 @@ export default function App() {
                                                                     {['branch', 'superadmin', 'areamanager'].includes(authRole) && !pendingShiftChange ? (
                                                                         <div className="flex items-center gap-1.5">
                                                                             <Clock className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${extraIconColor}`} />
-                                                                            <select
-                                                                                value={data.shiftPresetId || slot.shiftPresetId}
-                                                                                onChange={(e) => {
-                                                                                    const newVal = e.target.value;
-                                                                                    const oldVal = data.shiftPresetId || slot.shiftPresetId;
-                                                                                    if (newVal === oldVal) return;
-                                                                                    if (['superadmin', 'areamanager'].includes(authRole)) {
-                                                                                        handleScheduleUpdate(selectedDateStr, duty.id, idx, 'shiftPresetId', newVal);
-                                                                                    } else if (authRole === 'branch') {
-                                                                                        if (data.staffId) {
-                                                                                            setShowShiftChangeModal({
-                                                                                                dateStr: selectedDateStr,
-                                                                                                dutyId: duty.id,
-                                                                                                slotIdx: idx,
-                                                                                                staffId: data.staffId,
-                                                                                                oldShiftPresetId: oldVal,
-                                                                                                newShiftPresetId: newVal
-                                                                                            });
-                                                                                        } else {
-                                                                                            handleScheduleUpdate(selectedDateStr, duty.id, idx, 'shiftPresetId', newVal);
+                                                                            {['superadmin', 'areamanager'].includes(authRole) ? (
+                                                                                <select
+                                                                                    value={data.shiftPresetId || slot.shiftPresetId}
+                                                                                    onChange={(e) => handleScheduleUpdate(selectedDateStr, duty.id, idx, 'shiftPresetId', e.target.value)}
+                                                                                    title="Select Shift Preset"
+                                                                                    className="cursor-pointer bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-[9px] sm:text-[10px] font-black outline-none text-slate-700 hover:bg-slate-100 transition shadow-sm max-w-[150px] sm:max-w-[200px] truncate font-sans"
+                                                                                >
+                                                                                    {branchData.shiftPresets?.map(p => {
+                                                                                        const presetTimes = getShiftTimesForStaff(assignedStaffInfo?.pos || 'OC', p);
+                                                                                        return (
+                                                                                            <option key={p.id} value={p.id}>
+                                                                                                {p.name} ({presetTimes.startTime}-{presetTimes.endTime})
+                                                                                            </option>
+                                                                                        );
+                                                                                    })}
+                                                                                </select>
+                                                                            ) : (
+                                                                                <button
+                                                                                    onClick={() => {
+                                                                                        if (!data.staffId) {
+                                                                                            alert('กรุณาเลือกพนักงานก่อนขอเปลี่ยนกะ');
+                                                                                            return;
                                                                                         }
-                                                                                    }
-                                                                                }}
-                                                                                title="Select Shift Preset"
-                                                                                className="cursor-pointer bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-[9px] sm:text-[10px] font-black outline-none text-slate-700 hover:bg-slate-100 transition shadow-sm max-w-[150px] sm:max-w-[200px] truncate font-sans"
-                                                                            >
-                                                                                {branchData.shiftPresets?.map(p => {
-                                                                                    const presetTimes = getShiftTimesForStaff(assignedStaffInfo?.pos || 'OC', p);
-                                                                                    return (
-                                                                                        <option key={p.id} value={p.id}>
-                                                                                            {p.name} ({presetTimes.startTime}-{presetTimes.endTime})
-                                                                                        </option>
-                                                                                    );
-                                                                                })}
-                                                                            </select>
+                                                                                        setShowShiftChangeModal({
+                                                                                            dateStr: selectedDateStr,
+                                                                                            dutyId: duty.id,
+                                                                                            slotIdx: idx,
+                                                                                            staffId: data.staffId,
+                                                                                            oldShiftPresetId: data.shiftPresetId || slot.shiftPresetId,
+                                                                                            newShiftPresetId: data.shiftPresetId || slot.shiftPresetId
+                                                                                        });
+                                                                                    }}
+                                                                                    className="cursor-pointer bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-[9px] sm:text-[10px] font-black text-slate-700 hover:bg-slate-100 transition shadow-sm max-w-[150px] sm:max-w-[200px] truncate font-sans flex items-center gap-1"
+                                                                                    title="ขอเปลี่ยนกะเวลาทำงาน (Shift Change Request)"
+                                                                                >
+                                                                                    {(() => {
+                                                                                        const p = branchData.shiftPresets?.find(p => p.id === (data.shiftPresetId || slot.shiftPresetId));
+                                                                                        if (!p) return 'N/A';
+                                                                                        const presetTimes = getShiftTimesForStaff(assignedStaffInfo?.pos || 'OC', p);
+                                                                                        return `${p.name} (${presetTimes.startTime}-${presetTimes.endTime})`;
+                                                                                    })()}
+                                                                                    <ArrowLeftRight className="w-2.5 h-2.5 ml-1 text-slate-400" />
+                                                                                </button>
+                                                                            )}
                                                                         </div>
                                                                     ) : (
                                                                         <span className={`text-[10px] sm:text-[11px] font-black uppercase tracking-widest flex items-center gap-1.5 ${extraTextColor}`}>
