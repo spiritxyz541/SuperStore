@@ -1019,8 +1019,6 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
                                                                 emptyPrimaryCount++;
                                                             }
                                                         });
-                                                    });
-
                                                     // ดึงสิทธิ์ในการทำหน้าที่ต่างๆ ของพนักงานในวันนี้
                                                     const vacantDutiesOptions = [];
                                                     CURRENT_DUTY_LIST.forEach(d => {
