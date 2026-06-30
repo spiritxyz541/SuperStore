@@ -1385,7 +1385,7 @@ export default function App() {
         if (!dayData) return [];
         const ids = new Set();
         if (dayData.leaves) dayData.leaves.forEach(l => l.staffId && ids.add(l.staffId));
-        if (dayData.duties) Object.values(dayData.duties).forEach(slots => { slots.forEach(s => s && s.staffId && ids.add(s.staffId)); });
+        if (dayData && dayData.duties) Object.values(dayData.duties).forEach(slots => { slots.forEach(s => s && s.staffId && ids.add(s.staffId)); });
         return Array.from(ids);
     }, [schedule, selectedDateStr]);
 
@@ -1443,7 +1443,7 @@ export default function App() {
                 });
             }
 
-            if (dayData.duties) {
+            if (dayData && dayData.duties) {
                 Object.keys(dayData.duties).forEach(dutyId => {
                     const slots = dayData.duties[dutyId] || [];
                     const matrixSlots = branchData.matrix?.[dayType]?.duties?.[dutyId] || [];
@@ -1684,7 +1684,7 @@ export default function App() {
 
             const dayType = getDayType(dateStr, branchData.holidays, branchData.holidayCycles);
 
-            if (dayData.duties) {
+            if (dayData && dayData.duties) {
                 Object.keys(dayData.duties).forEach(dutyId => {
                     const slots = dayData.duties[dutyId] || [];
                     const matrixSlots = branchData.matrix?.[dayType]?.duties?.[dutyId] || [];
@@ -1887,7 +1887,7 @@ export default function App() {
             if (parseInt(mStr, 10) - 1 !== selectedMonth || parseInt(yStr, 10) !== selectedYear) return;
 
             const dayData = schedule[dateStr];
-            if (dayData.duties) {
+            if (dayData && dayData.duties) {
                 Object.keys(dayData.duties).forEach(dutyId => {
                     const slots = dayData.duties[dutyId] || [];
                     slots.forEach(slot => {
@@ -4144,7 +4144,7 @@ export default function App() {
             const dayType = getDayType(dateStr, branchData.holidays, branchData.holidayCycles);
             const isPublicHoliday = (branchData.holidays || []).some(h => typeof h === 'object' && h.date === dateStr && h.isPublic);
 
-            if (dayData.duties) {
+            if (dayData && dayData.duties) {
                 Object.keys(dayData.duties).forEach(dutyId => {
                     const assignedSlots = dayData.duties[dutyId] || [];
                     const matrixSlots = branchData.matrix?.[dayType]?.duties?.[dutyId] || [];
@@ -4251,7 +4251,7 @@ export default function App() {
                 Object.keys(newSched).forEach(d => {
                     if (datesToProcess.includes(d)) return;
                     const dayData = newSched[d];
-                    if (dayData.duties) {
+                    if (dayData && dayData.duties) {
                         Object.entries(dayData.duties).forEach(([dutyId, slots]) => {
                             // หา Category ของหน้าที่นี้ เพื่อใช้นับรอบการหมุนเวียนในระดับเดียวกัน
                             const dObj = CURRENT_DUTY_LIST.find(x => x.id === dutyId);
@@ -10433,7 +10433,7 @@ export default function App() {
                                 });
                             }
 
-                            if (dayData.duties) {
+                            if (dayData && dayData.duties) {
                                 const dayType = getDayType(dateStr, bData?.holidays, bData?.holidayCycles);
                                 const isPublicHoliday = (bData?.holidays || []).some(h => typeof h === 'object' && h.date === dateStr && h.isPublic);
 
@@ -10690,7 +10690,7 @@ export default function App() {
                             // 4. Used Hours
                             let usedHoursSvc = 0;
                             let usedHoursKit = 0;
-                            if (dayData.duties) {
+                            if (dayData && dayData.duties) {
                                 const dayType = getDayType(dateStr, bData?.holidays, bData?.holidayCycles);
                                 Object.keys(dayData.duties).forEach(dutyId => {
                                     const slots = dayData.duties[dutyId] || [];
