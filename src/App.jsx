@@ -1074,7 +1074,7 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
                                                                 onChange={(e) => handleToggleLeave && handleToggleLeave(s.id, day.dateStr, e.target.value)}
                                                                 title="คลิกเพื่อปรับวันหยุด หรือ มอบหมายหน้าที่ (Fix กะ)"
                                                             >
-                                                                <option value="">[ ว่าง / ลบหน้าที่ & วันหยุด ]</option>
+                                                                <option value="CLEAR">[ ว่าง / ลบหน้าที่ & วันหยุด ]</option>
                                                                 <optgroup label="-- วันหยุด / วันลา --">
                                                                     {(LEAVE_TYPES || []).filter(lt => !(s.pos.includes('PT') && !['OFF', 'SWAP_OFF', 'SL_UNPAID', 'PL_UNPAID'].includes(lt.id))).map(lt => (
                                                                         <option key={lt.id} value={lt.id}>{lt.label}</option>
@@ -3039,6 +3039,8 @@ export default function App() {
 
 
     const handleToggleLeave = useCallback((staffId, dateStr, leaveTypeId) => {
+    // Treat 'CLEAR' as a request to remove assignment/leave
+    if (leaveTypeId === 'CLEAR') leaveTypeId = '';
         setSchedule(prev => {
             const newSched = JSON.parse(JSON.stringify(prev));
             if (!newSched[dateStr]) newSched[dateStr] = { duties: {}, leaves: [], autoLeavesAssigned: true };
