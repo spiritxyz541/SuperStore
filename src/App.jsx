@@ -1087,9 +1087,9 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
                                                                 )}
                                                             </select>
                                                         </td>
+                                                    </tr>
+                                        ))}
                                                     );
-                                                })}
-                                            </tr>
                                         ))}
                                     </React.Fragment>
                                 );
