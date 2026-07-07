@@ -465,6 +465,35 @@ function isEndTimeLateNight(endTime) {
     return (h >= 1 && h <= 9) || (h >= 25 && h <= 33);
 }
 
+function isLateNightFinish(endTimeStr) {
+    if (!endTimeStr || endTimeStr === '??:??') return false;
+    const [h, m] = endTimeStr.split(':').map(Number);
+    const normH = h % 24;
+    // เลิกดึก คือเลิกตั้งแต่ 21:00 น. ถึง 05:00 น. ของวันถัดไป
+    if (normH >= 21) return true;
+    if (normH < 5) return true;
+    if (normH === 5 && m === 0) return true;
+    return false;
+}
+
+function isMorningStart(startTimeStr) {
+    if (!startTimeStr || startTimeStr === '??:??') return false;
+    const [h, m] = startTimeStr.split(':').map(Number);
+    const normH = h % 24;
+    // เข้าเช้า คือกะที่เริ่มงานก่อน 12:00 น. (เช่น 05:00 น. ถึง 11:59 น.)
+    return normH >= 5 && normH < 12;
+}
+
+function getPreviousDateStr(dateStr) {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const dateObj = new Date(y, m - 1, d);
+    dateObj.setDate(dateObj.getDate() - 1);
+    const py = dateObj.getFullYear();
+    const pm = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const pd = String(dateObj.getDate()).padStart(2, '0');
+    return `${py}-${pm}-${pd}`;
+}
+
 function getLateNightAllowance(staff, shiftPreset, startTime, endTime, workHours, payrollConfig) {
     if (!staff || !isEndTimeLateNight(endTime)) return 0;
 
@@ -1019,7 +1048,8 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
                                                                 emptyPrimaryCount++;
                                                             }
                                                         });
-                                                    // ดึงสิทธิ์ในการทำหน้าที่ต่างๆ ของพนักงานในวันนี้
+                                                                                                         });
+// ดึงสิทธิ์ในการทำหน้าที่ต่างๆ ของพนักงานในวันนี้
                                                     const vacantDutiesOptions = [];
                                                     CURRENT_DUTY_LIST.forEach(d => {
                                                         const reqArr = Array.isArray(d.reqPos) ? d.reqPos : [d.reqPos || 'ALL'];
@@ -1087,9 +1117,9 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
                                                                 )}
                                                             </select>
                                                         </td>
-                                                    </tr>
-                                        ))}
                                                     );
+                                                })}
+                                            </tr>
                                         ))}
                                     </React.Fragment>
                                 );
@@ -4244,6 +4274,37 @@ export default function App() {
                 const newSched = JSON.parse(JSON.stringify(prevSched));
                 const datesToProcess = mode === 'daily' ? [selectedDateStr] : mode === 'weekly' ? WEEKLY_DAYS.map(d => d.dateStr) : CALENDAR_DAYS.map(d => d.dateStr);
 
+                const getStaffShiftTimesOnDate = (staffId, dateStr, schedSource) => {
+                    const dayData = schedSource[dateStr];
+                    if (!dayData) return null;
+                    
+                    const leave = (dayData.leaves || []).find(l => l.staffId === staffId);
+                    if (leave) return null; // วันหยุด หรือ วันลา
+                    
+                    for (const [dutyId, slots] of Object.entries(dayData.duties || {})) {
+                        if (!Array.isArray(slots)) continue;
+                        const sIdx = slots.findIndex(s => {
+                            if (!s || !s.staffId) return false;
+                            const cleanId = s.staffId.startsWith('COVER_BY_') ? s.staffId.replace('COVER_BY_', '') : s.staffId;
+                            return cleanId === staffId;
+                        });
+                        if (sIdx !== -1) {
+                            const dayType = getDayType(dateStr, branchData.holidays, branchData.holidayCycles);
+                            const matrixSlots = branchData.matrix?.[dayType]?.duties?.[dutyId] || [];
+                            const assignedSlot = slots[sIdx];
+                            const matrixSlot = matrixSlots[sIdx] || {};
+                            const shiftPresetId = assignedSlot.shiftPresetId || matrixSlot.shiftPresetId || branchData.shiftPresets?.[0]?.id;
+                            
+                            const staffInfo = branchData.staff?.find(s => s.id === staffId);
+                            const shiftPreset = branchData.shiftPresets?.find(p => p.id === shiftPresetId);
+                            if (shiftPreset && staffInfo) {
+                                return getShiftTimesForStaff(staffInfo.pos, shiftPreset);
+                            }
+                        }
+                    }
+                    return null;
+                };
+
                 const staffOTCount = {};
                 const staffDutyCounts = {};
                 branchData.staff?.forEach(s => { staffOTCount[s.id] = 0; staffDutyCounts[s.id] = {}; });
@@ -4398,13 +4459,32 @@ export default function App() {
                             checkPositionEligibility(s.pos, reqArr, activeDept)
                         );
 
-                        if (potentialCandidates.length > 0) {
+                        let candidatesForSlot = potentialCandidates;
+                        const currentSlotPreset = branchData.shiftPresets?.find(p => p.id === slot.shiftPresetId);
+                        
+                        const filteredForMorning = potentialCandidates.filter(s => {
+                            const timesForCandidate = getShiftTimesForStaff(s.pos, currentSlotPreset);
+                            if (isMorningStart(timesForCandidate.startTime)) {
+                                const prevDateStr = getPreviousDateStr(dateStr);
+                                const yesterdayShift = getStaffShiftTimesOnDate(s.id, prevDateStr, newSched);
+                                if (yesterdayShift && isLateNightFinish(yesterdayShift.endTime)) {
+                                    return false; // เลิกดึก ห้ามเข้าเช้าวันถัดไป
+                                }
+                            }
+                            return true;
+                        });
+                        
+                        if (filteredForMorning.length > 0) {
+                            candidatesForSlot = filteredForMorning;
+                        }
+
+                        if (candidatesForSlot.length > 0) {
                             const isOTSlot = slot.targetEndTime ? true : (slot.maxOtHours || 0) > 0;
-                            let validCandidates = potentialCandidates;
+                            let validCandidates = candidatesForSlot;
 
                             if (isOTSlot) {
                                 // ตัด PT ออกจากกะที่มี OT อย่างเด็ดขาด
-                                validCandidates = potentialCandidates.filter(p => !p.pos.includes('PT'));
+                                validCandidates = candidatesForSlot.filter(p => !p.pos.includes('PT'));
 
                                 // ให้สิทธิ์พนักงานที่ไม่ใช่ HEAD ก่อนสำหรับกะที่มี OT
                                 const preferredCandidates = validCandidates.filter(p => {
