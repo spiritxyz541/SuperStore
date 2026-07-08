@@ -6577,10 +6577,10 @@ export default function App() {
                                         onBlur={async () => { if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }}
                                         className="border rounded-lg p-2 text-xs font-bold text-indigo-700 bg-white"
                                     >
-                                        <option value="เช้า">เช้า (06.00-11.00)</option>
-                                        <option value="เที่ยง">เที่ยง (11.00-14.00)</option>
-                                        <option value="บ่าย">บ่าย (14.00-16.00)</option>
-                                        <option value="เย็น">เย็น (16.00-23.00)</option>
+                                        <option value="เช้า">เช้า</option>
+                                        <option value="เที่ยง">เที่ยง</option>
+                                        <option value="บ่าย">บ่าย</option>
+                                        <option value="เย็น">เย็น</option>
                                     </select>
                                 </div>
                                 <button onClick={() => handleDeleteShiftPreset(p.id)} className="text-slate-300 hover:text-red-500 transition p-2"><Trash2 className="w-4 h-4" /></button>
