@@ -176,9 +176,9 @@ const LONG_HOUR_POSITIONS = ["OC", "AOC", "SH", "SSD", "FD", "SD+", "SD", "KH", 
 const SHORT_HOUR_POSITIONS = ["EDC+", "DVT+", "PT+", "EDC", "DVT", "PT", "EDC ครัว+", "DVT ครัว+", "PT ครัว+", "EDC ครัว", "DVT ครัว", "PT ครัว"];
 
 const DEFAULT_SHIFT_PRESETS = [
-    { id: 'S1', name: 'กะเช้า', timings: { long: { startTime: '10:00', endTime: '19:30' }, short: { startTime: '10:00', endTime: '19:00' } } },
-    { id: 'S2', name: 'กะบ่าย', timings: { long: { startTime: '12:00', endTime: '21:30' }, short: { startTime: '12:00', endTime: '21:00' } } },
-    { id: 'S3', name: 'กะครัวเช้า', timings: { long: { startTime: '09:00', endTime: '18:30' }, short: { startTime: '09:00', endTime: '18:00' } } },
+    { id: 'S1', name: 'กะเช้า', period: 'เช้า', timings: { long: { startTime: '10:00', endTime: '19:30' }, short: { startTime: '10:00', endTime: '19:00' } } },
+    { id: 'S2', name: 'กะบ่าย', period: 'บ่าย', timings: { long: { startTime: '12:00', endTime: '21:30' }, short: { startTime: '12:00', endTime: '21:00' } } },
+    { id: 'S3', name: 'กะครัวเช้า', period: 'เช้า', timings: { long: { startTime: '09:00', endTime: '18:30' }, short: { startTime: '09:00', endTime: '18:00' } } },
 ];
 
 const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000; // ตั้งเวลา Auto-logout เมื่อไม่มีการใช้งาน (ค่าเริ่มต้น 15 นาที)
@@ -425,6 +425,20 @@ function getShiftTimesForStaff(staffPos, shiftPreset) {
     const timings = isLongHour ? shiftPreset.timings.long : shiftPreset.timings.short;
 
     return { startTime: timings.startTime, endTime: timings.endTime };
+}
+
+function getPeriodFromPreset(preset) {
+    if (!preset) return 'เช้า';
+    if (preset.period) return preset.period;
+    
+    // Fallback: classify based on startTime of long group
+    const startTime = preset.timings?.long?.startTime || '10:00';
+    const stHour = parseInt(startTime.split(':')[0]) || 0;
+    
+    if (stHour >= 6 && stHour < 11) return 'เช้า';
+    if (stHour >= 11 && stHour < 14) return 'เที่ยง';
+    if (stHour >= 14 && stHour < 16) return 'บ่าย';
+    return 'เย็น';
 }
 
 function calculateOtHours(targetEndTime, baseEndTime) {
@@ -2973,14 +2987,14 @@ export default function App() {
                 currentSlots[slotIndex][field] = value;
             }
             currentSlots[slotIndex].otUpdated = true;
-            if (field === 'staffId') {
+            if (field === 'staffId' || field === 'shiftPresetId') {
                 currentSlots[slotIndex].otHours = parseFloat(defaultOt) || 0;
             }
 
             newSchedToSave = newSched;
             return newSched;
         }); setTimeout(() => {
-            if ((field === 'staffId' || field === 'breakTime') && activeBranchId && newSchedToSave) {
+            if ((field === 'staffId' || field === 'breakTime' || field === 'shiftPresetId') && activeBranchId && newSchedToSave) {
                 autoSaveSchedule(newSchedToSave, false, dateStr);
             }
         }, 0);
@@ -3433,6 +3447,7 @@ export default function App() {
         const newPreset = {
             id: 'S' + Date.now(),
             name: 'กะใหม่',
+            period: 'เช้า',
             timings: { long: { startTime: '10:00', endTime: '19:30' }, short: { startTime: '10:00', endTime: '19:00' } }
         };
         setBranchData(prev => {
@@ -5598,8 +5613,8 @@ export default function App() {
                     <div className="fixed inset-0 z-[500] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300 font-sans">
                         <div className="bg-white rounded-[2rem] p-6 sm:p-8 max-w-md w-full shadow-2xl relative flex flex-col gap-4 animate-in zoom-in-95">
                             <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-                                <h3 className="text-lg sm:text-xl font-black text-slate-800 uppercase tracking-tighter flex items-center gap-2"><Clock className="w-6 h-6 text-indigo-500" /> ขออนุมัติเปลี่ยนกะเวลาทำงาน</h3>
-                                <button onClick={() => { setShowShiftChangeModal(null); setShiftChangeReason(''); }} className="text-slate-400 hover:bg-slate-100 p-2 rounded-full transition"><X className="w-5 h-5" /></button>
+                                <h3 className="text-lg sm:text-xl font-black text-slate-800 uppercase tracking-tighter flex items-center gap-2"><Clock className="w-6 h-6 text-indigo-500" /> เปลี่ยนกะเวลาทำงาน</h3>
+                                <button onClick={() => { setShowShiftChangeModal(null); }} className="text-slate-400 hover:bg-slate-100 p-2 rounded-full transition"><X className="w-5 h-5" /></button>
                             </div>
                             <div className="space-y-4">
                                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-xs sm:text-sm text-slate-600 font-bold space-y-2">
@@ -5613,39 +5628,44 @@ export default function App() {
                                             onChange={(e) => setShowShiftChangeModal({ ...showShiftChangeModal, newShiftPresetId: e.target.value })}
                                             className="border border-slate-200 rounded-lg px-2 py-1 text-xs font-black text-indigo-700 outline-none focus:border-indigo-500 bg-white"
                                         >
-                                            {branchData.shiftPresets?.map(p => (
-                                                <option key={p.id} value={p.id}>{p.name}</option>
-                                            ))}
+                                            {(() => {
+                                                const currentPreset = branchData.shiftPresets?.find(p => p.id === showShiftChangeModal.oldShiftPresetId);
+                                                const currentPeriod = getPeriodFromPreset(currentPreset);
+                                                const filteredPresets = branchData.shiftPresets?.filter(p => getPeriodFromPreset(p) === currentPeriod) || [];
+                                                return filteredPresets.map(p => (
+                                                    <option key={p.id} value={p.id}>{p.name}</option>
+                                                ));
+                                            })()}
                                         </select>
                                     </div>
                                 </div>
-                                <div>
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-1">เหตุผลการขอเปลี่ยนกะ (จำเป็นต้องกรอก)</label>
-                                    <textarea
-                                        value={shiftChangeReason}
-                                        onChange={(e) => setShiftChangeReason(e.target.value)}
-                                        placeholder="ระบุเหตุผล เช่น พนักงานสะดวกกะสายขึ้น, ปรับกะตามความจำเป็นหน้าร้าน"
-                                        className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 bg-white shadow-sm min-h-[100px] resize-y"
-                                    />
-                                </div>
                                 <button
                                     onClick={() => {
-                                        handleSubmitShiftChangeRequest(
+                                        const dayType = getDayType(showShiftChangeModal.dateStr, branchData.holidays, branchData.holidayCycles);
+                                        const mSlots = branchData.matrix?.[dayType]?.duties?.[showShiftChangeModal.dutyId] || [];
+                                        const slot = mSlots[showShiftChangeModal.slotIdx] || { maxOtHours: 0 };
+                                        
+                                        let calculatedOt = slot.maxOtHours || 0;
+                                        if (slot.targetEndTime) {
+                                            const selectedStaff = branchData.staff?.find(s => s.id === showShiftChangeModal.staffId);
+                                            const newPreset = branchData.shiftPresets?.find(p => p.id === showShiftChangeModal.newShiftPresetId);
+                                            const { endTime } = getShiftTimesForStaff(selectedStaff?.pos || 'OC', newPreset);
+                                            calculatedOt = calculateOtHours(slot.targetEndTime, endTime);
+                                        }
+
+                                        handleScheduleUpdate(
                                             showShiftChangeModal.dateStr,
                                             showShiftChangeModal.dutyId,
                                             showShiftChangeModal.slotIdx,
-                                            showShiftChangeModal.staffId,
-                                            showShiftChangeModal.oldShiftPresetId,
+                                            'shiftPresetId',
                                             showShiftChangeModal.newShiftPresetId,
-                                            shiftChangeReason
+                                            calculatedOt
                                         );
                                         setShowShiftChangeModal(null);
-                                        setShiftChangeReason('');
                                     }}
-                                    disabled={!shiftChangeReason.trim()}
-                                    className="w-full bg-indigo-600 text-white py-3.5 rounded-xl font-black text-xs sm:text-sm hover:bg-indigo-700 transition disabled:opacity-50 shadow-lg mt-2 uppercase tracking-widest"
+                                    className="w-full bg-indigo-600 text-white py-3.5 rounded-xl font-black text-xs sm:text-sm hover:bg-indigo-700 transition shadow-lg mt-2 uppercase tracking-widest"
                                 >
-                                    ส่งคำขออนุมัติ
+                                    บันทึกการเปลี่ยนกะ
                                 </button>
                             </div>
                         </div>
@@ -6549,6 +6569,20 @@ export default function App() {
                             <div className="flex items-center gap-4">
                                 {authRole === 'superadmin' && <div className="text-slate-300 hover:text-indigo-500 flex-shrink-0 touch-none"><GripVertical className="w-5 h-5" /></div>}
                                 <input type="text" value={p.name} onChange={(e) => handleUpdateShiftPreset(p.id, 'name', e.target.value)} onBlur={async () => { if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }} className="flex-1 font-black text-sm text-indigo-700 bg-transparent outline-none focus:bg-white p-2 rounded-lg" />
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[10px] font-black text-slate-400">รอบกะ:</span>
+                                    <select
+                                        value={p.period || getPeriodFromPreset(p)}
+                                        onChange={(e) => handleUpdateShiftPreset(p.id, 'period', e.target.value)}
+                                        onBlur={async () => { if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }}
+                                        className="border rounded-lg p-2 text-xs font-bold text-indigo-700 bg-white"
+                                    >
+                                        <option value="เช้า">เช้า (06.00-11.00)</option>
+                                        <option value="เที่ยง">เที่ยง (11.00-14.00)</option>
+                                        <option value="บ่าย">บ่าย (14.00-16.00)</option>
+                                        <option value="เย็น">เย็น (16.00-23.00)</option>
+                                    </select>
+                                </div>
                                 <button onClick={() => handleDeleteShiftPreset(p.id)} className="text-slate-300 hover:text-red-500 transition p-2"><Trash2 className="w-4 h-4" /></button>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
