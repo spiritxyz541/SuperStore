@@ -6536,7 +6536,7 @@ export default function App() {
                         <div className="text-[10px] sm:text-xs font-bold text-slate-400 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">Current App Version: <span className="font-black text-slate-700">{CURRENT_APP_VERSION}</span></div>
                         <button onClick={async () => {
                             const newVer = window.prompt("กรอกเลขเวอร์ชันใหม่ (เช่น 15.7.1) เพื่อบังคับให้ผู้ใช้ทุกคนรีเฟรชระบบ:\n*คุณต้องเปลี่ยนเลข CURRENT_APP_VERSION ในโค้ดและ Deploy ก่อนกดปุ่มนี้*", CURRENT_APP_VERSION);
-                            if (newVer && newVer !== CURRENT_APP_VERSION) {
+                            if (newVer && newVer !== globalConfig.latestVersion) {
                                 const newConfig = { ...globalConfig, latestVersion: newVer };
                                 setGlobalConfig(newConfig);
                                 await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'configs', 'master'), newConfig);
