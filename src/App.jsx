@@ -1585,41 +1585,45 @@ export default function App() {
             if (staff.shifts > 0) {
                 // 1. EDC Housing Allowance
                 if (staff.pos.includes('EDC')) {
-                    staff.housingAllowance = 2000;
+                    staff.housingAllowance = payrollConfig.edcHousingAllowanceRate !== undefined ? payrollConfig.edcHousingAllowanceRate : 2000;
                 }
                 
                 // 2. Cost of Living Allowance
                 if (['OC', 'AOC', 'SD', 'SSD', 'SH', 'KH', 'SKD', 'KD'].includes(staff.pos)) {
-                    staff.costOfLivingAllowance = 800;
+                    staff.costOfLivingAllowance = payrollConfig.costOfLivingAllowanceRate !== undefined ? payrollConfig.costOfLivingAllowanceRate : 800;
                 }
                 
                 // 3. Kin-Dee Allowance
                 if (staff.pos.includes('PT') || staff.wageType === 'PT') {
-                    staff.kinDeeAllowance = 100;
+                    staff.kinDeeAllowance = payrollConfig.kinDeePtRate !== undefined ? payrollConfig.kinDeePtRate : 100;
                 } else {
-                    staff.kinDeeAllowance = 750;
+                    staff.kinDeeAllowance = payrollConfig.kinDeeFtRate !== undefined ? payrollConfig.kinDeeFtRate : 750;
                 }
                 
                 // 4. Travel Allowance
                 if (['OC', 'AOC', 'SD', 'SSD', 'SH', 'KH', 'SKD', 'KD'].includes(staff.pos)) {
                     const daysWorked = staff.workedDates.size;
-                    staff.travelAllowance = daysWorked * (staff.travelRate || 0);
+                    const travelRate = staff.travelRate || payrollConfig.standardTravelRate || 0;
+                    staff.travelAllowance = daysWorked * travelRate;
                 }
             }
             
-            // 5. GON & BOT Allowance (always applied if entered)
-            const gonQty = adjust.gonQty || 0;
-            const gonPrice = adjust.gonPrice || 0;
+            // 5. GON & BOT Allowance (always applied, fall back to standard config)
+            const gonQty = adjust.gonQty !== undefined ? adjust.gonQty : (payrollConfig.gonStandardQty || 0);
+            const gonPrice = adjust.gonPrice !== undefined ? adjust.gonPrice : (payrollConfig.gonStandardPrice || 0);
             staff.gonAllowance = gonQty * gonPrice;
 
-            const botQty = adjust.botQty || 0;
-            const botPrice = adjust.botPrice || 0;
+            const botQty = adjust.botQty !== undefined ? adjust.botQty : (payrollConfig.botStandardQty || 0);
+            const botPrice = adjust.botPrice !== undefined ? adjust.botPrice : (payrollConfig.botStandardPrice || 0);
             staff.botAllowance = botQty * botPrice;
 
             // 6. Manager Bonuses (OC / AOC only)
-            if (['OC', 'AOC'].includes(staff.pos)) {
-                staff.storeMgmtFee = adjust.storeMgmtFee || 0;
-                staff.perfBonus = adjust.perfBonus || 0;
+            if (staff.pos === 'OC') {
+                staff.storeMgmtFee = adjust.storeMgmtFee !== undefined ? adjust.storeMgmtFee : (payrollConfig.storeMgmtFeeOC || 0);
+                staff.perfBonus = adjust.perfBonus !== undefined ? adjust.perfBonus : (payrollConfig.perfBonusOC || 0);
+            } else if (staff.pos === 'AOC') {
+                staff.storeMgmtFee = adjust.storeMgmtFee !== undefined ? adjust.storeMgmtFee : (payrollConfig.storeMgmtFeeAOC || 0);
+                staff.perfBonus = adjust.perfBonus !== undefined ? adjust.perfBonus : (payrollConfig.perfBonusAOC || 0);
             }
 
             staff.totalPay = staff.basePay + staff.otPay + staff.holidayPay + (staff.lateNightAllowance || 0) +
@@ -3354,12 +3358,12 @@ export default function App() {
         const current = branchData.monthlyAdjustments?.[monthKey]?.[staffId] || {};
         setEditingAdjustmentsStaffId(staffId);
         setEditAdjustmentsData({
-            gonQty: current.gonQty ?? '',
-            gonPrice: current.gonPrice ?? '',
-            botQty: current.botQty ?? '',
-            botPrice: current.botPrice ?? '',
-            storeMgmtFee: current.storeMgmtFee ?? '',
-            perfBonus: current.perfBonus ?? ''
+            gonQty: current.gonQty !== undefined ? current.gonQty : '',
+            gonPrice: current.gonPrice !== undefined ? current.gonPrice : '',
+            botQty: current.botQty !== undefined ? current.botQty : '',
+            botPrice: current.botPrice !== undefined ? current.botPrice : '',
+            storeMgmtFee: current.storeMgmtFee !== undefined ? current.storeMgmtFee : '',
+            perfBonus: current.perfBonus !== undefined ? current.perfBonus : ''
         });
     };
 
@@ -3369,14 +3373,16 @@ export default function App() {
             const nd = JSON.parse(JSON.stringify(prev));
             if (!nd.monthlyAdjustments) nd.monthlyAdjustments = {};
             if (!nd.monthlyAdjustments[monthKey]) nd.monthlyAdjustments[monthKey] = {};
-            nd.monthlyAdjustments[monthKey][editingAdjustmentsStaffId] = {
-                gonQty: parseFloat(editAdjustmentsData.gonQty) || 0,
-                gonPrice: parseFloat(editAdjustmentsData.gonPrice) || 0,
-                botQty: parseFloat(editAdjustmentsData.botQty) || 0,
-                botPrice: parseFloat(editAdjustmentsData.botPrice) || 0,
-                storeMgmtFee: parseFloat(editAdjustmentsData.storeMgmtFee) || 0,
-                perfBonus: parseFloat(editAdjustmentsData.perfBonus) || 0
-            };
+            
+            const staffAdjust = {};
+            if (editAdjustmentsData.gonQty !== '') staffAdjust.gonQty = parseFloat(editAdjustmentsData.gonQty);
+            if (editAdjustmentsData.gonPrice !== '') staffAdjust.gonPrice = parseFloat(editAdjustmentsData.gonPrice);
+            if (editAdjustmentsData.botQty !== '') staffAdjust.botQty = parseFloat(editAdjustmentsData.botQty);
+            if (editAdjustmentsData.botPrice !== '') staffAdjust.botPrice = parseFloat(editAdjustmentsData.botPrice);
+            if (editAdjustmentsData.storeMgmtFee !== '') staffAdjust.storeMgmtFee = parseFloat(editAdjustmentsData.storeMgmtFee);
+            if (editAdjustmentsData.perfBonus !== '') staffAdjust.perfBonus = parseFloat(editAdjustmentsData.perfBonus);
+
+            nd.monthlyAdjustments[monthKey][editingAdjustmentsStaffId] = staffAdjust;
             if (activeBranchId) setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd).catch(console.error);
             return nd;
         });
@@ -5347,12 +5353,16 @@ export default function App() {
                                     <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest mb-3 text-indigo-600 flex items-center gap-1">🏆 ผลงาน GON</h4>
                                     <div className="grid grid-cols-2 gap-3">
                                         <div>
-                                            <label className="text-[9px] text-slate-500 uppercase block mb-1">จำนวนที่ทำได้ (ชิ้น)</label>
-                                            <input type="number" value={editAdjustmentsData.gonQty} onChange={e => setEditAdjustmentsData({ ...editAdjustmentsData, gonQty: e.target.value })} className="w-full border rounded-xl px-3 py-2 text-xs font-black text-slate-800 outline-none focus:border-indigo-500" placeholder="0" />
+                                            <label className="text-[9px] text-slate-500 uppercase block mb-1">
+                                                จำนวน (ชิ้น) <span className="text-[8px] text-slate-400 font-semibold">(มาตรฐาน: {branchData.payrollConfig?.gonStandardQty ?? 0})</span>
+                                            </label>
+                                            <input type="number" value={editAdjustmentsData.gonQty} onChange={e => setEditAdjustmentsData({ ...editAdjustmentsData, gonQty: e.target.value })} className="w-full border rounded-xl px-3 py-2 text-xs font-black text-slate-800 outline-none focus:border-indigo-500" placeholder={String(branchData.payrollConfig?.gonStandardQty ?? 0)} />
                                         </div>
                                         <div>
-                                            <label className="text-[9px] text-slate-500 uppercase block mb-1">ราคาต่อชิ้น (บาท)</label>
-                                            <input type="number" value={editAdjustmentsData.gonPrice} onChange={e => setEditAdjustmentsData({ ...editAdjustmentsData, gonPrice: e.target.value })} className="w-full border rounded-xl px-3 py-2 text-xs font-black text-slate-800 outline-none focus:border-indigo-500" placeholder="0" />
+                                            <label className="text-[9px] text-slate-500 uppercase block mb-1">
+                                                ราคาต่อชิ้น (บาท) <span className="text-[8px] text-slate-400 font-semibold">(มาตรฐาน: {branchData.payrollConfig?.gonStandardPrice ?? 0})</span>
+                                            </label>
+                                            <input type="number" value={editAdjustmentsData.gonPrice} onChange={e => setEditAdjustmentsData({ ...editAdjustmentsData, gonPrice: e.target.value })} className="w-full border rounded-xl px-3 py-2 text-xs font-black text-slate-800 outline-none focus:border-indigo-500" placeholder={String(branchData.payrollConfig?.gonStandardPrice ?? 0)} />
                                         </div>
                                     </div>
                                 </div>
@@ -5362,32 +5372,48 @@ export default function App() {
                                     <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest mb-3 text-emerald-600 flex items-center gap-1">🤖 ผลงาน BOT</h4>
                                     <div className="grid grid-cols-2 gap-3">
                                         <div>
-                                            <label className="text-[9px] text-slate-500 uppercase block mb-1">จำนวนที่ทำได้ (ชิ้น)</label>
-                                            <input type="number" value={editAdjustmentsData.botQty} onChange={e => setEditAdjustmentsData({ ...editAdjustmentsData, botQty: e.target.value })} className="w-full border rounded-xl px-3 py-2 text-xs font-black text-slate-800 outline-none focus:border-indigo-500" placeholder="0" />
+                                            <label className="text-[9px] text-slate-500 uppercase block mb-1">
+                                                จำนวน (ชิ้น) <span className="text-[8px] text-slate-400 font-semibold">(มาตรฐาน: {branchData.payrollConfig?.botStandardQty ?? 0})</span>
+                                            </label>
+                                            <input type="number" value={editAdjustmentsData.botQty} onChange={e => setEditAdjustmentsData({ ...editAdjustmentsData, botQty: e.target.value })} className="w-full border rounded-xl px-3 py-2 text-xs font-black text-slate-800 outline-none focus:border-indigo-500" placeholder={String(branchData.payrollConfig?.botStandardQty ?? 0)} />
                                         </div>
                                         <div>
-                                            <label className="text-[9px] text-slate-500 uppercase block mb-1">ราคาต่อชิ้น (บาท)</label>
-                                            <input type="number" value={editAdjustmentsData.botPrice} onChange={e => setEditAdjustmentsData({ ...editAdjustmentsData, botPrice: e.target.value })} className="w-full border rounded-xl px-3 py-2 text-xs font-black text-slate-800 outline-none focus:border-indigo-500" placeholder="0" />
+                                            <label className="text-[9px] text-slate-500 uppercase block mb-1">
+                                                ราคาต่อชิ้น (บาท) <span className="text-[8px] text-slate-400 font-semibold">(มาตรฐาน: {branchData.payrollConfig?.botStandardPrice ?? 0})</span>
+                                            </label>
+                                            <input type="number" value={editAdjustmentsData.botPrice} onChange={e => setEditAdjustmentsData({ ...editAdjustmentsData, botPrice: e.target.value })} className="w-full border rounded-xl px-3 py-2 text-xs font-black text-slate-800 outline-none focus:border-indigo-500" placeholder={String(branchData.payrollConfig?.botStandardPrice ?? 0)} />
                                         </div>
                                     </div>
                                 </div>
 
                                 {/* Manager Bonuses (OC / AOC only) */}
-                                {['OC', 'AOC'].includes(branchData.staff?.find(s => s.id === editingAdjustmentsStaffId)?.pos) && (
-                                    <div className="p-4 bg-amber-50/50 rounded-2xl border border-amber-100">
-                                        <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest mb-3 text-amber-700 flex items-center gap-1">💼 ผู้จัดการ (OC/AOC)</h4>
-                                        <div className="grid grid-cols-2 gap-3">
-                                            <div>
-                                                <label className="text-[9px] text-slate-500 uppercase block mb-1">ค่าบริหารสาขา (บาท)</label>
-                                                <input type="number" value={editAdjustmentsData.storeMgmtFee} onChange={e => setEditAdjustmentsData({ ...editAdjustmentsData, storeMgmtFee: e.target.value })} className="w-full border rounded-xl px-3 py-2 text-xs font-black text-slate-800 outline-none focus:border-indigo-500" placeholder="0" />
-                                            </div>
-                                            <div>
-                                                <label className="text-[9px] text-slate-500 uppercase block mb-1">เงินบรรลุผลงาน (บาท)</label>
-                                                <input type="number" value={editAdjustmentsData.perfBonus} onChange={e => setEditAdjustmentsData({ ...editAdjustmentsData, perfBonus: e.target.value })} className="w-full border rounded-xl px-3 py-2 text-xs font-black text-slate-800 outline-none focus:border-indigo-500" placeholder="0" />
+                                {(() => {
+                                    const staffObj = branchData.staff?.find(s => s.id === editingAdjustmentsStaffId);
+                                    if (!staffObj || !['OC', 'AOC'].includes(staffObj.pos)) return null;
+                                    
+                                    const defaultMgmtFee = staffObj.pos === 'OC' ? (branchData.payrollConfig?.storeMgmtFeeOC ?? 0) : (branchData.payrollConfig?.storeMgmtFeeAOC ?? 0);
+                                    const defaultPerfBonus = staffObj.pos === 'OC' ? (branchData.payrollConfig?.perfBonusOC ?? 0) : (branchData.payrollConfig?.perfBonusAOC ?? 0);
+
+                                    return (
+                                        <div className="p-4 bg-amber-50/50 rounded-2xl border border-amber-100">
+                                            <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest mb-3 text-amber-700 flex items-center gap-1">💼 ผู้จัดการ ({staffObj.pos})</h4>
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div>
+                                                    <label className="text-[9px] text-slate-500 uppercase block mb-1">
+                                                        ค่าบริหาร (บาท) <span className="text-[8px] text-slate-400 font-semibold">(มาตรฐาน: {defaultMgmtFee})</span>
+                                                    </label>
+                                                    <input type="number" value={editAdjustmentsData.storeMgmtFee} onChange={e => setEditAdjustmentsData({ ...editAdjustmentsData, storeMgmtFee: e.target.value })} className="w-full border rounded-xl px-3 py-2 text-xs font-black text-slate-800 outline-none focus:border-indigo-500" placeholder={String(defaultMgmtFee)} />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[9px] text-slate-500 uppercase block mb-1">
+                                                        เงินผลงาน (บาท) <span className="text-[8px] text-slate-400 font-semibold">(มาตรฐาน: {defaultPerfBonus})</span>
+                                                    </label>
+                                                    <input type="number" value={editAdjustmentsData.perfBonus} onChange={e => setEditAdjustmentsData({ ...editAdjustmentsData, perfBonus: e.target.value })} className="w-full border rounded-xl px-3 py-2 text-xs font-black text-slate-800 outline-none focus:border-indigo-500" placeholder={String(defaultPerfBonus)} />
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                )}
+                                    );
+                                })()}
                             </div>
 
                             <div className="flex gap-3 w-full mt-2 border-t border-slate-100 pt-4">
@@ -7780,9 +7806,61 @@ export default function App() {
                                     <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">ค่ากะดึก Part-Time (บ./วัน)</label>
                                     <input type="number" step="10" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.lateNightPtRate ?? 70} onChange={(e) => handleUpdatePayrollConfig('lateNightPtRate', e.target.value)} onBlur={(e) => handleSavePayrollConfig('lateNightPtRate', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
                                 </div>
+                            </div>
+
+                            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-8 mb-4 border-b border-slate-100 pb-2 flex items-center gap-2"><Award className="w-4 h-4 text-indigo-500" /> ตั้งค่าสวัสดิการรายเดือนและเงินเพิ่มพิเศษ (Monthly Allowance & Bonus Settings)</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                                 <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">ค่ากะดึก นศ.ฝึกงาน (DVT/EDC) (บ./วัน)</label>
-                                    <input type="number" step="10" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.lateNightStudentRate ?? 70} onChange={(e) => handleUpdatePayrollConfig('lateNightStudentRate', e.target.value)} onBlur={(e) => handleSavePayrollConfig('lateNightStudentRate', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">โควตา GON มาตรฐาน (ตัว/เดือน)</label>
+                                    <input type="number" step="1" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.gonStandardQty ?? 0} onChange={(e) => handleUpdatePayrollConfig('gonStandardQty', e.target.value)} onBlur={(e) => handleSavePayrollConfig('gonStandardQty', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
+                                </div>
+                                <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">ราคา GON มาตรฐาน (บาท/ตัว)</label>
+                                    <input type="number" step="1" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.gonStandardPrice ?? 0} onChange={(e) => handleUpdatePayrollConfig('gonStandardPrice', e.target.value)} onBlur={(e) => handleSavePayrollConfig('gonStandardPrice', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
+                                </div>
+                                <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">โควตา BOT มาตรฐาน (ตัว/เดือน)</label>
+                                    <input type="number" step="1" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.botStandardQty ?? 0} onChange={(e) => handleUpdatePayrollConfig('botStandardQty', e.target.value)} onBlur={(e) => handleSavePayrollConfig('botStandardQty', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
+                                </div>
+                                <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">ราคา BOT มาตรฐาน (บาท/ตัว)</label>
+                                    <input type="number" step="1" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.botStandardPrice ?? 0} onChange={(e) => handleUpdatePayrollConfig('botStandardPrice', e.target.value)} onBlur={(e) => handleSavePayrollConfig('botStandardPrice', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
+                                </div>
+                                <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">ค่าบริหารสาขา OC (บาท/เดือน)</label>
+                                    <input type="number" step="100" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.storeMgmtFeeOC ?? 0} onChange={(e) => handleUpdatePayrollConfig('storeMgmtFeeOC', e.target.value)} onBlur={(e) => handleSavePayrollConfig('storeMgmtFeeOC', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
+                                </div>
+                                <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">ค่าบริหารสาขา AOC (บาท/เดือน)</label>
+                                    <input type="number" step="100" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.storeMgmtFeeAOC ?? 0} onChange={(e) => handleUpdatePayrollConfig('storeMgmtFeeAOC', e.target.value)} onBlur={(e) => handleSavePayrollConfig('storeMgmtFeeAOC', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
+                                </div>
+                                <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">ค่าผลงาน OC (บาท/เดือน)</label>
+                                    <input type="number" step="100" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.perfBonusOC ?? 0} onChange={(e) => handleUpdatePayrollConfig('perfBonusOC', e.target.value)} onBlur={(e) => handleSavePayrollConfig('perfBonusOC', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
+                                </div>
+                                <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">ค่าผลงาน AOC (บาท/เดือน)</label>
+                                    <input type="number" step="100" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.perfBonusAOC ?? 0} onChange={(e) => handleUpdatePayrollConfig('perfBonusAOC', e.target.value)} onBlur={(e) => handleSavePayrollConfig('perfBonusAOC', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
+                                </div>
+                                <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">ค่าเดินทางคงที่พนักงานปกติ (บาท/วัน)</label>
+                                    <input type="number" step="10" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.standardTravelRate ?? 0} onChange={(e) => handleUpdatePayrollConfig('standardTravelRate', e.target.value)} onBlur={(e) => handleSavePayrollConfig('standardTravelRate', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
+                                </div>
+                                <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">ค่าครองชีพพนักงานปกติ (บาท/เดือน)</label>
+                                    <input type="number" step="50" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.costOfLivingAllowanceRate ?? 800} onChange={(e) => handleUpdatePayrollConfig('costOfLivingAllowanceRate', e.target.value)} onBlur={(e) => handleSavePayrollConfig('costOfLivingAllowanceRate', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
+                                </div>
+                                <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">ค่าที่พัก EDC (บาท/เดือน)</label>
+                                    <input type="number" step="100" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.edcHousingAllowanceRate ?? 2000} onChange={(e) => handleUpdatePayrollConfig('edcHousingAllowanceRate', e.target.value)} onBlur={(e) => handleSavePayrollConfig('edcHousingAllowanceRate', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
+                                </div>
+                                <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">ค่ากินดีพนักงานทั่วไป (บาท/เดือน)</label>
+                                    <input type="number" step="50" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.kinDeeFtRate ?? 750} onChange={(e) => handleUpdatePayrollConfig('kinDeeFtRate', e.target.value)} onBlur={(e) => handleSavePayrollConfig('kinDeeFtRate', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
+                                </div>
+                                <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">ค่ากินดีพนักงาน PT (บาท/เดือน)</label>
+                                    <input type="number" step="10" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.kinDeePtRate ?? 100} onChange={(e) => handleUpdatePayrollConfig('kinDeePtRate', e.target.value)} onBlur={(e) => handleSavePayrollConfig('kinDeePtRate', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
                                 </div>
                             </div>
 
@@ -10934,41 +11012,45 @@ export default function App() {
                             if (staff.shifts > 0) {
                                 // 1. EDC Housing Allowance
                                 if (staff.pos.includes('EDC')) {
-                                    staff.housingAllowance = 2000;
+                                    staff.housingAllowance = payrollConfig.edcHousingAllowanceRate !== undefined ? payrollConfig.edcHousingAllowanceRate : 2000;
                                 }
                                 
                                 // 2. Cost of Living Allowance
                                 if (['OC', 'AOC', 'SD', 'SSD', 'SH', 'KH', 'SKD', 'KD'].includes(staff.pos)) {
-                                    staff.costOfLivingAllowance = 800;
+                                    staff.costOfLivingAllowance = payrollConfig.costOfLivingAllowanceRate !== undefined ? payrollConfig.costOfLivingAllowanceRate : 800;
                                 }
                                 
                                 // 3. Kin-Dee Allowance
                                 if (staff.pos.includes('PT') || staff.wageType === 'PT') {
-                                    staff.kinDeeAllowance = 100;
+                                    staff.kinDeeAllowance = payrollConfig.kinDeePtRate !== undefined ? payrollConfig.kinDeePtRate : 100;
                                 } else {
-                                    staff.kinDeeAllowance = 750;
+                                    staff.kinDeeAllowance = payrollConfig.kinDeeFtRate !== undefined ? payrollConfig.kinDeeFtRate : 750;
                                 }
                                 
                                 // 4. Travel Allowance
                                 if (['OC', 'AOC', 'SD', 'SSD', 'SH', 'KH', 'SKD', 'KD'].includes(staff.pos)) {
                                     const daysWorked = staff.workedDates.size;
-                                    staff.travelAllowance = daysWorked * (staff.travelRate || 0);
+                                    const travelRate = staff.travelRate || payrollConfig.standardTravelRate || 0;
+                                    staff.travelAllowance = daysWorked * travelRate;
                                 }
                             }
                             
-                            // 5. GON & BOT Allowance (always applied if entered)
-                            const gonQty = adjust.gonQty || 0;
-                            const gonPrice = adjust.gonPrice || 0;
+                            // 5. GON & BOT Allowance (always applied, fall back to standard config)
+                            const gonQty = adjust.gonQty !== undefined ? adjust.gonQty : (payrollConfig.gonStandardQty || 0);
+                            const gonPrice = adjust.gonPrice !== undefined ? adjust.gonPrice : (payrollConfig.gonStandardPrice || 0);
                             staff.gonAllowance = gonQty * gonPrice;
 
-                            const botQty = adjust.botQty || 0;
-                            const botPrice = adjust.botPrice || 0;
+                            const botQty = adjust.botQty !== undefined ? adjust.botQty : (payrollConfig.botStandardQty || 0);
+                            const botPrice = adjust.botPrice !== undefined ? adjust.botPrice : (payrollConfig.botStandardPrice || 0);
                             staff.botAllowance = botQty * botPrice;
 
                             // 6. Manager Bonuses (OC / AOC only)
-                            if (['OC', 'AOC'].includes(staff.pos)) {
-                                staff.storeMgmtFee = adjust.storeMgmtFee || 0;
-                                staff.perfBonus = adjust.perfBonus || 0;
+                            if (staff.pos === 'OC') {
+                                staff.storeMgmtFee = adjust.storeMgmtFee !== undefined ? adjust.storeMgmtFee : (payrollConfig.storeMgmtFeeOC || 0);
+                                staff.perfBonus = adjust.perfBonus !== undefined ? adjust.perfBonus : (payrollConfig.perfBonusOC || 0);
+                            } else if (staff.pos === 'AOC') {
+                                staff.storeMgmtFee = adjust.storeMgmtFee !== undefined ? adjust.storeMgmtFee : (payrollConfig.storeMgmtFeeAOC || 0);
+                                staff.perfBonus = adjust.perfBonus !== undefined ? adjust.perfBonus : (payrollConfig.perfBonusAOC || 0);
                             }
 
                             staff.totalPay = staff.basePay + staff.otPay + staff.holidayPay + (staff.lateNightAllowance || 0) +
