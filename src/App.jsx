@@ -1320,9 +1320,12 @@ export default function App() {
     const [newStaffStartDate, setNewStaffStartDate] = useState('');
     const [newStaffWageType, setNewStaffWageType] = useState('MONTHLY');
     const [newStaffBaseWage, setNewStaffBaseWage] = useState('');
+    const [newStaffTravelRate, setNewStaffTravelRate] = useState('');
 
     const [editingStaffId, setEditingStaffId] = useState(null);
     const [editStaffData, setEditStaffData] = useState({});
+    const [editingAdjustmentsStaffId, setEditingAdjustmentsStaffId] = useState(null);
+    const [editAdjustmentsData, setEditAdjustmentsData] = useState({});
     const [editingBranchId, setEditingBranchId] = useState(null);
     const [editBranchData, setEditBranchData] = useState({});
     const [editingAmId, setEditingAmId] = useState(null);
@@ -1367,6 +1370,7 @@ export default function App() {
     });
 
     const [reportFilterMode, setReportFilterMode] = useState('month');
+    const [showBenefitDetails, setShowBenefitDetails] = useState(false);
     const [reportFilterMonth, setReportFilterMonth] = useState(new Date().getMonth());
     const [reportFilterStart, setReportFilterStart] = useState(`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`);
     const [reportFilterEnd, setReportFilterEnd] = useState(`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()}`);
@@ -1453,12 +1457,22 @@ export default function App() {
             staffMap[s.id] = {
                 id: s.id, name: s.name, dept: s.dept, pos: s.pos, empId: s.empId,
                 wageType: s.wageType || 'MONTHLY', baseWage: s.baseWage || 0,
+                travelRate: s.travelRate || 0,
                 workHours: 0, shifts: 0, actualOT: 0, plannedOT: 0, leaves: 0,
                 unpaidLeaveDays: 0,
                 basePay: 0, otPay: 0, holidayPay: 0, totalPay: 0,
                 otHoursByMultiplier: {},
                 lateNightShifts: 0,
-                lateNightAllowance: 0
+                lateNightAllowance: 0,
+                workedDates: new Set(),
+                housingAllowance: 0,
+                costOfLivingAllowance: 0,
+                kinDeeAllowance: 0,
+                travelAllowance: 0,
+                gonAllowance: 0,
+                botAllowance: 0,
+                storeMgmtFee: 0,
+                perfBonus: 0
             };
         });
 
@@ -1501,6 +1515,7 @@ export default function App() {
                             staff.workHours += workHours;
                             staff.shifts += 1;
                             staff.actualOT += otHours;
+                            staff.workedDates.add(dateStr);
 
                             // Calculate late night allowance
                             const allowance = getLateNightAllowance(staff, shiftPreset, startTime, endTime, workHours, payrollConfig);
@@ -1557,13 +1572,60 @@ export default function App() {
             }
         });
 
+        const monthKey = `${selectedYear}-${String(reportFilterMonth + 1).padStart(2, '0')}`;
         Object.values(staffMap).forEach(staff => {
             if (staff.wageType === 'MONTHLY') {
                 const monthlyRate = staff.baseWage || 0;
                 const dailyRate = monthlyRate / (payrollConfig.monthlySalaryDivider || 30);
                 staff.basePay = Math.max(0, monthlyRate - (staff.unpaidLeaveDays * dailyRate));
             }
-            staff.totalPay = staff.basePay + staff.otPay + staff.holidayPay + (staff.lateNightAllowance || 0);
+
+            const adjust = branchData.monthlyAdjustments?.[monthKey]?.[staff.id] || {};
+            
+            if (staff.shifts > 0) {
+                // 1. EDC Housing Allowance
+                if (staff.pos.includes('EDC')) {
+                    staff.housingAllowance = 2000;
+                }
+                
+                // 2. Cost of Living Allowance
+                if (['OC', 'AOC', 'SD', 'SSD', 'SH', 'KH', 'SKD', 'KD'].includes(staff.pos)) {
+                    staff.costOfLivingAllowance = 800;
+                }
+                
+                // 3. Kin-Dee Allowance
+                if (staff.pos.includes('PT') || staff.wageType === 'PT') {
+                    staff.kinDeeAllowance = 100;
+                } else {
+                    staff.kinDeeAllowance = 750;
+                }
+                
+                // 4. Travel Allowance
+                if (['OC', 'AOC', 'SD', 'SSD', 'SH', 'KH', 'SKD', 'KD'].includes(staff.pos)) {
+                    const daysWorked = staff.workedDates.size;
+                    staff.travelAllowance = daysWorked * (staff.travelRate || 0);
+                }
+            }
+            
+            // 5. GON & BOT Allowance (always applied if entered)
+            const gonQty = adjust.gonQty || 0;
+            const gonPrice = adjust.gonPrice || 0;
+            staff.gonAllowance = gonQty * gonPrice;
+
+            const botQty = adjust.botQty || 0;
+            const botPrice = adjust.botPrice || 0;
+            staff.botAllowance = botQty * botPrice;
+
+            // 6. Manager Bonuses (OC / AOC only)
+            if (['OC', 'AOC'].includes(staff.pos)) {
+                staff.storeMgmtFee = adjust.storeMgmtFee || 0;
+                staff.perfBonus = adjust.perfBonus || 0;
+            }
+
+            staff.totalPay = staff.basePay + staff.otPay + staff.holidayPay + (staff.lateNightAllowance || 0) +
+                             staff.housingAllowance + staff.costOfLivingAllowance + staff.kinDeeAllowance +
+                             staff.travelAllowance + staff.gonAllowance + staff.botAllowance +
+                             staff.storeMgmtFee + staff.perfBonus;
         });
 
         return Object.values(staffMap).sort((a, b) => b.totalPay - a.totalPay);
@@ -3286,6 +3348,40 @@ export default function App() {
         });
         setEditingStaffId(null);
     };
+
+    const startEditAdjustments = (staffId) => {
+        const monthKey = `${selectedYear}-${String(reportFilterMonth + 1).padStart(2, '0')}`;
+        const current = branchData.monthlyAdjustments?.[monthKey]?.[staffId] || {};
+        setEditingAdjustmentsStaffId(staffId);
+        setEditAdjustmentsData({
+            gonQty: current.gonQty ?? '',
+            gonPrice: current.gonPrice ?? '',
+            botQty: current.botQty ?? '',
+            botPrice: current.botPrice ?? '',
+            storeMgmtFee: current.storeMgmtFee ?? '',
+            perfBonus: current.perfBonus ?? ''
+        });
+    };
+
+    const saveAdjustments = async () => {
+        const monthKey = `${selectedYear}-${String(reportFilterMonth + 1).padStart(2, '0')}`;
+        setBranchData(prev => {
+            const nd = JSON.parse(JSON.stringify(prev));
+            if (!nd.monthlyAdjustments) nd.monthlyAdjustments = {};
+            if (!nd.monthlyAdjustments[monthKey]) nd.monthlyAdjustments[monthKey] = {};
+            nd.monthlyAdjustments[monthKey][editingAdjustmentsStaffId] = {
+                gonQty: parseFloat(editAdjustmentsData.gonQty) || 0,
+                gonPrice: parseFloat(editAdjustmentsData.gonPrice) || 0,
+                botQty: parseFloat(editAdjustmentsData.botQty) || 0,
+                botPrice: parseFloat(editAdjustmentsData.botPrice) || 0,
+                storeMgmtFee: parseFloat(editAdjustmentsData.storeMgmtFee) || 0,
+                perfBonus: parseFloat(editAdjustmentsData.perfBonus) || 0
+            };
+            if (activeBranchId) setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd).catch(console.error);
+            return nd;
+        });
+        setEditingAdjustmentsStaffId(null);
+    };
     const startEditBranch = (branch) => { setEditingBranchId(branch.id); setEditBranchData({ ...branch }); };
     const saveEditBranch = () => {
         setGlobalConfig(prev => {
@@ -4228,6 +4324,39 @@ export default function App() {
         const link = document.createElement('a');
         link.setAttribute('href', url);
         link.setAttribute('download', `StaffSync_Export_${new Date().toISOString().slice(0, 10)}.csv`);
+        document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    };
+
+    const handleExportSummaryCSV = () => {
+        const headers = [
+            'ชื่อพนักงาน', 'แผนก', 'ตำแหน่ง', 'ประเภทการจ้าง', 'ฐานเงินเดือน/เรท',
+            'จำนวนกะที่ทำ (Shifts)', 'ชั่วโมงทำงานทั้งหมด', 'โควตา OT (ชั่วโมง)', 'OT ทั้งหมด (ชั่วโมง)', 'ส่วนต่าง OT',
+            'ค่าจ้างปกติ (บาท)', 'ค่า OT (บาท)', 'ค่าแรงวันหยุด (บาท)', 'ค่ากะดึก (บาท)',
+            'ค่าที่พัก (บาท)', 'ค่าครองชีพ (บาท)', 'ค่ากินดี (บาท)', 'ค่าเดินทาง (บาท)',
+            'ผลงาน GON (บาท)', 'ผลงาน BOT (บาท)', 'ค่าบริหาร (บาท)', 'ค่าผลงาน (บาท)',
+            'รวมสุทธิ (บาท)'
+        ];
+
+        const rows = [];
+        reportData.forEach(s => {
+            const delta = s.actualOT - s.plannedOT;
+            rows.push([
+                s.name, s.dept, s.pos, s.wageType, s.baseWage,
+                s.shifts, s.workHours, s.plannedOT, s.actualOT, delta,
+                s.basePay, s.otPay, s.holidayPay, s.lateNightAllowance || 0,
+                s.housingAllowance || 0, s.costOfLivingAllowance || 0, s.kinDeeAllowance || 0, s.travelAllowance || 0,
+                s.gonAllowance || 0, s.botAllowance || 0, s.storeMgmtFee || 0, s.perfBonus || 0,
+                s.totalPay
+            ]);
+        });
+
+        const csvContent = [headers.join(','), ...rows.map(r => r.map(v => `"${v}"`).join(','))].join('\n');
+        const bom = '\uFEFF';
+        const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', `StaffSync_Summary_Export_${new Date().toISOString().slice(0, 10)}.csv`);
         document.body.appendChild(link); link.click(); document.body.removeChild(link);
     };
 
@@ -5194,6 +5323,76 @@ export default function App() {
                             <div className="flex gap-3 w-full mt-2">
                                 <button onClick={() => setConfirmModal(null)} className="flex-1 bg-slate-100 text-slate-600 py-3 rounded-xl font-black hover:bg-slate-200 transition-colors">ตกลง / ปิด</button>
                                 {confirmModal.action && <button onClick={() => { confirmModal.action(); setConfirmModal(null); }} className="flex-1 bg-indigo-500 text-white py-3 rounded-xl font-black hover:bg-indigo-600 shadow-lg shadow-indigo-200 transition-colors">ดำเนินการ</button>}
+                            </div>
+                        </div>
+                    </div>
+                )}
+                {editingAdjustmentsStaffId && (
+                    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/55 backdrop-blur-sm animate-in fade-in duration-300 font-sans p-4">
+                        <div className="bg-white rounded-[2rem] p-6 sm:p-8 shadow-2xl flex flex-col gap-6 max-w-md w-full animate-in zoom-in-95">
+                            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                                <div>
+                                    <h3 className="text-lg font-black text-slate-800 tracking-tight">ปรับปรุงยอดสวัสดิการรายเดือน</h3>
+                                    <p className="text-[11px] font-bold text-slate-500">
+                                        พนักงาน: {branchData.staff?.find(s => s.id === editingAdjustmentsStaffId)?.name || ''} 
+                                        ({branchData.staff?.find(s => s.id === editingAdjustmentsStaffId)?.pos || ''})
+                                    </p>
+                                </div>
+                                <button onClick={() => setEditingAdjustmentsStaffId(null)} className="text-slate-400 hover:bg-slate-100 p-2 rounded-full transition"><X className="w-5 h-5" /></button>
+                            </div>
+                            
+                            <div className="space-y-4 text-xs font-bold text-slate-700">
+                                {/* GON section */}
+                                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                    <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest mb-3 text-indigo-600 flex items-center gap-1">🏆 ผลงาน GON</h4>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="text-[9px] text-slate-500 uppercase block mb-1">จำนวนที่ทำได้ (ชิ้น)</label>
+                                            <input type="number" value={editAdjustmentsData.gonQty} onChange={e => setEditAdjustmentsData({ ...editAdjustmentsData, gonQty: e.target.value })} className="w-full border rounded-xl px-3 py-2 text-xs font-black text-slate-800 outline-none focus:border-indigo-500" placeholder="0" />
+                                        </div>
+                                        <div>
+                                            <label className="text-[9px] text-slate-500 uppercase block mb-1">ราคาต่อชิ้น (บาท)</label>
+                                            <input type="number" value={editAdjustmentsData.gonPrice} onChange={e => setEditAdjustmentsData({ ...editAdjustmentsData, gonPrice: e.target.value })} className="w-full border rounded-xl px-3 py-2 text-xs font-black text-slate-800 outline-none focus:border-indigo-500" placeholder="0" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* BOT section */}
+                                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                    <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest mb-3 text-emerald-600 flex items-center gap-1">🤖 ผลงาน BOT</h4>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="text-[9px] text-slate-500 uppercase block mb-1">จำนวนที่ทำได้ (ชิ้น)</label>
+                                            <input type="number" value={editAdjustmentsData.botQty} onChange={e => setEditAdjustmentsData({ ...editAdjustmentsData, botQty: e.target.value })} className="w-full border rounded-xl px-3 py-2 text-xs font-black text-slate-800 outline-none focus:border-indigo-500" placeholder="0" />
+                                        </div>
+                                        <div>
+                                            <label className="text-[9px] text-slate-500 uppercase block mb-1">ราคาต่อชิ้น (บาท)</label>
+                                            <input type="number" value={editAdjustmentsData.botPrice} onChange={e => setEditAdjustmentsData({ ...editAdjustmentsData, botPrice: e.target.value })} className="w-full border rounded-xl px-3 py-2 text-xs font-black text-slate-800 outline-none focus:border-indigo-500" placeholder="0" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Manager Bonuses (OC / AOC only) */}
+                                {['OC', 'AOC'].includes(branchData.staff?.find(s => s.id === editingAdjustmentsStaffId)?.pos) && (
+                                    <div className="p-4 bg-amber-50/50 rounded-2xl border border-amber-100">
+                                        <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest mb-3 text-amber-700 flex items-center gap-1">💼 ผู้จัดการ (OC/AOC)</h4>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <label className="text-[9px] text-slate-500 uppercase block mb-1">ค่าบริหารสาขา (บาท)</label>
+                                                <input type="number" value={editAdjustmentsData.storeMgmtFee} onChange={e => setEditAdjustmentsData({ ...editAdjustmentsData, storeMgmtFee: e.target.value })} className="w-full border rounded-xl px-3 py-2 text-xs font-black text-slate-800 outline-none focus:border-indigo-500" placeholder="0" />
+                                            </div>
+                                            <div>
+                                                <label className="text-[9px] text-slate-500 uppercase block mb-1">เงินบรรลุผลงาน (บาท)</label>
+                                                <input type="number" value={editAdjustmentsData.perfBonus} onChange={e => setEditAdjustmentsData({ ...editAdjustmentsData, perfBonus: e.target.value })} className="w-full border rounded-xl px-3 py-2 text-xs font-black text-slate-800 outline-none focus:border-indigo-500" placeholder="0" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="flex gap-3 w-full mt-2 border-t border-slate-100 pt-4">
+                                <button onClick={() => setEditingAdjustmentsStaffId(null)} className="flex-1 bg-slate-100 text-slate-600 py-3 rounded-xl font-black hover:bg-slate-200 transition-colors">ยกเลิก</button>
+                                <button onClick={saveAdjustments} className="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-black hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-colors">บันทึกสวัสดิการ</button>
                             </div>
                         </div>
                     </div>
@@ -6922,6 +7121,9 @@ export default function App() {
                                                 <option value="PT">ประเภท: พาร์ทไทม์ (PT)</option>
                                             </select>
                                             <input type="number" placeholder="ฐานเงินเดือน / ค่าแรงต่อชม. (บาท)" className="flex-1 border-2 border-emerald-100 bg-emerald-50 rounded-xl sm:rounded-2xl px-3 py-2 text-xs sm:text-sm font-bold text-emerald-700 focus:border-emerald-500 outline-none transition shadow-sm" value={newStaffBaseWage} onChange={(e) => setNewStaffBaseWage(e.target.value)} />
+                                            {['OC', 'AOC', 'SD', 'SSD', 'SH', 'KH', 'SKD', 'KD'].includes(newStaffPos) && (
+                                                <input type="number" placeholder="ค่าเดินทางต่อวัน (บาท)" className="flex-1 border-2 border-sky-100 bg-sky-50 rounded-xl sm:rounded-2xl px-3 py-2 text-xs sm:text-sm font-bold text-sky-700 focus:border-sky-500 outline-none transition shadow-sm" value={newStaffTravelRate} onChange={(e) => setNewStaffTravelRate(e.target.value)} />
+                                            )}
                                         </div>
                                     )}
                                 </div>
@@ -6950,11 +7152,11 @@ export default function App() {
                                             return;
                                         }
                                         setBranchData(p => {
-                                            const nd = { ...p, staff: [...(p.staff || []), { id: 's' + Date.now(), empId: newStaffEmpId.trim(), name: newStaffName.trim(), dept: newStaffDept, pos: newStaffPos, regularDayOff: newStaffDayOff.length > 0 ? newStaffDayOff : null, startDate: newStaffStartDate || null, wageType: newStaffWageType, baseWage: newStaffBaseWage ? parseFloat(newStaffBaseWage) : 0 }] };
+                                            const nd = { ...p, staff: [...(p.staff || []), { id: 's' + Date.now(), empId: newStaffEmpId.trim(), name: newStaffName.trim(), dept: newStaffDept, pos: newStaffPos, regularDayOff: newStaffDayOff.length > 0 ? newStaffDayOff : null, startDate: newStaffStartDate || null, wageType: newStaffWageType, baseWage: newStaffBaseWage ? parseFloat(newStaffBaseWage) : 0, travelRate: newStaffTravelRate ? parseFloat(newStaffTravelRate) : 0 }] };
                                             if (activeBranchId) setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd).catch(console.error);
                                             return nd;
                                         });
-                                        setNewStaffName(''); setNewStaffEmpId(''); setNewStaffDayOff([]); setNewStaffStartDate(''); setNewStaffBaseWage('');
+                                        setNewStaffName(''); setNewStaffEmpId(''); setNewStaffDayOff([]); setNewStaffStartDate(''); setNewStaffBaseWage(''); setNewStaffTravelRate('');
                                     }
                                 }} className="xl:col-span-2 w-full bg-slate-900 text-white px-4 py-3 rounded-xl sm:rounded-2xl font-black text-xs hover:bg-indigo-600 transition uppercase flex items-center justify-center h-full min-h-[48px]"><UserPlus className="w-4 h-4 sm:w-5 sm:h-5 mr-2" /><span>เพิ่มพนักงาน</span></button>
                             </div>
@@ -7000,7 +7202,10 @@ export default function App() {
                                                         <select value={editStaffData.wageType || 'MONTHLY'} onChange={e => setEditStaffData({ ...editStaffData, wageType: e.target.value })} className="border border-emerald-200 bg-emerald-50 text-emerald-700 font-bold rounded px-2 py-1 text-[10px]">
                                                             <option value="MONTHLY">รายเดือน</option><option value="HOURLY">รายชั่วโมง</option><option value="PT">PT</option>
                                                         </select>
-                                                        <input type="number" placeholder="ค่าจ้าง" value={editStaffData.baseWage || ''} onChange={e => setEditStaffData({ ...editStaffData, baseWage: parseFloat(e.target.value) || 0 })} className="border border-emerald-200 bg-emerald-50 text-emerald-700 font-bold rounded px-2 py-1 text-[10px] w-20 sm:w-24" />
+                                                        <input type="number" placeholder="ค่าจ้าง" value={editStaffData.baseWage || ''} onChange={e => setEditStaffData({ ...editStaffData, baseWage: parseFloat(e.target.value) || 0 })} className="border border-emerald-200 bg-emerald-50 text-emerald-700 font-bold rounded px-2 py-1 text-[10px] w-20 sm:w-24" title="ค่าจ้าง" />
+                                                        {['OC', 'AOC', 'SD', 'SSD', 'SH', 'KH', 'SKD', 'KD'].includes(editStaffData.pos) && (
+                                                            <input type="number" placeholder="ค่าเดินทางต่อวัน" value={editStaffData.travelRate || ''} onChange={e => setEditStaffData({ ...editStaffData, travelRate: parseFloat(e.target.value) || 0 })} className="border border-sky-200 bg-sky-50 text-sky-700 font-bold rounded px-2 py-1 text-[10px] w-24" title="ค่าเดินทางต่อวัน" />
+                                                        )}
                                                     </div>
                                                 )}
                                                 <button onClick={() => {
@@ -9025,32 +9230,48 @@ export default function App() {
                             <p className="text-slate-400 font-bold uppercase text-[10px] sm:text-sm tracking-widest mt-0.5 sm:mt-1">Performance &amp; OT Efficiency Report</p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-2 w-full sm:w-auto mt-4 sm:mt-0">
-                        <div className="flex-1 sm:flex-none bg-slate-900 text-white px-4 sm:px-6 py-4 sm:py-5 rounded-xl sm:rounded-[2rem] font-black flex justify-center items-center shadow-md text-[10px] sm:text-xs uppercase tracking-widest gap-2">
-                            <Filter className="w-4 h-4" /> Filtered
-                        </div>
-                        <button onClick={handleExportExcel} className="flex-1 sm:flex-none bg-green-600 hover:bg-green-700 text-white px-4 sm:px-6 py-4 sm:py-5 rounded-xl sm:rounded-[2rem] font-black flex justify-center items-center shadow-md text-[10px] sm:text-xs uppercase tracking-widest gap-2 transition-all active:scale-95">
-                            <Download className="w-4 h-4" /> Export (CSV)
-                        </button>
-                    </div>
+                     <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto mt-4 sm:mt-0">
+                         <div className="flex-1 sm:flex-none bg-slate-900 text-white px-4 sm:px-6 py-4 sm:py-5 rounded-xl sm:rounded-[2rem] font-black flex justify-center items-center shadow-md text-[10px] sm:text-xs uppercase tracking-widest gap-2">
+                             <Filter className="w-4 h-4" /> Filtered
+                         </div>
+                         <button onClick={handleExportExcel} className="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-700 text-white px-4 sm:px-6 py-4 sm:py-5 rounded-xl sm:rounded-[2rem] font-black flex justify-center items-center shadow-md text-[10px] sm:text-xs uppercase tracking-widest gap-2 transition-all active:scale-95">
+                             <Download className="w-4 h-4" /> Export Shift (CSV)
+                         </button>
+                         {['superadmin', 'areamanager'].includes(authRole) && (
+                             <button onClick={handleExportSummaryCSV} className="flex-1 sm:flex-none bg-indigo-600 hover:bg-indigo-700 text-white px-4 sm:px-6 py-4 sm:py-5 rounded-xl sm:rounded-[2rem] font-black flex justify-center items-center shadow-md text-[10px] sm:text-xs uppercase tracking-widest gap-2 transition-all active:scale-95">
+                                 <Download className="w-4 h-4" /> Export Summary (CSV)
+                             </button>
+                         )}
+                     </div>
                 </div>
-                <div className="bg-white p-4 sm:p-6 rounded-[2rem] border border-slate-200 shadow-sm flex flex-col sm:flex-row gap-4 items-end sm:items-center w-full">
-                    <div className="flex items-center gap-3">
-                        <span className="font-black text-slate-700 text-sm uppercase">ตัวกรองเวลา:</span>
-                        <select value={reportFilterMode} onChange={e => setReportFilterMode(e.target.value)} className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold outline-none text-indigo-700 focus:border-indigo-500">
-                            <option value="month">รายเดือน (ตามปฏิทิน)</option>
-                            <option value="custom">กำหนดเอง (วันที่ - วันที่)</option>
-                        </select>
+                <div className="bg-white p-4 sm:p-6 rounded-[2rem] border border-slate-200 shadow-sm flex flex-col sm:flex-row gap-4 items-end sm:items-center w-full justify-between">
+                    <div className="flex flex-wrap items-center gap-4">
+                        <div className="flex items-center gap-3">
+                            <span className="font-black text-slate-700 text-sm uppercase">ตัวกรองเวลา:</span>
+                            <select value={reportFilterMode} onChange={e => setReportFilterMode(e.target.value)} className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold outline-none text-indigo-700 focus:border-indigo-500">
+                                <option value="month">รายเดือน (ตามปฏิทิน)</option>
+                                <option value="custom">กำหนดเอง (วันที่ - วันที่)</option>
+                            </select>
+                        </div>
+                        {reportFilterMode === 'month' ? (
+                            <select value={reportFilterMonth} onChange={e => setReportFilterMonth(parseInt(e.target.value))} className="bg-slate-50 border border-slate-200 rounded-xl px-5 py-2.5 text-xs font-bold outline-none text-slate-700 focus:border-indigo-500">
+                                {THAI_MONTHS.map((m, i) => <option key={i} value={i}>{m} {selectedYear + 543}</option>)}
+                            </select>
+                        ) : (
+                            <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
+                                <input type="date" value={reportFilterStart} onChange={e => setReportFilterStart(e.target.value)} className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold outline-none w-full sm:w-auto text-slate-700 focus:border-indigo-500" />
+                                <span className="font-black text-slate-400">-</span>
+                                <input type="date" value={reportFilterEnd} onChange={e => setReportFilterEnd(e.target.value)} className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold outline-none w-full sm:w-auto text-slate-700 focus:border-indigo-500" />
+                            </div>
+                        )}
                     </div>
-                    {reportFilterMode === 'month' ? (
-                        <select value={reportFilterMonth} onChange={e => setReportFilterMonth(parseInt(e.target.value))} className="bg-slate-50 border border-slate-200 rounded-xl px-5 py-2.5 text-xs font-bold outline-none text-slate-700 focus:border-indigo-500">
-                            {THAI_MONTHS.map((m, i) => <option key={i} value={i}>{m} {selectedYear + 543}</option>)}
-                        </select>
-                    ) : (
-                        <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
-                            <input type="date" value={reportFilterStart} onChange={e => setReportFilterStart(e.target.value)} className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold outline-none w-full sm:w-auto text-slate-700 focus:border-indigo-500" />
-                            <span className="font-black text-slate-400">-</span>
-                            <input type="date" value={reportFilterEnd} onChange={e => setReportFilterEnd(e.target.value)} className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold outline-none w-full sm:w-auto text-slate-700 focus:border-indigo-500" />
+                    {['superadmin', 'areamanager'].includes(authRole) && (
+                        <div className="flex items-center gap-2">
+                            <label className="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" checked={showBenefitDetails} onChange={e => setShowBenefitDetails(e.target.checked)} className="sr-only peer" />
+                                <div className="w-9 h-5 bg-slate-200 hover:bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-350 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                                <span className="ms-2.5 text-xs font-black text-indigo-700 uppercase select-none">แสดงรายละเอียดเงินเพิ่มพิเศษ</span>
+                            </label>
                         </div>
                     )}
                 </div>
@@ -9257,7 +9478,18 @@ export default function App() {
                                                 {['superadmin', 'areamanager'].includes(authRole) && <th className="px-4 sm:px-8 py-4 sm:py-8 text-right bg-emerald-50/60">ค่า OT</th>}
                                                 {['superadmin', 'areamanager'].includes(authRole) && <th className="px-4 sm:px-8 py-4 sm:py-8 text-right bg-emerald-50/80">ค่าแรงวันหยุด</th>}
                                                 {['superadmin', 'areamanager'].includes(authRole) && <th className="px-4 sm:px-8 py-4 sm:py-8 text-right bg-emerald-50/90 text-indigo-700 font-black">ค่ากะดึก</th>}
-                                                {['superadmin', 'areamanager'].includes(authRole) && <th className="px-4 sm:px-8 py-4 sm:py-8 text-right bg-emerald-100 text-emerald-800">รวมค่าแรงรายเดือน+ค่าจ้างพนักงานชั่วคราว+OT สุทธิ</th>}
+                                                {['superadmin', 'areamanager'].includes(authRole) && showBenefitDetails && (
+                                                    <>
+                                                        <th className="px-2 sm:px-4 py-4 sm:py-8 text-right bg-sky-50/40 text-sky-850">ค่าที่พัก</th>
+                                                        <th className="px-2 sm:px-4 py-4 sm:py-8 text-right bg-sky-50/50 text-sky-850">ค่าครองชีพ</th>
+                                                        <th className="px-2 sm:px-4 py-4 sm:py-8 text-right bg-sky-50/60 text-sky-850">ค่ากินดี</th>
+                                                        <th className="px-2 sm:px-4 py-4 sm:py-8 text-right bg-sky-50/70 text-sky-850">ค่าเดินทาง</th>
+                                                        <th className="px-2 sm:px-4 py-4 sm:py-8 text-right bg-sky-50/80 text-sky-850">ผลงาน GON</th>
+                                                        <th className="px-2 sm:px-4 py-4 sm:py-8 text-right bg-sky-50/90 text-sky-850">ผลงาน BOT</th>
+                                                        <th className="px-2 sm:px-4 py-4 sm:py-8 text-right bg-sky-100 text-sky-95 font-black">บริหาร/ผลงาน</th>
+                                                    </>
+                                                )}
+                                                {['superadmin', 'areamanager'].includes(authRole) && <th className="px-4 sm:px-8 py-4 sm:py-8 text-right bg-emerald-100 text-emerald-800">รวมสุทธิ</th>}
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100 font-bold text-slate-700">
@@ -9267,10 +9499,19 @@ export default function App() {
                                                 return (
                                                     <tr key={idx} className="hover:bg-slate-50 transition duration-300">
                                                         <td className="px-6 sm:px-12 py-4 sm:py-8 sticky left-0 bg-white group-hover:bg-slate-50 transition-colors z-10 border-r border-slate-50">
-                                                            <p className="font-black text-slate-900 uppercase text-sm sm:text-base truncate max-w-[120px] sm:max-w-[200px]">{s.name}</p>
-                                                            <div className="flex items-center gap-2">
-                                                                <span className={`mt-1 inline-block text-[8px] sm:text-[10px] font-bold uppercase px-2 py-0.5 rounded ${layer.color.split(' ')[0]} ${layer.color.split(' ')[1]}`}>{s.dept} - {s.pos}</span>
-                                                                {['superadmin', 'areamanager'].includes(authRole) && <span className="mt-1 text-[8px] sm:text-[9px] font-bold text-slate-400">({s.wageType})</span>}
+                                                            <div className="flex justify-between items-start gap-2">
+                                                                <div>
+                                                                    <p className="font-black text-slate-900 uppercase text-sm sm:text-base truncate max-w-[120px] sm:max-w-[160px]">{s.name}</p>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className={`mt-1 inline-block text-[8px] sm:text-[10px] font-bold uppercase px-2 py-0.5 rounded ${layer.color.split(' ')[0]} ${layer.color.split(' ')[1]}`}>{s.dept} - {s.pos}</span>
+                                                                        {['superadmin', 'areamanager'].includes(authRole) && <span className="mt-1 text-[8px] sm:text-[9px] font-bold text-slate-400">({s.wageType})</span>}
+                                                                    </div>
+                                                                </div>
+                                                                {['superadmin', 'areamanager'].includes(authRole) && (
+                                                                    <button onClick={() => startEditAdjustments(s.id)} className="p-1.5 hover:bg-slate-100 rounded-lg text-indigo-600 hover:text-indigo-800 transition flex-shrink-0" title="ปรับปรุงยอดสวัสดิการรายเดือน">
+                                                                        <Edit2 className="w-3.5 h-3.5" />
+                                                                    </button>
+                                                                )}
                                                             </div>
                                                         </td>
                                                         {['superadmin', 'areamanager'].includes(authRole) && <td className="px-4 sm:px-8 py-4 sm:py-8 text-right bg-emerald-50/20 text-emerald-700 font-mono">฿{s.baseWage.toLocaleString()}</td>}
@@ -9290,6 +9531,17 @@ export default function App() {
                                                         {['superadmin', 'areamanager'].includes(authRole) && <td className="px-4 sm:px-8 py-4 sm:py-8 text-right bg-emerald-50/60 font-mono">{s.otPay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>}
                                                         {['superadmin', 'areamanager'].includes(authRole) && <td className="px-4 sm:px-8 py-4 sm:py-8 text-right bg-emerald-50/80 font-mono">{s.holidayPay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>}
                                                         {['superadmin', 'areamanager'].includes(authRole) && <td className="px-4 sm:px-8 py-4 sm:py-8 text-right bg-emerald-50/90 text-indigo-700 font-mono font-black">฿{(s.lateNightAllowance || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>}
+                                                        {['superadmin', 'areamanager'].includes(authRole) && showBenefitDetails && (
+                                                            <>
+                                                                <td className="px-2 sm:px-4 py-4 sm:py-8 text-right bg-sky-50/10 font-mono text-slate-500 text-xs">฿{(s.housingAllowance || 0).toLocaleString()}</td>
+                                                                <td className="px-2 sm:px-4 py-4 sm:py-8 text-right bg-sky-50/10 font-mono text-slate-500 text-xs">฿{(s.costOfLivingAllowance || 0).toLocaleString()}</td>
+                                                                <td className="px-2 sm:px-4 py-4 sm:py-8 text-right bg-sky-50/10 font-mono text-slate-500 text-xs">฿{(s.kinDeeAllowance || 0).toLocaleString()}</td>
+                                                                <td className="px-2 sm:px-4 py-4 sm:py-8 text-right bg-sky-50/10 font-mono text-slate-500 text-xs">฿{(s.travelAllowance || 0).toLocaleString()}</td>
+                                                                <td className="px-2 sm:px-4 py-4 sm:py-8 text-right bg-sky-50/10 font-mono text-slate-500 text-xs">฿{(s.gonAllowance || 0).toLocaleString()}</td>
+                                                                <td className="px-2 sm:px-4 py-4 sm:py-8 text-right bg-sky-50/10 font-mono text-slate-500 text-xs">฿{(s.botAllowance || 0).toLocaleString()}</td>
+                                                                <td className="px-2 sm:px-4 py-4 sm:py-8 text-right bg-sky-100/30 font-mono text-sky-850 text-xs">฿{((s.storeMgmtFee || 0) + (s.perfBonus || 0)).toLocaleString()}</td>
+                                                            </>
+                                                        )}
                                                         {['superadmin', 'areamanager'].includes(authRole) && <td className="px-4 sm:px-8 py-4 sm:py-8 text-right bg-emerald-100 text-emerald-800 font-black text-base sm:text-lg font-mono">฿{s.totalPay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>}
                                                     </tr>
                                                 );
@@ -9312,6 +9564,17 @@ export default function App() {
                                                     <td className="px-4 sm:px-8 py-6 text-right font-mono">{deptTotalOtPay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                                     <td className="px-4 sm:px-8 py-6 text-right font-mono">{deptTotalHolidayPay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                                     <td className="px-4 sm:px-8 py-6 text-right font-mono text-indigo-700">฿{deptData.reduce((acc, curr) => acc + (curr.lateNightAllowance || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                                    {['superadmin', 'areamanager'].includes(authRole) && showBenefitDetails && (
+                                                         <>
+                                                             <td className="px-2 sm:px-4 py-6 text-right font-mono text-slate-700 text-xs">฿{deptData.reduce((acc, curr) => acc + (curr.housingAllowance || 0), 0).toLocaleString()}</td>
+                                                             <td className="px-2 sm:px-4 py-6 text-right font-mono text-slate-700 text-xs">฿{deptData.reduce((acc, curr) => acc + (curr.costOfLivingAllowance || 0), 0).toLocaleString()}</td>
+                                                             <td className="px-2 sm:px-4 py-6 text-right font-mono text-slate-700 text-xs">฿{deptData.reduce((acc, curr) => acc + (curr.kinDeeAllowance || 0), 0).toLocaleString()}</td>
+                                                             <td className="px-2 sm:px-4 py-6 text-right font-mono text-slate-700 text-xs">฿{deptData.reduce((acc, curr) => acc + (curr.travelAllowance || 0), 0).toLocaleString()}</td>
+                                                             <td className="px-2 sm:px-4 py-6 text-right font-mono text-slate-700 text-xs">฿{deptData.reduce((acc, curr) => acc + (curr.gonAllowance || 0), 0).toLocaleString()}</td>
+                                                             <td className="px-2 sm:px-4 py-6 text-right font-mono text-slate-700 text-xs">฿{deptData.reduce((acc, curr) => acc + (curr.botAllowance || 0), 0).toLocaleString()}</td>
+                                                             <td className="px-2 sm:px-4 py-6 text-right font-mono text-sky-900 text-xs">฿{deptData.reduce((acc, curr) => acc + (curr.storeMgmtFee || 0) + (curr.perfBonus || 0), 0).toLocaleString()}</td>
+                                                         </>
+                                                    )}
                                                     <td className="px-4 sm:px-8 py-6 text-right font-mono text-emerald-800">฿{deptTotalPay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                                 </tr>
                                             </tfoot>
@@ -10514,10 +10777,21 @@ export default function App() {
                                 unpaidLeaveDays: 0, workHours: 0,
                                 wageType: s.wageType || 'MONTHLY',
                                 baseWage: s.baseWage || 0,
+                                travelRate: s.travelRate || 0,
                                 pos: s.pos,
                                 dept: s.dept || 'service',
                                 lateNightShifts: 0,
-                                lateNightAllowance: 0
+                                lateNightAllowance: 0,
+                                workedDates: new Set(),
+                                shifts: 0,
+                                housingAllowance: 0,
+                                costOfLivingAllowance: 0,
+                                kinDeeAllowance: 0,
+                                travelAllowance: 0,
+                                gonAllowance: 0,
+                                botAllowance: 0,
+                                storeMgmtFee: 0,
+                                perfBonus: 0
                             };
                         });
 
@@ -10576,6 +10850,8 @@ export default function App() {
                                                 const otHours = Number(slot.otHours || 0);
 
                                                 pStaff.workHours += workHours;
+                                                pStaff.shifts += 1;
+                                                pStaff.workedDates.add(dateStr);
 
                                                 // Calculate late night allowance
                                                 const allowance = getLateNightAllowance(pStaff, shiftPreset, startTime, endTime, workHours, payrollConfig);
@@ -10652,7 +10928,53 @@ export default function App() {
                                 payrollSummary[dept].lateNightAllowance.pt += (staff.lateNightAllowance || 0);
                                 payrollSummary.total.lateNightAllowance.pt += (staff.lateNightAllowance || 0);
                             }
-                            staff.totalPay = staff.basePay + staff.otPay + staff.holidayPay + (staff.lateNightAllowance || 0);
+                            const monthKey = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`;
+                            const adjust = bData.monthlyAdjustments?.[monthKey]?.[staff.id] || {};
+                            
+                            if (staff.shifts > 0) {
+                                // 1. EDC Housing Allowance
+                                if (staff.pos.includes('EDC')) {
+                                    staff.housingAllowance = 2000;
+                                }
+                                
+                                // 2. Cost of Living Allowance
+                                if (['OC', 'AOC', 'SD', 'SSD', 'SH', 'KH', 'SKD', 'KD'].includes(staff.pos)) {
+                                    staff.costOfLivingAllowance = 800;
+                                }
+                                
+                                // 3. Kin-Dee Allowance
+                                if (staff.pos.includes('PT') || staff.wageType === 'PT') {
+                                    staff.kinDeeAllowance = 100;
+                                } else {
+                                    staff.kinDeeAllowance = 750;
+                                }
+                                
+                                // 4. Travel Allowance
+                                if (['OC', 'AOC', 'SD', 'SSD', 'SH', 'KH', 'SKD', 'KD'].includes(staff.pos)) {
+                                    const daysWorked = staff.workedDates.size;
+                                    staff.travelAllowance = daysWorked * (staff.travelRate || 0);
+                                }
+                            }
+                            
+                            // 5. GON & BOT Allowance (always applied if entered)
+                            const gonQty = adjust.gonQty || 0;
+                            const gonPrice = adjust.gonPrice || 0;
+                            staff.gonAllowance = gonQty * gonPrice;
+
+                            const botQty = adjust.botQty || 0;
+                            const botPrice = adjust.botPrice || 0;
+                            staff.botAllowance = botQty * botPrice;
+
+                            // 6. Manager Bonuses (OC / AOC only)
+                            if (['OC', 'AOC'].includes(staff.pos)) {
+                                staff.storeMgmtFee = adjust.storeMgmtFee || 0;
+                                staff.perfBonus = adjust.perfBonus || 0;
+                            }
+
+                            staff.totalPay = staff.basePay + staff.otPay + staff.holidayPay + (staff.lateNightAllowance || 0) +
+                                             staff.housingAllowance + staff.costOfLivingAllowance + staff.kinDeeAllowance +
+                                             staff.travelAllowance + staff.gonAllowance + staff.botAllowance +
+                                             staff.storeMgmtFee + staff.perfBonus;
 
                             payrollSummary[dept].basePay.total += staff.basePay;
                             payrollSummary.total.basePay.total += staff.basePay;
