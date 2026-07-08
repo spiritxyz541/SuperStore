@@ -1201,6 +1201,7 @@ export default function App() {
     const [view, setView] = useState(() => {
         try { const saved = localStorage.getItem('superstore_session'); if (saved) return JSON.parse(saved).view || 'manager'; } catch (e) { } return 'manager';
     });
+    const [selectedAmId, setSelectedAmId] = useState('');
     const [dailyViewMode, setDailyViewMode] = useState('roster');
     const [activeDept, setActiveDept] = useState(() => {
         try { const saved = sessionStorage.getItem('superstore_activeDept'); if (saved) return saved; } catch (e) { }
@@ -2656,10 +2657,15 @@ export default function App() {
     }, [selectedDateStr, selectedMonth]);
 
     useEffect(() => {
-        if (view === 'area_dashboard' && authRole === 'areamanager') {
+        if (view === 'area_dashboard' && (authRole === 'areamanager' || authRole === 'superadmin')) {
             const fetchData = async () => {
                 const data = {};
-                const am = globalConfig.areaManagers?.find(a => a.user === authUser);
+                let am = globalConfig.areaManagers?.find(a => a.user === authUser);
+                if (authRole === 'superadmin') {
+                    const ams = globalConfig.areaManagers || [];
+                    const currentAmId = selectedAmId || ams[0]?.id;
+                    am = ams.find(a => a.id === currentAmId);
+                }
                 if (am && am.branches) {
                     for (const bId of am.branches) {
                         try {
@@ -2676,7 +2682,7 @@ export default function App() {
             };
             fetchData();
         }
-    }, [view, authRole, authUser, globalConfig.areaManagers]);
+    }, [view, authRole, authUser, globalConfig.areaManagers, selectedAmId]);
 
     useEffect(() => {
         setNewDutyCategory(activeDept === 'service' ? 'FOH_STAFF' : 'BOH_STAFF');
@@ -3268,6 +3274,48 @@ export default function App() {
         });
     };
 
+    const handleUpdateAmBranchCol1Budget = (bId, value) => {
+        const monthKey = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`;
+        setAmData(prev => {
+            const currentBranch = prev[bId]?.branch || {};
+            const updatedBranch = {
+                ...currentBranch,
+                monthlyCol1Budgets: {
+                    ...(currentBranch.monthlyCol1Budgets || {}),
+                    [monthKey]: value
+                }
+            };
+            return {
+                ...prev,
+                [bId]: {
+                    ...prev[bId],
+                    branch: updatedBranch
+                }
+            };
+        });
+    };
+
+    const handleSaveAmBranchCol1Budget = async (bId, value) => {
+        const monthKey = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`;
+        const parsedVal = parseFloat(value) || 0;
+        const currentBranch = amData[bId]?.branch || {};
+        const updatedBranch = {
+            ...currentBranch,
+            monthlyCol1Budgets: {
+                ...(currentBranch.monthlyCol1Budgets || {}),
+                [monthKey]: parsedVal
+            }
+        };
+        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', bId), updatedBranch).catch(console.error);
+        setAmData(prev => ({
+            ...prev,
+            [bId]: {
+                ...prev[bId],
+                branch: updatedBranch
+            }
+        }));
+    };
+
     const handleUpdatePayrollConfig = (field, value) => {
         setBranchData(prev => ({
             ...prev,
@@ -3363,7 +3411,8 @@ export default function App() {
             botQty: current.botQty !== undefined ? current.botQty : '',
             botPrice: current.botPrice !== undefined ? current.botPrice : '',
             storeMgmtFee: current.storeMgmtFee !== undefined ? current.storeMgmtFee : '',
-            perfBonus: current.perfBonus !== undefined ? current.perfBonus : ''
+            perfBonus: current.perfBonus !== undefined ? current.perfBonus : '',
+            diligenceAllowance: current.diligenceAllowance !== undefined ? current.diligenceAllowance : ''
         });
     };
 
@@ -3381,6 +3430,7 @@ export default function App() {
             if (editAdjustmentsData.botPrice !== '') staffAdjust.botPrice = parseFloat(editAdjustmentsData.botPrice);
             if (editAdjustmentsData.storeMgmtFee !== '') staffAdjust.storeMgmtFee = parseFloat(editAdjustmentsData.storeMgmtFee);
             if (editAdjustmentsData.perfBonus !== '') staffAdjust.perfBonus = parseFloat(editAdjustmentsData.perfBonus);
+            if (editAdjustmentsData.diligenceAllowance !== '') staffAdjust.diligenceAllowance = parseFloat(editAdjustmentsData.diligenceAllowance);
 
             nd.monthlyAdjustments[monthKey][editingAdjustmentsStaffId] = staffAdjust;
             if (activeBranchId) setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), nd).catch(console.error);
@@ -4338,7 +4388,7 @@ export default function App() {
             'ชื่อพนักงาน', 'แผนก', 'ตำแหน่ง', 'ประเภทการจ้าง', 'ฐานเงินเดือน/เรท',
             'จำนวนกะที่ทำ (Shifts)', 'ชั่วโมงทำงานทั้งหมด', 'โควตา OT (ชั่วโมง)', 'OT ทั้งหมด (ชั่วโมง)', 'ส่วนต่าง OT',
             'ค่าจ้างปกติ (บาท)', 'ค่า OT (บาท)', 'ค่าแรงวันหยุด (บาท)', 'ค่ากะดึก (บาท)',
-            'ค่าที่พัก (บาท)', 'ค่าครองชีพ (บาท)', 'ค่ากินดี (บาท)', 'ค่าเดินทาง (บาท)',
+            'เบี้ยขยัน (บาท)', 'ค่าที่พัก (บาท)', 'ค่าครองชีพ (บาท)', 'ค่ากินดี (บาท)', 'ค่าเดินทาง (บาท)',
             'ผลงาน GON (บาท)', 'ผลงาน BOT (บาท)', 'ค่าบริหาร (บาท)', 'ค่าผลงาน (บาท)',
             'รวมสุทธิ (บาท)'
         ];
@@ -4350,7 +4400,7 @@ export default function App() {
                 s.name, s.dept, s.pos, s.wageType, s.baseWage,
                 s.shifts, s.workHours, s.plannedOT, s.actualOT, delta,
                 s.basePay, s.otPay, s.holidayPay, s.lateNightAllowance || 0,
-                s.housingAllowance || 0, s.costOfLivingAllowance || 0, s.kinDeeAllowance || 0, s.travelAllowance || 0,
+                s.diligenceAllowance || 0, s.housingAllowance || 0, s.costOfLivingAllowance || 0, s.kinDeeAllowance || 0, s.travelAllowance || 0,
                 s.gonAllowance || 0, s.botAllowance || 0, s.storeMgmtFee || 0, s.perfBonus || 0,
                 s.totalPay
             ]);
@@ -5414,6 +5464,15 @@ export default function App() {
                                         </div>
                                     );
                                 })()}
+
+                                {/* Diligence Allowance */}
+                                <div className="p-4 bg-amber-50/30 rounded-2xl border border-amber-100/50">
+                                    <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest mb-3 text-amber-600 flex items-center gap-1">🌟 เบี้ยขยัน (Diligence)</h4>
+                                    <div>
+                                        <label className="text-[9px] text-slate-500 uppercase block mb-1">เบี้ยขยันประจำเดือน (บาท)</label>
+                                        <input type="number" value={editAdjustmentsData.diligenceAllowance} onChange={e => setEditAdjustmentsData({ ...editAdjustmentsData, diligenceAllowance: e.target.value })} className="w-full border rounded-xl px-3 py-2 text-xs font-black text-slate-800 outline-none focus:border-indigo-500" placeholder="0" />
+                                    </div>
+                                </div>
                             </div>
 
                             <div className="flex gap-3 w-full mt-2 border-t border-slate-100 pt-4">
@@ -9441,7 +9500,99 @@ export default function App() {
                             </div>
                         </div>
                     </div>
-                </div>          {/* Part-Time Quota & Hours Summary */}
+                </div>
+
+                {reportFilterMode === 'month' && (
+                    <div className="bg-slate-900 text-white rounded-[2rem] p-6 sm:p-10 shadow-xl border border-slate-800 flex flex-col xl:flex-row items-center justify-between gap-6">
+                        <div className="flex items-center gap-4 sm:gap-6">
+                            <div className="bg-indigo-500/25 p-4 rounded-2xl border border-indigo-500/30">
+                                <TrendingUp className="w-8 h-8 text-indigo-400" />
+                            </div>
+                            <div>
+                                <h3 className="text-xl sm:text-2xl font-black tracking-tight uppercase">สรุปงบประมาณบุคลากรทั้งหมด (COL#1 Budget)</h3>
+                                <p className="text-slate-400 font-bold text-xs mt-1">เปรียบเทียบค่าใช้จ่ายบุคลากรรวมจริง จากตารางงาน กับงบประมาณที่ตั้งไว้ประจำเดือน</p>
+                            </div>
+                        </div>
+
+                        {(() => {
+                            const monthKey = `${selectedYear}-${String(reportFilterMonth + 1).padStart(2, '0')}`;
+                            const rawCol1Budget = branchData?.monthlyCol1Budgets?.[monthKey];
+                            const col1Budget = rawCol1Budget !== undefined ? parseFloat(rawCol1Budget) : 0;
+                            const actualCol1 = totalPay;
+                            const variance = actualCol1 - col1Budget;
+                            const variancePercent = col1Budget > 0 ? (variance / col1Budget) * 100 : 0;
+                            const isOver = variance > 0;
+
+                            const handleUpdateReportCol1Budget = (value) => {
+                                setBranchData(prev => {
+                                    const updated = {
+                                        ...prev,
+                                        monthlyCol1Budgets: {
+                                            ...(prev.monthlyCol1Budgets || {}),
+                                            [monthKey]: value
+                                        }
+                                    };
+                                    return updated;
+                                });
+                            };
+
+                            const handleSaveReportCol1Budget = async (value) => {
+                                const parsedVal = parseFloat(value) || 0;
+                                const updated = {
+                                    ...branchData,
+                                    monthlyCol1Budgets: {
+                                        ...(branchData.monthlyCol1Budgets || {}),
+                                        [monthKey]: parsedVal
+                                    }
+                                };
+                                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), updated).catch(console.error);
+                                setBranchData(updated);
+                            };
+
+                            return (
+                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-6 w-full xl:w-auto">
+                                    <div className="bg-slate-800 border border-slate-700 px-6 py-4 rounded-2xl flex flex-col justify-center min-w-[200px]">
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">งบประมาณที่กำหนด</span>
+                                        {['superadmin', 'areamanager'].includes(authRole) ? (
+                                            <div className="flex items-center gap-2 mt-0.5">
+                                                <span className="text-sm font-black text-slate-300">฿</span>
+                                                <input
+                                                    type="text"
+                                                    inputMode="numeric"
+                                                    value={rawCol1Budget === undefined || rawCol1Budget === 0 ? '' : rawCol1Budget}
+                                                    placeholder="ระบุงบประมาณ เช่น 350000"
+                                                    onChange={(e) => handleUpdateReportCol1Budget(e.target.value.replace(/[^0-9.]/g, ''))}
+                                                    onBlur={(e) => handleSaveReportCol1Budget(e.target.value)}
+                                                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs font-black text-white outline-none focus:border-indigo-500 text-right"
+                                                />
+                                            </div>
+                                        ) : (
+                                            <span className="text-xl font-black text-white">฿{col1Budget.toLocaleString()}</span>
+                                        )}
+                                    </div>
+
+                                    <div className="bg-slate-800 border border-slate-700 px-6 py-4 rounded-2xl flex flex-col justify-center min-w-[200px]">
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">ค่าใช้จ่ายจริงรวม (Actual COL1)</span>
+                                        <span className="text-xl font-black text-indigo-400 mt-1">฿{actualCol1.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                                    </div>
+
+                                    {col1Budget > 0 && (
+                                        <div className={`px-6 py-4 rounded-2xl flex flex-col justify-center min-w-[200px] border ${isOver ? 'bg-rose-950/30 border-rose-800 text-rose-300' : 'bg-emerald-950/30 border-emerald-800 text-emerald-300'}`}>
+                                            <span className="text-[10px] font-bold uppercase tracking-wider mb-1">Vs Budget</span>
+                                            <span className="text-xl font-black">
+                                                {isOver ? '+' : ''}฿{variance.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} ({isOver ? '+' : ''}{variancePercent.toFixed(1)}%)
+                                            </span>
+                                            <span className="text-[9px] font-bold mt-1">
+                                                {isOver ? '⚠️ สูงกว่างบประมาณ' : '🎉 อยู่ในงบประมาณ'}
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })()}
+                    </div>
+                )}
+
                 <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden w-full">
                     <div className="p-6 sm:p-8 border-b border-slate-100 font-black text-slate-900 bg-slate-50/30 uppercase tracking-tighter text-lg flex items-center gap-3">
                         <TrendingUp className="w-6 h-6 text-indigo-500" /> สรุปโควตาและชั่วโมงจัดกะ Part-Time (Part-Time Quota & Hours Summary)
@@ -9558,6 +9709,7 @@ export default function App() {
                                                 {['superadmin', 'areamanager'].includes(authRole) && <th className="px-4 sm:px-8 py-4 sm:py-8 text-right bg-emerald-50/90 text-indigo-700 font-black">ค่ากะดึก</th>}
                                                 {['superadmin', 'areamanager'].includes(authRole) && showBenefitDetails && (
                                                     <>
+                                                        <th className="px-2 sm:px-4 py-4 sm:py-8 text-right bg-sky-50/30 text-sky-850">เบี้ยขยัน</th>
                                                         <th className="px-2 sm:px-4 py-4 sm:py-8 text-right bg-sky-50/40 text-sky-850">ค่าที่พัก</th>
                                                         <th className="px-2 sm:px-4 py-4 sm:py-8 text-right bg-sky-50/50 text-sky-850">ค่าครองชีพ</th>
                                                         <th className="px-2 sm:px-4 py-4 sm:py-8 text-right bg-sky-50/60 text-sky-850">ค่ากินดี</th>
@@ -9611,6 +9763,7 @@ export default function App() {
                                                         {['superadmin', 'areamanager'].includes(authRole) && <td className="px-4 sm:px-8 py-4 sm:py-8 text-right bg-emerald-50/90 text-indigo-700 font-mono font-black">฿{(s.lateNightAllowance || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>}
                                                         {['superadmin', 'areamanager'].includes(authRole) && showBenefitDetails && (
                                                             <>
+                                                                <td className="px-2 sm:px-4 py-4 sm:py-8 text-right bg-sky-50/10 font-mono text-slate-500 text-xs">฿{(s.diligenceAllowance || 0).toLocaleString()}</td>
                                                                 <td className="px-2 sm:px-4 py-4 sm:py-8 text-right bg-sky-50/10 font-mono text-slate-500 text-xs">฿{(s.housingAllowance || 0).toLocaleString()}</td>
                                                                 <td className="px-2 sm:px-4 py-4 sm:py-8 text-right bg-sky-50/10 font-mono text-slate-500 text-xs">฿{(s.costOfLivingAllowance || 0).toLocaleString()}</td>
                                                                 <td className="px-2 sm:px-4 py-4 sm:py-8 text-right bg-sky-50/10 font-mono text-slate-500 text-xs">฿{(s.kinDeeAllowance || 0).toLocaleString()}</td>
@@ -10697,12 +10850,40 @@ export default function App() {
     }
 
     function renderAreaDashboard() {
-        const am = globalConfig.areaManagers?.find(a => a.user === authUser);
+        let am = globalConfig.areaManagers?.find(a => a.user === authUser);
+        if (authRole === 'superadmin') {
+            const ams = globalConfig.areaManagers || [];
+            if (ams.length === 0) {
+                return <div className="p-10 text-center text-slate-500 font-bold bg-white rounded-[2rem] border border-slate-200 shadow-sm">ไม่พบข้อมูลผู้จัดการเขตในระบบ</div>;
+            }
+            const currentAmId = selectedAmId || ams[0]?.id;
+            am = ams.find(a => a.id === currentAmId);
+        }
         if (!am) return <div className="p-10 text-center text-slate-500 font-bold">ไม่พบข้อมูลผู้จัดการเขต</div>;
         // areaPeriod state moved to top level
 
         return (
             <div className="flex-1 space-y-6 sm:space-y-10 animate-in fade-in duration-500 pb-24 w-full">
+                {authRole === 'superadmin' && (
+                    <div className="bg-white p-5 rounded-[2rem] border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                            <div className="bg-indigo-100 p-2.5 rounded-xl"><UserCircle className="w-5 h-5 text-indigo-600" /></div>
+                            <div>
+                                <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight">โหมดผู้ดูแลระบบ (Admin Mode)</h4>
+                                <p className="text-[10px] text-slate-500 font-bold">เลือกผู้จัดการเขตเพื่อดูภาพรวมและตั้งค่างบประมาณของแต่ละสาขา</p>
+                            </div>
+                        </div>
+                        <select
+                            value={am.id}
+                            onChange={(e) => setSelectedAmId(e.target.value)}
+                            className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-black text-slate-800 outline-none focus:border-indigo-500 transition-colors w-full sm:w-64"
+                        >
+                            {(globalConfig.areaManagers || []).map(a => (
+                                <option key={a.id} value={a.id}>{a.name} ({a.user})</option>
+                            ))}
+                        </select>
+                    </div>
+                )}
                 <div className="bg-slate-900 rounded-[2rem] p-8 sm:p-10 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-6 text-white">
                     <div className="flex items-center gap-6">
                         <div className="bg-indigo-500 p-4 rounded-2xl shadow-inner"><UserCircle className="w-10 h-10 text-white" /></div>
@@ -10970,13 +11151,61 @@ export default function App() {
                         });
 
                         const payrollSummary = {
-                            service: { basePay: { total: 0, monthly: 0, hourly: 0, pt: 0 }, otPay: { total: 0, monthly: 0, hourly: 0, pt: 0 }, holidayPay: { total: 0, monthly: 0, hourly: 0, pt: 0 }, lateNightAllowance: { total: 0, monthly: 0, hourly: 0, pt: 0 }, netPay: 0 },
-                            kitchen: { basePay: { total: 0, monthly: 0, hourly: 0, pt: 0 }, otPay: { total: 0, monthly: 0, hourly: 0, pt: 0 }, holidayPay: { total: 0, monthly: 0, hourly: 0, pt: 0 }, lateNightAllowance: { total: 0, monthly: 0, hourly: 0, pt: 0 }, netPay: 0 },
-                            total: { basePay: { total: 0, monthly: 0, hourly: 0, pt: 0 }, otPay: { total: 0, monthly: 0, hourly: 0, pt: 0 }, holidayPay: { total: 0, monthly: 0, hourly: 0, pt: 0 }, lateNightAllowance: { total: 0, monthly: 0, hourly: 0, pt: 0 }, netPay: 0 }
+                            service: {
+                                basePay: { total: 0, monthly: 0, hourly: 0, pt: 0 },
+                                otPay: { total: 0, monthly: 0, hourly: 0, pt: 0 },
+                                holidayPay: { total: 0, monthly: 0, hourly: 0, pt: 0 },
+                                lateNightAllowance: { total: 0, monthly: 0, hourly: 0, pt: 0 },
+                                diligenceAllowance: 0,
+                                travelAllowance: 0,
+                                storeMgmtFee: 0,
+                                perfBonus: 0,
+                                housingAllowance: 0,
+                                gonBotAllowance: 0,
+                                costOfLivingAllowance: 0,
+                                kinDee: { monthly: 0, hourly: 0, pt: 0 },
+                                netPay: 0
+                            },
+                            kitchen: {
+                                basePay: { total: 0, monthly: 0, hourly: 0, pt: 0 },
+                                otPay: { total: 0, monthly: 0, hourly: 0, pt: 0 },
+                                holidayPay: { total: 0, monthly: 0, hourly: 0, pt: 0 },
+                                lateNightAllowance: { total: 0, monthly: 0, hourly: 0, pt: 0 },
+                                diligenceAllowance: 0,
+                                travelAllowance: 0,
+                                storeMgmtFee: 0,
+                                perfBonus: 0,
+                                housingAllowance: 0,
+                                gonBotAllowance: 0,
+                                costOfLivingAllowance: 0,
+                                kinDee: { monthly: 0, hourly: 0, pt: 0 },
+                                netPay: 0
+                            },
+                            total: {
+                                basePay: { total: 0, monthly: 0, hourly: 0, pt: 0 },
+                                otPay: { total: 0, monthly: 0, hourly: 0, pt: 0 },
+                                holidayPay: { total: 0, monthly: 0, hourly: 0, pt: 0 },
+                                lateNightAllowance: { total: 0, monthly: 0, hourly: 0, pt: 0 },
+                                diligenceAllowance: 0,
+                                travelAllowance: 0,
+                                storeMgmtFee: 0,
+                                perfBonus: 0,
+                                housingAllowance: 0,
+                                gonBotAllowance: 0,
+                                costOfLivingAllowance: 0,
+                                kinDee: { monthly: 0, hourly: 0, pt: 0 },
+                                netPay: 0
+                            }
                         };
 
                         Object.values(staffMapPayroll).forEach(staff => {
                             const dept = staff.dept === 'kitchen' ? 'kitchen' : 'service';
+                            const monthKey = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`;
+                            const adjust = bData.monthlyAdjustments?.[monthKey]?.[staff.id] || {};
+                            
+                            const diligenceAllowance = adjust.diligenceAllowance !== undefined ? parseFloat(adjust.diligenceAllowance) : 0;
+                            staff.diligenceAllowance = diligenceAllowance;
+
                             if (staff.wageType === 'MONTHLY') {
                                 const monthlyRate = staff.baseWage || 0;
                                 const dailyRate = monthlyRate / (payrollConfig.monthlySalaryDivider || 30);
@@ -11006,8 +11235,6 @@ export default function App() {
                                 payrollSummary[dept].lateNightAllowance.pt += (staff.lateNightAllowance || 0);
                                 payrollSummary.total.lateNightAllowance.pt += (staff.lateNightAllowance || 0);
                             }
-                            const monthKey = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`;
-                            const adjust = bData.monthlyAdjustments?.[monthKey]?.[staff.id] || {};
                             
                             if (staff.shifts > 0) {
                                 // 1. EDC Housing Allowance
@@ -11054,9 +11281,9 @@ export default function App() {
                             }
 
                             staff.totalPay = staff.basePay + staff.otPay + staff.holidayPay + (staff.lateNightAllowance || 0) +
-                                             staff.housingAllowance + staff.costOfLivingAllowance + staff.kinDeeAllowance +
-                                             staff.travelAllowance + staff.gonAllowance + staff.botAllowance +
-                                             staff.storeMgmtFee + staff.perfBonus;
+                                             (staff.housingAllowance || 0) + (staff.costOfLivingAllowance || 0) + (staff.kinDeeAllowance || 0) +
+                                             (staff.travelAllowance || 0) + (staff.gonAllowance || 0) + (staff.botAllowance || 0) +
+                                             (staff.storeMgmtFee || 0) + (staff.perfBonus || 0) + (staff.diligenceAllowance || 0);
 
                             payrollSummary[dept].basePay.total += staff.basePay;
                             payrollSummary.total.basePay.total += staff.basePay;
@@ -11067,6 +11294,35 @@ export default function App() {
 
                             payrollSummary[dept].lateNightAllowance.total += (staff.lateNightAllowance || 0);
                             payrollSummary.total.lateNightAllowance.total += (staff.lateNightAllowance || 0);
+
+                            payrollSummary[dept].diligenceAllowance += (staff.diligenceAllowance || 0);
+                            payrollSummary.total.diligenceAllowance += (staff.diligenceAllowance || 0);
+                            payrollSummary[dept].travelAllowance += (staff.travelAllowance || 0);
+                            payrollSummary.total.travelAllowance += (staff.travelAllowance || 0);
+                            payrollSummary[dept].storeMgmtFee += (staff.storeMgmtFee || 0);
+                            payrollSummary.total.storeMgmtFee += (staff.storeMgmtFee || 0);
+                            payrollSummary[dept].perfBonus += (staff.perfBonus || 0);
+                            payrollSummary.total.perfBonus += (staff.perfBonus || 0);
+                            payrollSummary[dept].housingAllowance += (staff.housingAllowance || 0);
+                            payrollSummary.total.housingAllowance += (staff.housingAllowance || 0);
+
+                            const staffGonBot = (staff.gonAllowance || 0) + (staff.botAllowance || 0);
+                            payrollSummary[dept].gonBotAllowance += staffGonBot;
+                            payrollSummary.total.gonBotAllowance += staffGonBot;
+
+                            payrollSummary[dept].costOfLivingAllowance += (staff.costOfLivingAllowance || 0);
+                            payrollSummary.total.costOfLivingAllowance += (staff.costOfLivingAllowance || 0);
+
+                            if (staff.wageType === 'MONTHLY') {
+                                payrollSummary[dept].kinDee.monthly += (staff.kinDeeAllowance || 0);
+                                payrollSummary.total.kinDee.monthly += (staff.kinDeeAllowance || 0);
+                            } else if (staff.wageType === 'HOURLY') {
+                                payrollSummary[dept].kinDee.hourly += (staff.kinDeeAllowance || 0);
+                                payrollSummary.total.kinDee.hourly += (staff.kinDeeAllowance || 0);
+                            } else if (staff.wageType === 'PT') {
+                                payrollSummary[dept].kinDee.pt += (staff.kinDeeAllowance || 0);
+                                payrollSummary.total.kinDee.pt += (staff.kinDeeAllowance || 0);
+                            }
 
                             payrollSummary[dept].netPay += staff.totalPay;
                             payrollSummary.total.netPay += staff.totalPay;
@@ -11320,46 +11576,193 @@ export default function App() {
                                                     <div key={sec.id} className={`${sec.theme.wrap} border p-4 sm:p-5 rounded-2xl flex flex-col gap-3 shadow-sm`}>
                                                         <div className={`text-sm font-black uppercase tracking-widest ${sec.theme.title}`}>{sec.title}</div>
 
-                                                        <div className={`p-3 rounded-xl shadow-sm border ${sec.id === 'total' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
-                                                            <div className="flex justify-between items-end mb-1">
-                                                                <span className={`text-[10px] font-bold uppercase ${sec.id === 'total' ? 'text-slate-400' : 'text-slate-500'}`}>ค่าจ้างปกติรวม</span>
-                                                                <span className={`text-lg font-black ${sec.theme.val}`}>฿{sec.data.basePay.total.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
-                                                            </div>
-                                                            <div className={`text-[9px] font-bold space-y-1 border-t pt-2 mt-1 ${sec.id === 'total' ? 'text-slate-400 border-slate-700' : 'text-slate-500 border-slate-100'}`}>
-                                                                <div className="flex justify-between items-center"><span>- รายเดือน (FT):</span> <span>฿{sec.data.basePay.monthly.toLocaleString()}</span></div>
-                                                                <div className="flex justify-between items-center"><span>- รายชั่วโมง (FT):</span> <span>฿{sec.data.basePay.hourly.toLocaleString()}</span></div>
-                                                                <div className="flex justify-between items-center"><span>- พาร์ทไทม์ (PT):</span> <span>฿{sec.data.basePay.pt.toLocaleString()}</span></div>
+                                                        <div className={`p-4 rounded-xl shadow-sm border ${sec.id === 'total' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+                                                            <div className={`text-xs font-bold space-y-4 ${sec.id === 'total' ? 'text-slate-350' : 'text-slate-650'}`}>
+                                                                
+                                                                {/* Category 1: เงินเดือนและค่าจ้าง */}
+                                                                <div>
+                                                                    <div className="flex justify-between items-center font-black border-b pb-1 mb-1.5 border-slate-200/10">
+                                                                        <span className={sec.id === 'total' ? 'text-emerald-400 font-extrabold text-[13px]' : 'text-indigo-700 font-extrabold text-[13px]'}>เงินเดือนและค่าจ้าง</span>
+                                                                        <span className={sec.id === 'total' ? 'text-white text-[13px]' : 'text-slate-800 text-[13px]'}>฿{sec.data.basePay.monthly.toLocaleString()}</span>
+                                                                    </div>
+                                                                    <div className="pl-3 text-[10px] space-y-1 opacity-90">
+                                                                        <div className="flex justify-between">
+                                                                            <span>- ค่าจ้างปกติรายเดือน (FT):</span>
+                                                                            <span>฿{sec.data.basePay.monthly.toLocaleString()}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* Category 2: เงินเดือนและค่าจ้างอื่น */}
+                                                                <div>
+                                                                    <div className="flex justify-between items-center font-black border-b pb-1 mb-1.5 border-slate-200/10">
+                                                                        <span className={sec.id === 'total' ? 'text-emerald-400 font-extrabold text-[13px]' : 'text-indigo-700 font-extrabold text-[13px]'}>เงินเดือนและค่าจ้างอื่น</span>
+                                                                        <span className={sec.id === 'total' ? 'text-white text-[13px]' : 'text-slate-800 text-[13px]'}>฿{(sec.data.diligenceAllowance + sec.data.travelAllowance + sec.data.storeMgmtFee + sec.data.perfBonus + sec.data.lateNightAllowance.total + sec.data.housingAllowance).toLocaleString()}</span>
+                                                                    </div>
+                                                                    <div className="pl-3 text-[10px] space-y-1 opacity-90">
+                                                                        <div className="flex justify-between">
+                                                                            <span>- เบี้ยขยัน:</span>
+                                                                            <span>฿{sec.data.diligenceAllowance.toLocaleString()}</span>
+                                                                        </div>
+                                                                        <div className="flex justify-between">
+                                                                            <span>- ค่าเดินทาง:</span>
+                                                                            <span>฿{sec.data.travelAllowance.toLocaleString()}</span>
+                                                                        </div>
+                                                                        <div className="flex justify-between">
+                                                                            <span>- ค่าบริหารสาขา:</span>
+                                                                            <span>฿{sec.data.storeMgmtFee.toLocaleString()}</span>
+                                                                        </div>
+                                                                        <div className="flex justify-between">
+                                                                            <span>- เงินบรรลุผลงาน:</span>
+                                                                            <span>฿{sec.data.perfBonus.toLocaleString()}</span>
+                                                                        </div>
+                                                                        <div className="flex justify-between">
+                                                                            <span>- ค่ากะดึก:</span>
+                                                                            <span>฿{sec.data.lateNightAllowance.total.toLocaleString()}</span>
+                                                                        </div>
+                                                                        <div className="flex justify-between">
+                                                                            <span>- ค่าช่วยเหลือที่พัก (EDC):</span>
+                                                                            <span>฿{sec.data.housingAllowance.toLocaleString()}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* Category 3: ค่าเช่า-อุปกรณ์และเครื่องมือ */}
+                                                                <div>
+                                                                    <div className="flex justify-between items-center font-black border-b pb-1 mb-1.5 border-slate-200/10">
+                                                                        <span className={sec.id === 'total' ? 'text-emerald-400 font-extrabold text-[13px]' : 'text-indigo-700 font-extrabold text-[13px]'}>ค่าเช่า-อุปกรณ์และเครื่องมือ</span>
+                                                                        <span className={sec.id === 'total' ? 'text-white text-[13px]' : 'text-slate-800 text-[13px]'}>฿{sec.data.gonBotAllowance.toLocaleString()}</span>
+                                                                    </div>
+                                                                    <div className="pl-3 text-[10px] space-y-1 opacity-90">
+                                                                        <div className="flex justify-between">
+                                                                            <span>- ค่า GON BOT:</span>
+                                                                            <span>฿{sec.data.gonBotAllowance.toLocaleString()}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* Category 4: ค่าครองชีพ */}
+                                                                <div>
+                                                                    <div className="flex justify-between items-center font-black border-b pb-1 mb-1.5 border-slate-200/10">
+                                                                        <span className={sec.id === 'total' ? 'text-emerald-400 font-extrabold text-[13px]' : 'text-indigo-700 font-extrabold text-[13px]'}>ค่าครองชีพ</span>
+                                                                        <span className={sec.id === 'total' ? 'text-white text-[13px]' : 'text-slate-800 text-[13px]'}>฿{sec.data.costOfLivingAllowance.toLocaleString()}</span>
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* Category 5: ค่าจ้างพนักงานชั่วคราว */}
+                                                                <div>
+                                                                    <div className="flex justify-between items-center font-black border-b pb-1 mb-1.5 border-slate-200/10">
+                                                                        <span className={sec.id === 'total' ? 'text-emerald-400 font-extrabold text-[13px]' : 'text-indigo-700 font-extrabold text-[13px]'}>ค่าจ้างพนักงานชั่วคราว</span>
+                                                                        <span className={sec.id === 'total' ? 'text-white text-[13px]' : 'text-slate-800 text-[13px]'}>฿{(sec.data.basePay.hourly + sec.data.basePay.pt + sec.data.holidayPay.total).toLocaleString()}</span>
+                                                                    </div>
+                                                                    <div className="pl-3 text-[10px] space-y-1 opacity-90">
+                                                                        <div className="flex justify-between">
+                                                                            <span>- รายชั่วโมง (FT):</span>
+                                                                            <span>฿{sec.data.basePay.hourly.toLocaleString()}</span>
+                                                                        </div>
+                                                                        <div className="flex justify-between">
+                                                                            <span>- พาร์ทไทม์ (PT):</span>
+                                                                            <span>฿{sec.data.basePay.pt.toLocaleString()}</span>
+                                                                        </div>
+                                                                        <div className="flex justify-between">
+                                                                            <span>- ค่าแรงวันหยุด:</span>
+                                                                            <span>฿{sec.data.holidayPay.total.toLocaleString()}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* Category 6: ค่าล่วงเวลา */}
+                                                                <div>
+                                                                    <div className="flex justify-between items-center font-black border-b pb-1 mb-1.5 border-slate-200/10">
+                                                                        <span className={sec.id === 'total' ? 'text-emerald-400 font-extrabold text-[13px]' : 'text-indigo-700 font-extrabold text-[13px]'}>ค่าล่วงเวลา</span>
+                                                                        <span className={sec.id === 'total' ? 'text-white text-[13px]' : 'text-slate-800 text-[13px]'}>฿{sec.data.otPay.total.toLocaleString()}</span>
+                                                                    </div>
+                                                                    <div className="pl-3 text-[10px] space-y-1 opacity-90">
+                                                                        <div className="flex justify-between">
+                                                                            <span>- รายเดือน (FT):</span>
+                                                                            <span>฿{sec.data.otPay.monthly.toLocaleString()}</span>
+                                                                        </div>
+                                                                        <div className="flex justify-between">
+                                                                            <span>- รายชั่วโมง (FT):</span>
+                                                                            <span>฿{sec.data.otPay.hourly.toLocaleString()}</span>
+                                                                        </div>
+                                                                        <div className="flex justify-between">
+                                                                            <span>- พาร์ทไทม์ (PT):</span>
+                                                                            <span>฿{sec.data.otPay.pt.toLocaleString()}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* Category 7: อาหารพนักงาน-โครงการกินดี */}
+                                                                <div>
+                                                                    <div className="flex justify-between items-center font-black border-b pb-1 mb-1.5 border-slate-200/10">
+                                                                        <span className={sec.id === 'total' ? 'text-emerald-400 font-extrabold text-[13px]' : 'text-indigo-700 font-extrabold text-[13px]'}>อาหารพนักงาน-โครงการกินดี</span>
+                                                                        <span className={sec.id === 'total' ? 'text-white text-[13px]' : 'text-slate-800 text-[13px]'}>฿{(sec.data.kinDee.monthly + sec.data.kinDee.hourly + sec.data.kinDee.pt).toLocaleString()}</span>
+                                                                    </div>
+                                                                    <div className="pl-3 text-[10px] space-y-1 opacity-90">
+                                                                        <div className="flex justify-between">
+                                                                            <span>- รายเดือน (FT):</span>
+                                                                            <span>฿{sec.data.kinDee.monthly.toLocaleString()}</span>
+                                                                        </div>
+                                                                        <div className="flex justify-between">
+                                                                            <span>- รายชั่วโมง (FT):</span>
+                                                                            <span>฿{sec.data.kinDee.hourly.toLocaleString()}</span>
+                                                                        </div>
+                                                                        <div className="flex justify-between">
+                                                                            <span>- พาร์ทไทม์ (PT):</span>
+                                                                            <span>฿{sec.data.kinDee.pt.toLocaleString()}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+
                                                             </div>
                                                         </div>
 
-                                                        <div className={`p-3 rounded-xl shadow-sm border ${sec.id === 'total' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
-                                                            <div className="flex justify-between items-end mb-1">
-                                                                <span className={`text-[10px] font-bold uppercase ${sec.id === 'total' ? 'text-slate-400' : 'text-slate-500'}`}>ค่า OT รวม</span>
-                                                                <span className={`text-lg font-black ${sec.theme.val}`}>฿{sec.data.otPay.total.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
-                                                            </div>
-                                                            <div className={`text-[9px] font-bold space-y-1 border-t pt-2 mt-1 ${sec.id === 'total' ? 'text-slate-400 border-slate-700' : 'text-slate-500 border-slate-100'}`}>
-                                                                <div className="flex justify-between items-center"><span>- รายเดือน (FT):</span> <span>฿{sec.data.otPay.monthly.toLocaleString()}</span></div>
-                                                                <div className="flex justify-between items-center"><span>- รายชั่วโมง (FT):</span> <span>฿{sec.data.otPay.hourly.toLocaleString()}</span></div>
-                                                                <div className="flex justify-between items-center"><span>- พาร์ทไทม์ (PT):</span> <span>฿{sec.data.otPay.pt.toLocaleString()}</span></div>
-                                                            </div>
-                                                        </div>
+                                                        {sec.id === 'total' && (() => {
+                                                            const monthKey = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`;
+                                                            const rawCol1Budget = bData?.monthlyCol1Budgets?.[monthKey];
+                                                            const col1Budget = rawCol1Budget !== undefined ? parseFloat(rawCol1Budget) : 0;
+                                                            const variance = sec.data.netPay - col1Budget;
+                                                            const variancePercent = col1Budget > 0 ? (variance / col1Budget) * 100 : 0;
+                                                            const isOver = variance > 0;
 
-                                                        <div className={`p-3 rounded-xl shadow-sm border flex justify-between items-center ${sec.id === 'total' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
-                                                            <span className={`text-[10px] font-bold uppercase ${sec.id === 'total' ? 'text-slate-400' : 'text-slate-500'}`}>ค่าแรงวันหยุด</span>
-                                                            <span className={`text-base font-black ${sec.theme.val}`}>฿{sec.data.holidayPay.total.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
-                                                        </div>
-
-                                                        <div className={`p-3 rounded-xl shadow-sm border ${sec.id === 'total' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
-                                                            <div className="flex justify-between items-end mb-1">
-                                                                <span className={`text-[10px] font-bold uppercase ${sec.id === 'total' ? 'text-slate-400' : 'text-slate-500'}`}>เงินค่ากะดึกรวม</span>
-                                                                <span className={`text-lg font-black ${sec.theme.val}`}>฿{sec.data.lateNightAllowance.total.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
-                                                            </div>
-                                                            <div className={`text-[9px] font-bold space-y-1 border-t pt-2 mt-1 ${sec.id === 'total' ? 'text-slate-400 border-slate-700' : 'text-slate-500 border-slate-100'}`}>
-                                                                <div className="flex justify-between items-center"><span>- รายเดือน (FT):</span> <span>฿{sec.data.lateNightAllowance.monthly.toLocaleString()}</span></div>
-                                                                <div className="flex justify-between items-center"><span>- รายชั่วโมง (FT):</span> <span>฿{sec.data.lateNightAllowance.hourly.toLocaleString()}</span></div>
-                                                                <div className="flex justify-between items-center"><span>- พาร์ทไทม์ (PT):</span> <span>฿{sec.data.lateNightAllowance.pt.toLocaleString()}</span></div>
-                                                            </div>
-                                                        </div>
+                                                            return (
+                                                                <div className="bg-slate-800 border border-slate-700 p-4 rounded-xl flex flex-col gap-3">
+                                                                    <div className="flex flex-col gap-1.5">
+                                                                        <span className="text-[10px] font-black text-emerald-400 uppercase tracking-wider">งบประมาณ COL1 ประจำเดือน</span>
+                                                                        {['superadmin', 'areamanager'].includes(authRole) ? (
+                                                                            <div className="flex items-center gap-2">
+                                                                                <span className="text-sm font-black text-white">฿</span>
+                                                                                <input
+                                                                                    type="text"
+                                                                                    inputMode="numeric"
+                                                                                    value={rawCol1Budget === undefined || rawCol1Budget === 0 ? '' : rawCol1Budget}
+                                                                                    placeholder="ระบุงบประมาณ เช่น 350000"
+                                                                                    onChange={(e) => handleUpdateAmBranchCol1Budget(bId, e.target.value.replace(/[^0-9.]/g, ''))}
+                                                                                    onBlur={(e) => handleSaveAmBranchCol1Budget(bId, e.target.value)}
+                                                                                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs font-black text-white outline-none focus:border-indigo-500 text-right"
+                                                                                />
+                                                                            </div>
+                                                                        ) : (
+                                                                            <span className="text-base font-black text-white">฿{col1Budget.toLocaleString()}</span>
+                                                                        )}
+                                                                    </div>
+                                                                    {col1Budget > 0 && (
+                                                                        <div className="border-t border-slate-700 pt-2 flex flex-col gap-1">
+                                                                            <div className="flex justify-between items-center text-[10px] font-bold text-slate-400">
+                                                                                <span>Vs Budget:</span>
+                                                                                <span className={`font-black ${isOver ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                                                                    {isOver ? '+' : ''}฿{variance.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} ({isOver ? '+' : ''}{variancePercent.toFixed(1)}%)
+                                                                                </span>
+                                                                            </div>
+                                                                            <p className={`text-[9px] font-black text-right ${isOver ? 'text-rose-400 animate-pulse' : 'text-emerald-400'}`}>
+                                                                                {isOver ? '⚠️ ใช้จ่ายเกินงบประมาณที่ตั้งไว้' : '🎉 ใช้จ่ายอยู่ในเกณฑ์ประหยัด'}
+                                                                            </p>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })()}
 
                                                         <div className={`mt-auto ${sec.theme.net} p-3 sm:p-4 rounded-xl shadow-md flex justify-between items-center`}>
                                                             <span className="text-[10px] font-bold uppercase opacity-90">สุทธิ (NET)</span>
@@ -11802,7 +12205,7 @@ export default function App() {
                                             </select>
                                         </div>
                                         <div className="flex-shrink-0 flex gap-1 sm:gap-2 bg-slate-100 p-1 rounded-xl sm:rounded-2xl border border-slate-200 font-black text-[9px] sm:text-[10px]">
-                                            {authRole === 'areamanager' && <button onClick={() => handleMenuChange('area_dashboard')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'area_dashboard' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>ภาพรวมเขต (Dashboard)</button>}
+                                            {['areamanager', 'superadmin'].includes(authRole) && <button onClick={() => handleMenuChange('area_dashboard')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'area_dashboard' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>ภาพรวมเขต (Dashboard)</button>}
                                             <button onClick={() => handleMenuChange('manager')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'manager' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>จัดตารางงาน</button>
                                             <button onClick={() => handleMenuChange('head_team')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'head_team' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>จัดบทบาทประจำวัน</button>
                                             <button onClick={() => handleMenuChange('report')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'report' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>รายงาน</button>
