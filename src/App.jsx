@@ -11521,7 +11521,7 @@ export default function App() {
 
                                                                 {/* Category 2: เงินเดือนและค่าจ้างอื่น */}
                                                                 <div>
-                                                                    <div className="flex justify-between items-center font-white border-b pb-1 mb-1.5 border-slate-200/10">
+                                                                    <div className="flex justify-between items-center font-black border-b pb-1 mb-1.5 border-slate-200/10">
                                                                         <span className={sec.id === 'total' ? 'text-emerald-400 font-extrabold text-[13px]' : 'text-indigo-700 font-extrabold text-[13px]'}>เงินเดือนและค่าจ้างอื่น</span>
                                                                         <span className={sec.id === 'total' ? 'text-white text-[13px]' : 'text-slate-800 text-[13px]'}>฿{(sec.data.diligenceAllowance + sec.data.travelAllowance + sec.data.storeMgmtFee + sec.data.perfBonus + sec.data.lateNightAllowance.total + sec.data.housingAllowance).toLocaleString()}</span>
                                                                     </div>
