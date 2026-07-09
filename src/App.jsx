@@ -11513,7 +11513,7 @@ export default function App() {
                                                         <div className={`text-sm font-black uppercase tracking-widest ${sec.theme.title}`}>{sec.title}</div>
 
                                                         <div className={`p-4 rounded-xl shadow-sm border ${sec.id === 'total' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
-                                                            <div className={`text-xs font-bold space-y-4 ${sec.id === 'total' ? 'text-slate-350' : 'text-slate-650'}`}>
+                                                            <div className={`text-xs font-bold space-y-4 ${sec.id === 'total' ? 'text-white' : 'text-slate-600'}`}>
 
                                                                 {/* Category 1: เงินเดือนและค่าจ้าง */}
                                                                 <div>
