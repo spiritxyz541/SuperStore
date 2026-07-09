@@ -1609,16 +1609,10 @@ export default function App() {
                 }
             }
             
-            // 5. GON & BOT Allowance (always applied, fall back to standard config)
-            const gonQty = adjust.gonQty !== undefined ? adjust.gonQty : (payrollConfig.gonStandardQty || 0);
-            const gonPrice = adjust.gonPrice !== undefined ? adjust.gonPrice : (payrollConfig.gonStandardPrice || 0);
-            staff.gonAllowance = gonQty * gonPrice;
+            const diligenceAllowance = adjust.diligenceAllowance !== undefined ? parseFloat(adjust.diligenceAllowance) : 0;
+            staff.diligenceAllowance = diligenceAllowance;
 
-            const botQty = adjust.botQty !== undefined ? adjust.botQty : (payrollConfig.botStandardQty || 0);
-            const botPrice = adjust.botPrice !== undefined ? adjust.botPrice : (payrollConfig.botStandardPrice || 0);
-            staff.botAllowance = botQty * botPrice;
-
-            // 6. Manager Bonuses (OC / AOC only)
+            // 5. Manager Bonuses (OC / AOC only)
             if (staff.pos === 'OC') {
                 staff.storeMgmtFee = adjust.storeMgmtFee !== undefined ? adjust.storeMgmtFee : (payrollConfig.storeMgmtFeeOC || 0);
                 staff.perfBonus = adjust.perfBonus !== undefined ? adjust.perfBonus : (payrollConfig.perfBonusOC || 0);
@@ -1628,9 +1622,9 @@ export default function App() {
             }
 
             staff.totalPay = staff.basePay + staff.otPay + staff.holidayPay + (staff.lateNightAllowance || 0) +
-                             staff.housingAllowance + staff.costOfLivingAllowance + staff.kinDeeAllowance +
-                             staff.travelAllowance + staff.gonAllowance + staff.botAllowance +
-                             staff.storeMgmtFee + staff.perfBonus;
+                             (staff.housingAllowance || 0) + (staff.costOfLivingAllowance || 0) + (staff.kinDeeAllowance || 0) +
+                             (staff.travelAllowance || 0) +
+                             (staff.storeMgmtFee || 0) + (staff.perfBonus || 0) + (staff.diligenceAllowance || 0);
         });
 
         return Object.values(staffMap).sort((a, b) => b.totalPay - a.totalPay);
@@ -3406,10 +3400,6 @@ export default function App() {
         const current = branchData.monthlyAdjustments?.[monthKey]?.[staffId] || {};
         setEditingAdjustmentsStaffId(staffId);
         setEditAdjustmentsData({
-            gonQty: current.gonQty !== undefined ? current.gonQty : '',
-            gonPrice: current.gonPrice !== undefined ? current.gonPrice : '',
-            botQty: current.botQty !== undefined ? current.botQty : '',
-            botPrice: current.botPrice !== undefined ? current.botPrice : '',
             storeMgmtFee: current.storeMgmtFee !== undefined ? current.storeMgmtFee : '',
             perfBonus: current.perfBonus !== undefined ? current.perfBonus : '',
             diligenceAllowance: current.diligenceAllowance !== undefined ? current.diligenceAllowance : ''
@@ -3424,10 +3414,6 @@ export default function App() {
             if (!nd.monthlyAdjustments[monthKey]) nd.monthlyAdjustments[monthKey] = {};
             
             const staffAdjust = {};
-            if (editAdjustmentsData.gonQty !== '') staffAdjust.gonQty = parseFloat(editAdjustmentsData.gonQty);
-            if (editAdjustmentsData.gonPrice !== '') staffAdjust.gonPrice = parseFloat(editAdjustmentsData.gonPrice);
-            if (editAdjustmentsData.botQty !== '') staffAdjust.botQty = parseFloat(editAdjustmentsData.botQty);
-            if (editAdjustmentsData.botPrice !== '') staffAdjust.botPrice = parseFloat(editAdjustmentsData.botPrice);
             if (editAdjustmentsData.storeMgmtFee !== '') staffAdjust.storeMgmtFee = parseFloat(editAdjustmentsData.storeMgmtFee);
             if (editAdjustmentsData.perfBonus !== '') staffAdjust.perfBonus = parseFloat(editAdjustmentsData.perfBonus);
             if (editAdjustmentsData.diligenceAllowance !== '') staffAdjust.diligenceAllowance = parseFloat(editAdjustmentsData.diligenceAllowance);
@@ -4389,7 +4375,7 @@ export default function App() {
             'จำนวนกะที่ทำ (Shifts)', 'ชั่วโมงทำงานทั้งหมด', 'โควตา OT (ชั่วโมง)', 'OT ทั้งหมด (ชั่วโมง)', 'ส่วนต่าง OT',
             'ค่าจ้างปกติ (บาท)', 'ค่า OT (บาท)', 'ค่าแรงวันหยุด (บาท)', 'ค่ากะดึก (บาท)',
             'เบี้ยขยัน (บาท)', 'ค่าที่พัก (บาท)', 'ค่าครองชีพ (บาท)', 'ค่ากินดี (บาท)', 'ค่าเดินทาง (บาท)',
-            'ผลงาน GON (บาท)', 'ผลงาน BOT (บาท)', 'ค่าบริหาร (บาท)', 'ค่าผลงาน (บาท)',
+            'ค่าบริหาร (บาท)', 'ค่าผลงาน (บาท)',
             'รวมสุทธิ (บาท)'
         ];
 
@@ -4401,7 +4387,7 @@ export default function App() {
                 s.shifts, s.workHours, s.plannedOT, s.actualOT, delta,
                 s.basePay, s.otPay, s.holidayPay, s.lateNightAllowance || 0,
                 s.diligenceAllowance || 0, s.housingAllowance || 0, s.costOfLivingAllowance || 0, s.kinDeeAllowance || 0, s.travelAllowance || 0,
-                s.gonAllowance || 0, s.botAllowance || 0, s.storeMgmtFee || 0, s.perfBonus || 0,
+                s.storeMgmtFee || 0, s.perfBonus || 0,
                 s.totalPay
             ]);
         });
@@ -5398,44 +5384,6 @@ export default function App() {
                             </div>
                             
                             <div className="space-y-4 text-xs font-bold text-slate-700">
-                                {/* GON section */}
-                                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                                    <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest mb-3 text-indigo-600 flex items-center gap-1">🏆 ผลงาน GON</h4>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div>
-                                            <label className="text-[9px] text-slate-500 uppercase block mb-1">
-                                                จำนวน (ชิ้น) <span className="text-[8px] text-slate-400 font-semibold">(มาตรฐาน: {branchData.payrollConfig?.gonStandardQty ?? 0})</span>
-                                            </label>
-                                            <input type="number" value={editAdjustmentsData.gonQty} onChange={e => setEditAdjustmentsData({ ...editAdjustmentsData, gonQty: e.target.value })} className="w-full border rounded-xl px-3 py-2 text-xs font-black text-slate-800 outline-none focus:border-indigo-500" placeholder={String(branchData.payrollConfig?.gonStandardQty ?? 0)} />
-                                        </div>
-                                        <div>
-                                            <label className="text-[9px] text-slate-500 uppercase block mb-1">
-                                                ราคาต่อชิ้น (บาท) <span className="text-[8px] text-slate-400 font-semibold">(มาตรฐาน: {branchData.payrollConfig?.gonStandardPrice ?? 0})</span>
-                                            </label>
-                                            <input type="number" value={editAdjustmentsData.gonPrice} onChange={e => setEditAdjustmentsData({ ...editAdjustmentsData, gonPrice: e.target.value })} className="w-full border rounded-xl px-3 py-2 text-xs font-black text-slate-800 outline-none focus:border-indigo-500" placeholder={String(branchData.payrollConfig?.gonStandardPrice ?? 0)} />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* BOT section */}
-                                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                                    <h4 className="text-xs font-black text-slate-800 uppercase tracking-widest mb-3 text-emerald-600 flex items-center gap-1">🤖 ผลงาน BOT</h4>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div>
-                                            <label className="text-[9px] text-slate-500 uppercase block mb-1">
-                                                จำนวน (ชิ้น) <span className="text-[8px] text-slate-400 font-semibold">(มาตรฐาน: {branchData.payrollConfig?.botStandardQty ?? 0})</span>
-                                            </label>
-                                            <input type="number" value={editAdjustmentsData.botQty} onChange={e => setEditAdjustmentsData({ ...editAdjustmentsData, botQty: e.target.value })} className="w-full border rounded-xl px-3 py-2 text-xs font-black text-slate-800 outline-none focus:border-indigo-500" placeholder={String(branchData.payrollConfig?.botStandardQty ?? 0)} />
-                                        </div>
-                                        <div>
-                                            <label className="text-[9px] text-slate-500 uppercase block mb-1">
-                                                ราคาต่อชิ้น (บาท) <span className="text-[8px] text-slate-400 font-semibold">(มาตรฐาน: {branchData.payrollConfig?.botStandardPrice ?? 0})</span>
-                                            </label>
-                                            <input type="number" value={editAdjustmentsData.botPrice} onChange={e => setEditAdjustmentsData({ ...editAdjustmentsData, botPrice: e.target.value })} className="w-full border rounded-xl px-3 py-2 text-xs font-black text-slate-800 outline-none focus:border-indigo-500" placeholder={String(branchData.payrollConfig?.botStandardPrice ?? 0)} />
-                                        </div>
-                                    </div>
-                                </div>
-
                                 {/* Manager Bonuses (OC / AOC only) */}
                                 {(() => {
                                     const staffObj = branchData.staff?.find(s => s.id === editingAdjustmentsStaffId);
@@ -7870,20 +7818,8 @@ export default function App() {
                             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-8 mb-4 border-b border-slate-100 pb-2 flex items-center gap-2"><Award className="w-4 h-4 text-indigo-500" /> ตั้งค่าสวัสดิการรายเดือนและเงินเพิ่มพิเศษ (Monthly Allowance & Bonus Settings)</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                                 <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">โควตา GON มาตรฐาน (ตัว/เดือน)</label>
-                                    <input type="number" step="1" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.gonStandardQty ?? 0} onChange={(e) => handleUpdatePayrollConfig('gonStandardQty', e.target.value)} onBlur={(e) => handleSavePayrollConfig('gonStandardQty', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
-                                </div>
-                                <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">ราคา GON มาตรฐาน (บาท/ตัว)</label>
-                                    <input type="number" step="1" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.gonStandardPrice ?? 0} onChange={(e) => handleUpdatePayrollConfig('gonStandardPrice', e.target.value)} onBlur={(e) => handleSavePayrollConfig('gonStandardPrice', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
-                                </div>
-                                <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">โควตา BOT มาตรฐาน (ตัว/เดือน)</label>
-                                    <input type="number" step="1" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.botStandardQty ?? 0} onChange={(e) => handleUpdatePayrollConfig('botStandardQty', e.target.value)} onBlur={(e) => handleSavePayrollConfig('botStandardQty', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
-                                </div>
-                                <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">ราคา BOT มาตรฐาน (บาท/ตัว)</label>
-                                    <input type="number" step="1" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.botStandardPrice ?? 0} onChange={(e) => handleUpdatePayrollConfig('botStandardPrice', e.target.value)} onBlur={(e) => handleSavePayrollConfig('botStandardPrice', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">ค่าใช้จ่าย GON BOT ต่อเดือน (บาท)</label>
+                                    <input type="number" step="100" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.gonBotMonthlyExpense ?? 0} onChange={(e) => handleUpdatePayrollConfig('gonBotMonthlyExpense', e.target.value)} onBlur={(e) => handleSavePayrollConfig('gonBotMonthlyExpense', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
                                 </div>
                                 <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
                                     <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">ค่าบริหารสาขา OC (บาท/เดือน)</label>
@@ -9714,8 +9650,6 @@ export default function App() {
                                                         <th className="px-2 sm:px-4 py-4 sm:py-8 text-right bg-sky-50/50 text-sky-850">ค่าครองชีพ</th>
                                                         <th className="px-2 sm:px-4 py-4 sm:py-8 text-right bg-sky-50/60 text-sky-850">ค่ากินดี</th>
                                                         <th className="px-2 sm:px-4 py-4 sm:py-8 text-right bg-sky-50/70 text-sky-850">ค่าเดินทาง</th>
-                                                        <th className="px-2 sm:px-4 py-4 sm:py-8 text-right bg-sky-50/80 text-sky-850">ผลงาน GON</th>
-                                                        <th className="px-2 sm:px-4 py-4 sm:py-8 text-right bg-sky-50/90 text-sky-850">ผลงาน BOT</th>
                                                         <th className="px-2 sm:px-4 py-4 sm:py-8 text-right bg-sky-100 text-sky-95 font-black">บริหาร/ผลงาน</th>
                                                     </>
                                                 )}
@@ -9768,8 +9702,6 @@ export default function App() {
                                                                 <td className="px-2 sm:px-4 py-4 sm:py-8 text-right bg-sky-50/10 font-mono text-slate-500 text-xs">฿{(s.costOfLivingAllowance || 0).toLocaleString()}</td>
                                                                 <td className="px-2 sm:px-4 py-4 sm:py-8 text-right bg-sky-50/10 font-mono text-slate-500 text-xs">฿{(s.kinDeeAllowance || 0).toLocaleString()}</td>
                                                                 <td className="px-2 sm:px-4 py-4 sm:py-8 text-right bg-sky-50/10 font-mono text-slate-500 text-xs">฿{(s.travelAllowance || 0).toLocaleString()}</td>
-                                                                <td className="px-2 sm:px-4 py-4 sm:py-8 text-right bg-sky-50/10 font-mono text-slate-500 text-xs">฿{(s.gonAllowance || 0).toLocaleString()}</td>
-                                                                <td className="px-2 sm:px-4 py-4 sm:py-8 text-right bg-sky-50/10 font-mono text-slate-500 text-xs">฿{(s.botAllowance || 0).toLocaleString()}</td>
                                                                 <td className="px-2 sm:px-4 py-4 sm:py-8 text-right bg-sky-100/30 font-mono text-sky-850 text-xs">฿{((s.storeMgmtFee || 0) + (s.perfBonus || 0)).toLocaleString()}</td>
                                                             </>
                                                         )}
@@ -9797,12 +9729,11 @@ export default function App() {
                                                     <td className="px-4 sm:px-8 py-6 text-right font-mono text-indigo-700">฿{deptData.reduce((acc, curr) => acc + (curr.lateNightAllowance || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                                     {['superadmin', 'areamanager'].includes(authRole) && showBenefitDetails && (
                                                          <>
+                                                             <td className="px-2 sm:px-4 py-6 text-right font-mono text-slate-700 text-xs">฿{deptData.reduce((acc, curr) => acc + (curr.diligenceAllowance || 0), 0).toLocaleString()}</td>
                                                              <td className="px-2 sm:px-4 py-6 text-right font-mono text-slate-700 text-xs">฿{deptData.reduce((acc, curr) => acc + (curr.housingAllowance || 0), 0).toLocaleString()}</td>
                                                              <td className="px-2 sm:px-4 py-6 text-right font-mono text-slate-700 text-xs">฿{deptData.reduce((acc, curr) => acc + (curr.costOfLivingAllowance || 0), 0).toLocaleString()}</td>
                                                              <td className="px-2 sm:px-4 py-6 text-right font-mono text-slate-700 text-xs">฿{deptData.reduce((acc, curr) => acc + (curr.kinDeeAllowance || 0), 0).toLocaleString()}</td>
                                                              <td className="px-2 sm:px-4 py-6 text-right font-mono text-slate-700 text-xs">฿{deptData.reduce((acc, curr) => acc + (curr.travelAllowance || 0), 0).toLocaleString()}</td>
-                                                             <td className="px-2 sm:px-4 py-6 text-right font-mono text-slate-700 text-xs">฿{deptData.reduce((acc, curr) => acc + (curr.gonAllowance || 0), 0).toLocaleString()}</td>
-                                                             <td className="px-2 sm:px-4 py-6 text-right font-mono text-slate-700 text-xs">฿{deptData.reduce((acc, curr) => acc + (curr.botAllowance || 0), 0).toLocaleString()}</td>
                                                              <td className="px-2 sm:px-4 py-6 text-right font-mono text-sky-900 text-xs">฿{deptData.reduce((acc, curr) => acc + (curr.storeMgmtFee || 0) + (curr.perfBonus || 0), 0).toLocaleString()}</td>
                                                          </>
                                                     )}
@@ -11262,16 +11193,7 @@ export default function App() {
                                 }
                             }
                             
-                            // 5. GON & BOT Allowance (always applied, fall back to standard config)
-                            const gonQty = adjust.gonQty !== undefined ? adjust.gonQty : (payrollConfig.gonStandardQty || 0);
-                            const gonPrice = adjust.gonPrice !== undefined ? adjust.gonPrice : (payrollConfig.gonStandardPrice || 0);
-                            staff.gonAllowance = gonQty * gonPrice;
-
-                            const botQty = adjust.botQty !== undefined ? adjust.botQty : (payrollConfig.botStandardQty || 0);
-                            const botPrice = adjust.botPrice !== undefined ? adjust.botPrice : (payrollConfig.botStandardPrice || 0);
-                            staff.botAllowance = botQty * botPrice;
-
-                            // 6. Manager Bonuses (OC / AOC only)
+                            // 5. Manager Bonuses (OC / AOC only)
                             if (staff.pos === 'OC') {
                                 staff.storeMgmtFee = adjust.storeMgmtFee !== undefined ? adjust.storeMgmtFee : (payrollConfig.storeMgmtFeeOC || 0);
                                 staff.perfBonus = adjust.perfBonus !== undefined ? adjust.perfBonus : (payrollConfig.perfBonusOC || 0);
@@ -11282,7 +11204,7 @@ export default function App() {
 
                             staff.totalPay = staff.basePay + staff.otPay + staff.holidayPay + (staff.lateNightAllowance || 0) +
                                              (staff.housingAllowance || 0) + (staff.costOfLivingAllowance || 0) + (staff.kinDeeAllowance || 0) +
-                                             (staff.travelAllowance || 0) + (staff.gonAllowance || 0) + (staff.botAllowance || 0) +
+                                             (staff.travelAllowance || 0) +
                                              (staff.storeMgmtFee || 0) + (staff.perfBonus || 0) + (staff.diligenceAllowance || 0);
 
                             payrollSummary[dept].basePay.total += staff.basePay;
@@ -11306,10 +11228,6 @@ export default function App() {
                             payrollSummary[dept].housingAllowance += (staff.housingAllowance || 0);
                             payrollSummary.total.housingAllowance += (staff.housingAllowance || 0);
 
-                            const staffGonBot = (staff.gonAllowance || 0) + (staff.botAllowance || 0);
-                            payrollSummary[dept].gonBotAllowance += staffGonBot;
-                            payrollSummary.total.gonBotAllowance += staffGonBot;
-
                             payrollSummary[dept].costOfLivingAllowance += (staff.costOfLivingAllowance || 0);
                             payrollSummary.total.costOfLivingAllowance += (staff.costOfLivingAllowance || 0);
 
@@ -11327,6 +11245,14 @@ export default function App() {
                             payrollSummary[dept].netPay += staff.totalPay;
                             payrollSummary.total.netPay += staff.totalPay;
                         });
+
+                        // Add flat branch-level GON/BOT Monthly Expense to Service (FOH) department
+                        const gonBotExpense = parseFloat(payrollConfig.gonBotMonthlyExpense || 0);
+                        payrollSummary.service.gonBotAllowance = gonBotExpense;
+                        payrollSummary.total.gonBotAllowance = gonBotExpense;
+                        
+                        payrollSummary.service.netPay += gonBotExpense;
+                        payrollSummary.total.netPay += gonBotExpense;
 
                         const baseBudget = bData?.ptConfig?.monthlyBudget || 0;
                         const baseAllowance = ptRate > 0 ? baseBudget / ptRate : 0;
