@@ -297,7 +297,7 @@ const OTInput = ({ currentOt, onChange }) => {
     const [isOpen, setIsOpen] = useState(false);
     return (
         <div className="relative print:hidden">
-            <button 
+            <button
                 onClick={(e) => { e.stopPropagation(); setIsOpen(!isOpen); }}
                 className={`text-[6px] sm:text-[7px] font-black w-full px-0.5 mt-0.5 rounded border border-transparent hover:border-slate-300 ${currentOt > 0 ? 'text-rose-600 bg-rose-50' : 'text-slate-400'}`}
             >
@@ -430,11 +430,11 @@ function getShiftTimesForStaff(staffPos, shiftPreset) {
 function getPeriodFromPreset(preset) {
     if (!preset) return 'เช้า';
     if (preset.period) return preset.period;
-    
+
     // Fallback: classify based on startTime of long group
     const startTime = preset.timings?.long?.startTime || '10:00';
     const stHour = parseInt(startTime.split(':')[0]) || 0;
-    
+
     if (stHour >= 6 && stHour < 11) return 'เช้า';
     if (stHour >= 11 && stHour < 14) return 'เที่ยง';
     if (stHour >= 14 && stHour < 16) return 'บ่าย';
@@ -1041,7 +1041,7 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
                                                     } else if (info?.type === 'work' && info.actual?.isFixed) {
                                                         currentValue = `DUTY_ASSIGN_${info.duty.id}_${info.slotIdx}`;
                                                     }
-                                                    
+
                                                     const usedIds = new Set();
                                                     (schedule?.[day.dateStr]?.leaves || []).forEach(l => l.staffId && usedIds.add(l.staffId));
                                                     Object.values(schedule?.[day.dateStr]?.duties || {}).forEach(sls => sls.forEach(sSlot => sSlot && sSlot.staffId && usedIds.add(sSlot.staffId)));
@@ -1049,7 +1049,7 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
                                                     const dayOfWeek = new Date(y, m - 1, dNum).getDay();
                                                     const isHoliday = isDateHoliday(day.dateStr, branchData.holidays);
 
-                                                    
+
 
                                                     // คำนวณจำนวนกะหลักที่ยังว่างในวันนี้
                                                     let emptyPrimaryCount = 0;
@@ -1062,8 +1062,8 @@ const PrintMonthlyView = ({ CALENDAR_DAYS, branchData, globalConfig, activeBranc
                                                                 emptyPrimaryCount++;
                                                             }
                                                         });
-                                                                                                         });
-// ดึงสิทธิ์ในการทำหน้าที่ต่างๆ ของพนักงานในวันนี้
+                                                    });
+                                                    // ดึงสิทธิ์ในการทำหน้าที่ต่างๆ ของพนักงานในวันนี้
                                                     const vacantDutiesOptions = [];
                                                     CURRENT_DUTY_LIST.forEach(d => {
                                                         const reqArr = Array.isArray(d.reqPos) ? d.reqPos : [d.reqPos || 'ALL'];
@@ -1457,8 +1457,7 @@ export default function App() {
         (branchData.staff || []).forEach(s => {
             staffMap[s.id] = {
                 id: s.id, name: s.name, dept: s.dept, pos: s.pos, empId: s.empId,
-                wageType: s.wageType || (s.pos.includes('PT') ? 'PT' : (['DVT', 'EDC'].some(p => s.pos.includes(p)) ? 'HOURLY' : 'MONTHLY')),
-                baseWage: s.baseWage || 0,
+                wageType: s.wageType || 'MONTHLY', baseWage: s.baseWage || 0,
                 travelRate: s.travelRate || 0,
                 workHours: 0, shifts: 0, actualOT: 0, plannedOT: 0, leaves: 0,
                 unpaidLeaveDays: 0,
@@ -1583,25 +1582,25 @@ export default function App() {
             }
 
             const adjust = branchData.monthlyAdjustments?.[monthKey]?.[staff.id] || {};
-            
+
             if (staff.shifts > 0) {
                 // 1. EDC Housing Allowance
                 if (staff.pos.includes('EDC')) {
                     staff.housingAllowance = payrollConfig.edcHousingAllowanceRate !== undefined ? payrollConfig.edcHousingAllowanceRate : 2000;
                 }
-                
+
                 // 2. Cost of Living Allowance
                 if (['OC', 'AOC', 'SD', 'SSD', 'SH', 'KH', 'SKD', 'KD'].includes(staff.pos)) {
                     staff.costOfLivingAllowance = payrollConfig.costOfLivingAllowanceRate !== undefined ? payrollConfig.costOfLivingAllowanceRate : 800;
                 }
-                
+
                 // 3. Kin-Dee Allowance
                 if (staff.pos.includes('PT') || staff.wageType === 'PT') {
                     staff.kinDeeAllowance = payrollConfig.kinDeePtRate !== undefined ? payrollConfig.kinDeePtRate : 100;
                 } else {
                     staff.kinDeeAllowance = payrollConfig.kinDeeFtRate !== undefined ? payrollConfig.kinDeeFtRate : 750;
                 }
-                
+
                 // 4. Travel Allowance
                 if (['OC', 'AOC', 'SD', 'SSD', 'SH', 'KH', 'SKD', 'KD'].includes(staff.pos)) {
                     const daysWorked = staff.workedDates.size;
@@ -1609,7 +1608,7 @@ export default function App() {
                     staff.travelAllowance = daysWorked * travelRate;
                 }
             }
-            
+
             const diligenceAllowance = adjust.diligenceAllowance !== undefined ? parseFloat(adjust.diligenceAllowance) : 0;
             staff.diligenceAllowance = diligenceAllowance;
 
@@ -1623,9 +1622,9 @@ export default function App() {
             }
 
             staff.totalPay = staff.basePay + staff.otPay + staff.holidayPay + (staff.lateNightAllowance || 0) +
-                             (staff.housingAllowance || 0) + (staff.costOfLivingAllowance || 0) + (staff.kinDeeAllowance || 0) +
-                             (staff.travelAllowance || 0) +
-                             (staff.storeMgmtFee || 0) + (staff.perfBonus || 0) + (staff.diligenceAllowance || 0);
+                (staff.housingAllowance || 0) + (staff.costOfLivingAllowance || 0) + (staff.kinDeeAllowance || 0) +
+                (staff.travelAllowance || 0) +
+                (staff.storeMgmtFee || 0) + (staff.perfBonus || 0) + (staff.diligenceAllowance || 0);
         });
 
         return Object.values(staffMap).sort((a, b) => b.totalPay - a.totalPay);
@@ -3101,40 +3100,40 @@ export default function App() {
     };
 
     const handleLeaveChange = useCallback((dateStr, leaveType, selectedStaffIds) => {
-  setSchedule(prev => {
-    const newSched = JSON.parse(JSON.stringify(prev));
-    if (!newSched[dateStr]) newSched[dateStr] = { duties: {}, leaves: [], autoLeavesAssigned: true };
-    // Remove existing leaves for selected staff
-    newSched[dateStr].leaves = (newSched[dateStr].leaves || []).filter(l => !selectedStaffIds.includes(l.staffId));
-    // Add new leave entries
-    selectedStaffIds.forEach(staffId => {
-      newSched[dateStr].leaves.push({ staffId, type: leaveType });
-    });
-    // Remove staff from any assigned duties and clear OT
-    if (newSched[dateStr].duties) {
-      Object.values(newSched[dateStr].duties).forEach(slots => {
-        slots.forEach(slot => {
-          if (selectedStaffIds.includes(slot.staffId)) {
-            slot.staffId = "";
-            slot.otHours = 0;
-          }
+        setSchedule(prev => {
+            const newSched = JSON.parse(JSON.stringify(prev));
+            if (!newSched[dateStr]) newSched[dateStr] = { duties: {}, leaves: [], autoLeavesAssigned: true };
+            // Remove existing leaves for selected staff
+            newSched[dateStr].leaves = (newSched[dateStr].leaves || []).filter(l => !selectedStaffIds.includes(l.staffId));
+            // Add new leave entries
+            selectedStaffIds.forEach(staffId => {
+                newSched[dateStr].leaves.push({ staffId, type: leaveType });
+            });
+            // Remove staff from any assigned duties and clear OT
+            if (newSched[dateStr].duties) {
+                Object.values(newSched[dateStr].duties).forEach(slots => {
+                    slots.forEach(slot => {
+                        if (selectedStaffIds.includes(slot.staffId)) {
+                            slot.staffId = "";
+                            slot.otHours = 0;
+                        }
+                    });
+                });
+            }
+            if (activeBranchId) autoSaveSchedule(newSched, false, dateStr);
+            return newSched;
         });
-      });
-    }
-    if (activeBranchId) autoSaveSchedule(newSched, false, dateStr);
-    return newSched;
-  });
-}, [activeBranchId, autoSaveSchedule]);
+    }, [activeBranchId, autoSaveSchedule]);
 
 
 
-            
-            
-            
 
-            
-            
-                
+
+
+
+
+
+
 
 
 
@@ -3148,8 +3147,8 @@ export default function App() {
 
 
     const handleToggleLeave = useCallback((staffId, dateStr, leaveTypeId) => {
-    // Treat 'CLEAR' as a request to remove assignment/leave
-    if (leaveTypeId === 'CLEAR') leaveTypeId = '';
+        // Treat 'CLEAR' as a request to remove assignment/leave
+        if (leaveTypeId === 'CLEAR') leaveTypeId = '';
         setSchedule(prev => {
             const newSched = JSON.parse(JSON.stringify(prev));
             if (!newSched[dateStr]) newSched[dateStr] = { duties: {}, leaves: [], autoLeavesAssigned: true };
@@ -3413,7 +3412,7 @@ export default function App() {
             const nd = JSON.parse(JSON.stringify(prev));
             if (!nd.monthlyAdjustments) nd.monthlyAdjustments = {};
             if (!nd.monthlyAdjustments[monthKey]) nd.monthlyAdjustments[monthKey] = {};
-            
+
             const staffAdjust = {};
             if (editAdjustmentsData.storeMgmtFee !== '') staffAdjust.storeMgmtFee = parseFloat(editAdjustmentsData.storeMgmtFee);
             if (editAdjustmentsData.perfBonus !== '') staffAdjust.perfBonus = parseFloat(editAdjustmentsData.perfBonus);
@@ -4464,10 +4463,10 @@ export default function App() {
                 const getStaffShiftTimesOnDate = (staffId, dateStr, schedSource) => {
                     const dayData = schedSource[dateStr];
                     if (!dayData) return null;
-                    
+
                     const leave = (dayData.leaves || []).find(l => l.staffId === staffId);
                     if (leave) return null; // วันหยุด หรือ วันลา
-                    
+
                     for (const [dutyId, slots] of Object.entries(dayData.duties || {})) {
                         if (!Array.isArray(slots)) continue;
                         const sIdx = slots.findIndex(s => {
@@ -4481,7 +4480,7 @@ export default function App() {
                             const assignedSlot = slots[sIdx];
                             const matrixSlot = matrixSlots[sIdx] || {};
                             const shiftPresetId = assignedSlot.shiftPresetId || matrixSlot.shiftPresetId || branchData.shiftPresets?.[0]?.id;
-                            
+
                             const staffInfo = branchData.staff?.find(s => s.id === staffId);
                             const shiftPreset = branchData.shiftPresets?.find(p => p.id === shiftPresetId);
                             if (shiftPreset && staffInfo) {
@@ -4648,7 +4647,7 @@ export default function App() {
 
                         let candidatesForSlot = potentialCandidates;
                         const currentSlotPreset = branchData.shiftPresets?.find(p => p.id === slot.shiftPresetId);
-                        
+
                         const filteredForMorning = potentialCandidates.filter(s => {
                             const timesForCandidate = getShiftTimesForStaff(s.pos, currentSlotPreset);
                             if (isMorningStart(timesForCandidate.startTime)) {
@@ -4660,7 +4659,7 @@ export default function App() {
                             }
                             return true;
                         });
-                        
+
                         if (filteredForMorning.length > 0) {
                             candidatesForSlot = filteredForMorning;
                         }
@@ -5377,19 +5376,19 @@ export default function App() {
                                 <div>
                                     <h3 className="text-lg font-black text-slate-800 tracking-tight">ปรับปรุงยอดสวัสดิการรายเดือน</h3>
                                     <p className="text-[11px] font-bold text-slate-500">
-                                        พนักงาน: {branchData.staff?.find(s => s.id === editingAdjustmentsStaffId)?.name || ''} 
+                                        พนักงาน: {branchData.staff?.find(s => s.id === editingAdjustmentsStaffId)?.name || ''}
                                         ({branchData.staff?.find(s => s.id === editingAdjustmentsStaffId)?.pos || ''})
                                     </p>
                                 </div>
                                 <button onClick={() => setEditingAdjustmentsStaffId(null)} className="text-slate-400 hover:bg-slate-100 p-2 rounded-full transition"><X className="w-5 h-5" /></button>
                             </div>
-                            
+
                             <div className="space-y-4 text-xs font-bold text-slate-700">
                                 {/* Manager Bonuses (OC / AOC only) */}
                                 {(() => {
                                     const staffObj = branchData.staff?.find(s => s.id === editingAdjustmentsStaffId);
                                     if (!staffObj || !['OC', 'AOC'].includes(staffObj.pos)) return null;
-                                    
+
                                     const defaultMgmtFee = staffObj.pos === 'OC' ? (branchData.payrollConfig?.storeMgmtFeeOC ?? 0) : (branchData.payrollConfig?.storeMgmtFeeAOC ?? 0);
                                     const defaultPerfBonus = staffObj.pos === 'OC' ? (branchData.payrollConfig?.perfBonusOC ?? 0) : (branchData.payrollConfig?.perfBonusAOC ?? 0);
 
@@ -5877,7 +5876,7 @@ export default function App() {
                                         const dayType = getDayType(showShiftChangeModal.dateStr, branchData.holidays, branchData.holidayCycles);
                                         const mSlots = branchData.matrix?.[dayType]?.duties?.[showShiftChangeModal.dutyId] || [];
                                         const slot = mSlots[showShiftChangeModal.slotIdx] || { maxOtHours: 0 };
-                                        
+
                                         let calculatedOt = slot.maxOtHours || 0;
                                         if (slot.targetEndTime) {
                                             const selectedStaff = branchData.staff?.find(s => s.id === showShiftChangeModal.staffId);
@@ -6591,7 +6590,7 @@ export default function App() {
                                 {showEmailConfigDropdown && (
                                     <div className="absolute right-0 mt-2 w-72 bg-white border border-slate-200 rounded-2xl shadow-xl p-4 z-50 animate-in fade-in zoom-in-95 duration-200 font-sans">
                                         <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 pb-2 border-b border-slate-100">การแจ้งเตือนทาง Email</div>
-                                        
+
                                         {/* ปุ่มเปิด/ปิดทั้งหมด */}
                                         <div className="grid grid-cols-2 gap-2 mb-4">
                                             <button onClick={() => {
@@ -6615,9 +6614,9 @@ export default function App() {
                                         <div className="max-h-56 overflow-y-auto custom-scrollbar space-y-2 pr-1">
                                             {globalConfig.branches?.map(b => (
                                                 <label key={b.id} className="flex items-center gap-3 cursor-pointer hover:bg-slate-50 p-1.5 rounded-lg transition text-xs font-bold text-slate-700">
-                                                    <input 
-                                                        type="checkbox" 
-                                                        checked={b.emailAlertsEnabled !== false} 
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={b.emailAlertsEnabled !== false}
                                                         onChange={(e) => {
                                                             const val = e.target.checked;
                                                             setGlobalConfig(prev => {
@@ -9304,19 +9303,19 @@ export default function App() {
                             <p className="text-slate-400 font-bold uppercase text-[10px] sm:text-sm tracking-widest mt-0.5 sm:mt-1">Performance &amp; OT Efficiency Report</p>
                         </div>
                     </div>
-                     <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto mt-4 sm:mt-0">
-                         <div className="flex-1 sm:flex-none bg-slate-900 text-white px-4 sm:px-6 py-4 sm:py-5 rounded-xl sm:rounded-[2rem] font-black flex justify-center items-center shadow-md text-[10px] sm:text-xs uppercase tracking-widest gap-2">
-                             <Filter className="w-4 h-4" /> Filtered
-                         </div>
-                         <button onClick={handleExportExcel} className="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-700 text-white px-4 sm:px-6 py-4 sm:py-5 rounded-xl sm:rounded-[2rem] font-black flex justify-center items-center shadow-md text-[10px] sm:text-xs uppercase tracking-widest gap-2 transition-all active:scale-95">
-                             <Download className="w-4 h-4" /> Export Shift (CSV)
-                         </button>
-                         {['superadmin', 'areamanager'].includes(authRole) && (
-                             <button onClick={handleExportSummaryCSV} className="flex-1 sm:flex-none bg-indigo-600 hover:bg-indigo-700 text-white px-4 sm:px-6 py-4 sm:py-5 rounded-xl sm:rounded-[2rem] font-black flex justify-center items-center shadow-md text-[10px] sm:text-xs uppercase tracking-widest gap-2 transition-all active:scale-95">
-                                 <Download className="w-4 h-4" /> Export Summary (CSV)
-                             </button>
-                         )}
-                     </div>
+                    <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto mt-4 sm:mt-0">
+                        <div className="flex-1 sm:flex-none bg-slate-900 text-white px-4 sm:px-6 py-4 sm:py-5 rounded-xl sm:rounded-[2rem] font-black flex justify-center items-center shadow-md text-[10px] sm:text-xs uppercase tracking-widest gap-2">
+                            <Filter className="w-4 h-4" /> Filtered
+                        </div>
+                        <button onClick={handleExportExcel} className="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-700 text-white px-4 sm:px-6 py-4 sm:py-5 rounded-xl sm:rounded-[2rem] font-black flex justify-center items-center shadow-md text-[10px] sm:text-xs uppercase tracking-widest gap-2 transition-all active:scale-95">
+                            <Download className="w-4 h-4" /> Export Shift (CSV)
+                        </button>
+                        {['superadmin', 'areamanager'].includes(authRole) && (
+                            <button onClick={handleExportSummaryCSV} className="flex-1 sm:flex-none bg-indigo-600 hover:bg-indigo-700 text-white px-4 sm:px-6 py-4 sm:py-5 rounded-xl sm:rounded-[2rem] font-black flex justify-center items-center shadow-md text-[10px] sm:text-xs uppercase tracking-widest gap-2 transition-all active:scale-95">
+                                <Download className="w-4 h-4" /> Export Summary (CSV)
+                            </button>
+                        )}
+                    </div>
                 </div>
                 <div className="bg-white p-4 sm:p-6 rounded-[2rem] border border-slate-200 shadow-sm flex flex-col sm:flex-row gap-4 items-end sm:items-center w-full justify-between">
                     <div className="flex flex-wrap items-center gap-4">
@@ -9729,14 +9728,14 @@ export default function App() {
                                                     <td className="px-4 sm:px-8 py-6 text-right font-mono">{deptTotalHolidayPay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                                     <td className="px-4 sm:px-8 py-6 text-right font-mono text-indigo-700">฿{deptData.reduce((acc, curr) => acc + (curr.lateNightAllowance || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                                     {['superadmin', 'areamanager'].includes(authRole) && showBenefitDetails && (
-                                                         <>
-                                                             <td className="px-2 sm:px-4 py-6 text-right font-mono text-slate-700 text-xs">฿{deptData.reduce((acc, curr) => acc + (curr.diligenceAllowance || 0), 0).toLocaleString()}</td>
-                                                             <td className="px-2 sm:px-4 py-6 text-right font-mono text-slate-700 text-xs">฿{deptData.reduce((acc, curr) => acc + (curr.housingAllowance || 0), 0).toLocaleString()}</td>
-                                                             <td className="px-2 sm:px-4 py-6 text-right font-mono text-slate-700 text-xs">฿{deptData.reduce((acc, curr) => acc + (curr.costOfLivingAllowance || 0), 0).toLocaleString()}</td>
-                                                             <td className="px-2 sm:px-4 py-6 text-right font-mono text-slate-700 text-xs">฿{deptData.reduce((acc, curr) => acc + (curr.kinDeeAllowance || 0), 0).toLocaleString()}</td>
-                                                             <td className="px-2 sm:px-4 py-6 text-right font-mono text-slate-700 text-xs">฿{deptData.reduce((acc, curr) => acc + (curr.travelAllowance || 0), 0).toLocaleString()}</td>
-                                                             <td className="px-2 sm:px-4 py-6 text-right font-mono text-sky-900 text-xs">฿{deptData.reduce((acc, curr) => acc + (curr.storeMgmtFee || 0) + (curr.perfBonus || 0), 0).toLocaleString()}</td>
-                                                         </>
+                                                        <>
+                                                            <td className="px-2 sm:px-4 py-6 text-right font-mono text-slate-700 text-xs">฿{deptData.reduce((acc, curr) => acc + (curr.diligenceAllowance || 0), 0).toLocaleString()}</td>
+                                                            <td className="px-2 sm:px-4 py-6 text-right font-mono text-slate-700 text-xs">฿{deptData.reduce((acc, curr) => acc + (curr.housingAllowance || 0), 0).toLocaleString()}</td>
+                                                            <td className="px-2 sm:px-4 py-6 text-right font-mono text-slate-700 text-xs">฿{deptData.reduce((acc, curr) => acc + (curr.costOfLivingAllowance || 0), 0).toLocaleString()}</td>
+                                                            <td className="px-2 sm:px-4 py-6 text-right font-mono text-slate-700 text-xs">฿{deptData.reduce((acc, curr) => acc + (curr.kinDeeAllowance || 0), 0).toLocaleString()}</td>
+                                                            <td className="px-2 sm:px-4 py-6 text-right font-mono text-slate-700 text-xs">฿{deptData.reduce((acc, curr) => acc + (curr.travelAllowance || 0), 0).toLocaleString()}</td>
+                                                            <td className="px-2 sm:px-4 py-6 text-right font-mono text-sky-900 text-xs">฿{deptData.reduce((acc, curr) => acc + (curr.storeMgmtFee || 0) + (curr.perfBonus || 0), 0).toLocaleString()}</td>
+                                                        </>
                                                     )}
                                                     <td className="px-4 sm:px-8 py-6 text-right font-mono text-emerald-800">฿{deptTotalPay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                                 </tr>
@@ -10966,7 +10965,7 @@ export default function App() {
                             staffMapPayroll[s.id] = {
                                 basePay: 0, otPay: 0, holidayPay: 0, totalPay: 0,
                                 unpaidLeaveDays: 0, workHours: 0,
-                                wageType: s.wageType || (s.pos.includes('PT') ? 'PT' : (['DVT', 'EDC'].some(p => s.pos.includes(p)) ? 'HOURLY' : 'MONTHLY')),
+                                wageType: s.wageType || 'MONTHLY',
                                 baseWage: s.baseWage || 0,
                                 travelRate: s.travelRate || 0,
                                 pos: s.pos,
@@ -11134,7 +11133,7 @@ export default function App() {
                             const dept = staff.dept === 'kitchen' ? 'kitchen' : 'service';
                             const monthKey = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`;
                             const adjust = bData.monthlyAdjustments?.[monthKey]?.[staff.id] || {};
-                            
+
                             const diligenceAllowance = adjust.diligenceAllowance !== undefined ? parseFloat(adjust.diligenceAllowance) : 0;
                             staff.diligenceAllowance = diligenceAllowance;
 
@@ -11167,25 +11166,25 @@ export default function App() {
                                 payrollSummary[dept].lateNightAllowance.pt += (staff.lateNightAllowance || 0);
                                 payrollSummary.total.lateNightAllowance.pt += (staff.lateNightAllowance || 0);
                             }
-                            
+
                             if (staff.shifts > 0) {
                                 // 1. EDC Housing Allowance
                                 if (staff.pos.includes('EDC')) {
                                     staff.housingAllowance = payrollConfig.edcHousingAllowanceRate !== undefined ? payrollConfig.edcHousingAllowanceRate : 2000;
                                 }
-                                
+
                                 // 2. Cost of Living Allowance
                                 if (['OC', 'AOC', 'SD', 'SSD', 'SH', 'KH', 'SKD', 'KD'].includes(staff.pos)) {
                                     staff.costOfLivingAllowance = payrollConfig.costOfLivingAllowanceRate !== undefined ? payrollConfig.costOfLivingAllowanceRate : 800;
                                 }
-                                
+
                                 // 3. Kin-Dee Allowance
                                 if (staff.pos.includes('PT') || staff.wageType === 'PT') {
                                     staff.kinDeeAllowance = payrollConfig.kinDeePtRate !== undefined ? payrollConfig.kinDeePtRate : 100;
                                 } else {
                                     staff.kinDeeAllowance = payrollConfig.kinDeeFtRate !== undefined ? payrollConfig.kinDeeFtRate : 750;
                                 }
-                                
+
                                 // 4. Travel Allowance
                                 if (['OC', 'AOC', 'SD', 'SSD', 'SH', 'KH', 'SKD', 'KD'].includes(staff.pos)) {
                                     const daysWorked = staff.workedDates.size;
@@ -11193,7 +11192,7 @@ export default function App() {
                                     staff.travelAllowance = daysWorked * travelRate;
                                 }
                             }
-                            
+
                             // 5. Manager Bonuses (OC / AOC only)
                             if (staff.pos === 'OC') {
                                 staff.storeMgmtFee = adjust.storeMgmtFee !== undefined ? adjust.storeMgmtFee : (payrollConfig.storeMgmtFeeOC || 0);
@@ -11204,9 +11203,9 @@ export default function App() {
                             }
 
                             staff.totalPay = staff.basePay + staff.otPay + staff.holidayPay + (staff.lateNightAllowance || 0) +
-                                             (staff.housingAllowance || 0) + (staff.costOfLivingAllowance || 0) + (staff.kinDeeAllowance || 0) +
-                                             (staff.travelAllowance || 0) +
-                                             (staff.storeMgmtFee || 0) + (staff.perfBonus || 0) + (staff.diligenceAllowance || 0);
+                                (staff.housingAllowance || 0) + (staff.costOfLivingAllowance || 0) + (staff.kinDeeAllowance || 0) +
+                                (staff.travelAllowance || 0) +
+                                (staff.storeMgmtFee || 0) + (staff.perfBonus || 0) + (staff.diligenceAllowance || 0);
 
                             payrollSummary[dept].basePay.total += staff.basePay;
                             payrollSummary.total.basePay.total += staff.basePay;
@@ -11251,7 +11250,7 @@ export default function App() {
                         const gonBotExpense = parseFloat(payrollConfig.gonBotMonthlyExpense || 0);
                         payrollSummary.service.gonBotAllowance = gonBotExpense;
                         payrollSummary.total.gonBotAllowance = gonBotExpense;
-                        
+
                         payrollSummary.service.netPay += gonBotExpense;
                         payrollSummary.total.netPay += gonBotExpense;
 
@@ -11505,7 +11504,7 @@ export default function App() {
 
                                                         <div className={`p-4 rounded-xl shadow-sm border ${sec.id === 'total' ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
                                                             <div className={`text-xs font-bold space-y-4 ${sec.id === 'total' ? 'text-slate-350' : 'text-slate-650'}`}>
-                                                                
+
                                                                 {/* Category 1: เงินเดือนและค่าจ้าง */}
                                                                 <div>
                                                                     <div className="flex justify-between items-center font-black border-b pb-1 mb-1.5 border-slate-200/10">
@@ -11522,7 +11521,7 @@ export default function App() {
 
                                                                 {/* Category 2: เงินเดือนและค่าจ้างอื่น */}
                                                                 <div>
-                                                                    <div className="flex justify-between items-center font-black border-b pb-1 mb-1.5 border-slate-200/10">
+                                                                    <div className="flex justify-between items-center font-white border-b pb-1 mb-1.5 border-slate-200/10">
                                                                         <span className={sec.id === 'total' ? 'text-emerald-400 font-extrabold text-[13px]' : 'text-indigo-700 font-extrabold text-[13px]'}>เงินเดือนและค่าจ้างอื่น</span>
                                                                         <span className={sec.id === 'total' ? 'text-white text-[13px]' : 'text-slate-800 text-[13px]'}>฿{(sec.data.diligenceAllowance + sec.data.travelAllowance + sec.data.storeMgmtFee + sec.data.perfBonus + sec.data.lateNightAllowance.total + sec.data.housingAllowance).toLocaleString()}</span>
                                                                     </div>
