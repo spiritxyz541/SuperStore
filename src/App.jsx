@@ -11519,7 +11519,7 @@ export default function App() {
                                                                 <div>
                                                                     <div className="flex justify-between items-center font-black border-b pb-1 mb-1.5 border-slate-200/10">
                                                                         <span className={sec.id === 'total' ? 'text-emerald-400 font-extrabold text-[13px]' : 'text-indigo-700 font-extrabold text-[13px]'}>เงินเดือนและค่าจ้าง</span>
-                                                                        <span className={sec.id === 'total' ? 'text-white text-[13px]' : 'text-slate-800 text-[13px]'}>฿{sec.data.basePay.monthly.toLocaleString()}</span>
+                                                                        <span className={sec.id === 'total' ? 'text-emerald-400 text-[13px]' : 'text-slate-800 text-[13px]'}>฿{sec.data.basePay.monthly.toLocaleString()}</span>
                                                                     </div>
                                                                     <div className="pl-3 text-[10px] space-y-1 opacity-90">
                                                                         <div className="flex justify-between">
@@ -11533,7 +11533,7 @@ export default function App() {
                                                                 <div>
                                                                     <div className="flex justify-between items-center font-black border-b pb-1 mb-1.5 border-slate-200/10">
                                                                         <span className={sec.id === 'total' ? 'text-emerald-400 font-extrabold text-[13px]' : 'text-indigo-700 font-extrabold text-[13px]'}>เงินเดือนและค่าจ้างอื่น</span>
-                                                                        <span className={sec.id === 'total' ? 'text-white text-[13px]' : 'text-slate-800 text-[13px]'}>฿{(sec.data.diligenceAllowance + sec.data.travelAllowance + sec.data.storeMgmtFee + sec.data.perfBonus + sec.data.lateNightAllowance.total + sec.data.housingAllowance).toLocaleString()}</span>
+                                                                        <span className={sec.id === 'total' ? 'text-emerald-400 text-[13px]' : 'text-slate-800 text-[13px]'}>฿{(sec.data.diligenceAllowance + sec.data.travelAllowance + sec.data.storeMgmtFee + sec.data.perfBonus + sec.data.lateNightAllowance.total + sec.data.housingAllowance).toLocaleString()}</span>
                                                                     </div>
                                                                     <div className="pl-3 text-[10px] space-y-1 opacity-90">
                                                                         <div className="flex justify-between">
@@ -11567,7 +11567,7 @@ export default function App() {
                                                                 <div>
                                                                     <div className="flex justify-between items-center font-black border-b pb-1 mb-1.5 border-slate-200/10">
                                                                         <span className={sec.id === 'total' ? 'text-emerald-400 font-extrabold text-[13px]' : 'text-indigo-700 font-extrabold text-[13px]'}>ค่าเช่า-อุปกรณ์และเครื่องมือ</span>
-                                                                        <span className={sec.id === 'total' ? 'text-white text-[13px]' : 'text-slate-800 text-[13px]'}>฿{sec.data.gonBotAllowance.toLocaleString()}</span>
+                                                                        <span className={sec.id === 'total' ? 'text-emerald-400 text-[13px]' : 'text-slate-800 text-[13px]'}>฿{sec.data.gonBotAllowance.toLocaleString()}</span>
                                                                     </div>
                                                                     <div className="pl-3 text-[10px] space-y-1 opacity-90">
                                                                         <div className="flex justify-between">
@@ -11581,7 +11581,7 @@ export default function App() {
                                                                 <div>
                                                                     <div className="flex justify-between items-center font-black border-b pb-1 mb-1.5 border-slate-200/10">
                                                                         <span className={sec.id === 'total' ? 'text-emerald-400 font-extrabold text-[13px]' : 'text-indigo-700 font-extrabold text-[13px]'}>ค่าครองชีพ</span>
-                                                                        <span className={sec.id === 'total' ? 'text-white text-[13px]' : 'text-slate-800 text-[13px]'}>฿{sec.data.costOfLivingAllowance.toLocaleString()}</span>
+                                                                        <span className={sec.id === 'total' ? 'text-emerald-400 text-[13px]' : 'text-slate-800 text-[13px]'}>฿{sec.data.costOfLivingAllowance.toLocaleString()}</span>
                                                                     </div>
                                                                 </div>
 
@@ -11589,7 +11589,7 @@ export default function App() {
                                                                 <div>
                                                                     <div className="flex justify-between items-center font-black border-b pb-1 mb-1.5 border-slate-200/10">
                                                                         <span className={sec.id === 'total' ? 'text-emerald-400 font-extrabold text-[13px]' : 'text-indigo-700 font-extrabold text-[13px]'}>ค่าจ้างพนักงานชั่วคราว</span>
-                                                                        <span className={sec.id === 'total' ? 'text-white text-[13px]' : 'text-slate-800 text-[13px]'}>฿{(sec.data.basePay.hourly + sec.data.basePay.pt + sec.data.holidayPay.total).toLocaleString()}</span>
+                                                                        <span className={sec.id === 'total' ? 'text-emerald-400 text-[13px]' : 'text-slate-800 text-[13px]'}>฿{(sec.data.basePay.hourly + sec.data.basePay.pt + sec.data.holidayPay.total).toLocaleString()}</span>
                                                                     </div>
                                                                     <div className="pl-3 text-[10px] space-y-1 opacity-90">
                                                                         <div className="flex justify-between">
@@ -11611,7 +11611,7 @@ export default function App() {
                                                                 <div>
                                                                     <div className="flex justify-between items-center font-black border-b pb-1 mb-1.5 border-slate-200/10">
                                                                         <span className={sec.id === 'total' ? 'text-emerald-400 font-extrabold text-[13px]' : 'text-indigo-700 font-extrabold text-[13px]'}>ค่าล่วงเวลา</span>
-                                                                        <span className={sec.id === 'total' ? 'text-white text-[13px]' : 'text-slate-800 text-[13px]'}>฿{sec.data.otPay.total.toLocaleString()}</span>
+                                                                        <span className={sec.id === 'total' ? 'text-emerald-400 text-[13px]' : 'text-slate-800 text-[13px]'}>฿{sec.data.otPay.total.toLocaleString()}</span>
                                                                     </div>
                                                                     <div className="pl-3 text-[10px] space-y-1 opacity-90">
                                                                         <div className="flex justify-between">
@@ -11633,7 +11633,7 @@ export default function App() {
                                                                 <div>
                                                                     <div className="flex justify-between items-center font-black border-b pb-1 mb-1.5 border-slate-200/10">
                                                                         <span className={sec.id === 'total' ? 'text-emerald-400 font-extrabold text-[13px]' : 'text-indigo-700 font-extrabold text-[13px]'}>อาหารพนักงาน-โครงการกินดี</span>
-                                                                        <span className={sec.id === 'total' ? 'text-white text-[13px]' : 'text-slate-800 text-[13px]'}>฿{(sec.data.kinDee.monthly + sec.data.kinDee.hourly + sec.data.kinDee.pt).toLocaleString()}</span>
+                                                                        <span className={sec.id === 'total' ? 'text-emerald-400 text-[13px]' : 'text-slate-800 text-[13px]'}>฿{(sec.data.kinDee.monthly + sec.data.kinDee.hourly + sec.data.kinDee.pt).toLocaleString()}</span>
                                                                     </div>
                                                                     <div className="pl-3 text-[10px] space-y-1 opacity-90">
                                                                         <div className="flex justify-between">
