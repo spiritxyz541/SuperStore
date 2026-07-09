@@ -1457,7 +1457,8 @@ export default function App() {
         (branchData.staff || []).forEach(s => {
             staffMap[s.id] = {
                 id: s.id, name: s.name, dept: s.dept, pos: s.pos, empId: s.empId,
-                wageType: s.wageType || 'MONTHLY', baseWage: s.baseWage || 0,
+                wageType: s.wageType || (s.pos.includes('PT') ? 'PT' : (['DVT', 'EDC'].some(p => s.pos.includes(p)) ? 'HOURLY' : 'MONTHLY')),
+                baseWage: s.baseWage || 0,
                 travelRate: s.travelRate || 0,
                 workHours: 0, shifts: 0, actualOT: 0, plannedOT: 0, leaves: 0,
                 unpaidLeaveDays: 0,
@@ -10965,7 +10966,7 @@ export default function App() {
                             staffMapPayroll[s.id] = {
                                 basePay: 0, otPay: 0, holidayPay: 0, totalPay: 0,
                                 unpaidLeaveDays: 0, workHours: 0,
-                                wageType: s.wageType || 'MONTHLY',
+                                wageType: s.wageType || (s.pos.includes('PT') ? 'PT' : (['DVT', 'EDC'].some(p => s.pos.includes(p)) ? 'HOURLY' : 'MONTHLY')),
                                 baseWage: s.baseWage || 0,
                                 travelRate: s.travelRate || 0,
                                 pos: s.pos,
