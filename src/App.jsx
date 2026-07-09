@@ -1609,7 +1609,10 @@ export default function App() {
                 }
             }
 
-            const diligenceAllowance = adjust.diligenceAllowance !== undefined ? parseFloat(adjust.diligenceAllowance) : 0;
+            let diligenceAllowance = 0;
+            if (staff.wageType === 'MONTHLY' && staff.shifts > 0) {
+                diligenceAllowance = adjust.diligenceAllowance !== undefined ? parseFloat(adjust.diligenceAllowance) : parseFloat(payrollConfig.standardDiligenceAllowance || 0);
+            }
             staff.diligenceAllowance = diligenceAllowance;
 
             // 5. Manager Bonuses (OC / AOC only)
@@ -7822,6 +7825,10 @@ export default function App() {
                                     <input type="number" step="100" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.gonBotMonthlyExpense ?? 0} onChange={(e) => handleUpdatePayrollConfig('gonBotMonthlyExpense', e.target.value)} onBlur={(e) => handleSavePayrollConfig('gonBotMonthlyExpense', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
                                 </div>
                                 <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">เบี้ยขยันปกติ (เฉพาะพนักงานประจำรายเดือน) (บาท/เดือน)</label>
+                                    <input type="number" step="100" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.standardDiligenceAllowance ?? 0} onChange={(e) => handleUpdatePayrollConfig('standardDiligenceAllowance', e.target.value)} onBlur={(e) => handleSavePayrollConfig('standardDiligenceAllowance', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
+                                </div>
+                                <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
                                     <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">ค่าบริหารสาขา OC (บาท/เดือน)</label>
                                     <input type="number" step="100" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.storeMgmtFeeOC ?? 0} onChange={(e) => handleUpdatePayrollConfig('storeMgmtFeeOC', e.target.value)} onBlur={(e) => handleSavePayrollConfig('storeMgmtFeeOC', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
                                 </div>
@@ -11134,7 +11141,10 @@ export default function App() {
                             const monthKey = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`;
                             const adjust = bData.monthlyAdjustments?.[monthKey]?.[staff.id] || {};
 
-                            const diligenceAllowance = adjust.diligenceAllowance !== undefined ? parseFloat(adjust.diligenceAllowance) : 0;
+                            let diligenceAllowance = 0;
+                            if (staff.wageType === 'MONTHLY' && staff.shifts > 0) {
+                                diligenceAllowance = adjust.diligenceAllowance !== undefined ? parseFloat(adjust.diligenceAllowance) : parseFloat(payrollConfig.standardDiligenceAllowance || 0);
+                            }
                             staff.diligenceAllowance = diligenceAllowance;
 
                             if (staff.wageType === 'MONTHLY') {
