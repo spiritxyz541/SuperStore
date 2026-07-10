@@ -8516,7 +8516,7 @@ export default function App() {
                 const { slot, assignedData, breakTime } = slotItem;
 
                 const staff = branchData.staff?.find(s => s.id === assignedData.staffId);
-                const shiftPreset = branchData.shiftPresets?.find(p => p.id === slot.shiftPresetId);
+                const shiftPreset = branchData.shiftPresets?.find(p => p.id === (assignedData.shiftPresetId || slot.shiftPresetId));
                 const { startTime, endTime } = getShiftTimesForStaff(staff?.pos, shiftPreset);
 
                 const startMin = timeToMinutes(startTime);
@@ -8674,7 +8674,7 @@ export default function App() {
             const staff = branchData.staff?.find(s => s.id === actualStaffId);
             const staffName = staff ? staff.name : '-';
             const isPendingPtStaff = isPtPendingApproval(staff, selectedDateStr);
-            const shiftPreset = branchData.shiftPresets?.find(p => p.id === slot.shiftPresetId);
+            const shiftPreset = branchData.shiftPresets?.find(p => p.id === (assignedData.shiftPresetId || slot.shiftPresetId));
             const { startTime, endTime } = getShiftTimesForStaff(staff?.pos, shiftPreset);
             const pendingShiftChange = pendingRequests.find(r => r.reqType === 'SHIFT_CHANGE' && r.dateStr === selectedDateStr && r.dutyId === duty.id && r.slotIdx === originalIdx && r.status === 'PENDING_MANAGER');
 
@@ -9173,7 +9173,7 @@ export default function App() {
                                                                     const matrixSlot = slots[idx] || { shiftPresetId: assigned[idx]?.shiftPresetId || branchData.shiftPresets?.[0]?.id, maxOtHours: 0 };
                                                                     const data = assigned[idx] || { staffId: "", otHours: 0 };
                                                                     if (duty.isBackup && !data.staffId && (unassignedFT.length === 0 || emptyPrimaryCount > 0)) return null; // ซ่อนกล่องว่าง หากเป็นกะสำรองและไม่มีคน FT ว่างเหลือ หรือกะหลักยังไม่เต็ม
-                                                                    const shiftPreset = branchData.shiftPresets?.find(p => p.id === matrixSlot.shiftPresetId);
+                                                                    const shiftPreset = branchData.shiftPresets?.find(p => p.id === (data.shiftPresetId || matrixSlot.shiftPresetId));
                                                                     const shiftName = shiftPreset ? shiftPreset.name : 'N/A';
                                                                     const pendingExtraOt = pendingRequests.find(r => r.reqType === 'EXTRA_OT' && r.dateStr === day.dateStr && r.dutyId === duty.id && r.slotIdx === idx && r.status === 'PENDING_MANAGER');
 
