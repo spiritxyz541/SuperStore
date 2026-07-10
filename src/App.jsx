@@ -1297,6 +1297,11 @@ export default function App() {
     const [newAmPass, setNewAmPass] = useState('');
     const [newAmBranches, setNewAmBranches] = useState([]);
     const [amData, setAmData] = useState({});
+    
+    const [isDashboardUnlocked, setIsDashboardUnlocked] = useState(false);
+    const [isChangingDashboardPassword, setIsChangingDashboardPassword] = useState(false);
+    const [dashboardPasswordInput, setDashboardPasswordInput] = useState('');
+    const [newDashboardPasswordInput, setNewDashboardPasswordInput] = useState('');
 
     const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
     const [newPasswordInput, setNewPasswordInput] = useState('');
@@ -2654,7 +2659,7 @@ export default function App() {
     }, [selectedDateStr, selectedMonth]);
 
     useEffect(() => {
-        if (view === 'area_dashboard' && (authRole === 'areamanager' || authRole === 'superadmin')) {
+        if (view === 'area_dashboard' && (authRole === 'branch' || authRole === 'areamanager' || authRole === 'superadmin')) {
             const fetchData = async () => {
                 const data = {};
                 let am = globalConfig.areaManagers?.find(a => a.user === authUser);
@@ -2662,6 +2667,8 @@ export default function App() {
                     const ams = globalConfig.areaManagers || [];
                     const currentAmId = selectedAmId || ams[0]?.id;
                     am = ams.find(a => a.id === currentAmId);
+                } else if (authRole === 'branch') {
+                    am = { branches: [activeBranchId] };
                 }
                 if (am && am.branches) {
                     for (const bId of am.branches) {
@@ -6073,7 +6080,7 @@ export default function App() {
                                                 <thead>
                                                     <tr className="bg-slate-50 text-slate-500">
                                                         <th className="p-2 border-b border-slate-200 font-black text-center w-12">วันที่</th>
-                                                        <th className="p-2 border-b border-slate-200 font-black text-center">โควตารวม (H)</th>
+                                        <th className="p-2 border-b border-slate-200 font-black text-center">โควตารวม (H)</th>
                                                         <th className="p-2 border-b border-slate-200 font-black text-center">ใช้ไป (H)</th>
                                                         <th className="p-2 border-b border-slate-200 font-black text-center">คงเหลือ (H)</th>
                                                         <th className="p-2 border-b border-slate-200 font-black text-center w-20">สถานะ</th>
@@ -10788,6 +10795,52 @@ export default function App() {
     }
 
     function renderAreaDashboard() {
+        if (authRole === 'branch' && !isDashboardUnlocked) {
+            return (
+                <div className="flex-1 flex flex-col items-center justify-center p-10 animate-in fade-in duration-500">
+                    <div className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-xl max-w-sm w-full text-center">
+                        <div className="bg-indigo-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <Lock className="w-8 h-8 text-indigo-600" />
+                        </div>
+                        <h2 className="text-xl font-black text-slate-800 uppercase tracking-tighter mb-2">ใส่รหัสผ่าน Dashboard</h2>
+                        <p className="text-xs font-bold text-slate-500 mb-6">กรุณาใส่รหัสผ่านเพื่อเข้าดูข้อมูลสาขาของคุณ</p>
+                        <input
+                            type="password"
+                            placeholder="รหัสผ่าน"
+                            value={dashboardPasswordInput}
+                            onChange={e => setDashboardPasswordInput(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                    const expected = branchData?.dashboardPassword || 'admin';
+                                    if (dashboardPasswordInput === expected) {
+                                        setIsDashboardUnlocked(true);
+                                        setDashboardPasswordInput('');
+                                    } else {
+                                        setConfirmModal({ message: "รหัสผ่านไม่ถูกต้อง" });
+                                    }
+                                }
+                            }}
+                            className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-center text-lg font-black tracking-widest outline-none focus:border-indigo-500 mb-4"
+                        />
+                        <button
+                            onClick={() => {
+                                const expected = branchData?.dashboardPassword || 'admin';
+                                if (dashboardPasswordInput === expected) {
+                                    setIsDashboardUnlocked(true);
+                                    setDashboardPasswordInput('');
+                                } else {
+                                    setConfirmModal({ message: "รหัสผ่านไม่ถูกต้อง" });
+                                }
+                            }}
+                            className="w-full bg-indigo-600 text-white py-3 rounded-xl font-black hover:bg-indigo-700 transition shadow-sm uppercase tracking-widest"
+                        >
+                            ปลดล็อก
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
         let am = globalConfig.areaManagers?.find(a => a.user === authUser);
         if (authRole === 'superadmin') {
             const ams = globalConfig.areaManagers || [];
@@ -10796,6 +10849,8 @@ export default function App() {
             }
             const currentAmId = selectedAmId || ams[0]?.id;
             am = ams.find(a => a.id === currentAmId);
+        } else if (authRole === 'branch') {
+            am = { id: 'branch_dashboard', name: 'Branch Dashboard', user: authUser, branches: [activeBranchId] };
         }
         if (!am) return <div className="p-10 text-center text-slate-500 font-bold">ไม่พบข้อมูลผู้จัดการเขต</div>;
         // areaPeriod state moved to top level
@@ -10826,8 +10881,13 @@ export default function App() {
                     <div className="flex items-center gap-6">
                         <div className="bg-indigo-500 p-4 rounded-2xl shadow-inner"><UserCircle className="w-10 h-10 text-white" /></div>
                         <div>
-                            <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-tighter">Area Manager Dashboard</h2>
+                            <h2 className="text-2xl sm:text-3xl font-black uppercase tracking-tighter">{authRole === 'branch' ? 'Branch Dashboard' : 'Area Manager Dashboard'}</h2>
                             <p className="text-indigo-200 font-bold text-sm mt-1">ยินดีต้อนรับ, {am?.name || authUser} | ดูแลทั้งหมด {am?.branches?.length || 0} สาขา</p>
+                            {authRole === 'branch' && (
+                                <button onClick={() => setIsChangingDashboardPassword(true)} className="mt-2 text-[10px] sm:text-xs bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-lg transition font-bold flex items-center gap-1 shadow-inner">
+                                    <Lock className="w-3 h-3" /> เปลี่ยนรหัสผ่าน Dashboard
+                                </button>
+                            )}
                         </div>
                     </div>
                     <div className="flex items-center gap-3 bg-slate-800 px-5 py-3 rounded-2xl border border-slate-700">
@@ -12141,7 +12201,7 @@ export default function App() {
                                             </select>
                                         </div>
                                         <div className="flex-shrink-0 flex gap-1 sm:gap-2 bg-slate-100 p-1 rounded-xl sm:rounded-2xl border border-slate-200 font-black text-[9px] sm:text-[10px]">
-                                            {['areamanager', 'superadmin'].includes(authRole) && <button onClick={() => handleMenuChange('area_dashboard')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'area_dashboard' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>ภาพรวมเขต (Dashboard)</button>}
+                                            {['branch', 'areamanager', 'superadmin'].includes(authRole) && <button onClick={() => handleMenuChange('area_dashboard')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'area_dashboard' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>{authRole === 'branch' ? 'ภาพรวมสาขา (Dashboard)' : 'ภาพรวมเขต (Dashboard)'}</button>}
                                             <button onClick={() => handleMenuChange('manager')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'manager' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>จัดตารางงาน</button>
                                             <button onClick={() => handleMenuChange('head_team')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'head_team' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>จัดบทบาทประจำวัน</button>
                                             <button onClick={() => handleMenuChange('report')} className={`px-3 sm:px-5 py-1.5 sm:py-2 rounded-lg transition-all ${view === 'report' ? 'bg-white text-indigo-600 shadow-sm border border-indigo-50' : 'text-slate-500'}`}>รายงาน</button>
