@@ -3106,8 +3106,8 @@ export default function App() {
         setSchedule(prev => {
             const newSched = JSON.parse(JSON.stringify(prev));
             if (!newSched[dateStr]) newSched[dateStr] = { duties: {}, leaves: [], autoLeavesAssigned: true };
-            // Remove existing leaves for selected staff
-            newSched[dateStr].leaves = (newSched[dateStr].leaves || []).filter(l => !selectedStaffIds.includes(l.staffId));
+            // Remove all leaves of the current leaveType, and remove any existing leaves for the newly selected staff
+            newSched[dateStr].leaves = (newSched[dateStr].leaves || []).filter(l => l.type !== leaveType && !selectedStaffIds.includes(l.staffId));
             // Add new leave entries
             selectedStaffIds.forEach(staffId => {
                 newSched[dateStr].leaves.push({ staffId, type: leaveType });
