@@ -545,7 +545,7 @@ function getLateNightAllowance(staff, shiftPreset, startTime, endTime, workHours
         if (posUpper === 'OC' || posUpper === 'AOC') {
             return lateNightMonthlyManagerRate;
         }
-        if (['SD', 'KD', 'SSD', 'SH'].includes(posUpper)) {
+        if (['SD', 'SD+', 'KD', 'KD+', 'SSD', 'SH', 'KH', 'SKD'].includes(posUpper)) {
             return lateNightMonthlyStaffRate;
         }
     }
@@ -1590,7 +1590,7 @@ export default function App() {
                 }
 
                 // 2. Cost of Living Allowance
-                if (['OC', 'AOC', 'SD', 'SSD', 'SH', 'KH', 'SKD', 'KD'].includes(staff.pos)) {
+                if (['OC', 'AOC', 'SD', 'SD+', 'SSD', 'SH', 'KH', 'SKD', 'KD', 'KD+'].includes(staff.pos)) {
                     staff.costOfLivingAllowance = payrollConfig.costOfLivingAllowanceRate !== undefined ? payrollConfig.costOfLivingAllowanceRate : 800;
                 }
 
@@ -1602,7 +1602,7 @@ export default function App() {
                 }
 
                 // 4. Travel Allowance
-                if (['OC', 'AOC', 'SD', 'SSD', 'SH', 'KH', 'SKD', 'KD'].includes(staff.pos)) {
+                if (['OC', 'AOC', 'SD', 'SD+', 'SSD', 'SH', 'KH', 'SKD', 'KD', 'KD+'].includes(staff.pos)) {
                     const daysWorked = staff.workedDates.size;
                     const travelRate = staff.travelRate || payrollConfig.standardTravelRate || 0;
                     staff.travelAllowance = daysWorked * travelRate;
@@ -7157,7 +7157,7 @@ export default function App() {
                                                 <option value="PT">ประเภท: พาร์ทไทม์ (PT)</option>
                                             </select>
                                             <input type="number" placeholder="ฐานเงินเดือน / ค่าแรงต่อชม. (บาท)" className="flex-1 border-2 border-emerald-100 bg-emerald-50 rounded-xl sm:rounded-2xl px-3 py-2 text-xs sm:text-sm font-bold text-emerald-700 focus:border-emerald-500 outline-none transition shadow-sm" value={newStaffBaseWage} onChange={(e) => setNewStaffBaseWage(e.target.value)} />
-                                            {['OC', 'AOC', 'SD', 'SSD', 'SH', 'KH', 'SKD', 'KD'].includes(newStaffPos) && (
+                                            {['OC', 'AOC', 'SD', 'SD+', 'SSD', 'SH', 'KH', 'SKD', 'KD', 'KD+'].includes(newStaffPos) && (
                                                 <input type="number" placeholder="ค่าเดินทางต่อวัน (บาท)" className="flex-1 border-2 border-sky-100 bg-sky-50 rounded-xl sm:rounded-2xl px-3 py-2 text-xs sm:text-sm font-bold text-sky-700 focus:border-sky-500 outline-none transition shadow-sm" value={newStaffTravelRate} onChange={(e) => setNewStaffTravelRate(e.target.value)} />
                                             )}
                                         </div>
@@ -7239,7 +7239,7 @@ export default function App() {
                                                             <option value="MONTHLY">รายเดือน</option><option value="HOURLY">รายชั่วโมง</option><option value="PT">PT</option>
                                                         </select>
                                                         <input type="number" placeholder="ค่าจ้าง" value={editStaffData.baseWage || ''} onChange={e => setEditStaffData({ ...editStaffData, baseWage: parseFloat(e.target.value) || 0 })} className="border border-emerald-200 bg-emerald-50 text-emerald-700 font-bold rounded px-2 py-1 text-[10px] w-20 sm:w-24" title="ค่าจ้าง" />
-                                                        {['OC', 'AOC', 'SD', 'SSD', 'SH', 'KH', 'SKD', 'KD'].includes(editStaffData.pos) && (
+                                                        {['OC', 'AOC', 'SD', 'SD+', 'SSD', 'SH', 'KH', 'SKD', 'KD', 'KD+'].includes(editStaffData.pos) && (
                                                             <input type="number" placeholder="ค่าเดินทางต่อวัน" value={editStaffData.travelRate || ''} onChange={e => setEditStaffData({ ...editStaffData, travelRate: parseFloat(e.target.value) || 0 })} className="border border-sky-200 bg-sky-50 text-sky-700 font-bold rounded px-2 py-1 text-[10px] w-24" title="ค่าเดินทางต่อวัน" />
                                                         )}
                                                     </div>
@@ -11184,7 +11184,7 @@ export default function App() {
                                 }
 
                                 // 2. Cost of Living Allowance
-                                if (['OC', 'AOC', 'SD', 'SSD', 'SH', 'KH', 'SKD', 'KD'].includes(staff.pos)) {
+                                if (['OC', 'AOC', 'SD', 'SD+', 'SSD', 'SH', 'KH', 'SKD', 'KD', 'KD+'].includes(staff.pos)) {
                                     staff.costOfLivingAllowance = payrollConfig.costOfLivingAllowanceRate !== undefined ? payrollConfig.costOfLivingAllowanceRate : 800;
                                 }
 
@@ -11196,7 +11196,7 @@ export default function App() {
                                 }
 
                                 // 4. Travel Allowance
-                                if (['OC', 'AOC', 'SD', 'SSD', 'SH', 'KH', 'SKD', 'KD'].includes(staff.pos)) {
+                                if (['OC', 'AOC', 'SD', 'SD+', 'SSD', 'SH', 'KH', 'SKD', 'KD', 'KD+'].includes(staff.pos)) {
                                     const daysWorked = staff.workedDates.size;
                                     const travelRate = staff.travelRate || payrollConfig.standardTravelRate || 0;
                                     staff.travelAllowance = daysWorked * travelRate;
