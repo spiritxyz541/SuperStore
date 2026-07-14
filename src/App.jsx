@@ -7757,9 +7757,11 @@ export default function App() {
 
                 {['superadmin', 'areamanager'].includes(authRole) && (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-10 w-full mt-6 sm:mt-10">
-                        <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm w-full print:hidden">
-                            <h2 className="text-lg sm:text-xl font-black text-slate-800 mb-6 sm:mb-8 flex items-center gap-2 sm:gap-4 uppercase tracking-tighter"><TrendingUp className="w-6 h-6 sm:w-7 sm:h-7 text-emerald-500" /> ข้อมูลสาขาและงบประมาณ (Branch Configs)</h2>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div className={`bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm w-full print:hidden ${authRole !== 'superadmin' ? 'lg:col-span-2' : ''}`}>
+                            <h2 className="text-lg sm:text-xl font-black text-slate-800 mb-6 sm:mb-8 flex items-center gap-2 sm:gap-4 uppercase tracking-tighter"><TrendingUp className="w-6 h-6 sm:w-7 sm:h-7 text-emerald-500" /> {authRole === 'superadmin' ? 'ข้อมูลสาขาและงบประมาณ (Branch Configs)' : 'ตั้งค่าสวัสดิการรายเดือนและเงินเพิ่มพิเศษ (Monthly Allowance & Bonus Settings)'}</h2>
+                            {authRole === 'superadmin' && (
+                                <>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                 <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
                                     <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">จำนวนโต๊ะ (Total Tables)</label>
                                     <input type="number" inputMode="numeric" disabled={authRole !== 'superadmin'} value={branchData.totalTables || ''} onChange={(e) => setBranchData(prev => ({ ...prev, totalTables: parseInt(e.target.value) || 0 }))} onBlur={async () => { if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" placeholder="เช่น 30" />
@@ -7856,8 +7858,12 @@ export default function App() {
                                     <input type="number" step="10" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.lateNightPtRate ?? 70} onChange={(e) => handleUpdatePayrollConfig('lateNightPtRate', e.target.value)} onBlur={(e) => handleSavePayrollConfig('lateNightPtRate', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
                                 </div>
                             </div>
+                                </>
+                            )}
 
-                            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-8 mb-4 border-b border-slate-100 pb-2 flex items-center gap-2"><Award className="w-4 h-4 text-indigo-500" /> ตั้งค่าสวัสดิการรายเดือนและเงินเพิ่มพิเศษ (Monthly Allowance & Bonus Settings)</h3>
+                            {authRole === 'superadmin' && (
+                                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-8 mb-4 border-b border-slate-100 pb-2 flex items-center gap-2"><Award className="w-4 h-4 text-indigo-500" /> ตั้งค่าสวัสดิการรายเดือนและเงินเพิ่มพิเศษ (Monthly Allowance & Bonus Settings)</h3>
+                            )}
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                                 <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
                                     <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">ค่าใช้จ่าย GON BOT ต่อเดือน (บาท)</label>
@@ -7905,30 +7911,34 @@ export default function App() {
                                 </div>
                             </div>
 
-                            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-8 mb-4 border-b border-slate-100 pb-2">ตั้งค่าฐานยอดขาย (Base TC) สำหรับระบบ Forecast (อัตราส่วน Man-Hour)</h3>
-                            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4">
-                                {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => {
-                                    const dayLabels = {
-                                        monday: 'วันจันทร์',
-                                        tuesday: 'วันอังคาร',
-                                        wednesday: 'วันพุธ',
-                                        thursday: 'วันพฤหัสบดี',
-                                        friday: 'วันศุกร์',
-                                        saturday: 'วันเสาร์',
-                                        sunday: 'วันอาทิตย์'
-                                    };
-                                    return (
-                                        <div key={day} className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100 relative overflow-hidden">
-                                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">Base TC ({dayLabels[day]})</label>
-                                            <input type="text" disabled value={Object.values(branchData.matrix?.[day]?.hourlyTc || {}).reduce((a, b) => a + (parseInt(b) || 0), 0)} className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-black outline-none bg-slate-100 text-slate-500" />
-                                            <span className="absolute top-4 right-4 text-[8px] font-bold bg-indigo-100 text-indigo-600 px-2 py-1 rounded uppercase tracking-widest">Auto</span>
-                                        </div>
-                                    );
-                                })}
-                            </div>
+                            {authRole === 'superadmin' && (
+                                <>
+                                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-8 mb-4 border-b border-slate-100 pb-2">ตั้งค่าฐานยอดขาย (Base TC) สำหรับระบบ Forecast (อัตราส่วน Man-Hour)</h3>
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4">
+                                        {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => {
+                                            const dayLabels = {
+                                                monday: 'วันจันทร์',
+                                                tuesday: 'วันอังคาร',
+                                                wednesday: 'วันพุธ',
+                                                thursday: 'วันพฤหัสบดี',
+                                                friday: 'วันศุกร์',
+                                                saturday: 'วันเสาร์',
+                                                sunday: 'วันอาทิตย์'
+                                            };
+                                            return (
+                                                <div key={day} className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100 relative overflow-hidden">
+                                                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">Base TC ({dayLabels[day]})</label>
+                                                    <input type="text" disabled value={Object.values(branchData.matrix?.[day]?.hourlyTc || {}).reduce((a, b) => a + (parseInt(b) || 0), 0)} className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-black outline-none bg-slate-100 text-slate-500" />
+                                                    <span className="absolute top-4 right-4 text-[8px] font-bold bg-indigo-100 text-indigo-600 px-2 py-1 rounded uppercase tracking-widest">Auto</span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </>
+                            )}
                         </div>
 
-                        {renderTemplatesCard()}
+                        {authRole === 'superadmin' && renderTemplatesCard()}
                     </div>
                 )}
 
