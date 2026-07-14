@@ -1511,7 +1511,8 @@ export default function App() {
                             const shiftPreset = branchData.shiftPresets?.find(p => p.id === mSlot?.shiftPresetId);
                             const { startTime, endTime } = getShiftTimesForStaff(staff.pos, shiftPreset);
                             const workHours = getNetWorkHours(startTime, endTime, staff.pos);
-                            const otHours = Number(slot.otHours || 0);
+                            const pendingOtReq = pendingRequests.find(r => r.reqType === 'EXTRA_OT' && r.dateStr === dateStr && r.dutyId === dutyId && r.slotIdx === idx && r.status === 'PENDING_MANAGER');
+                            const otHours = pendingOtReq ? Number(pendingOtReq.requestedOt) : Number(slot.otHours || 0);
 
                             staff.workHours += workHours;
                             staff.shifts += 1;
@@ -1631,7 +1632,7 @@ export default function App() {
         });
 
         return Object.values(staffMap).sort((a, b) => b.totalPay - a.totalPay);
-    }, [schedule, branchData, reportFilterMode, reportFilterMonth, reportFilterStart, reportFilterEnd, selectedYear, authRole]);
+    }, [schedule, branchData, reportFilterMode, reportFilterMonth, reportFilterStart, reportFilterEnd, selectedYear, authRole, pendingRequests]);
 
     const totalActualOT = reportData.reduce((acc, curr) => acc + curr.actualOT, 0);
     const totalPlannedOT = reportData.reduce((acc, curr) => acc + curr.plannedOT, 0);
@@ -1739,10 +1740,15 @@ export default function App() {
             if (parseInt(mStr, 10) - 1 !== selectedMonth || parseInt(yStr, 10) !== selectedYear) return;
             const dayData = schedule[dateStr];
 
-            const eventHrsSvc = dayData.eventExtraHoursService !== undefined
+            const pendingPtSvc = pendingRequests.find(r => r.reqType === 'EXTRA_PT' && r.dateStr === dateStr && (r.dept || 'service') === 'service' && r.status === 'PENDING_MANAGER');
+            const pendingPtKit = pendingRequests.find(r => r.reqType === 'EXTRA_PT' && r.dateStr === dateStr && r.dept === 'kitchen' && r.status === 'PENDING_MANAGER');
+            const pendingPtSvcHours = pendingPtSvc ? pendingPtSvc.requestedHours : 0;
+            const pendingPtKitHours = pendingPtKit ? pendingPtKit.requestedHours : 0;
+
+            const eventHrsSvc = (dayData.eventExtraHoursService !== undefined
                 ? dayData.eventExtraHoursService
-                : (dayData.eventExtraHoursKitchen !== undefined ? 0 : (dayData.eventExtraHours || 0));
-            const eventHrsKit = dayData.eventExtraHoursKitchen || 0;
+                : (dayData.eventExtraHoursKitchen !== undefined ? 0 : (dayData.eventExtraHours || 0))) + pendingPtSvcHours;
+            const eventHrsKit = (dayData.eventExtraHoursKitchen || 0) + pendingPtKitHours;
 
             if (eventHrsSvc > 0) {
                 eventExtrasSvc += eventHrsSvc;
@@ -1946,7 +1952,7 @@ export default function App() {
                 dailyAllowance: dailyAllowanceKit
             }
         };
-    }, [schedule, branchData, selectedMonth, selectedYear, selectedDateStr, CALENDAR_DAYS]);
+    }, [schedule, branchData, selectedMonth, selectedYear, selectedDateStr, CALENDAR_DAYS, pendingRequests]);
 
     const isPtPendingApproval = useCallback((staff, dateStr) => {
         if (!staff || !staff.pos) return false;
@@ -1996,16 +2002,19 @@ export default function App() {
             if (dayData && dayData.duties) {
                 Object.keys(dayData.duties).forEach(dutyId => {
                     const slots = dayData.duties[dutyId] || [];
-                    slots.forEach(slot => {
-                        if (slot && slot.staffId && slot.otHours > 0) {
+                    slots.forEach((slot, idx) => {
+                        if (slot && slot.staffId) {
                             const actualId = slot.staffId.startsWith('COVER_BY_') ? slot.staffId.replace('COVER_BY_', '') : slot.staffId;
                             const staff = staffMap[actualId];
                             if (staff && !staff.pos.includes('PT')) {
-                                const ot = Number(slot.otHours);
-                                totalOtHours += ot;
-                                dailyOtUsed[dateStr] = (dailyOtUsed[dateStr] || 0) + ot;
-                                if (!staffOtUsage[staff.id]) staffOtUsage[staff.id] = { name: staff.name, pos: staff.pos, ot: 0 };
-                                staffOtUsage[staff.id].ot += ot;
+                                const pendingOtReq = pendingRequests.find(r => r.reqType === 'EXTRA_OT' && r.dateStr === dateStr && r.dutyId === dutyId && r.slotIdx === idx && r.status === 'PENDING_MANAGER');
+                                const ot = pendingOtReq ? Number(pendingOtReq.requestedOt) : Number(slot.otHours || 0);
+                                if (ot > 0) {
+                                    totalOtHours += ot;
+                                    dailyOtUsed[dateStr] = (dailyOtUsed[dateStr] || 0) + ot;
+                                    if (!staffOtUsage[staff.id]) staffOtUsage[staff.id] = { name: staff.name, pos: staff.pos, ot: 0 };
+                                    staffOtUsage[staff.id].ot += ot;
+                                }
                             }
                         }
                     });
@@ -2051,7 +2060,7 @@ export default function App() {
         const usagePercent = budgetHours > 0 ? (totalOtHours / budgetHours) * 100 : (totalOtHours > 0 ? 100 : 0);
 
         return { totalOtHours, budgetHours, usagePercent, dailyOtUsed, staffOtUsage, dailyOtBudget };
-    }, [schedule, branchData, selectedMonth, selectedYear, CALENDAR_DAYS]);
+    }, [schedule, branchData, selectedMonth, selectedYear, CALENDAR_DAYS, pendingRequests]);
 
     const activeDayShiftVisibilities = useMemo(() => {
         let hasMorning = false, hasLateMorning = false, hasAfternoon = false, hasEvening = false, hasNight = false;
@@ -2668,9 +2677,11 @@ export default function App() {
                         try {
                             const bSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', bId));
                             const sSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'schedules', bId));
+                            const rSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'requests', bId));
                             data[bId] = {
                                 branch: bSnap.exists() ? bSnap.data() : null,
-                                schedule: sSnap.exists() ? sSnap.data().records : {}
+                                schedule: sSnap.exists() ? sSnap.data().records : {},
+                                requests: rSnap.exists() ? (rSnap.data().list || []) : []
                             };
                         } catch (e) { }
                     }
@@ -10955,6 +10966,7 @@ export default function App() {
                         const branchName = globalConfig.branches?.find(b => b.id === bId)?.name || bId;
                         const bData = amData[bId]?.branch;
                         const sData = amData[bId]?.schedule || {};
+                        const bRequests = amData[bId]?.requests || [];
 
                         if (!amData[bId]) {
                             return <div key={bId} className="bg-white p-8 rounded-[2rem] border border-slate-200 text-center text-slate-400 font-bold shadow-sm"><Loader2 className="w-6 h-6 animate-spin mx-auto mb-3" /> กำลังโหลดข้อมูล {branchName}...</div>;
@@ -11046,10 +11058,15 @@ export default function App() {
                             if (parseInt(m, 10) - 1 !== selectedMonth || parseInt(y, 10) !== selectedYear) return;
 
                             const dayData = sData[dateStr];
-                            const eventHrsSvc = dayData.eventExtraHoursService !== undefined
+                            const pendingPtSvc = bRequests.find(r => r.reqType === 'EXTRA_PT' && r.dateStr === dateStr && (r.dept || 'service') === 'service' && r.status === 'PENDING_MANAGER');
+                            const pendingPtKit = bRequests.find(r => r.reqType === 'EXTRA_PT' && r.dateStr === dateStr && r.dept === 'kitchen' && r.status === 'PENDING_MANAGER');
+                            const pendingPtSvcHours = pendingPtSvc ? pendingPtSvc.requestedHours : 0;
+                            const pendingPtKitHours = pendingPtKit ? pendingPtKit.requestedHours : 0;
+
+                            const eventHrsSvc = (dayData.eventExtraHoursService !== undefined
                                 ? dayData.eventExtraHoursService
-                                : (dayData.eventExtraHoursKitchen !== undefined ? 0 : (dayData.eventExtraHours || 0));
-                            const eventHrsKit = dayData.eventExtraHoursKitchen || 0;
+                                : (dayData.eventExtraHoursKitchen !== undefined ? 0 : (dayData.eventExtraHours || 0))) + pendingPtSvcHours;
+                            const eventHrsKit = (dayData.eventExtraHoursKitchen || 0) + pendingPtKitHours;
                             eventExtras += eventHrsSvc + eventHrsKit;
 
                             if (dayData.leaves) {
@@ -11075,7 +11092,10 @@ export default function App() {
                                     const slots = dayData.duties[dutyId] || [];
                                     const matrixSlots = bData?.matrix?.[dayType]?.duties?.[dutyId] || [];
                                     slots.forEach((slot, idx) => {
-                                        if (slot.otHours) totalOT += Number(slot.otHours);
+                                        const pendingOtReq = bRequests.find(r => r.reqType === 'EXTRA_OT' && r.dateStr === dateStr && r.dutyId === dutyId && r.slotIdx === idx && r.status === 'PENDING_MANAGER');
+                                        const otHours = pendingOtReq ? Number(pendingOtReq.requestedOt) : Number(slot.otHours || 0);
+
+                                        if (otHours) totalOT += otHours;
                                         if (slot.staffId) {
                                             const actualStaffId = slot.staffId.startsWith('COVER_BY_') ? slot.staffId.replace('COVER_BY_', '') : slot.staffId;
                                             const staff = staffMap[actualStaffId];
@@ -11084,7 +11104,7 @@ export default function App() {
                                                 const shiftPreset = bData?.shiftPresets?.find(p => p.id === (slot.shiftPresetId || mSlot?.shiftPresetId));
                                                 const times = getShiftTimesForStaff(staff.pos, shiftPreset);
                                                 const shiftHrs = getNetWorkHours(times.startTime, times.endTime, staff.pos);
-                                                totalPtHours += shiftHrs + Number(slot.otHours || 0);
+                                                totalPtHours += shiftHrs + otHours;
                                             }
 
                                             const pStaff = staffMapPayroll[actualStaffId];
@@ -11093,7 +11113,6 @@ export default function App() {
                                                 const shiftPreset = bData?.shiftPresets?.find(p => p.id === (slot.shiftPresetId || mSlot?.shiftPresetId));
                                                 const { startTime, endTime } = getShiftTimesForStaff(pStaff.pos, shiftPreset);
                                                 const workHours = getNetWorkHours(startTime, endTime, pStaff.pos);
-                                                const otHours = Number(slot.otHours || 0);
 
                                                 pStaff.workHours += workHours;
                                                 pStaff.shifts += 1;
