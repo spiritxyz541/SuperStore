@@ -6897,7 +6897,21 @@ export default function App() {
         return (
             <div className="flex-1 h-[60vh] sm:h-[70vh] flex flex-col items-center justify-center gap-4 sm:gap-6 text-slate-300 font-black uppercase tracking-[0.2em] sm:tracking-[0.4em] text-center px-4 w-full">
                 <Store className="w-16 h-16 sm:w-24 sm:h-24 opacity-10" />
-                <p className="text-sm sm:text-base">กรุณาเลือกสาขาที่ต้องการจัดการจากแถบด้านบน</p>
+                <p className="text-sm sm:text-base text-slate-400">กรุณาเลือกสาขาที่ต้องการจัดการ</p>
+                {['superadmin', 'areamanager'].includes(authRole) && (
+                    <div className="w-full max-w-xs mt-4">
+                        <select
+                            value={activeBranchId || ''}
+                            onChange={handleBranchChange}
+                            className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-xs font-black text-slate-800 outline-none focus:border-indigo-500 shadow-sm"
+                        >
+                            <option value="">-- เลือกสาขา (Select Branch) --</option>
+                            {globalConfig.branches?.filter(b => authRole === 'superadmin' || (globalConfig.areaManagers?.find(a => a.user === authUser)?.branches || []).includes(b.id)).map(b => (
+                                <option key={b.id} value={b.id}>{b.name.toUpperCase()}</option>
+                            ))}
+                        </select>
+                    </div>
+                )}
             </div>
         );
     }
@@ -6918,6 +6932,27 @@ export default function App() {
 
         return (
             <div className="flex-1 space-y-6 sm:space-y-10 animate-in fade-in duration-500 pb-24 w-full">
+                {['superadmin', 'areamanager'].includes(authRole) && (
+                    <div className="bg-white rounded-[2rem] p-6 border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                            <div className="bg-indigo-100 p-2.5 rounded-xl"><Store className="w-5 h-5 text-indigo-600" /></div>
+                            <div>
+                                <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight">สาขาที่กำลังตั้งค่า (Active Branch)</h4>
+                                <p className="text-[10px] text-slate-500 font-bold">เลือกสาขาที่คุณต้องการตั้งค่าข้อมูลและงบประมาณ</p>
+                            </div>
+                        </div>
+                        <select
+                            value={activeBranchId || ''}
+                            onChange={handleBranchChange}
+                            className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-black text-slate-800 outline-none focus:border-indigo-500 transition-colors w-full sm:w-64 cursor-pointer"
+                        >
+                            <option value="">-- เลือกสาขา (Select Branch) --</option>
+                            {globalConfig.branches?.filter(b => authRole === 'superadmin' || (globalConfig.areaManagers?.find(a => a.user === authUser)?.branches || []).includes(b.id)).map(b => (
+                                <option key={b.id} value={b.id}>{b.name.toUpperCase()}</option>
+                            ))}
+                        </select>
+                    </div>
+                )}
                 <div className={`grid grid-cols-1 ${authRole === 'superadmin' ? 'lg:grid-cols-2' : ''} gap-6 sm:gap-10`}>
                     <div className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 border border-slate-200 shadow-sm flex flex-col">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 sm:mb-6">
