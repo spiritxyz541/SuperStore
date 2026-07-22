@@ -7949,102 +7949,102 @@ export default function App() {
                             {authRole === 'superadmin' && (
                                 <>
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">จำนวนโต๊ะ (Total Tables)</label>
-                                    <input type="number" inputMode="numeric" disabled={authRole !== 'superadmin'} value={branchData.totalTables || ''} onChange={(e) => setBranchData(prev => ({ ...prev, totalTables: parseInt(e.target.value) || 0 }))} onBlur={async () => { if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" placeholder="เช่น 30" />
-                                </div>
-                                <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">งบ PT บริการ รายเดือน (บาท) (FOH)</label>
-                                    <input type="text" inputMode="numeric" disabled={authRole !== 'superadmin'} value={branchData.ptConfig?.monthlyBudgetService === 0 ? '' : (branchData.ptConfig?.monthlyBudgetService ?? '')} onChange={(e) => handleUpdatePtConfig('monthlyBudgetService', e.target.value.replace(/[^0-9.]/g, ''))} onBlur={(e) => handleSavePtConfig('monthlyBudgetService', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-indigo-700 disabled:opacity-70 disabled:bg-white" placeholder="เช่น 10000" />
-                                </div>
-                                <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">งบ PT ครัว รายเดือน (บาท) (BOH)</label>
-                                    <input type="text" inputMode="numeric" disabled={authRole !== 'superadmin'} value={branchData.ptConfig?.monthlyBudgetKitchen === 0 ? '' : (branchData.ptConfig?.monthlyBudgetKitchen ?? '')} onChange={(e) => handleUpdatePtConfig('monthlyBudgetKitchen', e.target.value.replace(/[^0-9.]/g, ''))} onBlur={(e) => handleSavePtConfig('monthlyBudgetKitchen', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-indigo-700 disabled:opacity-70 disabled:bg-white" placeholder="เช่น 10000" />
-                                </div>
-                                <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">อัตราค่าจ้าง PT ต่อชม. (บาท)</label>
-                                    <input type="text" inputMode="numeric" disabled={authRole !== 'superadmin'} value={branchData.ptConfig?.hourlyRate === 0 ? '' : (branchData.ptConfig?.hourlyRate ?? '')} onChange={(e) => handleUpdatePtConfig('hourlyRate', e.target.value.replace(/[^0-9.]/g, ''))} onBlur={(e) => handleSavePtConfig('hourlyRate', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-emerald-600 disabled:opacity-70 disabled:bg-white" placeholder="เช่น 50" />
-                                </div>
-                                <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">อัตราทดแทน (บริการ) ชม./คน/วัน</label>
-                                    <input type="text" inputMode="numeric" disabled={authRole !== 'superadmin'} value={branchData.ptConfig?.compHoursPerDayService === 0 ? '' : (branchData.ptConfig?.compHoursPerDayService ?? 8)} onChange={(e) => handleUpdatePtConfig('compHoursPerDayService', e.target.value.replace(/[^0-9.]/g, ''))} onBlur={(e) => handleSavePtConfig('compHoursPerDayService', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-sky-600 disabled:opacity-70 disabled:bg-white" placeholder="ค่าเริ่มต้น 8" />
-                                </div>
-                                <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">อัตราทดแทน (ครัว) ชม./คน/วัน</label>
-                                    <input type="text" inputMode="numeric" disabled={authRole !== 'superadmin'} value={branchData.ptConfig?.compHoursPerDayKitchen === 0 ? '' : (branchData.ptConfig?.compHoursPerDayKitchen ?? 8)} onChange={(e) => handleUpdatePtConfig('compHoursPerDayKitchen', e.target.value.replace(/[^0-9.]/g, ''))} onBlur={(e) => handleSavePtConfig('compHoursPerDayKitchen', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-orange-600 disabled:opacity-70 disabled:bg-white" placeholder="ค่าเริ่มต้น 8" />
-                                </div>
-                                <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100 relative overflow-hidden">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">โควตา OT รายเดือน (FT) (ชม.)</label>
-                                    <input type="text" disabled value={otLedger.budgetHours.toFixed(1)} className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-black outline-none bg-slate-100 text-rose-600" />
-                                    <span className="absolute top-4 right-4 text-[8px] font-bold bg-indigo-100 text-indigo-600 px-2 py-1 rounded uppercase tracking-widest">Auto from CYCLE</span>
-                                </div>
-                            </div>
+                                        <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">จำนวนโต๊ะ (Total Tables)</label>
+                                            <input type="number" inputMode="numeric" disabled={authRole !== 'superadmin'} value={branchData.totalTables || ''} onChange={(e) => setBranchData(prev => ({ ...prev, totalTables: parseInt(e.target.value) || 0 }))} onBlur={async () => { if (activeBranchId) await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'branches', activeBranchId), branchData); }} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" placeholder="เช่น 30" />
+                                        </div>
+                                        <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">งบ PT บริการ รายเดือน (บาท) (FOH)</label>
+                                            <input type="text" inputMode="numeric" disabled={authRole !== 'superadmin'} value={branchData.ptConfig?.monthlyBudgetService === 0 ? '' : (branchData.ptConfig?.monthlyBudgetService ?? '')} onChange={(e) => handleUpdatePtConfig('monthlyBudgetService', e.target.value.replace(/[^0-9.]/g, ''))} onBlur={(e) => handleSavePtConfig('monthlyBudgetService', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-indigo-700 disabled:opacity-70 disabled:bg-white" placeholder="เช่น 10000" />
+                                        </div>
+                                        <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">งบ PT ครัว รายเดือน (บาท) (BOH)</label>
+                                            <input type="text" inputMode="numeric" disabled={authRole !== 'superadmin'} value={branchData.ptConfig?.monthlyBudgetKitchen === 0 ? '' : (branchData.ptConfig?.monthlyBudgetKitchen ?? '')} onChange={(e) => handleUpdatePtConfig('monthlyBudgetKitchen', e.target.value.replace(/[^0-9.]/g, ''))} onBlur={(e) => handleSavePtConfig('monthlyBudgetKitchen', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-indigo-700 disabled:opacity-70 disabled:bg-white" placeholder="เช่น 10000" />
+                                        </div>
+                                        <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">อัตราค่าจ้าง PT ต่อชม. (บาท)</label>
+                                            <input type="text" inputMode="numeric" disabled={authRole !== 'superadmin'} value={branchData.ptConfig?.hourlyRate === 0 ? '' : (branchData.ptConfig?.hourlyRate ?? '')} onChange={(e) => handleUpdatePtConfig('hourlyRate', e.target.value.replace(/[^0-9.]/g, ''))} onBlur={(e) => handleSavePtConfig('hourlyRate', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-emerald-600 disabled:opacity-70 disabled:bg-white" placeholder="เช่น 50" />
+                                        </div>
+                                        <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">อัตราทดแทน (บริการ) ชม./คน/วัน</label>
+                                            <input type="text" inputMode="numeric" disabled={authRole !== 'superadmin'} value={branchData.ptConfig?.compHoursPerDayService === 0 ? '' : (branchData.ptConfig?.compHoursPerDayService ?? 8)} onChange={(e) => handleUpdatePtConfig('compHoursPerDayService', e.target.value.replace(/[^0-9.]/g, ''))} onBlur={(e) => handleSavePtConfig('compHoursPerDayService', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-sky-600 disabled:opacity-70 disabled:bg-white" placeholder="ค่าเริ่มต้น 8" />
+                                        </div>
+                                        <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">อัตราทดแทน (ครัว) ชม./คน/วัน</label>
+                                            <input type="text" inputMode="numeric" disabled={authRole !== 'superadmin'} value={branchData.ptConfig?.compHoursPerDayKitchen === 0 ? '' : (branchData.ptConfig?.compHoursPerDayKitchen ?? 8)} onChange={(e) => handleUpdatePtConfig('compHoursPerDayKitchen', e.target.value.replace(/[^0-9.]/g, ''))} onBlur={(e) => handleSavePtConfig('compHoursPerDayKitchen', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-orange-600 disabled:opacity-70 disabled:bg-white" placeholder="ค่าเริ่มต้น 8" />
+                                        </div>
+                                        <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100 relative overflow-hidden">
+                                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">โควตา OT รายเดือน (FT) (ชม.)</label>
+                                            <input type="text" disabled value={otLedger.budgetHours.toFixed(1)} className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm font-black outline-none bg-slate-100 text-rose-600" />
+                                            <span className="absolute top-4 right-4 text-[8px] font-bold bg-indigo-100 text-indigo-600 px-2 py-1 rounded uppercase tracking-widest">Auto from CYCLE</span>
+                                        </div>
+                                    </div>
 
-                            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-8 mb-4 border-b border-slate-100 pb-2">ตั้งค่าสูตรคำนวณค่าจ้างและ OT (Payroll Rules) - สิทธิ์เฉพาะ Superadmin</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">ตัวหารเงินเดือน (วัน)</label>
-                                    <input type="number" step="1" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.monthlySalaryDivider ?? 30} onChange={(e) => handleUpdatePayrollConfig('monthlySalaryDivider', e.target.value)} onBlur={(e) => handleSavePayrollConfig('monthlySalaryDivider', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
-                                </div>
-                                <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">OT FT พนักงานรายเดือน (เท่า)</label>
-                                    <input type="number" step="0.1" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.otRateMonthly ?? 1.5} onChange={(e) => handleUpdatePayrollConfig('otRateMonthly', e.target.value)} onBlur={(e) => handleSavePayrollConfig('otRateMonthly', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
-                                </div>
-                                <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">OT FTรายเดือน (วันหยุดนักขัตฯ) (เท่า)</label>
-                                    <input type="number" step="0.1" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.otRateHolidayMonthly ?? 3.0} onChange={(e) => handleUpdatePayrollConfig('otRateHolidayMonthly', e.target.value)} onBlur={(e) => handleSavePayrollConfig('otRateHolidayMonthly', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
-                                </div>
-                                <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">OT พนักงาน EDC/DVT (เท่า)</label>
-                                    <input type="number" step="0.1" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.otRateFtHourly ?? 1.5} onChange={(e) => handleUpdatePayrollConfig('otRateFtHourly', e.target.value)} onBlur={(e) => handleSavePayrollConfig('otRateFtHourly', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
-                                </div>
-                                <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">OT พนักงาน Part-Time (เท่า)</label>
-                                    <input type="number" step="0.1" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.otRatePt ?? 1.5} onChange={(e) => handleUpdatePayrollConfig('otRatePt', e.target.value)} onBlur={(e) => handleSavePayrollConfig('otRatePt', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
-                                </div>
-                                <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">วันหยุดนักขัต: FT รายเดือนได้เพิ่ม (แรง)</label>
-                                    <input type="number" step="0.1" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.holidayMultiplierMonthly ?? 1.0} onChange={(e) => handleUpdatePayrollConfig('holidayMultiplierMonthly', e.target.value)} onBlur={(e) => handleSavePayrollConfig('holidayMultiplierMonthly', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" title="1.0 หมายถึงได้เพิ่มอีก 1 แรง (รวมกับที่ได้ในเงินเดือนแล้ว)" />
-                                </div>
-                                <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">วันหยุดนักขัต: EDC DVT ได้ (แรง)</label>
-                                    <input type="number" step="0.1" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.holidayMultiplierFtHourly ?? 2.0} onChange={(e) => handleUpdatePayrollConfig('holidayMultiplierFtHourly', e.target.value)} onBlur={(e) => handleSavePayrollConfig('holidayMultiplierFtHourly', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" title="2.0 หมายถึงได้ค่าแรง 2 เท่าจากปกติ" />
-                                </div>
-                                <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">วันหยุดนักขัต: Part-Time ได้ (แรง)</label>
-                                    <input type="number" step="0.1" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.holidayMultiplierPt ?? 2.0} onChange={(e) => handleUpdatePayrollConfig('holidayMultiplierPt', e.target.value)} onBlur={(e) => handleSavePayrollConfig('holidayMultiplierPt', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" title="2.0 หมายถึงได้ค่าแรง 2 เท่าจากปกติ" />
-                                </div>
-                            </div>
-                            <p className="text-[10px] text-slate-400 font-bold mt-4">* ระบบจะนำยอดเงินมาหารเป็นชั่วโมงโควตาตั้งต้น สำหรับบริหารจัดการ Part-Time ในกระเป๋าชั่วโมง (PT Ledger)</p>
+                                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-8 mb-4 border-b border-slate-100 pb-2">ตั้งค่าสูตรคำนวณค่าจ้างและ OT (Payroll Rules) - สิทธิ์เฉพาะ Superadmin</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">ตัวหารเงินเดือน (วัน)</label>
+                                            <input type="number" step="1" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.monthlySalaryDivider ?? 30} onChange={(e) => handleUpdatePayrollConfig('monthlySalaryDivider', e.target.value)} onBlur={(e) => handleSavePayrollConfig('monthlySalaryDivider', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
+                                        </div>
+                                        <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">OT FT พนักงานรายเดือน (เท่า)</label>
+                                            <input type="number" step="0.1" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.otRateMonthly ?? 1.5} onChange={(e) => handleUpdatePayrollConfig('otRateMonthly', e.target.value)} onBlur={(e) => handleSavePayrollConfig('otRateMonthly', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
+                                        </div>
+                                        <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">OT FTรายเดือน (วันหยุดนักขัตฯ) (เท่า)</label>
+                                            <input type="number" step="0.1" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.otRateHolidayMonthly ?? 3.0} onChange={(e) => handleUpdatePayrollConfig('otRateHolidayMonthly', e.target.value)} onBlur={(e) => handleSavePayrollConfig('otRateHolidayMonthly', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
+                                        </div>
+                                        <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">OT พนักงาน EDC/DVT (เท่า)</label>
+                                            <input type="number" step="0.1" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.otRateFtHourly ?? 1.5} onChange={(e) => handleUpdatePayrollConfig('otRateFtHourly', e.target.value)} onBlur={(e) => handleSavePayrollConfig('otRateFtHourly', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
+                                        </div>
+                                        <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">OT พนักงาน Part-Time (เท่า)</label>
+                                            <input type="number" step="0.1" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.otRatePt ?? 1.5} onChange={(e) => handleUpdatePayrollConfig('otRatePt', e.target.value)} onBlur={(e) => handleSavePayrollConfig('otRatePt', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
+                                        </div>
+                                        <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">วันหยุดนักขัต: FT รายเดือนได้เพิ่ม (แรง)</label>
+                                            <input type="number" step="0.1" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.holidayMultiplierMonthly ?? 1.0} onChange={(e) => handleUpdatePayrollConfig('holidayMultiplierMonthly', e.target.value)} onBlur={(e) => handleSavePayrollConfig('holidayMultiplierMonthly', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" title="1.0 หมายถึงได้เพิ่มอีก 1 แรง (รวมกับที่ได้ในเงินเดือนแล้ว)" />
+                                        </div>
+                                        <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">วันหยุดนักขัต: EDC DVT ได้ (แรง)</label>
+                                            <input type="number" step="0.1" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.holidayMultiplierFtHourly ?? 2.0} onChange={(e) => handleUpdatePayrollConfig('holidayMultiplierFtHourly', e.target.value)} onBlur={(e) => handleSavePayrollConfig('holidayMultiplierFtHourly', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" title="2.0 หมายถึงได้ค่าแรง 2 เท่าจากปกติ" />
+                                        </div>
+                                        <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">วันหยุดนักขัต: Part-Time ได้ (แรง)</label>
+                                            <input type="number" step="0.1" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.holidayMultiplierPt ?? 2.0} onChange={(e) => handleUpdatePayrollConfig('holidayMultiplierPt', e.target.value)} onBlur={(e) => handleSavePayrollConfig('holidayMultiplierPt', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" title="2.0 หมายถึงได้ค่าแรง 2 เท่าจากปกติ" />
+                                        </div>
+                                    </div>
+                                    <p className="text-[10px] text-slate-400 font-bold mt-4">* ระบบจะนำยอดเงินมาหารเป็นชั่วโมงโควตาตั้งต้น สำหรับบริหารจัดการ Part-Time ในกระเป๋าชั่วโมง (PT Ledger)</p>
 
-                            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-8 mb-4 border-b border-slate-100 pb-2 flex items-center gap-2"><Clock className="w-4 h-4 text-indigo-500" /> ตั้งค่าเงินค่ากะดึกอัตโนมัติ (Late Night Shift Allowance Settings)</h3>
-                            <div className="bg-amber-50/50 border border-amber-100 rounded-2xl p-4 sm:p-6 mb-6 text-xs text-amber-800 font-bold space-y-2">
-                                <p className="text-sm font-black flex items-center gap-2"><Sparkles className="w-4 h-4 text-amber-600" /> คำอธิบายเกณฑ์กะดึกอัตโนมัติ (Late Night Shift Logic)</p>
-                                <ul className="list-disc pl-5 space-y-1 font-semibold text-[11px] text-slate-600">
-                                    <li><strong>พนักงานประจำรายเดือน:</strong> จะต้องปฏิบัติงานกะที่เลิกงานตั้งแต่เวลา 01:00 น. เป็นต้นไป (ไม่จำกัดชั่วโมงขั้นต่ำ) แยกตามตำแหน่งดังนี้:
-                                        <ul className="list-circle pl-5 mt-1 text-[10px]">
-                                            <li>ตำแหน่งผู้จัดการสาขา (OC) หรือผู้ช่วยฯ (AOC) ได้รับค่ากะดึกต่อวันตามที่ตั้งค่า</li>
-                                            <li>ตำแหน่ง SD, KD, SSD, SH ได้รับค่ากะดึกต่อวันตามที่ตั้งค่า</li>
+                                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-8 mb-4 border-b border-slate-100 pb-2 flex items-center gap-2"><Clock className="w-4 h-4 text-indigo-500" /> ตั้งค่าเงินค่ากะดึกอัตโนมัติ (Late Night Shift Allowance Settings)</h3>
+                                    <div className="bg-amber-50/50 border border-amber-100 rounded-2xl p-4 sm:p-6 mb-6 text-xs text-amber-800 font-bold space-y-2">
+                                        <p className="text-sm font-black flex items-center gap-2"><Sparkles className="w-4 h-4 text-amber-600" /> คำอธิบายเกณฑ์กะดึกอัตโนมัติ (Late Night Shift Logic)</p>
+                                        <ul className="list-disc pl-5 space-y-1 font-semibold text-[11px] text-slate-600">
+                                            <li><strong>พนักงานประจำรายเดือน:</strong> จะต้องปฏิบัติงานกะที่เลิกงานตั้งแต่เวลา 01:00 น. เป็นต้นไป (ไม่จำกัดชั่วโมงขั้นต่ำ) แยกตามตำแหน่งดังนี้:
+                                                <ul className="list-circle pl-5 mt-1 text-[10px]">
+                                                    <li>ตำแหน่งผู้จัดการสาขา (OC) หรือผู้ช่วยฯ (AOC) ได้รับค่ากะดึกต่อวันตามที่ตั้งค่า</li>
+                                                    <li>ตำแหน่ง SD, KD, SSD, SH ได้รับค่ากะดึกต่อวันตามที่ตั้งค่า</li>
+                                                </ul>
+                                            </li>
+                                            <li><strong>พนักงานพาร์ทไทม์ (PT):</strong> จะต้องปฏิบัติงานกะที่เลิกงานตั้งแต่เวลา 01:00 น. เป็นต้นไป และมีชั่วโมงปฏิบัติงานจริงครบ 8 ชม. ขึ้นไป (หลังหักเวลาพัก 1 ชม.) ได้รับค่ากะดึกต่อวันตามที่ตั้งค่า</li>
+                                            <li><strong>นักศึกษาฝึกงาน (DVT / EDC):</strong> จะต้องปฏิบัติงานกะที่เลิกงานตั้งแต่เวลา 01:00 น. เป็นต้นไป และมีชั่วโมงปฏิบัติงานจริงครบ 8 ชม. ขึ้นไป (หลังหักเวลาพัก 1 ชม.) ได้รับค่ากะดึกต่อวันตามที่ตั้งค่า</li>
                                         </ul>
-                                    </li>
-                                    <li><strong>พนักงานพาร์ทไทม์ (PT):</strong> จะต้องปฏิบัติงานกะที่เลิกงานตั้งแต่เวลา 01:00 น. เป็นต้นไป และมีชั่วโมงปฏิบัติงานจริงครบ 8 ชม. ขึ้นไป (หลังหักเวลาพัก 1 ชม.) ได้รับค่ากะดึกต่อวันตามที่ตั้งค่า</li>
-                                    <li><strong>นักศึกษาฝึกงาน (DVT / EDC):</strong> จะต้องปฏิบัติงานกะที่เลิกงานตั้งแต่เวลา 01:00 น. เป็นต้นไป และมีชั่วโมงปฏิบัติงานจริงครบ 8 ชม. ขึ้นไป (หลังหักเวลาพัก 1 ชม.) ได้รับค่ากะดึกต่อวันตามที่ตั้งค่า</li>
-                                </ul>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                                <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">ค่ากะดึกรายเดือน (OC/AOC) (บ./วัน)</label>
-                                    <input type="number" step="10" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.lateNightMonthlyManagerRate ?? 100} onChange={(e) => handleUpdatePayrollConfig('lateNightMonthlyManagerRate', e.target.value)} onBlur={(e) => handleSavePayrollConfig('lateNightMonthlyManagerRate', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
-                                </div>
-                                <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">ค่ากะดึกรายเดือน (SD/KD/SSD/SH) (บ./วัน)</label>
-                                    <input type="number" step="10" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.lateNightMonthlyStaffRate ?? 70} onChange={(e) => handleUpdatePayrollConfig('lateNightMonthlyStaffRate', e.target.value)} onBlur={(e) => handleSavePayrollConfig('lateNightMonthlyStaffRate', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
-                                </div>
-                                <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
-                                    <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">ค่ากะดึก Part-Time (บ./วัน)</label>
-                                    <input type="number" step="10" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.lateNightPtRate ?? 70} onChange={(e) => handleUpdatePayrollConfig('lateNightPtRate', e.target.value)} onBlur={(e) => handleSavePayrollConfig('lateNightPtRate', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
-                                </div>
-                            </div>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                                        <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">ค่ากะดึกรายเดือน (OC/AOC) (บ./วัน)</label>
+                                            <input type="number" step="10" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.lateNightMonthlyManagerRate ?? 100} onChange={(e) => handleUpdatePayrollConfig('lateNightMonthlyManagerRate', e.target.value)} onBlur={(e) => handleSavePayrollConfig('lateNightMonthlyManagerRate', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
+                                        </div>
+                                        <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">ค่ากะดึกรายเดือน (SD/KD/SSD/SH) (บ./วัน)</label>
+                                            <input type="number" step="10" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.lateNightMonthlyStaffRate ?? 70} onChange={(e) => handleUpdatePayrollConfig('lateNightMonthlyStaffRate', e.target.value)} onBlur={(e) => handleSavePayrollConfig('lateNightMonthlyStaffRate', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
+                                        </div>
+                                        <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-100">
+                                            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">ค่ากะดึก Part-Time (บ./วัน)</label>
+                                            <input type="number" step="10" disabled={authRole !== 'superadmin'} value={branchData.payrollConfig?.lateNightPtRate ?? 70} onChange={(e) => handleUpdatePayrollConfig('lateNightPtRate', e.target.value)} onBlur={(e) => handleSavePayrollConfig('lateNightPtRate', e.target.value)} className="w-full border rounded-xl px-4 py-3 text-sm font-black outline-none focus:border-indigo-500 text-slate-800 disabled:opacity-70 disabled:bg-white" />
+                                        </div>
+                                    </div>
                                 </>
                             )}
 
@@ -12338,7 +12338,7 @@ export default function App() {
                                 <div className="max-w-[1600px] mx-auto flex flex-col lg:flex-row items-center justify-between gap-4 lg:gap-0 w-full">
                                     <div className="flex items-center justify-between w-full lg:w-auto">
                                         <div className="flex items-center gap-3 sm:gap-4">
-                                            <img src="https://img1.pic.in.th/images/ChatGPT-Image-6-..-2569-19_46_07.png" alt="Logo" className="w-10 h-10 sm:w-12 sm:h-12 rounded-full shadow-md object-cover border-2 border-slate-100 bg-white transition hover:scale-105 duration-500" onError={(e) => { e.target.onerror = null; e.target.src = "https://via.placeholder.com/150?text=GON"; }} />
+                                            <img src="https://i.postimg.cc/Lm970kZG/Chat-GPT-Image-6-2569-19-46-07.png" alt="Logo" className="w-10 h-10 sm:w-12 sm:h-12 rounded-full shadow-md object-cover border-2 border-slate-100 bg-white transition hover:scale-105 duration-500" onError={(e) => { e.target.onerror = null; e.target.src = "https://via.placeholder.com/150?text=GON"; }} />
                                             <div className="flex flex-col">
                                                 <span className="font-black text-lg sm:text-xl tracking-tighter uppercase leading-none">Super Store</span>
                                                 <div className="flex items-center gap-1.5 mt-0.5">
