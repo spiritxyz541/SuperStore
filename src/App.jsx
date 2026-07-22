@@ -4267,63 +4267,167 @@ export default function App() {
 
     const handleRejectRequest = async (reqId, reason = '') => {
         const req = pendingRequests.find(r => r.id === reqId);
-        let newSchedToSave = null;
-        if (req) {
-            if (req.reqType === 'EXTRA_PT') {
-                setSchedule(prev => {
-                    const newSched = JSON.parse(JSON.stringify(prev));
-                    const dateStr = req.dateStr;
-                    const dept = req.dept || 'service';
-                    if (newSched[dateStr] && newSched[dateStr].duties) {
-                        Object.keys(newSched[dateStr].duties).forEach(dutyId => {
-                            const slots = newSched[dateStr].duties[dutyId];
-                            if (Array.isArray(slots)) {
-                                slots.forEach(slot => {
-                                    if (slot && slot.staffId) {
-                                        const staff = branchData.staff?.find(s => s.id === slot.staffId);
-                                        if (staff && staff.pos.includes('PT') && (staff.dept || 'service') === dept) {
-                                            slot.staffId = "";
-                                        }
-                                    }
-                                });
-                            }
-                        });
-                    }
-                    newSchedToSave = newSched;
-                    return newSched;
-                });
-                setTimeout(() => {
-                    if (activeBranchId && newSchedToSave) {
-                        autoSaveSchedule(newSchedToSave, true, req.dateStr);
-                    }
-                }, 0);
-            } else if (req.reqType === 'EXTRA_OT') {
-                setSchedule(prev => {
-                    const newSched = JSON.parse(JSON.stringify(prev));
-                    const dateStr = req.dateStr;
-                    const dutyId = req.dutyId;
-                    const slotIdx = req.slotIdx;
-                    if (newSched[dateStr] && newSched[dateStr].duties && newSched[dateStr].duties[dutyId] && newSched[dateStr].duties[dutyId][slotIdx]) {
-                        newSched[dateStr].duties[dutyId][slotIdx].staffId = "";
-                        newSched[dateStr].duties[dutyId][slotIdx].otHours = 0;
-                        newSched[dateStr].duties[dutyId][slotIdx].otUpdated = true;
-                    }
-                    newSchedToSave = newSched;
-                    return newSched;
-                });
-                setTimeout(() => {
-                    if (activeBranchId && newSchedToSave) {
-                        autoSaveSchedule(newSchedToSave, true, req.dateStr);
-                    }
-                }, 0);
-            }
+        if (!req) return;
+
+        let finalReason = reason;
+        if (!finalReason) {
+            const userInputReason = window.prompt('กรุณาระบุเหตุผลในการปฏิเสธคำขอ:');
+            if (userInputReason === null) return; // Cancel clicked
+            finalReason = userInputReason.trim() || 'ปฏิเสธโดยผู้ดูแล';
         }
 
-        const newList = pendingRequests.map(r => r.id === reqId ? { ...r, status: 'REJECTED', rejectReason: reason, updatedTimestamp: Date.now() } : r);
+        let newSchedToSave = null;
+        if (req.reqType === 'EXTRA_PT') {
+            setSchedule(prev => {
+                const newSched = JSON.parse(JSON.stringify(prev));
+                const dateStr = req.dateStr;
+                const dept = req.dept || 'service';
+                if (newSched[dateStr] && newSched[dateStr].duties) {
+                    Object.keys(newSched[dateStr].duties).forEach(dutyId => {
+                        const slots = newSched[dateStr].duties[dutyId];
+                        if (Array.isArray(slots)) {
+                            slots.forEach(slot => {
+                                if (slot && slot.staffId) {
+                                    const staff = branchData.staff?.find(s => s.id === slot.staffId);
+                                    if (staff && staff.pos.includes('PT') && (staff.dept || 'service') === dept) {
+                                        slot.staffId = "";
+                                    }
+                                }
+                            });
+                        }
+                    });
+                }
+                newSchedToSave = newSched;
+                return newSched;
+            });
+            setTimeout(() => {
+                if (activeBranchId && newSchedToSave) {
+                    autoSaveSchedule(newSchedToSave, true, req.dateStr);
+                }
+            }, 0);
+        } else if (req.reqType === 'EXTRA_OT') {
+            setSchedule(prev => {
+                const newSched = JSON.parse(JSON.stringify(prev));
+                const dateStr = req.dateStr;
+                const dutyId = req.dutyId;
+                const slotIdx = req.slotIdx;
+                if (newSched[dateStr] && newSched[dateStr].duties && newSched[dateStr].duties[dutyId] && newSched[dateStr].duties[dutyId][slotIdx]) {
+                    newSched[dateStr].duties[dutyId][slotIdx].staffId = "";
+                    newSched[dateStr].duties[dutyId][slotIdx].otHours = 0;
+                    newSched[dateStr].duties[dutyId][slotIdx].otUpdated = true;
+                }
+                newSchedToSave = newSched;
+                return newSched;
+            });
+            setTimeout(() => {
+                if (activeBranchId && newSchedToSave) {
+                    autoSaveSchedule(newSchedToSave, true, req.dateStr);
+                }
+            }, 0);
+        }
+
+        const newList = pendingRequests.map(r => r.id === reqId ? { ...r, status: 'REJECTED', rejectReason: finalReason, updatedTimestamp: Date.now() } : r);
         await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'requests', activeBranchId), { list: newList });
 
         // ส่งอีเมลตอบกลับผลปฏิเสธให้สาขา
-        sendEmailToBranch('REJECTED', { ...req, rejectReason: reason });
+        sendEmailToBranch('REJECTED', { ...req, rejectReason: finalReason });
+    };
+
+    const handleCancelApprovedRequest = async (reqId) => {
+        const req = pendingRequests.find(r => r.id === reqId);
+        if (!req || req.status !== 'APPROVED') return;
+
+        let newSchedToSave = null;
+        setSchedule(prev => {
+            const newSched = JSON.parse(JSON.stringify(prev));
+            const dateStr = req.dateStr;
+
+            if (req.reqType === 'LEAVE') {
+                if (newSched[dateStr] && newSched[dateStr].leaves) {
+                    newSched[dateStr].leaves = newSched[dateStr].leaves.filter(l => l.staffId !== req.staffId);
+                }
+            }
+            else if (req.reqType === 'SWAP') {
+                const d1 = req.dateMy;
+                const d2 = req.datePeer;
+                const id1 = req.staffId;
+                const id2 = req.targetStaffId;
+
+                const swapStaffInDay = (dayStr, oldId, newId) => {
+                    if (!newSched[dayStr]) return;
+                    if (newSched[dayStr].duties) {
+                        Object.values(newSched[dayStr].duties).forEach(slots => {
+                            slots.forEach(slot => { if (slot && slot.staffId === oldId) slot.staffId = newId; });
+                        });
+                    }
+                    if (newSched[dayStr].leaves) {
+                        const l = newSched[dayStr].leaves.find(x => x.staffId === oldId);
+                        if (l) l.staffId = newId;
+                    }
+                };
+
+                if (d1 === d2) {
+                    if (newSched[d1]) {
+                        if (newSched[d1].duties) {
+                            Object.values(newSched[d1].duties).forEach(slots => {
+                                slots.forEach(slot => {
+                                    if (slot && slot.staffId === id1) slot.staffId = "TEMP_SWAP";
+                                    else if (slot && slot.staffId === id2) slot.staffId = id1;
+                                });
+                                slots.forEach(slot => { if (slot && slot.staffId === "TEMP_SWAP") slot.staffId = id2; });
+                            });
+                        }
+                        if (newSched[d1].leaves) {
+                            const l1 = newSched[d1].leaves.find(x => x.staffId === id1);
+                            const l2 = newSched[d1].leaves.find(x => x.staffId === id2);
+                            if (l1) l1.staffId = "TEMP_SWAP";
+                            if (l2) l2.staffId = id1;
+                            const tempL = newSched[d1].leaves.find(x => x.staffId === "TEMP_SWAP");
+                            if (tempL) tempL.staffId = id2;
+                        }
+                    }
+                } else {
+                    swapStaffInDay(d1, id1, id2);
+                    swapStaffInDay(d2, id2, id1);
+                }
+            }
+            else if (req.reqType === 'EXTRA_PT') {
+                if (newSched[dateStr]) {
+                    const dept = req.dept || 'service';
+                    if (dept === 'kitchen') {
+                        newSched[dateStr].eventExtraHoursKitchen = Math.max(0, (newSched[dateStr].eventExtraHoursKitchen || 0) - req.requestedHours);
+                    } else {
+                        newSched[dateStr].eventExtraHoursService = Math.max(0, (newSched[dateStr].eventExtraHoursService || 0) - req.requestedHours);
+                    }
+                    newSched[dateStr].eventExtraHours = Math.max(0, (newSched[dateStr].eventExtraHours || 0) - req.requestedHours);
+                }
+            }
+            else if (req.reqType === 'EXTRA_OT') {
+                if (newSched[dateStr] && newSched[dateStr].duties && newSched[dateStr].duties[req.dutyId] && newSched[dateStr].duties[req.dutyId][req.slotIdx]) {
+                    newSched[dateStr].duties[req.dutyId][req.slotIdx].otHours = req.baseOt || 0;
+                    newSched[dateStr].duties[req.dutyId][req.slotIdx].otUpdated = false;
+                }
+            }
+            else if (req.reqType === 'SHIFT_CHANGE') {
+                if (newSched[dateStr] && newSched[dateStr].duties && newSched[dateStr].duties[req.dutyId] && newSched[dateStr].duties[req.dutyId][req.slotIdx]) {
+                    newSched[dateStr].duties[req.dutyId][req.slotIdx].shiftPresetId = req.oldShiftPresetId;
+                }
+            }
+
+            newSchedToSave = newSched;
+            return newSched;
+        });
+
+        setTimeout(() => {
+            if (activeBranchId && newSchedToSave) {
+                autoSaveSchedule(newSchedToSave, true, req.dateStr);
+            }
+        }, 0);
+
+        const newList = pendingRequests.map(r => r.id === reqId ? { ...r, status: 'REJECTED', rejectReason: 'ยกเลิกการอนุมัติโดยผู้ดูแล', updatedTimestamp: Date.now() } : r);
+        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'requests', activeBranchId), { list: newList });
+
+        sendEmailToBranch('REJECTED', { ...req, rejectReason: 'ยกเลิกการอนุมัติโดยผู้ดูแล' });
     };
 
     const handleExportExcel = () => {
@@ -4414,6 +4518,78 @@ export default function App() {
         link.setAttribute('href', url);
         link.setAttribute('download', `StaffSync_Summary_Export_${new Date().toISOString().slice(0, 10)}.csv`);
         document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    };
+
+    const handleExportHistoryCSV = (listToExport) => {
+        const headers = [
+            '\uFEFFID',
+            'ชื่อพนักงาน',
+            'ประเภทคำขอ',
+            'วันที่ขอ',
+            'รายละเอียด',
+            'เหตุผล',
+            'สถานะ',
+            'เวลาที่อัปเดตล่าสุด'
+        ];
+
+        const rows = listToExport.map(req => {
+            const staff = branchData.staff?.find(s => s.id === req.staffId);
+            const staffName = staff ? `${staff.name} (${staff.pos})` : (['EXTRA_PT', 'EXTRA_OT', 'SHIFT_CHANGE'].includes(req.reqType) && !staff ? 'ผู้จัดการสาขา (Manager)' : 'ไม่พบข้อมูลพนักงาน');
+
+            let reqTypeLabel = '';
+            let dateDetail = req.dateStr || '';
+            let detailText = '';
+
+            if (req.reqType === 'SWAP') {
+                reqTypeLabel = 'สลับกะ';
+                const targetStaff = branchData.staff?.find(s => s.id === req.targetStaffId);
+                dateDetail = `${req.dateMy} กับ ${req.datePeer}`;
+                detailText = `สลับกะกับ ${targetStaff?.name || 'Unknown'}`;
+            } else if (req.reqType === 'EXTRA_OT') {
+                reqTypeLabel = 'OT ส่วนเกิน';
+                detailText = `ขอ OT เกินโควตา: ${req.requestedOt} ชม. (จากเดิม ${req.baseOt} ชม.)`;
+            } else if (req.reqType === 'SHIFT_CHANGE') {
+                reqTypeLabel = 'เปลี่ยนกะเวลา';
+                const oldPreset = branchData.shiftPresets?.find(p => p.id === req.oldShiftPresetId);
+                const newPreset = branchData.shiftPresets?.find(p => p.id === req.newShiftPresetId);
+                detailText = `เปลี่ยนกะ: ${oldPreset ? oldPreset.name : 'N/A'} -> ${newPreset ? newPreset.name : 'N/A'}`;
+            } else if (req.reqType === 'EXTRA_PT') {
+                reqTypeLabel = (req.mode === 'OVER_BUDGET' || (!req.forecastTc && !req.evidence)) ? 'ขออนุมัติชั่วโมงเกินโควตา' : 'โควตาพิเศษ (Event)';
+                detailText = `+${req.requestedHours.toFixed(1)} ชม. (${req.dept === 'kitchen' ? 'ครัว BOH' : 'บริการ FOH'})`;
+            } else {
+                reqTypeLabel = 'ลาหยุด';
+                const lType = LEAVE_TYPES.find(t => t.id === req.type);
+                detailText = `ประเภทการลา: ${lType?.label || req.type}`;
+            }
+
+            const statusLabel = req.status === 'APPROVED' ? 'อนุมัติแล้ว' : 'ไม่อนุมัติ';
+            const updatedAt = new Date(req.updatedTimestamp || req.timestamp).toLocaleString('th-TH');
+
+            return [
+                req.id,
+                staffName,
+                reqTypeLabel,
+                dateDetail,
+                detailText,
+                req.rejectReason || req.reason || '',
+                statusLabel,
+                updatedAt
+            ];
+        });
+
+        const csvContent = [
+            headers.join(','),
+            ...rows.map(row => row.map(val => `"${String(val).replace(/"/g, '""')}"`).join(','))
+        ].join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', `request_history_${activeBranchId || 'branch'}_${new Date().toISOString().slice(0, 10)}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     };
 
     const handleExportMonthlyRoster = () => {
